@@ -57,6 +57,12 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen bg-background flex">
       <div className="flex-1 flex items-center justify-center p-8 relative overflow-hidden">
+        {/* Logo — absolute top-left corner */}
+        <Link href="/" className="absolute top-6 left-8 z-20 flex items-center gap-2">
+          <img src={logoImg} alt="STAGEONE" className="h-7 w-auto object-contain" />
+          <span className="text-sm font-bold tracking-[0.25em] uppercase text-foreground">STAGEONE</span>
+        </Link>
+
         <div className="pointer-events-none absolute inset-0">
           <svg className="absolute inset-0 w-full h-full opacity-[0.02]">
             <defs>
@@ -72,11 +78,6 @@ export default function SignupPage() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }} className="w-full max-w-sm relative"
         >
-          <Link href="/" className="flex items-center gap-2 mb-8">
-            <img src={logoImg} alt="STAGEONE" className="h-8 w-auto object-contain" />
-            <span className="text-sm font-bold tracking-[0.25em] uppercase text-foreground">STAGEONE</span>
-          </Link>
-
           <div className="mb-7">
             <div className="flex items-center gap-2 mb-3">
               <Zap className="w-3.5 h-3.5 text-primary/60" />

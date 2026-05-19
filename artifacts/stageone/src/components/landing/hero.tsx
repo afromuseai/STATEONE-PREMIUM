@@ -615,6 +615,10 @@ export function Hero() {
           backgroundImage: "linear-gradient(to right, rgba(184,145,68,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(184,145,68,0.03) 1px, transparent 1px)",
           backgroundSize: "80px 80px",
         }} />
+        {/* Top-right corner patch — hides baked-in card from source image */}
+        <div className="absolute top-0 right-0 w-[18%] h-[12%]" style={{
+          background: "linear-gradient(225deg, #050505 30%, transparent 100%)",
+        }} />
       </div>
 
       {/* ── Hero content: text over background ───────────────────── */}
@@ -648,9 +652,8 @@ export function Hero() {
             className="font-black tracking-[-0.03em] text-white leading-[1.02]"
             style={{ fontSize: "clamp(2.8rem, 5.5vw, 4.8rem)" }}
           >
-            The AI Operating System
-            <br />
-            <span className="block mt-1">for <TypingText /></span>
+            The AI Operating System for
+            <span className="block mt-1" style={{ minHeight: "1.15em" }}><TypingText /></span>
           </motion.h1>
 
           {/* Thin gold rule */}
