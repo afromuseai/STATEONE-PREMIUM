@@ -479,7 +479,7 @@ function MetricsStrip() {
   )
 }
 
-/* ─── OS Command Center Showcase ───────────────────────────────────── */
+/* ─── Brand Showcase Image ─────────────────────────────────────────── */
 function OSCommandCenter() {
   return (
     <div className="relative mx-auto max-w-6xl px-6 pb-20">
@@ -490,68 +490,37 @@ function OSCommandCenter() {
         transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
         className="relative"
       >
-        {/* Outer glow frame */}
-        <div className="absolute -inset-px rounded-3xl" style={{
-          background: "linear-gradient(135deg, oklch(0.75 0.12 85 / 0.2), transparent 40%, oklch(0.75 0.12 85 / 0.08) 100%)",
+        {/* Outer glow border */}
+        <div className="absolute -inset-px rounded-3xl pointer-events-none z-10" style={{
+          background: "linear-gradient(135deg, oklch(0.75 0.12 85 / 0.25), transparent 40%, oklch(0.75 0.12 85 / 0.12) 100%)",
         }} />
 
-        {/* Main command center panel */}
-        <div className="relative rounded-3xl overflow-hidden border border-[oklch(0.75_0.12_85/0.18)]" style={{
-          background: "linear-gradient(145deg, oklch(0.10 0.004 60), oklch(0.08 0 0))",
-          boxShadow: "0 0 0 1px oklch(0.75 0.12 85 / 0.05), 0 40px 80px rgba(0,0,0,0.8), 0 0 120px oklch(0.75 0.12 85 / 0.08)",
-          backdropFilter: "blur(40px)",
+        {/* Brand image */}
+        <div className="relative rounded-3xl overflow-hidden border border-[oklch(0.75_0.12_85/0.22)]" style={{
+          boxShadow: "0 0 0 1px oklch(0.75 0.12 85 / 0.06), 0 40px 100px rgba(0,0,0,0.85), 0 0 140px oklch(0.75 0.12 85 / 0.1)",
         }}>
-          {/* Top chrome bar */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/5" style={{ background: "oklch(0.11 0.003 60 / 0.8)" }}>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500/50 border border-red-500/30" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/50 border border-yellow-500/30" />
-              <div className="w-3 h-3 rounded-full bg-green-500/50 border border-green-500/30" />
-            </div>
-            <div className="flex items-center gap-2 px-4 py-1 rounded-lg bg-white/[0.04] border border-white/6">
-              <motion.div className="w-1.5 h-1.5 rounded-full bg-green-400"
-                animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
-              <span className="text-[10px] text-white/50 font-mono">STAGEONE OS — Command Center</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {["Intelligence", "Build", "Execute", "Deploy"].map((tab, i) => (
-                <span key={i} className={`text-[9px] font-medium px-2.5 py-1 rounded-md ${i === 0 ? "bg-[oklch(0.75_0.12_85/0.15)] text-[oklch(0.75_0.12_85)] border border-[oklch(0.75_0.12_85/0.25)]" : "text-white/30 hover:text-white/50"}`}>{tab}</span>
-              ))}
-            </div>
-          </div>
-
-          {/* Cards grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-5">
-            <Card gold delay={0.1}><BICard /></Card>
-            <Card delay={0.18}><WebsiteCard /></Card>
-            <Card delay={0.26}><AgentsCard /></Card>
-            <Card delay={0.34}><ExecutionCard /></Card>
-            <Card gold delay={0.42}><MemoryCard /></Card>
-            <Card delay={0.5}><DeployCard /></Card>
-          </div>
-
-          {/* Status bar */}
-          <div className="flex items-center justify-between px-5 py-2.5 border-t border-white/4" style={{ background: "oklch(0.09 0.002 60 / 0.8)" }}>
-            <div className="flex items-center gap-4">
-              {[
-                { label: "6 Systems", color: "text-[oklch(0.75_0.12_85)]" },
-                { label: "All Active", color: "text-green-400" },
-                { label: "12 Agents Running", color: "text-white/40" },
-              ].map((s, i) => (
-                <span key={i} className={`text-[9px] font-medium ${s.color} flex items-center gap-1.5`}>
-                  {i > 0 && <span className="text-white/10">·</span>}
-                  {s.label}
-                </span>
-              ))}
-            </div>
-            <span className="text-[9px] font-mono text-white/20">v2.4.1 · enterprise</span>
+          <img
+            src="/hero-dashboard.png"
+            alt="STAGEONE OS Command Center"
+            className="w-full h-auto block"
+            style={{ display: "block" }}
+          />
+          {/* Subtle top-edge highlight */}
+          <div className="absolute inset-x-0 top-0 h-px pointer-events-none"
+            style={{ background: "linear-gradient(90deg, transparent, oklch(0.75 0.12 85 / 0.6), transparent)" }} />
+          {/* Live status badge overlay */}
+          <div className="absolute bottom-5 left-5 flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md"
+            style={{ background: "oklch(0.08 0 0 / 0.85)" }}>
+            <motion.div className="w-1.5 h-1.5 rounded-full bg-green-400"
+              animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
+            <span className="text-[9px] font-semibold text-green-400/90 tracking-wide">All Systems Active</span>
           </div>
         </div>
 
         {/* Ambient glow underneath */}
-        <div className="absolute -inset-20 -z-10 opacity-30"
+        <div className="absolute -inset-20 -z-10 opacity-40"
           style={{
-            background: "radial-gradient(ellipse 60% 30% at 50% 100%, oklch(0.75 0.12 85 / 0.25), transparent)",
+            background: "radial-gradient(ellipse 60% 30% at 50% 100%, oklch(0.75 0.12 85 / 0.22), transparent)",
             filter: "blur(40px)",
           }} />
       </motion.div>

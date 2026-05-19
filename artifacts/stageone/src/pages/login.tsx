@@ -1,184 +1,33 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useLocation, Link } from "wouter"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { useAuth } from "@/lib/auth-context"
-import { Loader2, Mail, Lock, ArrowRight, Eye, EyeOff, TrendingUp, Bot, Activity, Shield } from "lucide-react"
+import { Loader2, Mail, Lock, ArrowRight, Eye, EyeOff, Shield } from "lucide-react"
 import logoImg from "@assets/ChatGPT_Image_May_9__2026__02_48_29_AM-removebg-preview_1778518770581.png"
 
-const EXEC_STATUSES = [
-  "Running optimization loop…",
-  "Analyzing market signals…",
-  "Syncing intelligence layer…",
-  "Processing agent signals…",
-]
-
 function OSPanel() {
-  const [execIdx, setExecIdx] = useState(0)
-
-  useEffect(() => {
-    const t = setInterval(() => setExecIdx(i => (i + 1) % EXEC_STATUSES.length), 2800)
-    return () => clearInterval(t)
-  }, [])
-
   return (
-    <div className="relative w-full h-full flex flex-col justify-between p-8 bg-black overflow-hidden">
-
-      {/* Atmosphere */}
-      <div className="pointer-events-none absolute inset-0">
-        <svg className="absolute inset-0 w-full h-full opacity-[0.032]">
-          <defs>
-            <pattern id="lg" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M40 0L0 0 0 40" fill="none" stroke="oklch(0.75 0.12 85)" strokeWidth="0.5"/>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#lg)"/>
-        </svg>
-        <motion.div
-          className="absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/12 to-transparent"
-          animate={{ top: ["0%", "100%"] }}
-          transition={{ duration: 9, repeat: Infinity, ease: "linear", repeatDelay: 3 }}
-        />
-        {[
-          [14, 18, 0, 3], [78, 28, 1.5, 2], [35, 72, 0.8, 2.5],
-          [88, 60, 2.2, 2], [20, 84, 1.1, 3], [60, 10, 0.4, 2],
-        ].map(([x, y, d, s], i) => (
-          <motion.div key={i}
-            className="absolute rounded-full bg-primary/30"
-            style={{ left: `${x}%`, top: `${y}%`, width: s, height: s }}
-            animate={{ opacity: [0.1, 0.6, 0.1], scale: [1, 1.5, 1] }}
-            transition={{ duration: 3 + i * 0.5, repeat: Infinity, delay: d, ease: "easeInOut" }}
-          />
-        ))}
-        <div className="absolute left-1/4 top-1/4 h-56 w-56 rounded-full bg-primary/8 blur-[80px]" />
-        <div className="absolute right-1/4 bottom-1/3 h-44 w-44 rounded-full bg-primary/5 blur-[70px]" />
-      </div>
-
-      {/* Logo */}
-      <Link href="/" className="relative z-10 flex items-center gap-2 w-fit">
-        <img src={logoImg} alt="STAGEONE" className="h-8 w-auto object-contain" />
-        <span className="text-sm font-bold tracking-[0.25em] uppercase text-foreground">STAGEONE</span>
+    <div className="relative w-full h-full overflow-hidden bg-black">
+      {/* Brand image — full cover */}
+      <img
+        src="/auth-bg.png"
+        alt="STAGEONE OS"
+        className="absolute inset-0 w-full h-full object-cover object-center"
+      />
+      {/* Subtle dark vignette on left edge so form side reads cleanly */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-transparent pointer-events-none" />
+      {/* Top logo overlay */}
+      <Link href="/" className="absolute top-8 left-8 z-10 flex items-center gap-2">
+        <img src={logoImg} alt="STAGEONE" className="h-8 w-auto object-contain drop-shadow-lg" />
+        <span className="text-sm font-bold tracking-[0.25em] uppercase text-white drop-shadow-lg">STAGEONE</span>
       </Link>
-
-      {/* Middle: hero + all 3 cards */}
-      <motion.div className="relative z-10"
-        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        <h2 className="text-2xl font-bold text-foreground leading-snug mb-1.5">
-          The AI Operating System
-          <span className="text-gold-gradient block">for Modern Business.</span>
-        </h2>
-        <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mb-4">
-          Business intelligence, website generation, autonomous agents, and execution infrastructure — in one platform.
-        </p>
-
-        <div className="space-y-2">
-
-          {/* Business Intelligence card */}
-          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 relative overflow-hidden">
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.025] to-transparent pointer-events-none"
-              animate={{ x: ["-100%", "200%"] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "linear", repeatDelay: 2 }}
-            />
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-3.5 h-3.5 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Business Intelligence</span>
-              <div className="ml-auto flex items-center gap-1.5">
-                <motion.div className="w-1.5 h-1.5 rounded-full bg-primary"
-                  animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 1.4, repeat: Infinity }} />
-                <span className="text-[9px] text-primary">Live</span>
-              </div>
-            </div>
-            {[{ label: "Market Opportunity", pct: 84 }, { label: "Growth Score", pct: 91 }].map(m => (
-              <div key={m.label} className="mb-1.5">
-                <div className="flex justify-between mb-0.5">
-                  <span className="text-[9px] text-muted-foreground">{m.label}</span>
-                  <span className="text-[9px] text-primary/60">{m.pct}%</span>
-                </div>
-                <div className="h-0.5 rounded-full bg-white/6">
-                  <motion.div className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary"
-                    initial={{ width: 0 }} animate={{ width: `${m.pct}%` }}
-                    transition={{ duration: 1.2, delay: 0.3, ease: "easeOut" }} />
-                </div>
-              </div>
-            ))}
-            <div className="text-[9px] text-primary/40 italic mt-1">Analyzing market signals…</div>
-          </div>
-
-          {/* AI Agents card */}
-          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 relative overflow-hidden">
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.025] to-transparent pointer-events-none"
-              animate={{ x: ["-100%", "200%"] }}
-              transition={{ duration: 4.5, repeat: Infinity, ease: "linear", repeatDelay: 3 }}
-            />
-            <div className="flex items-center gap-2 mb-2">
-              <Bot className="w-3.5 h-3.5 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">AI Agents</span>
-              <span className="ml-auto text-[9px] text-muted-foreground/50">2 active · 1 queued task</span>
-            </div>
-            {[
-              { name: "Sales Agent", active: true },
-              { name: "Support Bot", active: true },
-              { name: "Research Agent", active: false },
-            ].map((a, i) => (
-              <div key={a.name} className="flex items-center justify-between py-0.5">
-                <span className="text-[10px] text-foreground/70">{a.name}</span>
-                <motion.div className={`w-1.5 h-1.5 rounded-full ${a.active ? "bg-green-400" : "bg-white/15"}`}
-                  animate={a.active ? { opacity: [1, 0.3, 1] } : {}}
-                  transition={{ duration: 1.2 + i * 0.3, repeat: Infinity }} />
-              </div>
-            ))}
-          </div>
-
-          {/* Execution Engine card */}
-          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 relative overflow-hidden">
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/[0.02] to-transparent pointer-events-none"
-              animate={{ x: ["-100%", "200%"] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "linear", repeatDelay: 1.5 }}
-            />
-            <div className="flex items-center gap-2 mb-1.5">
-              <Activity className="w-3.5 h-3.5 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Execution Engine</span>
-              <div className="ml-auto flex items-center gap-1.5">
-                <motion.span className="w-1.5 h-1.5 rounded-full bg-green-400"
-                  animate={{ opacity: [1, 0.25, 1] }} transition={{ duration: 0.9, repeat: Infinity }} />
-                <span className="text-[9px] text-green-400">Running</span>
-              </div>
-            </div>
-            <AnimatePresence mode="wait">
-              <motion.div key={execIdx}
-                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.28 }} className="text-[9px] text-muted-foreground"
-              >
-                {EXEC_STATUSES[execIdx]}
-              </motion.div>
-            </AnimatePresence>
-            <div className="text-[9px] text-muted-foreground/35 mt-1">3 tasks · 47s avg completion</div>
-          </div>
-
-        </div>
-      </motion.div>
-
-      {/* Footer */}
-      <div className="relative z-10">
-        <div className="flex items-center gap-1.5 mb-2">
-          <motion.div className="w-1.5 h-1.5 rounded-full bg-green-400"
-            animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
-          <span className="text-[9px] text-green-400/80">Connected to STAGEONE Core Intelligence Network</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {["Enterprise Grade", "Multi-Model AI", "Instant Deploy"].map(b => (
-            <div key={b} className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-white/8 bg-white/[0.03]">
-              <div className="w-1 h-1 rounded-full bg-primary" />
-              <span className="text-[9px] text-muted-foreground">{b}</span>
-            </div>
-          ))}
-        </div>
+      {/* Bottom status badge */}
+      <div className="absolute bottom-8 left-8 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/15 backdrop-blur-md"
+        style={{ background: "oklch(0.08 0 0 / 0.75)" }}>
+        <motion.div className="w-1.5 h-1.5 rounded-full bg-green-400"
+          animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
+        <span className="text-[9px] font-semibold text-green-400/90 tracking-wide">All Systems Active</span>
       </div>
-
     </div>
   )
 }

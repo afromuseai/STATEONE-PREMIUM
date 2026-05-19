@@ -1,140 +1,33 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useLocation, Link } from "wouter"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { useAuth } from "@/lib/auth-context"
-import { Loader2, Mail, Lock, User, ArrowRight, Eye, EyeOff, Zap, Shield, CheckCircle2 } from "lucide-react"
+import { Loader2, Mail, Lock, User, ArrowRight, Eye, EyeOff, Zap } from "lucide-react"
 import logoImg from "@assets/ChatGPT_Image_May_9__2026__02_48_29_AM-removebg-preview_1778518770581.png"
 
-const INIT_STATUSES = [
-  "Initializing intelligence environment…",
-  "Provisioning execution layer…",
-  "Preparing AI memory context…",
-  "Connecting orchestration modules…",
-  "Calibrating agent infrastructure…",
-  "Activating deployment systems…",
-]
-
-const CAPABILITIES = [
-  "Business Intelligence Layer",
-  "AI Memory System",
-  "Website Generation Engine",
-  "Execution Infrastructure",
-  "Agent Orchestration",
-  "Deployment Environment",
-]
-
 function OSPanel() {
-  const [statusIdx, setStatusIdx] = useState(0)
-
-  useEffect(() => {
-    const t = setInterval(() => setStatusIdx(i => (i + 1) % INIT_STATUSES.length), 2600)
-    return () => clearInterval(t)
-  }, [])
-
   return (
-    <div className="relative w-full h-full flex flex-col justify-between p-8 bg-black overflow-hidden">
-
-      {/* Atmosphere */}
-      <div className="pointer-events-none absolute inset-0">
-        <svg className="absolute inset-0 w-full h-full opacity-[0.032]">
-          <defs>
-            <pattern id="sg" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M40 0L0 0 0 40" fill="none" stroke="oklch(0.75 0.12 85)" strokeWidth="0.5"/>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#sg)"/>
-        </svg>
-        <motion.div
-          className="absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/10 to-transparent"
-          animate={{ top: ["0%", "100%"] }}
-          transition={{ duration: 11, repeat: Infinity, ease: "linear", repeatDelay: 4 }}
-        />
-        {[
-          [9, 13, 0, 3], [82, 22, 1.8, 2], [24, 76, 0.6, 2.5],
-          [90, 65, 2.4, 2], [50, 90, 1.0, 3], [66, 8, 0.3, 2], [5, 50, 2.0, 2.5],
-        ].map(([x, y, d, s], i) => (
-          <motion.div key={i}
-            className="absolute rounded-full bg-primary/25"
-            style={{ left: `${x}%`, top: `${y}%`, width: s, height: s }}
-            animate={{ opacity: [0.1, 0.55, 0.1], scale: [1, 1.6, 1] }}
-            transition={{ duration: 3.5 + i * 0.4, repeat: Infinity, delay: d, ease: "easeInOut" }}
-          />
-        ))}
-        <div className="absolute left-1/4 top-1/3 h-56 w-56 rounded-full bg-primary/7 blur-[85px]" />
-        <div className="absolute right-1/4 bottom-1/4 h-44 w-44 rounded-full bg-primary/4 blur-[70px]" />
-      </div>
-
-      {/* Logo */}
-      <Link href="/" className="relative z-10 flex items-center gap-2 w-fit">
-        <img src={logoImg} alt="STAGEONE" className="h-8 w-auto object-contain" />
-        <span className="text-sm font-bold tracking-[0.25em] uppercase text-foreground">STAGEONE</span>
+    <div className="relative w-full h-full overflow-hidden bg-black">
+      {/* Brand image — full cover */}
+      <img
+        src="/auth-bg.png"
+        alt="STAGEONE OS"
+        className="absolute inset-0 w-full h-full object-cover object-center"
+      />
+      {/* Subtle dark vignette on left edge */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-transparent pointer-events-none" />
+      {/* Top logo overlay */}
+      <Link href="/" className="absolute top-8 left-8 z-10 flex items-center gap-2">
+        <img src={logoImg} alt="STAGEONE" className="h-8 w-auto object-contain drop-shadow-lg" />
+        <span className="text-sm font-bold tracking-[0.25em] uppercase text-white drop-shadow-lg">STAGEONE</span>
       </Link>
-
-      {/* Middle — all rendered immediately, single fade-in */}
-      <motion.div className="relative z-10"
-        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        <h2 className="text-2xl font-bold text-foreground leading-snug mb-1.5">
-          Initialize Your
-          <span className="text-gold-gradient block">AI Operating System</span>
-        </h2>
-        <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mb-4">
-          Deploy intelligence, execution, memory, and automation from one unified platform.
-        </p>
-
-        {/* Live provisioning status */}
-        <div className="rounded-xl border border-white/8 bg-white/[0.025] p-3 mb-4 relative overflow-hidden">
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/[0.025] to-transparent pointer-events-none"
-            animate={{ x: ["-100%", "200%"] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear", repeatDelay: 2 }}
-          />
-          <div className="flex items-center gap-2 mb-1">
-            <motion.div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0"
-              animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 1, repeat: Infinity }} />
-            <span className="text-[9px] text-primary/70 tracking-widest uppercase font-semibold">System Provisioning</span>
-          </div>
-          <AnimatePresence mode="wait">
-            <motion.p key={statusIdx}
-              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.28 }} className="text-xs text-muted-foreground"
-            >
-              {INIT_STATUSES[statusIdx]}
-            </motion.p>
-          </AnimatePresence>
-        </div>
-
-        {/* All 6 capabilities — no staggered delay, instant render */}
-        <div className="grid grid-cols-2 gap-1.5">
-          {CAPABILITIES.map(label => (
-            <div key={label}
-              className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-primary/15 bg-primary/[0.04]"
-            >
-              <CheckCircle2 className="w-3 h-3 text-primary/70 shrink-0" />
-              <span className="text-[9px] text-muted-foreground leading-tight">{label}</span>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* Footer */}
-      <div className="relative z-10">
-        <div className="flex items-center gap-1.5 mb-2">
-          <motion.div className="w-1.5 h-1.5 rounded-full bg-green-400"
-            animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
-          <span className="text-[9px] text-green-400/80">Connected to STAGEONE Core Intelligence Network</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {["Secure Infrastructure", "Enterprise-grade Auth", "Persistent AI Memory"].map(b => (
-            <div key={b} className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-white/8 bg-white/[0.03]">
-              <Shield className="w-2.5 h-2.5 text-primary/40 shrink-0" />
-              <span className="text-[9px] text-muted-foreground">{b}</span>
-            </div>
-          ))}
-        </div>
+      {/* Bottom status badge */}
+      <div className="absolute bottom-8 left-8 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/15 backdrop-blur-md"
+        style={{ background: "oklch(0.08 0 0 / 0.75)" }}>
+        <motion.div className="w-1.5 h-1.5 rounded-full bg-green-400"
+          animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
+        <span className="text-[9px] font-semibold text-green-400/90 tracking-wide">All Systems Active</span>
       </div>
-
     </div>
   )
 }
