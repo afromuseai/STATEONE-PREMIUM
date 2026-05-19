@@ -373,6 +373,12 @@ const translations = {
         remaining: "remaining this period.",
       },
     },
+    time: {
+      justNow: "Just now",
+      minutesAgo: "{n}m ago",
+      hoursAgo: "{n}h ago",
+      daysAgo: "{n}d ago",
+    },
   },
   es: {
     nav: {
@@ -735,6 +741,12 @@ const translations = {
         ofAiOpsUsed: "% de operaciones IA usadas",
         remaining: "restantes en este período.",
       },
+    },
+    time: {
+      justNow: "Ahora mismo",
+      minutesAgo: "hace {n}m",
+      hoursAgo: "hace {n}h",
+      daysAgo: "hace {n}d",
     },
   },
   it: {
@@ -1099,6 +1111,12 @@ const translations = {
         remaining: "rimanenti in questo periodo.",
       },
     },
+    time: {
+      justNow: "Adesso",
+      minutesAgo: "{n} min fa",
+      hoursAgo: "{n}h fa",
+      daysAgo: "{n}g fa",
+    },
   },
   fr: {
     nav: {
@@ -1461,6 +1479,12 @@ const translations = {
         ofAiOpsUsed: "% d'opérations IA utilisées",
         remaining: "restantes cette période.",
       },
+    },
+    time: {
+      justNow: "À l'instant",
+      minutesAgo: "il y a {n}min",
+      hoursAgo: "il y a {n}h",
+      daysAgo: "il y a {n}j",
     },
   },
   pt: {
@@ -1825,6 +1849,12 @@ const translations = {
         remaining: "restantes neste período.",
       },
     },
+    time: {
+      justNow: "Agora",
+      minutesAgo: "há {n}min",
+      hoursAgo: "há {n}h",
+      daysAgo: "há {n}d",
+    },
   },
 } as const
 
@@ -1859,4 +1889,43 @@ export function useLang() {
   const ctx = useContext(LangContext)
   if (!ctx) throw new Error("useLang must be used inside LangProvider")
   return ctx
+}
+
+export const LOCALE_MAP: Record<Lang, string> = {
+  en: "en-US",
+  es: "es-ES",
+  it: "it-IT",
+  fr: "fr-FR",
+  pt: "pt-BR",
+}
+
+export function useFormatters() {
+  const { lang, t } = useLang()
+  const locale = LOCALE_MAP[lang]
+
+  function formatNumber(n: number): string {
+    return n.toLocaleString(locale)
+  }
+
+  function formatCompact(n: number): string {
+    return new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(n)
+  }
+
+  function formatPercent(n: number): string {
+    return new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(n / 100)
+  }
+
+  function formatDate(d: string): string {
+    const diff = Date.now() - new Date(d).getTime()
+    const mins = Math.floor(diff / 60000)
+    const hrs = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+    if (mins < 1) return t.time.justNow
+    if (mins < 60) return t.time.minutesAgo.replace("{n}", String(mins))
+    if (hrs < 24) return t.time.hoursAgo.replace("{n}", String(hrs))
+    if (days < 7) return t.time.daysAgo.replace("{n}", String(days))
+    return new Date(d).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })
+  }
+
+  return { formatNumber, formatCompact, formatPercent, formatDate, locale }
 }

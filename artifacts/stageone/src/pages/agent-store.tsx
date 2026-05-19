@@ -7,7 +7,7 @@ import {
   CheckCircle2, Activity, Package, Filter, ShieldCheck, BarChart3,
   Users, Globe, Cpu, Brain, Megaphone, FlaskConical, Cog, Lock
 } from "lucide-react"
-import { useLang } from "@/lib/i18n"
+import { useLang, useFormatters } from "@/lib/i18n"
 
 interface CatalogAgent {
   id: string
@@ -65,6 +65,7 @@ function CategoryIcon({ category }: { category: string }) {
 
 export default function AgentStorePage() {
   const { t } = useLang()
+  const { formatNumber } = useFormatters()
   const as = t.workspace.agentStore
   const [collapsed, setCollapsed] = useState(false)
   const [tab, setTab] = useState<"store" | "installed">("store")
@@ -247,7 +248,7 @@ export default function AgentStorePage() {
                           <div className="flex items-center gap-1">
                             <Star className="h-3 w-3 text-primary fill-primary" />
                             <span className="text-xs font-semibold text-foreground">{agent.rating}</span>
-                            <span className="text-[10px] text-muted-foreground">({agent.installCount.toLocaleString()})</span>
+                            <span className="text-[10px] text-muted-foreground">({formatNumber(agent.installCount)})</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                             <span>{as.viewDetails}</span>
@@ -282,7 +283,7 @@ export default function AgentStorePage() {
                     {[
                       { label: "Total Installed", value: installed.length, icon: Package, color: "text-primary" },
                       { label: "Active", value: installed.filter(a => a.isActive).length, icon: CheckCircle2, color: "text-emerald-400" },
-                      { label: "Tasks Completed", value: installed.reduce((s, a) => s + a.tasksCompleted, 0).toLocaleString(), icon: Zap, color: "text-blue-400" },
+                      { label: "Tasks Completed", value: formatNumber(installed.reduce((s, a) => s + a.tasksCompleted, 0)), icon: Zap, color: "text-blue-400" },
                     ].map(({ label, value, icon: Icon, color }) => (
                       <div key={label} className="bg-white/2 border border-white/6 rounded-2xl p-5">
                         <div className="flex items-center gap-2 mb-2">
@@ -402,7 +403,7 @@ export default function AgentStorePage() {
                   </div>
                   <div className="h-6 w-px bg-white/10" />
                   <div className="text-center">
-                    <p className="text-sm font-bold text-foreground">{selected.installCount.toLocaleString()}</p>
+                    <p className="text-sm font-bold text-foreground">{formatNumber(selected.installCount)}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">Installs</p>
                   </div>
                 </div>

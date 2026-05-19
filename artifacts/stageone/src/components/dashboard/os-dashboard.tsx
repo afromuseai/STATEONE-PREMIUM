@@ -10,6 +10,7 @@ import {
 import { api, type Project } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { getRevenueSummary } from "@/lib/intelligence-state"
+import { useFormatters } from "@/lib/i18n"
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,18 +19,6 @@ interface OSDashboardProps {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDate(d: string) {
-  const diff = Date.now() - new Date(d).getTime()
-  const mins = Math.floor(diff / 60000)
-  const hrs = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-  if (mins < 1) return "Just now"
-  if (mins < 60) return `${mins}m ago`
-  if (hrs < 24) return `${hrs}h ago`
-  if (days < 7) return `${days}d ago`
-  return new Date(d).toLocaleDateString()
-}
 
 function formatCurrency(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
@@ -209,6 +198,7 @@ function ProjectCard({ project, onOpen, onDelete }: {
   onOpen: (p: Project) => void
   onDelete: (id: string, e: React.MouseEvent) => void
 }) {
+  const { formatDate } = useFormatters()
   const output = project.output as Record<string, unknown> | null
   const industry = (output?.industry as string) ?? "Business"
   const metrics = output?.metrics as Record<string, number> | null
@@ -282,6 +272,7 @@ function ProjectCard({ project, onOpen, onDelete }: {
 // ─── Activity Item ─────────────────────────────────────────────────────────────
 
 function ActivityItem({ project, index }: { project: Project; index: number }) {
+  const { formatDate } = useFormatters()
   const output = project.output as Record<string, unknown> | null
   const industry = (output?.industry as string) ?? "Business"
   const hasWebsite = !!project.websiteOutput
@@ -487,6 +478,7 @@ export function OSDashboard({ onNavigate }: OSDashboardProps) {
   const [agentCount, setAgentCount] = useState(0)
   const [memoryCount, setMemoryCount] = useState(0)
   const [revenueData, setRevenueData] = useState<{ avgScore: number; totalARR: number } | null>(null)
+  const { formatDate, formatNumber } = useFormatters()
 
   const go = (path: string) => { onNavigate?.(path); navigate(path) }
 

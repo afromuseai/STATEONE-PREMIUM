@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import type { Project } from "@/lib/api"
 import type { BusinessIntelligence } from "./output-panel"
-import { useLang } from "@/lib/i18n"
+import { useLang, useFormatters } from "@/lib/i18n"
 
 interface CommandCenterOverviewProps {
   user: { name: string; email: string } | null
@@ -38,6 +38,7 @@ export function CommandCenterOverview({
 }: CommandCenterOverviewProps) {
   const [, navigate] = useLocation()
   const { t } = useLang()
+  const { formatNumber } = useFormatters()
   const wo = t.workspace.overview
 
   const go = (path: string) => { onNavigate(path); navigate(path) }
@@ -75,7 +76,7 @@ export function CommandCenterOverview({
         <p className="text-sm text-muted-foreground mt-1">
           {projects.length === 0
             ? wo.readyToStart
-            : `${projects.length} ${t.dashboard.nav.projects.toLowerCase()}${weeklyProjects > 0 ? ` · ${weeklyProjects} ${wo.newAnalyses}` : ""}.`
+            : `${formatNumber(projects.length)} ${t.dashboard.nav.projects.toLowerCase()}${weeklyProjects > 0 ? ` · ${formatNumber(weeklyProjects)} ${wo.newAnalyses}` : ""}.`
           }
         </p>
       </motion.div>

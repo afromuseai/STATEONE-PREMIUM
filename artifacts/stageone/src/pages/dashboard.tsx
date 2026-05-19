@@ -12,7 +12,7 @@ import { useBusinessContext } from "@/lib/business-context"
 import { api, type Project } from "@/lib/api"
 import { recordRevenueSignal } from "@/lib/intelligence-state"
 import { saveGenerationContext } from "@/lib/generation-context"
-import { useLang } from "@/lib/i18n"
+import { useLang, useFormatters } from "@/lib/i18n"
 import {
   FolderOpen,
   Plus,
@@ -370,17 +370,7 @@ export default function DashboardPage() {
     setLocation(`/projects/${project.id}`)
   }, [setLocation])
 
-  const formatDate = (d: string) => {
-    const diff = Date.now() - new Date(d).getTime()
-    const mins = Math.floor(diff / 60000)
-    const hrs = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-    if (mins < 1) return "Just now"
-    if (mins < 60) return `${mins}m ago`
-    if (hrs < 24) return `${hrs}h ago`
-    if (days < 7) return `${days}d ago`
-    return new Date(d).toLocaleDateString()
-  }
+  const { formatDate } = useFormatters()
 
   const renderOverview = () => (
     <CommandCenterOverview
