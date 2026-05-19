@@ -4,8 +4,9 @@ import {
   ArrowRight, Sparkles, Globe, Bot, Cpu,
   Brain, Zap, CheckCircle2, BarChart3, Activity, Play,
 } from "lucide-react"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
+import heroVisual from "@assets/ChatGPT_Image_May_19,_2026,_05_20_34_AM_1779168162338.png"
 
 /* ─── Typing headline ─────────────────────────────────────────────── */
 const BUSINESS_TYPES = [
@@ -585,6 +586,100 @@ function OSCommandCenter() {
   )
 }
 
+/* ─── Particle animation overlay ───────────────────────────────────── */
+function HeroParticles() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  const init = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    let animId: number
+    let w = canvas.offsetWidth
+    let h = canvas.offsetHeight
+    canvas.width = w
+    canvas.height = h
+
+    const COUNT = 90
+    type Particle = { x: number; y: number; vx: number; vy: number; r: number; alpha: number; gold: boolean }
+    const particles: Particle[] = Array.from({ length: COUNT }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      r: Math.random() * 1.6 + 0.4,
+      alpha: Math.random() * 0.5 + 0.15,
+      gold: Math.random() > 0.6,
+    }))
+
+    function draw() {
+      ctx!.clearRect(0, 0, w, h)
+      for (const p of particles) {
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < 0) p.x = w
+        if (p.x > w) p.x = 0
+        if (p.y < 0) p.y = h
+        if (p.y > h) p.y = 0
+
+        ctx!.beginPath()
+        ctx!.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx!.fillStyle = p.gold
+          ? `rgba(184,145,68,${p.alpha})`
+          : `rgba(255,255,255,${p.alpha * 0.6})`
+        ctx!.fill()
+      }
+
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x
+          const dy = particles[i].y - particles[j].y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < 110) {
+            const a = (1 - dist / 110) * 0.12
+            ctx!.beginPath()
+            ctx!.moveTo(particles[i].x, particles[i].y)
+            ctx!.lineTo(particles[j].x, particles[j].y)
+            ctx!.strokeStyle = `rgba(184,145,68,${a})`
+            ctx!.lineWidth = 0.5
+            ctx!.stroke()
+          }
+        }
+      }
+      animId = requestAnimationFrame(draw)
+    }
+
+    draw()
+
+    const onResize = () => {
+      w = canvas.offsetWidth
+      h = canvas.offsetHeight
+      canvas.width = w
+      canvas.height = h
+    }
+    window.addEventListener("resize", onResize)
+    return () => {
+      cancelAnimationFrame(animId)
+      window.removeEventListener("resize", onResize)
+    }
+  }, [])
+
+  useEffect(() => {
+    const cleanup = init()
+    return cleanup
+  }, [init])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full"
+      style={{ opacity: 0.7 }}
+    />
+  )
+}
+
 /* ─── Hero ─────────────────────────────────────────────────────────── */
 export function Hero() {
   const { user } = useAuth()
@@ -598,11 +693,13 @@ export function Hero() {
       {/* ── Full-bleed background image ──────────────────────────── */}
       <div className="pointer-events-none absolute inset-0">
         <img
-          src="/hero-visual.png"
+          src={heroVisual}
           alt=""
           className="absolute inset-0 w-full h-full object-cover object-center"
-          style={{ opacity: 0.85 }}
+          style={{ opacity: 0.88 }}
         />
+        {/* Particle animation overlay */}
+        <HeroParticles />
         {/* Left dark vignette so text reads clearly */}
         <div className="absolute inset-0" style={{
           background: "linear-gradient(100deg, rgba(5,5,5,0.96) 0%, rgba(5,5,5,0.80) 42%, rgba(5,5,5,0.20) 70%, rgba(5,5,5,0.05) 100%)",
