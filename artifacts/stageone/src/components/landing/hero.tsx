@@ -601,69 +601,137 @@ function HeroParticles() {
     let h = canvas.offsetHeight
     canvas.width = w
     canvas.height = h
+    let t = 0
 
-    const COUNT = 90
-    type Particle = { x: number; y: number; vx: number; vy: number; r: number; alpha: number; gold: boolean }
-    const particles: Particle[] = Array.from({ length: COUNT }, () => ({
+    /* ── Floating nodes ─────────────────────────────────────── */
+    type Node = {
+      x: number; y: number; vx: number; vy: number
+      r: number; baseAlpha: number; gold: boolean; phase: number
+    }
+    const nodes: Node[] = Array.from({ length: 70 }, () => ({
       x: Math.random() * w,
       y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.35,
-      vy: (Math.random() - 0.5) * 0.35,
-      r: Math.random() * 1.6 + 0.4,
-      alpha: Math.random() * 0.5 + 0.15,
-      gold: Math.random() > 0.6,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      r: Math.random() * 2 + 0.5,
+      baseAlpha: Math.random() * 0.55 + 0.2,
+      gold: Math.random() > 0.45,
+      phase: Math.random() * Math.PI * 2,
+    }))
+
+    /* ── Horizontal data streams ────────────────────────────── */
+    type Stream = {
+      y: number; x: number; speed: number
+      len: number; alpha: number; gold: boolean; phase: number
+    }
+    const streams: Stream[] = Array.from({ length: 14 }, (_, i) => ({
+      y: (h / 14) * i + Math.random() * (h / 14),
+      x: Math.random() * w,
+      speed: 0.8 + Math.random() * 1.6,
+      len: 60 + Math.random() * 140,
+      alpha: 0.15 + Math.random() * 0.35,
+      gold: Math.random() > 0.4,
+      phase: Math.random() * Math.PI * 2,
+    }))
+
+    /* ── Pulsing orbs ───────────────────────────────────────── */
+    type Orb = { x: number; y: number; r: number; phase: number; gold: boolean }
+    const orbs: Orb[] = Array.from({ length: 5 }, () => ({
+      x: w * 0.45 + Math.random() * w * 0.55,
+      y: Math.random() * h,
+      r: 30 + Math.random() * 60,
+      phase: Math.random() * Math.PI * 2,
+      gold: Math.random() > 0.4,
     }))
 
     function draw() {
       ctx!.clearRect(0, 0, w, h)
-      for (const p of particles) {
-        p.x += p.vx
-        p.y += p.vy
-        if (p.x < 0) p.x = w
-        if (p.x > w) p.x = 0
-        if (p.y < 0) p.y = h
-        if (p.y > h) p.y = 0
+      t += 0.012
 
+      /* — pulsing orbs (radial glows) — */
+      for (const o of orbs) {
+        const pulse = 0.5 + 0.5 * Math.sin(t * 0.8 + o.phase)
+        const grd = ctx!.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r * (1 + pulse * 0.4))
+        const col = o.gold ? "184,145,68" : "160,190,255"
+        grd.addColorStop(0, `rgba(${col},${0.09 * pulse})`)
+        grd.addColorStop(1, `rgba(${col},0)`)
+        ctx!.fillStyle = grd
         ctx!.beginPath()
-        ctx!.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-        ctx!.fillStyle = p.gold
-          ? `rgba(184,145,68,${p.alpha})`
-          : `rgba(255,255,255,${p.alpha * 0.6})`
+        ctx!.arc(o.x, o.y, o.r * (1 + pulse * 0.4), 0, Math.PI * 2)
         ctx!.fill()
       }
 
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x
-          const dy = particles[i].y - particles[j].y
+      /* — horizontal data streams — */
+      for (const s of streams) {
+        s.x += s.speed
+        if (s.x - s.len > w) s.x = -s.len
+        const pulse = 0.6 + 0.4 * Math.sin(t * 1.4 + s.phase)
+        const col = s.gold ? "184,145,68" : "200,220,255"
+        const grd = ctx!.createLinearGradient(s.x - s.len, 0, s.x, 0)
+        grd.addColorStop(0, `rgba(${col},0)`)
+        grd.addColorStop(0.6, `rgba(${col},${s.alpha * pulse})`)
+        grd.addColorStop(1, `rgba(${col},${s.alpha * pulse * 1.4})`)
+        ctx!.beginPath()
+        ctx!.moveTo(s.x - s.len, s.y)
+        ctx!.lineTo(s.x, s.y)
+        ctx!.strokeStyle = grd
+        ctx!.lineWidth = s.gold ? 1.2 : 0.8
+        ctx!.stroke()
+        /* bright leading dot */
+        ctx!.beginPath()
+        ctx!.arc(s.x, s.y, s.gold ? 1.8 : 1.2, 0, Math.PI * 2)
+        ctx!.fillStyle = `rgba(${col},${Math.min(1, s.alpha * pulse * 2.2)})`
+        ctx!.fill()
+      }
+
+      /* — floating nodes — */
+      for (const n of nodes) {
+        n.x += n.vx; n.y += n.vy
+        if (n.x < 0) n.x = w; if (n.x > w) n.x = 0
+        if (n.y < 0) n.y = h; if (n.y > h) n.y = 0
+        const pulse = 0.5 + 0.5 * Math.sin(t * 1.2 + n.phase)
+        const a = n.baseAlpha * pulse
+        ctx!.beginPath()
+        ctx!.arc(n.x, n.y, n.r, 0, Math.PI * 2)
+        ctx!.fillStyle = n.gold
+          ? `rgba(184,145,68,${a})`
+          : `rgba(200,220,255,${a * 0.7})`
+        ctx!.fill()
+      }
+
+      /* — connections between close nodes — */
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x
+          const dy = nodes[i].y - nodes[j].y
           const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 110) {
-            const a = (1 - dist / 110) * 0.12
+          if (dist < 120) {
+            const a = (1 - dist / 120) * 0.18
             ctx!.beginPath()
-            ctx!.moveTo(particles[i].x, particles[i].y)
-            ctx!.lineTo(particles[j].x, particles[j].y)
-            ctx!.strokeStyle = `rgba(184,145,68,${a})`
-            ctx!.lineWidth = 0.5
+            ctx!.moveTo(nodes[i].x, nodes[i].y)
+            ctx!.lineTo(nodes[j].x, nodes[j].y)
+            ctx!.strokeStyle = nodes[i].gold || nodes[j].gold
+              ? `rgba(184,145,68,${a})`
+              : `rgba(160,190,255,${a * 0.6})`
+            ctx!.lineWidth = 0.6
             ctx!.stroke()
           }
         }
       }
+
       animId = requestAnimationFrame(draw)
     }
 
     draw()
 
     const onResize = () => {
-      w = canvas.offsetWidth
-      h = canvas.offsetHeight
-      canvas.width = w
-      canvas.height = h
+      w = canvas.offsetWidth; h = canvas.offsetHeight
+      canvas.width = w; canvas.height = h
+      orbs.forEach(o => { o.x = w * 0.45 + Math.random() * w * 0.55; o.y = Math.random() * h })
+      streams.forEach((s, i) => { s.y = (h / 14) * i + Math.random() * (h / 14) })
     }
     window.addEventListener("resize", onResize)
-    return () => {
-      cancelAnimationFrame(animId)
-      window.removeEventListener("resize", onResize)
-    }
+    return () => { cancelAnimationFrame(animId); window.removeEventListener("resize", onResize) }
   }, [])
 
   useEffect(() => {
@@ -675,7 +743,7 @@ function HeroParticles() {
     <canvas
       ref={canvasRef}
       className="absolute inset-0 w-full h-full"
-      style={{ opacity: 0.7 }}
+      style={{ mixBlendMode: "screen", opacity: 0.9 }}
     />
   )
 }
