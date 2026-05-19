@@ -7,6 +7,7 @@ import {
   CheckCircle2, Activity, Package, Filter, ShieldCheck, BarChart3,
   Users, Globe, Cpu, Brain, Megaphone, FlaskConical, Cog, Lock
 } from "lucide-react"
+import { useLang } from "@/lib/i18n"
 
 interface CatalogAgent {
   id: string
@@ -63,6 +64,8 @@ function CategoryIcon({ category }: { category: string }) {
 }
 
 export default function AgentStorePage() {
+  const { t } = useLang()
+  const as = t.workspace.agentStore
   const [collapsed, setCollapsed] = useState(false)
   const [tab, setTab] = useState<"store" | "installed">("store")
   const [category, setCategory] = useState("all")
@@ -138,24 +141,24 @@ export default function AgentStorePage() {
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 border border-primary/25">
                   <Brain className="h-4 w-4 text-primary" />
                 </div>
-                <h1 className="text-lg font-bold text-foreground">AI Agent Store</h1>
+                <h1 className="text-lg font-bold text-foreground">{as.title}</h1>
                 <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500/15 text-amber-400 border border-amber-500/25 px-1.5 py-0.5 rounded-full">Beta</span>
               </div>
-              <p className="text-xs text-muted-foreground">Install and configure AI agents — autonomous execution is on the roadmap</p>
+              <p className="text-xs text-muted-foreground">{as.subtitle}</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-white/4 border border-white/8 rounded-xl px-3 py-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                <span>{installed.filter(a => a.isActive).length} active agents</span>
+                <span>{installed.filter(a => a.isActive).length} {as.activeAgents}</span>
               </div>
               <div className="flex rounded-xl border border-white/8 overflow-hidden">
-                {(["store", "installed"] as const).map(t => (
+                {(["store", "installed"] as const).map(tabKey => (
                   <button
-                    key={t}
-                    onClick={() => setTab(t)}
-                    className={`px-4 py-2 text-xs font-semibold capitalize transition-colors ${tab === t ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground bg-transparent hover:bg-white/4"}`}
+                    key={tabKey}
+                    onClick={() => setTab(tabKey)}
+                    className={`px-4 py-2 text-xs font-semibold capitalize transition-colors ${tab === tabKey ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground bg-transparent hover:bg-white/4"}`}
                   >
-                    {t === "installed" ? `Installed (${installed.length})` : "Store"}
+                    {tabKey === "installed" ? `${as.installed} (${installed.length})` : as.store}
                   </button>
                 ))}
               </div>
@@ -168,7 +171,7 @@ export default function AgentStorePage() {
             <div className="flex h-full">
               {/* Sidebar filter */}
               <div className="w-52 shrink-0 border-r border-white/5 p-4 space-y-1">
-                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 px-2 pb-2">Category</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 px-2 pb-2">{as.category}</p>
                 {CATEGORIES.map(({ label, value, icon: Icon }) => (
                   <button
                     key={value}
@@ -194,13 +197,13 @@ export default function AgentStorePage() {
                     <input
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      placeholder="Search agents…"
+                      placeholder={as.searchPlaceholder}
                       className="w-full bg-white/4 border border-white/8 rounded-xl pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/40"
                     />
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Filter className="h-3.5 w-3.5" />
-                    <span>{filtered.length} agents</span>
+                    <span>{filtered.length} {as.agents}</span>
                   </div>
                 </div>
 
@@ -221,7 +224,7 @@ export default function AgentStorePage() {
                         {isInstalled && (
                           <div className="absolute top-3 right-3 flex items-center gap-1 bg-emerald-500/15 border border-emerald-500/25 rounded-full px-2 py-0.5">
                             <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                            <span className="text-[10px] font-semibold text-emerald-400">Installed</span>
+                            <span className="text-[10px] font-semibold text-emerald-400">{as.installedBadge}</span>
                           </div>
                         )}
 
@@ -247,7 +250,7 @@ export default function AgentStorePage() {
                             <span className="text-[10px] text-muted-foreground">({agent.installCount.toLocaleString()})</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span>View details</span>
+                            <span>{as.viewDetails}</span>
                             <ChevronRight className="h-3.5 w-3.5" />
                           </div>
                         </div>
@@ -264,13 +267,13 @@ export default function AgentStorePage() {
               {installed.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-center">
                   <Bot className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-sm font-semibold text-muted-foreground mb-1">No agents installed yet</p>
-                  <p className="text-xs text-muted-foreground/60 mb-4">Browse the store to find agents that work for your business</p>
+                  <p className="text-sm font-semibold text-muted-foreground mb-1">{as.noAgentsInstalled}</p>
+                  <p className="text-xs text-muted-foreground/60 mb-4">{as.noAgentsDesc}</p>
                   <button
                     onClick={() => setTab("store")}
                     className="text-xs font-semibold text-primary border border-primary/30 bg-primary/10 rounded-xl px-4 py-2 hover:bg-primary/20 transition-colors"
                   >
-                    Browse Agent Store
+                    {as.browseStore}
                   </button>
                 </div>
               ) : (

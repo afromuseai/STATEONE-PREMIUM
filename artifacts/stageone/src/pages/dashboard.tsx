@@ -12,6 +12,7 @@ import { useBusinessContext } from "@/lib/business-context"
 import { api, type Project } from "@/lib/api"
 import { recordRevenueSignal } from "@/lib/intelligence-state"
 import { saveGenerationContext } from "@/lib/generation-context"
+import { useLang } from "@/lib/i18n"
 import {
   FolderOpen,
   Plus,
@@ -32,12 +33,6 @@ import {
 
 type Tab = "overview" | "new" | "projects"
 
-const STATUS_COLORS: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  active:    { label: "Active",    color: "text-emerald-400",      bg: "bg-emerald-500/10", border: "border-emerald-500/25" },
-  draft:     { label: "Draft",     color: "text-muted-foreground", bg: "bg-white/5",        border: "border-white/10" },
-  completed: { label: "Completed", color: "text-blue-400",         bg: "bg-blue-500/10",    border: "border-blue-500/25" },
-  archived:  { label: "Archived",  color: "text-amber-400",        bg: "bg-amber-500/10",   border: "border-amber-500/25" },
-}
 
 function getTab(search: string): Tab {
   const p = new URLSearchParams(search.replace("?", ""))
@@ -145,6 +140,9 @@ function computeStage(partial: Partial<BusinessIntelligence>, text: string): num
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const { t } = useLang()
+  const wp = t.workspace.projects
+  const wm = t.workspace.modals
   const { user } = useAuth()
   const { setBusinessData } = useBusinessContext()
   const [location] = useLocation()
@@ -409,15 +407,30 @@ export default function DashboardPage() {
     return matchSearch && matchStatus
   })
 
+  const STATUS_LABELS: Record<string, string> = {
+    all: wp.statusAll,
+    active: wp.statusActive,
+    draft: wp.statusDraft,
+    completed: wp.statusCompleted,
+    archived: wp.statusArchived,
+  }
+
+  const STATUS_COLORS_I18N: Record<string, { label: string; color: string; bg: string; border: string }> = {
+    active:    { label: wp.statusActive,    color: "text-emerald-400",      bg: "bg-emerald-500/10", border: "border-emerald-500/25" },
+    draft:     { label: wp.statusDraft,     color: "text-muted-foreground", bg: "bg-white/5",        border: "border-white/10" },
+    completed: { label: wp.statusCompleted, color: "text-blue-400",         bg: "bg-blue-500/10",    border: "border-blue-500/25" },
+    archived:  { label: wp.statusArchived,  color: "text-amber-400",        bg: "bg-amber-500/10",   border: "border-amber-500/25" },
+  }
+
   const renderProjects = () => (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-foreground">All Projects</h2>
+        <h2 className="text-xl font-bold text-foreground">{wp.allProjects}</h2>
         <button
           onClick={() => setLocation("/dashboard?tab=new")}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
-          <Plus className="h-4 w-4" />New
+          <Plus className="h-4 w-4" />{wp.new}
         </button>
       </div>
 
@@ -428,7 +441,7 @@ export default function DashboardPage() {
           <input
             value={projectSearch}
             onChange={e => setProjectSearch(e.target.value)}
-            placeholder="Search projects…"
+            placeholder={wp.searchProjects}
             className="w-full rounded-lg border border-white/8 bg-white/3 pl-9 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/40 transition-colors"
           />
         </div>
@@ -440,7 +453,7 @@ export default function DashboardPage() {
                   ? "bg-primary/12 border-primary/30 text-primary"
                   : "border-white/8 text-muted-foreground hover:text-foreground"
               }`}>
-              {s === "all" ? `All (${projects.length})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${projects.filter(p => (p.status ?? "active") === s).length})`}
+              {s === "all" ? `${STATUS_LABELS.all} (${projects.length})` : `${STATUS_LABELS[s]} (${projects.filter(p => (p.status ?? "active") === s).length})`}
             </button>
           ))}
         </div>
@@ -455,21 +468,21 @@ export default function DashboardPage() {
       {!projectsLoading && projects.length === 0 && (
         <div className="text-center py-16 glass-card rounded-xl">
           <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-foreground font-medium">No projects yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Your saved analyses will appear here</p>
+          <p className="text-foreground font-medium">{wp.noProjectsYet}</p>
+          <p className="text-sm text-muted-foreground mt-1">{wp.noProjectsDesc}</p>
         </div>
       )}
 
       {!projectsLoading && projects.length > 0 && filteredProjects.length === 0 && (
         <div className="text-center py-10 text-muted-foreground">
           <Search className="h-8 w-8 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">No projects match your filter</p>
+          <p className="text-sm">{wp.noMatchFilter}</p>
         </div>
       )}
 
       <div className="grid gap-3">
         {filteredProjects.map((project, i) => {
-          const statusConf = STATUS_COLORS[project.status ?? "active"] ?? STATUS_COLORS.active
+          const statusConf = STATUS_COLORS_I18N[project.status ?? "active"] ?? STATUS_COLORS_I18N.active
           return (
             <motion.div
               key={project.id}
@@ -494,7 +507,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3 mt-2">
                     {project.websiteOutput && (
                       <span className="flex items-center gap-1 text-[10px] text-primary bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5">
-                        <Globe className="h-2.5 w-2.5" /> Website
+                        <Globe className="h-2.5 w-2.5" /> {wp.website}
                       </span>
                     )}
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -543,9 +556,9 @@ export default function DashboardPage() {
             }`}
           >
             {saveStatus === "saving" ? (
-              <><div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" /> Saving project…</>
+              <><div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" /> {wp.savingProject}</>
             ) : (
-              <><span className="h-3 w-3 rounded-full bg-green-400 inline-block" /> Project saved</>
+              <><span className="h-3 w-3 rounded-full bg-green-400 inline-block" /> {wp.projectSaved}</>
             )}
           </motion.div>
         )}
@@ -628,7 +641,7 @@ export default function DashboardPage() {
             <motion.div key="website" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col flex-1 min-h-0">
               <div className="px-4 pt-3 pb-0 shrink-0">
                 <button onClick={() => setShowWebsite(false)} className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                  ← Back to Analysis
+                  {wp.backToAnalysis}
                 </button>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden">
@@ -691,15 +704,15 @@ export default function DashboardPage() {
                       <Lock className="h-2.5 w-2.5" /> Pro
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Upgrade to unlock this system</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{wm.upgradeToUnlock}</p>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
                 {lockedFeature.description}
               </p>
               <div className="rounded-xl border border-white/5 bg-white/2 p-4 mb-6 space-y-2">
-                <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">Pro unlocks</p>
-                {["Deeper business intelligence", "AI Website Builder", "AI Chatbot Generator", "Automation Builder", "Advanced execution planning", "100 AI operations/month"].map(f => (
+                <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">{wm.proUnlocks}</p>
+                {wm.proFeatures.map(f => (
                   <div key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
                     <div className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
                     {f}
@@ -711,14 +724,14 @@ export default function DashboardPage() {
                   onClick={() => setLockedFeature(null)}
                   className="flex-1 h-10 rounded-xl border border-white/10 bg-white/5 text-sm font-medium text-foreground hover:bg-white/8 transition-all"
                 >
-                  Maybe Later
+                  {wm.maybeLater}
                 </button>
                 <button
                   onClick={() => { setLockedFeature(null); setLocation("/pricing") }}
                   className="flex-1 h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow flex items-center justify-center gap-2"
                 >
                   <Crown className="h-3.5 w-3.5" />
-                  Upgrade to Pro
+                  {wm.upgradeToPro}
                 </button>
               </div>
             </motion.div>
@@ -753,28 +766,28 @@ export default function DashboardPage() {
                   <AlertTriangle className="h-6 w-6 text-amber-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">AI Operation Limit Reached</h3>
+                  <h3 className="text-base font-bold text-foreground">{wm.limitReached}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5 capitalize">
                     {subscription?.plan ?? "free"} plan · {subscription?.aiGenerationsUsed ?? 0} / {subscription?.aiGenerationsLimit ?? 0} used
                   </p>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                You've used all your AI operations for this period. Upgrade your plan to continue running analyses and generating websites without interruption.
+                {wm.limitDesc}
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowUpgradeModal(false)}
                   className="flex-1 h-10 rounded-xl border border-white/10 bg-white/5 text-sm font-medium text-foreground hover:bg-white/8 transition-all"
                 >
-                  Maybe Later
+                  {wm.maybeLater}
                 </button>
                 <button
                   onClick={() => { setShowUpgradeModal(false); setLocation("/pricing") }}
                   className="flex-1 h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow flex items-center justify-center gap-2"
                 >
                   <Crown className="h-3.5 w-3.5" />
-                  Upgrade Plan
+                  {wm.upgradePlan}
                 </button>
               </div>
             </motion.div>
@@ -807,9 +820,9 @@ export default function DashboardPage() {
                   <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
                   <p className="text-xs text-amber-300">
                     <span className="font-bold">
-                      {Math.round(usagePct * 100)}% of AI operations used
+                      {Math.round(usagePct * 100)}{wm.ofAiOpsUsed}
                     </span>
-                    {" "}— {subscription!.aiGenerationsLimit - subscription!.aiGenerationsUsed} remaining this period.
+                    {" "}— {subscription!.aiGenerationsLimit - subscription!.aiGenerationsUsed} {wm.remaining}
                   </p>
                 </div>
                 <button
@@ -817,7 +830,7 @@ export default function DashboardPage() {
                   className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-400 hover:text-amber-300 transition-colors border border-amber-500/30 rounded-full px-3 py-1 bg-amber-500/6 hover:bg-amber-500/12 shrink-0"
                 >
                   <Crown className="h-2.5 w-2.5" />
-                  Upgrade
+                  {t.workspace.overview.upgrade}
                 </button>
               </div>
             </motion.div>

@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 import { IntelligencePanel } from "./intelligence-panel"
 import { FeedbackWidget } from "./feedback-widget"
+import { useLang } from "@/lib/i18n"
 
 export interface BusinessIntelligence {
   industry: string
@@ -212,14 +213,16 @@ function RadialProgress({ value, label, index }: { value: number; label: string;
 
 // ─── Business Health Score ─────────────────────────────────────────────────────
 function BusinessHealthScore({ metrics }: { metrics: BusinessIntelligence["metrics"] }) {
+  const { t } = useLang()
+  const ot = t.workspace.output
   const scores = [
-    { label: "Automation\nMaturity",  value: metrics.automationPotential,                       index: 0 },
-    { label: "AI\nOpportunity",       value: metrics.aiAdoptionOpportunity,                     index: 1 },
-    { label: "Scalability\nReadiness",value: Math.round(metrics.revenueScalability * 10),       index: 2 },
-    { label: "Market\nPosition",      value: Math.round((10 - metrics.marketDifficulty) * 10),  index: 3 },
+    { label: ot.healthMetrics.automationMaturity,  value: metrics.automationPotential,                       index: 0 },
+    { label: ot.healthMetrics.aiOpportunity,       value: metrics.aiAdoptionOpportunity,                     index: 1 },
+    { label: ot.healthMetrics.scalabilityReadiness,value: Math.round(metrics.revenueScalability * 10),       index: 2 },
+    { label: ot.healthMetrics.marketPosition,      value: Math.round((10 - metrics.marketDifficulty) * 10),  index: 3 },
   ]
   const avg = Math.round(scores.reduce((s, x) => s + x.value, 0) / scores.length)
-  const healthLabel = avg >= 70 ? "Strong" : avg >= 50 ? "Moderate" : "Developing"
+  const healthLabel = avg >= 70 ? ot.strong : avg >= 50 ? ot.moderate : ot.developing
   const healthColor = avg >= 70 ? "text-green-400" : avg >= 50 ? "text-yellow-400" : "text-red-400"
 
   return (
@@ -232,13 +235,13 @@ function BusinessHealthScore({ metrics }: { metrics: BusinessIntelligence["metri
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
             <BarChart2 className="h-4 w-4 text-primary" />
           </div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">Business Health Score</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">{ot.businessHealthScore}</h3>
         </div>
         <div className="flex items-center gap-2">
           <div className={`text-2xl font-black ${healthColor}`}>{avg}</div>
           <div>
             <div className={`text-xs font-bold ${healthColor}`}>{healthLabel}</div>
-            <div className="text-[9px] text-muted-foreground/50 uppercase tracking-wider">Overall</div>
+            <div className="text-[9px] text-muted-foreground/50 uppercase tracking-wider">{ot.overall}</div>
           </div>
         </div>
       </div>
@@ -251,6 +254,8 @@ function BusinessHealthScore({ metrics }: { metrics: BusinessIntelligence["metri
 
 // ─── Growth Trajectory ─────────────────────────────────────────────────────────
 function GrowthTrajectory({ phases }: { phases: string[] }) {
+  const { t } = useLang()
+  const ot = t.workspace.output
   const heights = [14, 26, 42, 62, 84]
   const labels = ["Q1", "Q2", "Q3–4", "Y2", "Y2+"]
 
@@ -258,7 +263,7 @@ function GrowthTrajectory({ phases }: { phases: string[] }) {
     <div className="mt-4 rounded-lg border border-border/30 bg-secondary/10 p-3">
       <div className="flex items-center gap-2 mb-3">
         <TrendingUp className="h-3 w-3 text-primary" />
-        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">Growth Trajectory</p>
+        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">{ot.growthTrajectory}</p>
       </div>
       <div className="flex items-end gap-2 h-14">
         {heights.map((h, i) => (
@@ -274,7 +279,7 @@ function GrowthTrajectory({ phases }: { phases: string[] }) {
         ))}
       </div>
       <div className="mt-2 text-[9px] text-muted-foreground/40 text-center">
-        {phases.length} growth phases · Projected trajectory
+        {phases.length} {ot.growthPhases} · {ot.projectedTrajectory}
       </div>
     </div>
   )
@@ -368,11 +373,21 @@ function StackSection({ title, items }: { title: string; items: string[] | strin
 function StageIndicator({ currentStage, industry, reasoningStages }: {
   currentStage: number; industry?: string; reasoningStages?: string[]
 }) {
+  const { t } = useLang()
+  const ot = t.workspace.output
   const stages = reasoningStages ?? (
     industry
       ? (INDUSTRY_REASONING[industry] ?? INDUSTRY_REASONING.default)
       : INDUSTRY_REASONING.default
   )
+  const stageLabels: Record<number, string> = {
+    1: ot.stages.metrics,
+    2: ot.stages.snapshot,
+    3: ot.stages.strategic,
+    4: ot.stages.competitive,
+    5: ot.stages.growth,
+    6: ot.stages.infra,
+  }
 
   const currentReasoning = currentStage > 0 && currentStage <= stages.length
     ? stages[currentStage - 1]
@@ -422,7 +437,7 @@ function StageIndicator({ currentStage, industry, reasoningStages }: {
                   : <Circle className="h-3 w-3 text-border" />}
               </motion.div>
               <span className={`text-center text-[9px] font-medium leading-tight transition-colors duration-300 ${done ? "text-green-400" : active ? "text-primary" : "text-muted-foreground/40"}`}>
-                {stage.label}
+                {stageLabels[stage.id] ?? stage.label}
               </span>
             </div>
           )
@@ -435,7 +450,7 @@ function StageIndicator({ currentStage, industry, reasoningStages }: {
           <span className="text-primary font-medium">{currentReasoning}</span>
           {currentStage > 1 && (
             <span className="ml-2 text-green-400/70">
-              · {currentStage - 1} stage{currentStage - 1 > 1 ? "s" : ""} complete
+              · {currentStage - 1} {currentStage - 1 > 1 ? ot.stagesComplete : ot.stageComplete}
             </span>
           )}
         </motion.p>
@@ -445,13 +460,14 @@ function StageIndicator({ currentStage, industry, reasoningStages }: {
 }
 
 function ThinkingPulse({ text }: { text: string }) {
+  const { t } = useLang()
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 rounded-lg border border-primary/10 bg-primary/5 p-3">
       <div className="flex items-center gap-2 mb-1.5">
         <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1, repeat: Infinity }}>
           <Cpu className="h-3 w-3 text-primary" />
         </motion.div>
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Live Processing</p>
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">{t.workspace.output.liveProcessing}</p>
       </div>
       <p className="font-mono text-[10px] leading-relaxed text-muted-foreground max-h-16 overflow-hidden">
         {text.slice(-280)}
@@ -467,6 +483,7 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
   streamingText?: string; generationStage: number;
   partialData: Partial<BusinessIntelligence>; reasoningStages?: string[]
 }) {
+  const { t } = useLang()
   const hasMetrics    = !!partialData.metrics
   const hasSnapshot   = !!partialData.businessSnapshot
   const hasInsights   = !!partialData.strategicInsights
@@ -488,7 +505,7 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
         <div>
           <h3 className="text-base font-semibold text-foreground">STAGEONE Intelligence</h3>
           <p className="text-xs text-muted-foreground">
-            {industry ? `Generating ${industry} analysis...` : "Detecting industry & generating analysis..."}
+            {industry ? `${t.workspace.output.generatingAnalysis.replace("...", "")} ${industry}...` : t.workspace.output.detectingIndustry}
           </p>
         </div>
       </div>
@@ -500,11 +517,11 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
           {hasMetrics ? (
             <motion.div key="metrics-live" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-5 mb-4">
-                <MetricGauge icon={Gauge} label="Market Difficulty" value={partialData.metrics!.marketDifficulty} max={10} index={0} />
-                <MetricGauge icon={Zap} label="Automation" value={partialData.metrics!.automationPotential} max={100} index={1} />
-                <MetricGauge icon={TrendingUp} label="Scalability" value={partialData.metrics!.revenueScalability} max={10} index={2} />
-                <MetricGauge icon={Layers} label="Complexity" value={partialData.metrics!.operationalComplexity} max={10} index={3} />
-                <MetricGauge icon={Sparkles} label="AI Opportunity" value={partialData.metrics!.aiAdoptionOpportunity} max={100} index={4} />
+                <MetricGauge icon={Gauge} label={t.workspace.output.metrics.marketDifficulty} value={partialData.metrics!.marketDifficulty} max={10} index={0} />
+                <MetricGauge icon={Zap} label={t.workspace.output.metrics.automation} value={partialData.metrics!.automationPotential} max={100} index={1} />
+                <MetricGauge icon={TrendingUp} label={t.workspace.output.metrics.scalability} value={partialData.metrics!.revenueScalability} max={10} index={2} />
+                <MetricGauge icon={Layers} label={t.workspace.output.metrics.complexity} value={partialData.metrics!.operationalComplexity} max={10} index={3} />
+                <MetricGauge icon={Sparkles} label={t.workspace.output.metrics.aiOpportunity} value={partialData.metrics!.aiAdoptionOpportunity} max={100} index={4} />
               </div>
               <BusinessHealthScore metrics={partialData.metrics!} />
             </motion.div>
@@ -532,11 +549,11 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
         <AnimatePresence>
           {hasSnapshot ? (
             <motion.div key="snapshot-live" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-4 lg:grid-cols-2">
-              <SectionCard icon={BarChart3} title="Business Snapshot" index={0}>
+              <SectionCard icon={BarChart3} title={t.workspace.output.sections.businessSnapshot} index={0}>
                 <p className="text-sm leading-relaxed text-muted-foreground">{partialData.businessSnapshot}</p>
               </SectionCard>
               {partialData.targetMarket ? (
-                <SectionCard icon={Target} title="Target Market" index={1}>
+                <SectionCard icon={Target} title={t.workspace.output.sections.targetMarket} index={1}>
                   <p className="text-sm leading-relaxed text-muted-foreground">{partialData.targetMarket}</p>
                 </SectionCard>
               ) : <SkeletonCard rows={2} />}
@@ -551,12 +568,12 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
         <AnimatePresence>
           {hasInsights ? (
             <motion.div key="insights-live" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-              <SectionCard icon={Lightbulb} title="Strategic Insights" index={0} fullWidth highlight>
+              <SectionCard icon={Lightbulb} title={t.workspace.output.sections.strategicInsights} index={0} fullWidth highlight>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <InsightItem icon={AlertTriangle} label="Growth Bottleneck" value={partialData.strategicInsights!.growthBottleneck} />
-                  <InsightItem icon={Rocket} label="Fastest Channel" value={partialData.strategicInsights!.fastestChannel} />
-                  <InsightItem icon={Zap} label="Highest Leverage Automation" value={partialData.strategicInsights!.highestLeverageAutomation} />
-                  <InsightItem icon={Shield} label="Operational Risk" value={partialData.strategicInsights!.operationalRisk} />
+                  <InsightItem icon={AlertTriangle} label={t.workspace.output.insights.growthBottleneck} value={partialData.strategicInsights!.growthBottleneck} />
+                  <InsightItem icon={Rocket} label={t.workspace.output.insights.fastestChannel} value={partialData.strategicInsights!.fastestChannel} />
+                  <InsightItem icon={Zap} label={t.workspace.output.insights.highestLeverageAutomation} value={partialData.strategicInsights!.highestLeverageAutomation} />
+                  <InsightItem icon={Shield} label={t.workspace.output.insights.operationalRisk} value={partialData.strategicInsights!.operationalRisk} />
                 </div>
               </SectionCard>
             </motion.div>
@@ -570,11 +587,11 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
         <AnimatePresence>
           {hasCompetitive ? (
             <motion.div key="competitive-live" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-              <SectionCard icon={Shield} title="Competitive Advantage" index={0} fullWidth>
+              <SectionCard icon={Shield} title={t.workspace.output.sections.competitiveAdvantage} index={0} fullWidth>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <InsightItem icon={Crosshair} label="Differentiation" value={partialData.competitiveAdvantage!.differentiation} />
-                  <InsightItem icon={Shield} label="Defensibility" value={partialData.competitiveAdvantage!.defensibility} />
-                  <InsightItem icon={TrendingUp} label="Scalability Edge" value={partialData.competitiveAdvantage!.scalabilityEdge} />
+                  <InsightItem icon={Crosshair} label={t.workspace.output.insights.differentiation} value={partialData.competitiveAdvantage!.differentiation} />
+                  <InsightItem icon={Shield} label={t.workspace.output.insights.defensibility} value={partialData.competitiveAdvantage!.defensibility} />
+                  <InsightItem icon={TrendingUp} label={t.workspace.output.insights.scalabilityEdge} value={partialData.competitiveAdvantage!.scalabilityEdge} />
                 </div>
               </SectionCard>
             </motion.div>
@@ -588,7 +605,7 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
         <AnimatePresence>
           {hasGrowth ? (
             <motion.div key="growth-live" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-              <SectionCard icon={Rocket} title="Growth Strategy" index={0}>
+              <SectionCard icon={Rocket} title={t.workspace.output.sections.growthPlan} index={0}>
                 <ul className="space-y-2">
                   {partialData.growthPlan!.map((item, i) => (
                     <motion.li key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}
@@ -611,13 +628,13 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
         <AnimatePresence>
           {hasStack ? (
             <motion.div key="stack-live" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-              <SectionCard icon={Code} title="Infrastructure Recommendations" index={0} fullWidth>
+              <SectionCard icon={Code} title={t.workspace.output.sections.infraRecommendations} index={0} fullWidth>
                 <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                  <StackSection title="Frontend" items={partialData.recommendedStack!.frontend} />
-                  <StackSection title="Backend" items={partialData.recommendedStack!.backend} />
-                  <StackSection title="Automation" items={partialData.recommendedStack!.automation} />
-                  <StackSection title="CRM" items={partialData.recommendedStack!.crm} />
-                  <StackSection title="Payments" items={partialData.recommendedStack!.payments} />
+                  <StackSection title={t.workspace.output.stack.frontend} items={partialData.recommendedStack!.frontend} />
+                  <StackSection title={t.workspace.output.stack.backend} items={partialData.recommendedStack!.backend} />
+                  <StackSection title={t.workspace.output.stack.automation} items={partialData.recommendedStack!.automation} />
+                  <StackSection title={t.workspace.output.stack.crm} items={partialData.recommendedStack!.crm} />
+                  <StackSection title={t.workspace.output.stack.payments} items={partialData.recommendedStack!.payments} />
                 </div>
               </SectionCard>
             </motion.div>
@@ -636,15 +653,17 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
 
 // ─── Empty State ───────────────────────────────────────────────────────────────
 function EmptyState() {
+  const { t } = useLang()
+  const ot = t.workspace.output
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex h-full items-center justify-center">
       <div className="max-w-md text-center">
         <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-border/50 bg-secondary/20">
           <FileText className="h-10 w-10 text-muted-foreground" />
         </div>
-        <h3 className="text-xl font-semibold text-foreground">Ready to Analyze</h3>
+        <h3 className="text-xl font-semibold text-foreground">{ot.readyToAnalyze ?? "Ready to Analyze"}</h3>
         <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
-          Enter your business idea to generate AI-powered intelligence with industry-specific insights, competitive analysis, and tech recommendations.
+          {ot.readyDesc}
         </p>
       </div>
     </motion.div>
@@ -653,6 +672,8 @@ function EmptyState() {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 export function OutputPanel({ data, partialData, isLoading, streamingText, generationStage, reasoningStages, detectedIndustry, onGenerateWebsite, onGenerateChatbot, onBuildAutomation, projectId, userPlan }: OutputPanelProps) {
+  const { t } = useLang()
+  const ot = t.workspace.output
   const isFree = !userPlan || userPlan === "free"
   if (isLoading) {
     return (
@@ -682,7 +703,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                   animate={{ boxShadow: ["0 0 4px rgba(74,222,128,0.4)", "0 0 12px rgba(74,222,128,0.8)", "0 0 4px rgba(74,222,128,0.4)"] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 />
-                <span className="text-xs font-medium uppercase tracking-wider text-green-400">Analysis Complete</span>
+                <span className="text-xs font-medium uppercase tracking-wider text-green-400">{ot.analysisComplete}</span>
               </div>
               <h2 className="mt-1 text-xl font-bold text-foreground">{data.industry} Intelligence</h2>
             </div>
@@ -694,7 +715,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                   className={`flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors ${isFree ? "opacity-70" : ""}`}
                 >
                   <Globe className="h-3.5 w-3.5" />
-                  Generate Website
+                  {ot.generateWebsite}
                   {isFree && <Lock className="h-3 w-3 opacity-70" />}
                 </motion.button>
               )}
@@ -705,7 +726,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                   className={`flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors ${isFree ? "opacity-70" : ""}`}
                 >
                   <Bot className="h-3.5 w-3.5" />
-                  Generate Chatbot
+                  {ot.generateChatbot}
                   {isFree && <Lock className="h-3 w-3 opacity-70" />}
                 </motion.button>
               )}
@@ -716,7 +737,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                   className={`flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors ${isFree ? "opacity-70" : ""}`}
                 >
                   <Workflow className="h-3.5 w-3.5" />
-                  Build Automation
+                  {ot.buildAutomation}
                   {isFree && <Lock className="h-3 w-3 opacity-70" />}
                 </motion.button>
               )}
@@ -729,42 +750,42 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
           {/* Metrics */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
             className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-5">
-            <MetricGauge icon={Gauge} label="Market Difficulty" value={data.metrics.marketDifficulty} max={10} index={0} />
-            <MetricGauge icon={Zap} label="Automation" value={data.metrics.automationPotential} max={100} index={1} />
-            <MetricGauge icon={TrendingUp} label="Scalability" value={data.metrics.revenueScalability} max={10} index={2} />
-            <MetricGauge icon={Layers} label="Complexity" value={data.metrics.operationalComplexity} max={10} index={3} />
-            <MetricGauge icon={Sparkles} label="AI Opportunity" value={data.metrics.aiAdoptionOpportunity} max={100} index={4} />
+            <MetricGauge icon={Gauge} label={ot.metrics.marketDifficulty} value={data.metrics.marketDifficulty} max={10} index={0} />
+            <MetricGauge icon={Zap} label={ot.metrics.automation} value={data.metrics.automationPotential} max={100} index={1} />
+            <MetricGauge icon={TrendingUp} label={ot.metrics.scalability} value={data.metrics.revenueScalability} max={10} index={2} />
+            <MetricGauge icon={Layers} label={ot.metrics.complexity} value={data.metrics.operationalComplexity} max={10} index={3} />
+            <MetricGauge icon={Sparkles} label={ot.metrics.aiOpportunity} value={data.metrics.aiAdoptionOpportunity} max={100} index={4} />
           </motion.div>
 
           <BusinessHealthScore metrics={data.metrics} />
 
           {/* Content Grid */}
           <div className="grid gap-4 lg:grid-cols-2">
-            <SectionCard icon={BarChart3} title="Business Snapshot" index={0}>
+            <SectionCard icon={BarChart3} title={ot.sections.businessSnapshot} index={0}>
               <p className="text-sm leading-relaxed text-muted-foreground">{data.businessSnapshot}</p>
             </SectionCard>
-            <SectionCard icon={Target} title="Target Market" index={1}>
+            <SectionCard icon={Target} title={ot.sections.targetMarket} index={1}>
               <p className="text-sm leading-relaxed text-muted-foreground">{data.targetMarket}</p>
             </SectionCard>
 
-            <SectionCard icon={Lightbulb} title="Strategic Insights" index={2} fullWidth highlight>
+            <SectionCard icon={Lightbulb} title={ot.sections.strategicInsights} index={2} fullWidth highlight>
               <div className="grid gap-3 sm:grid-cols-2">
-                <InsightItem icon={AlertTriangle} label="Growth Bottleneck" value={data.strategicInsights.growthBottleneck} />
-                <InsightItem icon={Rocket} label="Fastest Channel" value={data.strategicInsights.fastestChannel} />
-                <InsightItem icon={Zap} label="Highest Leverage Automation" value={data.strategicInsights.highestLeverageAutomation} />
-                <InsightItem icon={Shield} label="Operational Risk" value={data.strategicInsights.operationalRisk} />
+                <InsightItem icon={AlertTriangle} label={ot.insights.growthBottleneck} value={data.strategicInsights.growthBottleneck} />
+                <InsightItem icon={Rocket} label={ot.insights.fastestChannel} value={data.strategicInsights.fastestChannel} />
+                <InsightItem icon={Zap} label={ot.insights.highestLeverageAutomation} value={data.strategicInsights.highestLeverageAutomation} />
+                <InsightItem icon={Shield} label={ot.insights.operationalRisk} value={data.strategicInsights.operationalRisk} />
               </div>
             </SectionCard>
 
-            <SectionCard icon={Shield} title="Competitive Advantage" index={3} fullWidth>
+            <SectionCard icon={Shield} title={ot.sections.competitiveAdvantage} index={3} fullWidth>
               <div className="grid gap-3 sm:grid-cols-3">
-                <InsightItem icon={Crosshair} label="Differentiation" value={data.competitiveAdvantage.differentiation} />
-                <InsightItem icon={Shield} label="Defensibility" value={data.competitiveAdvantage.defensibility} />
-                <InsightItem icon={TrendingUp} label="Scalability Edge" value={data.competitiveAdvantage.scalabilityEdge} />
+                <InsightItem icon={Crosshair} label={ot.insights.differentiation} value={data.competitiveAdvantage.differentiation} />
+                <InsightItem icon={Shield} label={ot.insights.defensibility} value={data.competitiveAdvantage.defensibility} />
+                <InsightItem icon={TrendingUp} label={ot.insights.scalabilityEdge} value={data.competitiveAdvantage.scalabilityEdge} />
               </div>
             </SectionCard>
 
-            <SectionCard icon={Rocket} title="Growth Plan" index={4}>
+            <SectionCard icon={Rocket} title={ot.sections.growthPlan} index={4}>
               <ul className="space-y-2">
                 {data.growthPlan.map((item, i) => (
                   <motion.li key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.05 }}
@@ -777,7 +798,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
               <GrowthTrajectory phases={data.growthPlan} />
             </SectionCard>
 
-            <SectionCard icon={Globe} title="Website Pages" index={5}>
+            <SectionCard icon={Globe} title={ot.sections.websitePages} index={5}>
               <ul className="space-y-2">
                 {data.websitePages.map((page, i) => (
                   <motion.li key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 + i * 0.05 }}
@@ -789,11 +810,11 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
               </ul>
             </SectionCard>
 
-            <SectionCard icon={Bot} title="AI Chatbot Role" index={6}>
+            <SectionCard icon={Bot} title={ot.sections.aiChatbotRole} index={6}>
               <p className="text-sm leading-relaxed text-muted-foreground">{data.chatbotRole}</p>
             </SectionCard>
 
-            <SectionCard icon={Workflow} title="Automations" index={7}>
+            <SectionCard icon={Workflow} title={ot.sections.automations} index={7}>
               <ul className="space-y-2">
                 {data.automations.map((auto, i) => (
                   <motion.li key={i} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 + i * 0.05 }}
@@ -805,13 +826,13 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
               </ul>
             </SectionCard>
 
-            <SectionCard icon={Code} title="Infrastructure Recommendations" index={8} fullWidth>
+            <SectionCard icon={Code} title={ot.sections.infraRecommendations} index={8} fullWidth>
               <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                <StackSection title="Frontend" items={data.recommendedStack.frontend} />
-                <StackSection title="Backend" items={data.recommendedStack.backend} />
-                <StackSection title="Automation" items={data.recommendedStack.automation} />
-                <StackSection title="CRM" items={data.recommendedStack.crm} />
-                <StackSection title="Payments" items={data.recommendedStack.payments} />
+                <StackSection title={ot.stack.frontend} items={data.recommendedStack.frontend} />
+                <StackSection title={ot.stack.backend} items={data.recommendedStack.backend} />
+                <StackSection title={ot.stack.automation} items={data.recommendedStack.automation} />
+                <StackSection title={ot.stack.crm} items={data.recommendedStack.crm} />
+                <StackSection title={ot.stack.payments} items={data.recommendedStack.payments} />
               </div>
             </SectionCard>
           </div>

@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import type { Project } from "@/lib/api"
 import type { BusinessIntelligence } from "./output-panel"
+import { useLang } from "@/lib/i18n"
 
 interface CommandCenterOverviewProps {
   user: { name: string; email: string } | null
@@ -36,12 +37,13 @@ export function CommandCenterOverview({
   formatDate,
 }: CommandCenterOverviewProps) {
   const [, navigate] = useLocation()
+  const { t } = useLang()
+  const wo = t.workspace.overview
 
   const go = (path: string) => { onNavigate(path); navigate(path) }
 
   const firstName = user?.name?.split(" ")[0] ?? "there"
   const isPro = plan === "pro" || plan === "startup" || plan === "enterprise"
-  const isStartup = plan === "startup" || plan === "enterprise"
 
   const websiteCount = projects.filter(p => p.websiteOutput).length
   const weeklyProjects = projects.filter(p =>
@@ -68,12 +70,12 @@ export function CommandCenterOverview({
       {/* ── Welcome ────────────────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-black text-foreground tracking-tight">
-          Welcome back, <span className="text-gold-gradient">{firstName}</span>
+          {wo.welcomeBack}, <span className="text-gold-gradient">{firstName}</span>
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           {projects.length === 0
-            ? "Your AI business builder is ready. Start your first analysis."
-            : `You have ${projects.length} project${projects.length !== 1 ? "s" : ""}${weeklyProjects > 0 ? ` · ${weeklyProjects} new this week` : ""}.`
+            ? wo.readyToStart
+            : `${projects.length} ${t.dashboard.nav.projects.toLowerCase()}${weeklyProjects > 0 ? ` · ${weeklyProjects} ${wo.newAnalyses}` : ""}.`
           }
         </p>
       </motion.div>
@@ -92,12 +94,12 @@ export function CommandCenterOverview({
           <Sparkles className="h-6 w-6 text-primary" />
         </div>
         <div className="flex-1">
-          <p className="font-bold text-foreground text-base">New Business Analysis</p>
-          <p className="text-sm text-muted-foreground/60 mt-0.5">Enter your idea → full AI intelligence in seconds</p>
+          <p className="font-bold text-foreground text-base">{wo.newBusinessAnalysis}</p>
+          <p className="text-sm text-muted-foreground/60 mt-0.5">{wo.analyzeSubtitle}</p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold shrink-0 shadow-[0_4px_16px_rgba(212,175,55,0.25)]">
           <Plus className="h-4 w-4" />
-          Analyze
+          {wo.analyze}
         </div>
       </motion.button>
 
@@ -109,7 +111,7 @@ export function CommandCenterOverview({
           transition={{ delay: 0.08 }}
           className="text-[10px] font-black text-muted-foreground/35 uppercase tracking-[0.15em] mb-3"
         >
-          Build Your Business
+          {wo.buildYourBusiness}
         </motion.p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
@@ -129,16 +131,16 @@ export function CommandCenterOverview({
               </div>
               {websiteGenerated || websiteCount > 0 ? (
                 <span className="text-[9px] font-black uppercase tracking-wider text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-full px-2 py-0.5">
-                  {websiteCount} Built
+                  {websiteCount} {wo.built}
                 </span>
               ) : null}
             </div>
             <div>
-              <p className="text-sm font-bold text-foreground">Generate Website</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-tight">AI-built launch-ready site</p>
+              <p className="text-sm font-bold text-foreground">{wo.generateWebsite}</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-tight">{wo.websiteSubtitle}</p>
             </div>
             <div className="flex items-center gap-1 text-[10px] text-blue-400/70 font-semibold">
-              <span>Start building</span>
+              <span>{wo.startBuilding}</span>
               <ArrowRight className="h-3 w-3" />
             </div>
           </motion.button>
@@ -161,9 +163,9 @@ export function CommandCenterOverview({
               <div className="absolute inset-0 bg-background/40 backdrop-blur-[1px] z-10 flex flex-col items-center justify-center gap-2 rounded-xl">
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25">
                   <Crown className="h-3.5 w-3.5 text-amber-400" />
-                  <span className="text-[11px] font-black text-amber-400">Pro Required</span>
+                  <span className="text-[11px] font-black text-amber-400">{wo.proRequired}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground/60 text-center px-3">Upgrade to build AI chatbots</p>
+                <p className="text-[10px] text-muted-foreground/60 text-center px-3">{wo.upgradeForChatbot}</p>
               </div>
             )}
             <div className={`flex items-center justify-between ${!isPro ? "opacity-30" : ""}`}>
@@ -172,12 +174,12 @@ export function CommandCenterOverview({
               </div>
             </div>
             <div className={!isPro ? "opacity-30" : ""}>
-              <p className="text-sm font-bold text-foreground">Generate Chatbot</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-tight">AI customer support agent</p>
+              <p className="text-sm font-bold text-foreground">{wo.generateChatbot}</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-tight">{wo.chatbotSubtitle}</p>
             </div>
             {isPro && (
               <div className="flex items-center gap-1 text-[10px] text-purple-400/70 font-semibold">
-                <span>Build now</span>
+                <span>{wo.buildNow}</span>
                 <ArrowRight className="h-3 w-3" />
               </div>
             )}
@@ -201,9 +203,9 @@ export function CommandCenterOverview({
               <div className="absolute inset-0 bg-background/40 backdrop-blur-[1px] z-10 flex flex-col items-center justify-center gap-2 rounded-xl">
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25">
                   <Crown className="h-3.5 w-3.5 text-amber-400" />
-                  <span className="text-[11px] font-black text-amber-400">Pro Required</span>
+                  <span className="text-[11px] font-black text-amber-400">{wo.proRequired}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground/60 text-center px-3">Upgrade to build automations</p>
+                <p className="text-[10px] text-muted-foreground/60 text-center px-3">{wo.upgradeForAutomation}</p>
               </div>
             )}
             <div className={`flex items-center justify-between ${!isPro ? "opacity-30" : ""}`}>
@@ -212,12 +214,12 @@ export function CommandCenterOverview({
               </div>
             </div>
             <div className={!isPro ? "opacity-30" : ""}>
-              <p className="text-sm font-bold text-foreground">Build Automation</p>
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-tight">Automate business workflows</p>
+              <p className="text-sm font-bold text-foreground">{wo.buildAutomation}</p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5 leading-tight">{wo.automationSubtitle}</p>
             </div>
             {isPro && (
               <div className="flex items-center gap-1 text-[10px] text-green-400/70 font-semibold">
-                <span>Automate now</span>
+                <span>{wo.automateNow}</span>
                 <ArrowRight className="h-3 w-3" />
               </div>
             )}
@@ -236,14 +238,14 @@ export function CommandCenterOverview({
             <div className="flex items-center gap-3">
               <Crown className="h-4 w-4 text-amber-400 shrink-0" />
               <p className="text-xs text-muted-foreground/80">
-                <span className="text-foreground font-semibold">Upgrade to Pro</span> to unlock chatbot generation, automation builder, and deeper intelligence.
+                <span className="text-foreground font-semibold">{wo.upgradePro}</span> {wo.upgradeProDesc}
               </p>
             </div>
             <button
               onClick={() => go("/billing")}
               className="ml-4 shrink-0 text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1"
             >
-              Upgrade <ChevronRight className="h-3 w-3" />
+              {wo.upgrade} <ChevronRight className="h-3 w-3" />
             </button>
           </motion.div>
         )}
@@ -259,13 +261,13 @@ export function CommandCenterOverview({
             className="flex items-center justify-between mb-3"
           >
             <p className="text-[10px] font-black text-muted-foreground/35 uppercase tracking-[0.15em]">
-              Recent Projects
+              {wo.recentProjects}
             </p>
             <button
               onClick={() => go("/dashboard?tab=projects")}
               className="text-[10px] font-semibold text-primary/60 hover:text-primary transition-colors flex items-center gap-1"
             >
-              View all <ChevronRight className="h-3 w-3" />
+              {wo.viewAll} <ChevronRight className="h-3 w-3" />
             </button>
           </motion.div>
 
@@ -287,7 +289,7 @@ export function CommandCenterOverview({
                   <div className="flex items-center gap-2 mt-0.5">
                     {project.websiteOutput && (
                       <span className="flex items-center gap-1 text-[9px] text-blue-400 font-semibold">
-                        <Globe className="h-2.5 w-2.5" /> Website
+                        <Globe className="h-2.5 w-2.5" /> {wo.website}
                       </span>
                     )}
                     <span className="flex items-center gap-1 text-[9px] text-muted-foreground/40">
@@ -319,10 +321,10 @@ export function CommandCenterOverview({
           className="grid grid-cols-3 gap-3"
         >
           {[
-            { label: "Analyses", value: projects.length, icon: BarChart3, color: "text-primary", sub: weeklyProjects > 0 ? `+${weeklyProjects} this week` : "total" },
-            { label: "Websites Built", value: websiteCount, icon: Globe, color: "text-blue-400", sub: websiteCount > 0 ? "AI-generated" : "none yet" },
-            { label: "This Week", value: weeklyProjects, icon: TrendingUp, color: "text-green-400", sub: "new analyses" },
-          ].map(({ label, value, icon: Icon, color, sub }, i) => (
+            { label: wo.analyses, value: projects.length, icon: BarChart3, color: "text-primary", sub: weeklyProjects > 0 ? `+${weeklyProjects} ${wo.newAnalyses}` : wo.total },
+            { label: wo.websitesBuilt, value: websiteCount, icon: Globe, color: "text-blue-400", sub: websiteCount > 0 ? wo.aiGenerated : wo.noneYet },
+            { label: wo.thisWeek, value: weeklyProjects, icon: TrendingUp, color: "text-green-400", sub: wo.newAnalyses },
+          ].map(({ label, value, icon: Icon, color, sub }) => (
             <div key={label} className="glass-card rounded-xl p-4 text-center">
               <Icon className={`h-4 w-4 ${color} mx-auto mb-2 opacity-70`} />
               <p className={`text-2xl font-black ${color}`}>{value}</p>
@@ -342,7 +344,7 @@ export function CommandCenterOverview({
           className="text-center py-8 text-muted-foreground/40"
         >
           <Sparkles className="h-8 w-8 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">No projects yet — run your first analysis to get started.</p>
+          <p className="text-sm">{wo.noProjects}</p>
         </motion.div>
       )}
 

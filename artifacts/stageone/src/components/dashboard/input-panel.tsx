@@ -4,77 +4,50 @@ import {
   Sparkles, Loader2, Zap, ShoppingBag, HeartPulse, GraduationCap,
   DollarSign, Shield, Users, Rocket, ChevronDown, ChevronUp, Wand2,
 } from "lucide-react"
+import { useLang } from "@/lib/i18n"
 
 interface InputPanelProps {
   onGenerate: (idea: string) => void
   isLoading: boolean
 }
 
-const INDUSTRY_TEMPLATES = [
-  {
-    icon: Zap,
-    label: "SaaS",
-    color: "text-blue-400",
-    idea: "B2B SaaS platform that helps [target team] automate [core workflow] using AI, with a subscription model targeting SMEs.",
-  },
-  {
-    icon: ShoppingBag,
-    label: "E-commerce",
-    color: "text-orange-400",
-    idea: "Direct-to-consumer brand selling [product] with a subscription box model, targeting [audience] through social commerce and influencer partnerships.",
-  },
-  {
-    icon: HeartPulse,
-    label: "Health",
-    color: "text-rose-400",
-    idea: "Digital health platform connecting patients with [specialist type] for telehealth consultations, using AI diagnostics and insurance integrations.",
-  },
-  {
-    icon: GraduationCap,
-    label: "EdTech",
-    color: "text-green-400",
-    idea: "Online learning platform teaching [skill/subject] to [audience] through AI-personalized courses and live cohort-based programs.",
-  },
-  {
-    icon: DollarSign,
-    label: "Fintech",
-    color: "text-yellow-400",
-    idea: "Fintech app that provides [financial service] to [underserved segment] using embedded finance infrastructure and open banking APIs.",
-  },
-  {
-    icon: Shield,
-    label: "Cybersecurity",
-    color: "text-purple-400",
-    idea: "Enterprise cybersecurity SaaS that uses AI to detect and respond to threats in real-time, targeting mid-market companies with compliance needs.",
-  },
-  {
-    icon: Users,
-    label: "Marketplace",
-    color: "text-cyan-400",
-    idea: "Two-sided marketplace connecting [service providers] with [buyers] in the [industry] space, with vetted listings and escrow-based payments.",
-  },
-  {
-    icon: Rocket,
-    label: "Agency",
-    color: "text-pink-400",
-    idea: "AI-powered marketing agency that delivers [specific output] for [industry] clients using automated creative generation and performance tracking.",
-  },
+const INDUSTRY_TEMPLATE_IDEAS = [
+  "B2B SaaS platform that helps [target team] automate [core workflow] using AI, with a subscription model targeting SMEs.",
+  "Direct-to-consumer brand selling [product] with a subscription box model, targeting [audience] through social commerce and influencer partnerships.",
+  "Digital health platform connecting patients with [specialist type] for telehealth consultations, using AI diagnostics and insurance integrations.",
+  "Online learning platform teaching [skill/subject] to [audience] through AI-personalized courses and live cohort-based programs.",
+  "Fintech app that provides [financial service] to [underserved segment] using embedded finance infrastructure and open banking APIs.",
+  "Enterprise cybersecurity SaaS that uses AI to detect and respond to threats in real-time, targeting mid-market companies with compliance needs.",
+  "Two-sided marketplace connecting [service providers] with [buyers] in the [industry] space, with vetted listings and escrow-based payments.",
+  "AI-powered marketing agency that delivers [specific output] for [industry] clients using automated creative generation and performance tracking.",
 ]
 
-const TRENDING_IDEAS = [
-  "AI scheduling assistant for healthcare clinics that handles patient booking, reminders, and follow-ups automatically",
-  "B2B SaaS for restaurant chains to manage inventory, waste reduction, and supplier ordering with predictive AI",
-  "Marketplace for freelance AI engineers connecting enterprises with vetted specialists for 90-day project contracts",
-  "White-label fintech platform for credit unions to offer digital-first banking to Gen Z customers",
+const TEMPLATE_ICONS = [Zap, ShoppingBag, HeartPulse, GraduationCap, DollarSign, Shield, Users, Rocket]
+const TEMPLATE_COLORS = [
+  "text-blue-400", "text-orange-400", "text-rose-400", "text-green-400",
+  "text-yellow-400", "text-purple-400", "text-cyan-400", "text-pink-400",
 ]
 
 export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
+  const { t } = useLang()
+  const wi = t.workspace.input
   const [idea, setIdea] = useState("")
   const [focused, setFocused] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
   const [enhancing, setEnhancing] = useState(false)
   const [enhancedFrom, setEnhancedFrom] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const templateLabels = [
+    wi.templateLabels.saas,
+    wi.templateLabels.ecommerce,
+    wi.templateLabels.health,
+    wi.templateLabels.edtech,
+    wi.templateLabels.fintech,
+    wi.templateLabels.cybersecurity,
+    wi.templateLabels.marketplace,
+    wi.templateLabels.agency,
+  ]
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,10 +99,10 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
           <div className="h-5 w-5 rounded bg-primary/10 border border-primary/20 flex items-center justify-center">
             <Sparkles className="h-3 w-3 text-primary" />
           </div>
-          <h2 className="text-base font-black text-foreground tracking-tight">Business Intelligence</h2>
+          <h2 className="text-base font-black text-foreground tracking-tight">{wi.title}</h2>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Describe your business concept — the more specific, the sharper the analysis.
+          {wi.subtitle}
         </p>
       </div>
 
@@ -151,11 +124,10 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
               onChange={(e) => setIdea(e.target.value.slice(0, charLimit))}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder="E.g. A B2B SaaS platform that helps e-commerce brands automate customer support using AI, with integrations for Shopify and Klaviyo, targeting stores doing $1M–$10M revenue..."
+              placeholder={wi.placeholder}
               className="h-full min-h-[180px] w-full resize-none rounded-xl border-0 bg-secondary/30 p-4 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
               disabled={isLoading}
             />
-            {/* Animated border glow */}
             <AnimatePresence>
               {focused && (
                 <motion.div
@@ -187,13 +159,13 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
               className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2"
             >
               <Wand2 className="h-3 w-3 text-primary shrink-0" />
-              <p className="text-[10px] text-primary/80 flex-1">Idea enhanced by AI — review and refine if needed</p>
+              <p className="text-[10px] text-primary/80 flex-1">{wi.ideaEnhanced}</p>
               <button
                 type="button"
                 onClick={() => { setIdea(enhancedFrom); setEnhancedFrom(null) }}
                 className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
               >
-                Undo
+                {wi.undo}
               </button>
             </motion.div>
           )}
@@ -208,9 +180,9 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
             className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/30 px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {enhancing ? (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enhancing…</>
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {wi.enhancing}</>
             ) : (
-              <><Wand2 className="h-3.5 w-3.5" /> Enhance Idea</>
+              <><Wand2 className="h-3.5 w-3.5" /> {wi.enhanceIdea}</>
             )}
           </button>
 
@@ -220,9 +192,9 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 shadow-[0_0_20px_rgba(212,175,55,0.2)] hover:shadow-[0_0_28px_rgba(212,175,55,0.35)]"
           >
             {isLoading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> {wi.generating}</>
             ) : (
-              <><Sparkles className="h-4 w-4" /> Generate Intelligence</>
+              <><Sparkles className="h-4 w-4" /> {wi.generateIntelligence}</>
             )}
           </button>
         </div>
@@ -234,7 +206,7 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
           onClick={() => setShowTemplates(v => !v)}
           className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors mb-3"
         >
-          <span>Industry Templates</span>
+          <span>{wi.industryTemplates}</span>
           {showTemplates ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
 
@@ -247,20 +219,24 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
               className="overflow-hidden"
             >
               <div className="grid grid-cols-4 gap-1.5 mb-4">
-                {INDUSTRY_TEMPLATES.map((t, i) => (
-                  <motion.button
-                    key={t.label}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 0.04 }}
-                    onClick={() => applyTemplate(t.idea)}
-                    disabled={isLoading}
-                    className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-secondary/20 p-2.5 hover:border-primary/30 hover:bg-primary/5 transition-all disabled:opacity-40 group"
-                  >
-                    <t.icon className={`h-4 w-4 ${t.color} group-hover:scale-110 transition-transform`} />
-                    <span className="text-[9px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{t.label}</span>
-                  </motion.button>
-                ))}
+                {templateLabels.map((label, i) => {
+                  const Icon = TEMPLATE_ICONS[i]
+                  const color = TEMPLATE_COLORS[i]
+                  return (
+                    <motion.button
+                      key={label}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.04 }}
+                      onClick={() => applyTemplate(INDUSTRY_TEMPLATE_IDEAS[i])}
+                      disabled={isLoading}
+                      className="flex flex-col items-center gap-1.5 rounded-xl border border-border/40 bg-secondary/20 p-2.5 hover:border-primary/30 hover:bg-primary/5 transition-all disabled:opacity-40 group"
+                    >
+                      <Icon className={`h-4 w-4 ${color} group-hover:scale-110 transition-transform`} />
+                      <span className="text-[9px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors">{label}</span>
+                    </motion.button>
+                  )
+                })}
               </div>
             </motion.div>
           )}
@@ -268,9 +244,9 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
 
         {/* Trending ideas */}
         <div>
-          <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.15em] mb-2">Trending Ideas</p>
+          <p className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.15em] mb-2">{wi.trendingIdeas}</p>
           <div className="space-y-1.5">
-            {TRENDING_IDEAS.map((example, i) => (
+            {wi.trendingList.map((example, i) => (
               <motion.button
                 key={i}
                 initial={{ opacity: 0, x: -8 }}
