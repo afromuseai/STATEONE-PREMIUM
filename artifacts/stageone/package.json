@@ -71,6 +71,7 @@
     "wouter": "catalog:"
   },
   "dependencies": {
+    "@emotion/is-prop-valid": "^1.4.0",
     "jszip": "^3.10.1"
   }
 }
