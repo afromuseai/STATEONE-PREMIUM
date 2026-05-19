@@ -872,17 +872,9 @@ export function Hero() {
           backgroundImage: "linear-gradient(to right, rgba(184,145,68,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(184,145,68,0.03) 1px, transparent 1px)",
           backgroundSize: "80px 80px",
         }} />
-        {/* Top fade — smooth reveal from top */}
-        <div className="absolute inset-x-0 top-0 h-[280px]" style={{
-          background: "linear-gradient(to bottom, #050505 30%, rgba(5,5,5,0.6) 60%, transparent 100%)",
-        }} />
-        {/* Top-right corner fade — diagonal blend */}
-        <div className="absolute top-0 right-0 w-[55%] h-[320px]" style={{
-          background: "linear-gradient(135deg, transparent 30%, rgba(5,5,5,0.55) 60%, #050505 100%)",
-        }} />
-        {/* Right-edge fade */}
-        <div className="absolute inset-y-0 right-0 w-[8%]" style={{
-          background: "linear-gradient(to left, #050505 0%, transparent 100%)",
+        {/* Top fade — full-width smooth dissolve into dark background */}
+        <div className="absolute inset-x-0 top-0 h-[340px]" style={{
+          background: "linear-gradient(to bottom, #050505 0%, #050505 18%, rgba(5,5,5,0.85) 40%, rgba(5,5,5,0.4) 65%, transparent 100%)",
         }} />
       </div>
 
