@@ -16,7 +16,6 @@ export function Features() {
       }} />
 
       <div className="relative mx-auto max-w-[1320px] px-8 lg:px-12">
-
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -40,13 +39,7 @@ export function Features() {
           </p>
         </motion.div>
 
-        <div className="grid gap-px md:grid-cols-2 lg:grid-cols-3"
-          style={{
-            background: "rgba(184,145,68,0.08)",
-            borderRadius: "20px",
-            overflow: "hidden",
-            border: "1px solid rgba(184,145,68,0.10)",
-          }}>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {t.features.items.map((f, i) => {
             const Icon = ICONS[i]
             return (
@@ -56,10 +49,14 @@ export function Features() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.07 }}
-                className="group relative p-8 flex flex-col gap-5 transition-colors duration-300"
-                style={{ background: "var(--lp-section-bg)" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(184,145,68,0.04)")}
-                onMouseLeave={e => (e.currentTarget.style.background = "var(--lp-section-bg)")}
+                className="group relative p-8 flex flex-col gap-5 rounded-2xl transition-all duration-300"
+                style={{
+                  background: "var(--lp-card-bg)",
+                  border: "1px solid var(--lp-border-md)",
+                  boxShadow: "0 2px 16px rgba(0,0,0,0.08)",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(184,145,68,0.25)")}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--lp-border-md)")}
               >
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl"
                   style={{ background: "rgba(184,145,68,0.07)", border: "1px solid rgba(184,145,68,0.18)" }}>

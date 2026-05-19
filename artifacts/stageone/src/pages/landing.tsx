@@ -9,21 +9,24 @@ import { Features } from "@/components/landing/features"
 import { Trust } from "@/components/landing/trust"
 import { CTA } from "@/components/landing/cta"
 import { Footer } from "@/components/footer"
+import { ThemeWrapper } from "@/lib/theme-context"
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-background">
-      <Navbar />
-      <Hero />
-      <LogoMarquee />
-      <OSShowcase />
-      <HowItWorks />
-      <Features />
-      <Trust />
-      <CTA />
-      <Footer />
-      <BackToTop />
-      <CookieBanner />
-    </main>
+    <ThemeWrapper>
+      <main className="min-h-screen bg-background">
+        <Navbar />
+        <Hero />
+        <LogoMarquee />
+        <OSShowcase />
+        <HowItWorks />
+        <Features />
+        <Trust />
+        <CTA />
+        <Footer />
+        <BackToTop />
+        <CookieBanner />
+      </main>
+    </ThemeWrapper>
   )
 }

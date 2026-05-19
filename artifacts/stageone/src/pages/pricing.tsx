@@ -5,6 +5,7 @@ import { Check, ArrowRight, ChevronDown, Zap, Crown, Rocket, Building2, Loader2,
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { useAuth } from "@/lib/auth-context"
+import { ThemeWrapper } from "@/lib/theme-context"
 
 const PLANS = [
   {
@@ -382,7 +383,8 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <ThemeWrapper>
+    <div style={{ minHeight: "100vh", background: "var(--background)" }}>
       <Navbar />
 
       <AnimatePresence>
@@ -446,12 +448,17 @@ export default function PricingPage() {
                     transition={{ duration: 0.5, delay: i * 0.08 }}
                     className={`relative rounded-2xl border p-7 flex flex-col ${
                       plan.comingSoon
-                        ? "border-white/5 bg-white/[0.01] opacity-70"
+                        ? "opacity-70"
                         : plan.highlight
                         ? "border-primary/40 bg-primary/[0.04]"
-                        : "border-white/8 bg-white/[0.02]"
+                        : ""
                     }`}
-                    style={plan.highlight ? { boxShadow: "0 0 60px oklch(0.75 0.12 85 / 0.10), 0 0 0 1px oklch(0.75 0.12 85 / 0.15)" } : {}}
+                    style={plan.comingSoon
+                      ? { borderColor: "var(--border)", background: "var(--card)" }
+                      : plan.highlight
+                      ? { boxShadow: "0 0 60px oklch(0.75 0.12 85 / 0.10), 0 0 0 1px oklch(0.75 0.12 85 / 0.15)" }
+                      : { borderColor: "var(--border)", background: "var(--card)" }
+                    }
                   >
                     {plan.badge && !plan.comingSoon && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-[10px] font-semibold text-primary-foreground whitespace-nowrap">
@@ -504,7 +511,8 @@ export default function PricingPage() {
                     {plan.comingSoon ? (
                       <button
                         disabled
-                        className="w-full inline-flex h-10 items-center justify-center rounded-xl text-sm font-semibold gap-2 border border-white/8 bg-white/3 text-muted-foreground/50 cursor-not-allowed"
+                        className="w-full inline-flex h-10 items-center justify-center rounded-xl text-sm font-semibold gap-2 text-muted-foreground/50 cursor-not-allowed"
+                        style={{ border: "1px solid var(--border)", background: "var(--muted)" }}
                       >
                         <Lock className="w-3.5 h-3.5" />
                         Join Waitlist
@@ -516,10 +524,9 @@ export default function PricingPage() {
                         className={`w-full inline-flex h-10 items-center justify-center rounded-xl text-sm font-semibold gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
                           plan.highlight
                             ? "bg-primary text-primary-foreground hover:bg-primary/90 gold-glow"
-                            : isCurrent
-                            ? "bg-white/5 text-muted-foreground"
-                            : "border border-white/10 bg-white/5 text-foreground hover:bg-white/8"
+                            : "text-foreground hover:opacity-80"
                         }`}
+                        style={!plan.highlight ? { border: "1px solid var(--border)", background: "var(--muted)" } : undefined}
                       >
                         {isUpgrading ? (
                           <><Loader2 className="w-3.5 h-3.5 animate-spin" />Processing...</>
@@ -557,9 +564,9 @@ export default function PricingPage() {
               transition={{ duration: 0.5 }}
             >
               <h2 className="text-xl font-bold text-foreground text-center mb-8">Full feature comparison</h2>
-              <div className="rounded-2xl border border-white/8 overflow-hidden">
+              <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
                 {/* Table header */}
-                <div className="grid grid-cols-4 bg-white/[0.02] border-b border-white/8">
+                <div className="grid grid-cols-4 border-b" style={{ background: "var(--muted)", borderColor: "var(--border)" }}>
                   <div className="px-5 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Feature</div>
                   {[
                     { name: "Free", color: "#10B981" },
@@ -575,7 +582,8 @@ export default function PricingPage() {
                 {COMPARISON_ROWS.map((row, i) => (
                   <div
                     key={row.label}
-                    className={`grid grid-cols-4 border-b border-white/5 last:border-0 ${i % 2 === 0 ? "bg-white/[0.005]" : ""}`}
+                    className={`grid grid-cols-4 last:border-0`}
+                    style={{ borderBottom: "1px solid var(--border)", background: i % 2 === 0 ? "var(--muted)" : "var(--background)" }}
                   >
                     <div className="px-5 py-3.5 text-xs text-muted-foreground font-medium">{row.label}</div>
                     {([row.free, row.pro, row.startup] as (boolean | string)[]).map((val, j) => (
@@ -583,7 +591,7 @@ export default function PricingPage() {
                         {val === true ? (
                           <Check className="h-3.5 w-3.5 text-emerald-400" />
                         ) : val === false ? (
-                          <span className="h-[2px] w-4 rounded bg-white/10 block" />
+                          <span className="h-[2px] w-4 rounded block" style={{ background: "var(--border)" }} />
                         ) : (
                           <span className="text-[11px] font-semibold text-foreground/80">{val}</span>
                         )}
@@ -604,7 +612,8 @@ export default function PricingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="rounded-2xl border border-white/8 bg-white/[0.02] p-10 text-center"
+              className="rounded-2xl p-10 text-center"
+              style={{ border: "1px solid var(--border)", background: "var(--card)" }}
             >
               <h2 className="text-2xl font-bold text-foreground mb-3">
                 Not another SaaS tool. A business operating system.
@@ -636,7 +645,8 @@ export default function PricingPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4, delay: i * 0.05 }}
-                  className="rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden"
+                  className="rounded-xl overflow-hidden"
+                  style={{ border: "1px solid var(--border)", background: "var(--card)" }}
                 >
                   <button
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
@@ -683,5 +693,6 @@ export default function PricingPage() {
 
       <Footer />
     </div>
+    </ThemeWrapper>
   )
 }

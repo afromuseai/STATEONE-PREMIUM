@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useLocation, Link } from "wouter"
 import { motion } from "framer-motion"
 import { useAuth } from "@/lib/auth-context"
+import { ThemeWrapper } from "@/lib/theme-context"
 import { Loader2, Mail, Lock, ArrowRight, Eye, EyeOff, Shield } from "lucide-react"
 import logoImg from "@assets/ChatGPT_Image_May_9__2026__02_48_29_AM-removebg-preview_1778518770581.png"
 import authBg from "@assets/image_1779169751394.png"
@@ -62,7 +63,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <ThemeWrapper>
+    <div className="flex" style={{ minHeight: "100vh", background: "var(--background)" }}>
       <div className="flex-1 flex items-center justify-center p-8 relative overflow-hidden">
         {/* Logo — absolute top-left corner */}
         <Link href="/" className="absolute top-6 left-8 z-20 flex items-center gap-2">
@@ -111,7 +113,8 @@ export default function LoginPage() {
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within:text-primary/70 transition-colors duration-200" />
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="you@company.com" required
-                  className="w-full rounded-xl border border-white/8 bg-white/[0.03] pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/40 focus:bg-primary/[0.025] transition-all duration-200 backdrop-blur-sm"
+                  className="w-full rounded-xl pl-10 pr-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all duration-200"
+                  style={{ border: "1px solid var(--border)", background: "var(--input)" }}
                 />
               </div>
             </div>
@@ -122,7 +125,8 @@ export default function LoginPage() {
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within:text-primary/70 transition-colors duration-200" />
                 <input type={showPassword ? "text" : "password"} value={password}
                   onChange={e => setPassword(e.target.value)} placeholder="Enter your password" required
-                  className="w-full rounded-xl border border-white/8 bg-white/[0.03] pl-10 pr-11 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/40 focus:bg-primary/[0.025] transition-all duration-200 backdrop-blur-sm"
+                  className="w-full rounded-xl pl-10 pr-11 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all duration-200"
+                  style={{ border: "1px solid var(--border)", background: "var(--input)" }}
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors"
@@ -177,9 +181,10 @@ export default function LoginPage() {
         </motion.div>
       </div>
 
-      <div className="hidden lg:block lg:w-[52%] border-l border-white/5 h-screen sticky top-0">
+      <div className="hidden lg:block lg:w-[52%] h-screen sticky top-0" style={{ borderLeft: "1px solid var(--border)" }}>
         <OSPanel />
       </div>
     </div>
+    </ThemeWrapper>
   )
 }
