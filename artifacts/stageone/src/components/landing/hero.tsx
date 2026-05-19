@@ -52,6 +52,7 @@ function TypingText() {
       WebkitTextFillColor: "transparent",
       backgroundClip: "text",
       filter: "drop-shadow(0 0 40px oklch(0.75 0.12 85 / 0.25))",
+      whiteSpace: "nowrap",
     }}>
       {displayed}
       <motion.span
@@ -615,9 +616,13 @@ export function Hero() {
           backgroundImage: "linear-gradient(to right, rgba(184,145,68,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(184,145,68,0.03) 1px, transparent 1px)",
           backgroundSize: "80px 80px",
         }} />
-        {/* Top-right corner patch — hides baked-in card from source image */}
-        <div className="absolute top-0 right-0 w-[18%] h-[12%]" style={{
-          background: "linear-gradient(225deg, #050505 30%, transparent 100%)",
+        {/* Top strip — covers baked-in card */}
+        <div className="absolute inset-x-0 top-0 h-[130px]" style={{
+          background: "linear-gradient(to bottom, #050505 70%, transparent 100%)",
+        }} />
+        {/* Right-edge strip — additional coverage for top-right card */}
+        <div className="absolute top-0 right-0 w-[12%] h-[160px]" style={{
+          background: "linear-gradient(to left, #050505 60%, transparent 100%)",
         }} />
       </div>
 
@@ -653,7 +658,7 @@ export function Hero() {
             style={{ fontSize: "clamp(2.8rem, 5.5vw, 4.8rem)" }}
           >
             The AI Operating System for
-            <span className="block mt-1" style={{ minHeight: "1.15em" }}><TypingText /></span>
+            <span className="block mt-1" style={{ height: "1.15em", overflow: "hidden" }}><TypingText /></span>
           </motion.h1>
 
           {/* Thin gold rule */}
