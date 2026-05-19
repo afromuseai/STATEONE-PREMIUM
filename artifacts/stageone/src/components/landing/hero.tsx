@@ -6,25 +6,19 @@ import {
 } from "lucide-react"
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
+import { useLang } from "@/lib/i18n"
 import heroVisual from "@assets/ChatGPT_Image_May_19,_2026,_05_20_34_AM_1779168162338.png"
 
 /* ─── Typing headline ─────────────────────────────────────────────── */
-const BUSINESS_TYPES = [
-  "Modern Businesses.",
-  "SaaS Startups.",
-  "E-commerce Brands.",
-  "Creative Agencies.",
-  "Tech Founders.",
-  "Service Companies.",
-]
-
-function TypingText() {
+function TypingText({ businessTypes }: { businessTypes: readonly string[] }) {
   const [index, setIndex] = useState(0)
   const [displayed, setDisplayed] = useState("")
   const [phase, setPhase] = useState<"typing" | "pause" | "erasing">("typing")
 
   useEffect(() => {
-    const target = BUSINESS_TYPES[index]
+    if (!businessTypes?.length) return
+    const safeIndex = index % businessTypes.length
+    const target = businessTypes[safeIndex]
     let timeout: ReturnType<typeof setTimeout>
 
     if (phase === "typing") {
@@ -39,12 +33,12 @@ function TypingText() {
       if (displayed.length > 0) {
         timeout = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 30)
       } else {
-        setIndex((i) => (i + 1) % BUSINESS_TYPES.length)
+        setIndex((i) => (i + 1) % businessTypes.length)
         setPhase("typing")
       }
     }
     return () => clearTimeout(timeout)
-  }, [displayed, phase, index])
+  }, [displayed, phase, index, businessTypes])
 
   return (
     <span style={{ whiteSpace: "nowrap", display: "inline-flex", alignItems: "baseline" }}>
@@ -505,11 +499,12 @@ function Card({ children, delay = 0, gold = false }: {
 
 /* ─── Metrics strip ────────────────────────────────────────────────── */
 function MetricsStrip() {
+  const { t } = useLang()
   const metrics = [
-    { label: "Businesses Built", value: 2400, suffix: "+", icon: "◈" },
-    { label: "AI Models Active", value: 13, suffix: "", icon: "⬡" },
-    { label: "Avg. Time to Launch", value: 47, suffix: "s", icon: "◎" },
-    { label: "Uptime SLA", value: 99, suffix: ".9%", icon: "◇" },
+    { label: t.hero.metrics.businessesBuilt, value: 2400, suffix: "+", icon: "◈" },
+    { label: t.hero.metrics.aiModels, value: 13, suffix: "", icon: "⬡" },
+    { label: t.hero.metrics.avgLaunch, value: 47, suffix: "s", icon: "◎" },
+    { label: t.hero.metrics.uptime, value: 99, suffix: ".9%", icon: "◇" },
   ]
 
   return (
@@ -852,6 +847,7 @@ function HeroParticles() {
 /* ─── Hero ─────────────────────────────────────────────────────────── */
 export function Hero() {
   const { user } = useAuth()
+  const { t } = useLang()
   const ref = useRef<HTMLElement>(null)
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] })
   const parallaxY = useSpring(useTransform(scrollYProgress, [0, 1], [0, 80]), { stiffness: 80, damping: 20 })
@@ -907,7 +903,7 @@ export function Hero() {
             <motion.div className="w-1.5 h-1.5 rounded-full" style={{ background: "oklch(0.75 0.12 85)" }}
               animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "oklch(0.75 0.12 85)" }}>
-              AI Business Operating System
+              {t.hero.badge}
             </span>
           </motion.div>
 
@@ -919,8 +915,8 @@ export function Hero() {
             className="font-black tracking-[-0.03em] text-white leading-[1.02]"
             style={{ fontSize: "clamp(2.8rem, 5.5vw, 4.8rem)" }}
           >
-            The AI Operating System for
-            <span className="block mt-1" style={{ height: "1.15em" }}><TypingText /></span>
+            {t.hero.headline1}
+            <span className="block mt-1" style={{ height: "1.15em" }}><TypingText businessTypes={t.hero.businessTypes} /></span>
           </motion.h1>
 
           {/* Thin gold rule */}
@@ -939,8 +935,7 @@ export function Hero() {
             className="text-[15px] leading-[1.75]"
             style={{ color: "rgba(255,255,255,0.50)" }}
           >
-            Build, orchestrate, and scale through one unified AI intelligence platform —
-            strategy, websites, execution, memory, and operations in one environment.
+            {t.hero.subHeadline}
           </motion.p>
 
           {/* CTAs */}
@@ -962,7 +957,7 @@ export function Hero() {
                 style={{ background: "linear-gradient(135deg, oklch(0.88 0.16 85), oklch(0.76 0.13 85))" }}
                 initial={{ opacity: 0 }} whileHover={{ opacity: 1 }} transition={{ duration: 0.15 }}
               />
-              <span className="relative">Start Building</span>
+              <span className="relative">{t.hero.ctaPrimary}</span>
               <ArrowRight className="relative h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
 
@@ -976,7 +971,7 @@ export function Hero() {
               }}
             >
               <Play className="h-3 w-3 opacity-60" />
-              See How It Works
+              {t.hero.ctaSecondary}
             </a>
           </motion.div>
 
@@ -991,9 +986,9 @@ export function Hero() {
                 <span key={i} style={{ color: "oklch(0.75 0.12 85)", fontSize: "11px" }}>★</span>
               ))}
             </div>
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>Trusted by 2,400+ builders</span>
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>{t.hero.trustedBy}</span>
             <div className="h-3 w-px" style={{ background: "rgba(255,255,255,0.10)" }} />
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>No credit card required</span>
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>{t.hero.noCreditCard}</span>
           </motion.div>
         </div>
       </div>

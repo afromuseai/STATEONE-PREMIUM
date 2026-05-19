@@ -1,9 +1,13 @@
 import { Link } from "wouter"
 import logoImg from "@assets/ChatGPT_Image_May_9__2026__02_48_29_AM-removebg-preview_1778518770581.png"
+import { useLang } from "@/lib/i18n"
 
 export function Footer() {
+  const { t } = useLang()
+
   return (
-    <footer className="border-t border-white/5 bg-black/40 backdrop-blur-sm">
+    <footer className="border-t backdrop-blur-sm transition-colors duration-300"
+      style={{ borderColor: "var(--lp-border-sub)", background: "var(--lp-footer-bg)" }}>
       <div className="mx-auto max-w-7xl px-6 py-12">
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4 mb-10">
           <div className="col-span-2 md:col-span-1">
@@ -14,47 +18,47 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-[200px]">
-              The AI Business Operating System for modern operators.
+              {t.footer.tagline}
             </p>
           </div>
           <div>
-            <h4 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">Platform</h4>
+            <h4 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">{t.footer.platform}</h4>
             <div className="space-y-2">
-              <a href="/#features" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">Features</a>
-              <a href="/#how-it-works" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
-              <Link href="/pricing" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
-              <Link href="/dashboard" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">Dashboard</Link>
+              <a href="/#features" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.features}</a>
+              <a href="/#how-it-works" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.howItWorks}</a>
+              <Link href="/pricing" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.pricing}</Link>
+              <Link href="/dashboard" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.dashboard}</Link>
             </div>
           </div>
           <div>
-            <h4 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">Tools</h4>
+            <h4 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">{t.footer.tools}</h4>
             <div className="space-y-2">
-              <Link href="/dashboard" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">Business Intelligence</Link>
-              <Link href="/dashboard" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">Website Architect</Link>
-              <Link href="/agents" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">AI Agents</Link>
-              <Link href="/developer" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">Developer API</Link>
+              <Link href="/dashboard" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.businessIntelligence}</Link>
+              <Link href="/dashboard" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.websiteArchitect}</Link>
+              <Link href="/agents" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.aiAgents}</Link>
+              <Link href="/developer" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.developerApi}</Link>
             </div>
           </div>
           <div>
-            <h4 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">Account</h4>
+            <h4 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider">{t.footer.account}</h4>
             <div className="space-y-2">
-              <Link href="/login" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">Sign In</Link>
-              <Link href="/signup" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">Create Account</Link>
-              <Link href="/settings" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">Settings</Link>
+              <Link href="/login" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.signIn}</Link>
+              <Link href="/signup" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.createAccount}</Link>
+              <Link href="/settings" className="block text-xs text-muted-foreground hover:text-foreground transition-colors">{t.footer.settings}</Link>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-white/5">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t"
+          style={{ borderColor: "var(--lp-border-sub)" }}>
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} STAGEONE. All rights reserved.
+            © {new Date().getFullYear()} STAGEONE. {t.footer.rights}
           </p>
           <p className="text-xs text-muted-foreground">
-            Built with multi-model AI infrastructure.
+            {t.footer.builtWith}
           </p>
         </div>
 
-        {/* Brand attribution */}
         <div className="mt-8 text-center">
           <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-muted-foreground/50">
             StageOne by{" "}

@@ -7,6 +7,8 @@ import { BusinessContextProvider } from "@/lib/business-context";
 import { OSProvider } from "@/lib/os-context";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { CopilotPanel } from "@/components/copilot/copilot-panel";
+import { ThemeProvider } from "@/lib/theme-context";
+import { LangProvider } from "@/lib/i18n";
 import { Toaster } from "sonner";
 import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
@@ -142,20 +144,24 @@ function Router() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BusinessContextProvider>
-          <OSProvider>
-          <NotificationsProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <AnimatedRoutes />
-              <CopilotPanel />
-            </WouterRouter>
-            <Toaster position="bottom-right" richColors theme="dark" />
-          </NotificationsProvider>
-          </OSProvider>
-        </BusinessContextProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <LangProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <BusinessContextProvider>
+              <OSProvider>
+                <NotificationsProvider>
+                  <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                    <AnimatedRoutes />
+                    <CopilotPanel />
+                  </WouterRouter>
+                  <Toaster position="bottom-right" richColors theme="dark" />
+                </NotificationsProvider>
+              </OSProvider>
+            </BusinessContextProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </LangProvider>
+    </ThemeProvider>
   );
 }
