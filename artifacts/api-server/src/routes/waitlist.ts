@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { db } from "../lib/db";
-import { waitlistTable } from "@workspace/db";
+import { db, waitlistTable } from "@workspace/db";
 import { requireAuth } from "../middleware/auth";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
