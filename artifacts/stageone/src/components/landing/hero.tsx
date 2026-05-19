@@ -47,20 +47,30 @@ function TypingText() {
   }, [displayed, phase, index])
 
   return (
-    <span style={{
-      background: "linear-gradient(135deg, oklch(0.92 0.16 85) 0%, oklch(0.80 0.14 85) 40%, oklch(0.65 0.10 85) 100%)",
-      WebkitBackgroundClip: "text",
-      WebkitTextFillColor: "transparent",
-      backgroundClip: "text",
-      filter: "drop-shadow(0 0 40px oklch(0.75 0.12 85 / 0.25))",
-      whiteSpace: "nowrap",
-    }}>
-      {displayed}
+    <span style={{ whiteSpace: "nowrap", display: "inline-flex", alignItems: "baseline" }}>
+      <span style={{
+        background: "linear-gradient(135deg, oklch(0.92 0.16 85) 0%, oklch(0.80 0.14 85) 40%, oklch(0.65 0.10 85) 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+        filter: "drop-shadow(0 0 40px oklch(0.75 0.12 85 / 0.25))",
+      }}>
+        {displayed}
+      </span>
       <motion.span
-        animate={{ opacity: [1, 0] }}
-        transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
-        style={{ WebkitTextFillColor: "oklch(0.75 0.12 85 / 0.8)" }}
-      >|</motion.span>
+        animate={{ opacity: [1, 1, 0, 0] }}
+        transition={{ duration: 1, repeat: Infinity, repeatType: "loop", times: [0, 0.45, 0.55, 1] }}
+        style={{
+          display: "inline-block",
+          width: "3px",
+          marginLeft: "4px",
+          borderRadius: "2px",
+          alignSelf: "stretch",
+          background: "oklch(0.82 0.14 85)",
+          boxShadow: "0 0 12px oklch(0.75 0.12 85 / 0.6)",
+          verticalAlign: "middle",
+        }}
+      />
     </span>
   )
 }
