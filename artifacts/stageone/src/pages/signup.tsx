@@ -12,7 +12,8 @@ function OSPanel() {
       <img
         src="/auth-bg.png"
         alt="STAGEONE OS"
-        className="absolute inset-0 w-full h-full object-cover object-center"
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ objectPosition: "70% center" }}
       />
       {/* Subtle dark vignette on left edge */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-transparent pointer-events-none" />
@@ -57,10 +58,6 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <div className="hidden lg:block lg:w-[52%] border-r border-white/5 h-screen sticky top-0">
-        <OSPanel />
-      </div>
-
       <div className="flex-1 flex items-center justify-center p-8 relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
           <svg className="absolute inset-0 w-full h-full opacity-[0.02]">
@@ -186,6 +183,10 @@ export default function SignupPage() {
             By creating an account, you agree to our Terms of Service and Privacy Policy.
           </p>
         </motion.div>
+      </div>
+
+      <div className="hidden lg:block lg:w-[52%] border-l border-white/5 h-screen sticky top-0">
+        <OSPanel />
       </div>
     </div>
   )
