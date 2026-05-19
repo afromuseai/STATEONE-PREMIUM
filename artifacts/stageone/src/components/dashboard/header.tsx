@@ -17,11 +17,14 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
+  const { t } = useLang()
+  const d = t.dashboard
+
   const QUICK_LINKS = [
-    { label: "Business Intelligence", href: "/dashboard?tab=new", hint: "Generate AI analysis" },
-    { label: "Website Architect", href: "/website-generator", hint: "Build your website" },
+    { label: d.nav.businessIntelligence, href: "/dashboard?tab=new", hint: "Generate AI analysis" },
+    { label: d.nav.websiteGenerator, href: "/website-generator", hint: "Build your website" },
     { label: "AI Agent Store", href: "/agents", hint: "Browse 12 agents" },
-    { label: "Automation Builder", href: "/automation-builder", hint: "Create workflows" },
+    { label: d.nav.automationBuilder, href: "/automation-builder", hint: "Create workflows" },
     { label: "OS Command Center", href: "/os", hint: "Full system view" },
     { label: "AI Memory", href: "/memory", hint: "Your intelligence context" },
   ]
@@ -43,26 +46,26 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
         className="relative w-full max-w-xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="rounded-2xl border border-white/10 bg-[#0e0e0e]/95 backdrop-blur-2xl shadow-[0_32px_80px_rgba(0,0,0,0.8)] overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
+        <div className="rounded-2xl border border-border/30 bg-popover backdrop-blur-2xl shadow-[0_32px_80px_rgba(0,0,0,0.4)] overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border/20">
             <Search className="h-4 w-4 text-muted-foreground/60 shrink-0" />
             <input
               ref={inputRef}
-              placeholder="Search or jump to..."
+              placeholder={d.actions.search}
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
               onKeyDown={e => { if (e.key === "Escape") onClose() }}
             />
-            <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/5 text-muted-foreground/40 transition-colors">
+            <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted/50 text-muted-foreground/40 transition-colors">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
           <div className="p-2">
-            <p className="text-[10px] text-muted-foreground/30 font-semibold uppercase tracking-widest px-2 pt-1.5 pb-1.5">Quick Navigation</p>
+            <p className="text-[10px] text-muted-foreground/30 font-semibold uppercase tracking-widest px-2 pt-1.5 pb-1.5">{d.actions.searchShortcut}</p>
             {QUICK_LINKS.map(({ label, href, hint }) => (
               <button
                 key={href}
                 onClick={() => { navigate(href); onClose() }}
-                className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-white/4 transition-colors text-left group"
+                className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/40 transition-colors text-left group"
               >
                 <span className="text-sm text-foreground group-hover:text-primary transition-colors">{label}</span>
                 <span className="text-[10px] text-muted-foreground/40">{hint}</span>

@@ -97,6 +97,33 @@
 [data-theme="light"] .lp-white-50 { color: var(--lp-muted); }
 [data-theme="light"] .lp-bg-white-05 { background-color: var(--lp-overlay); }
 
+/* ── Light theme overrides for hardcoded dark backgrounds/text ──── */
+[data-theme="light"] .bg-\[\#050505\] { background-color: var(--background) !important; }
+[data-theme="light"] .bg-\[\#060606\] { background-color: var(--background) !important; }
+[data-theme="light"] .bg-\[\#070707\] { background-color: var(--background) !important; }
+[data-theme="light"] .bg-\[\#080808\] { background-color: var(--sidebar) !important; }
+[data-theme="light"] .bg-\[\#0a0a0a\] { background-color: var(--sidebar) !important; }
+[data-theme="light"] .bg-\[\#0e0e0e\]\/95 { background-color: oklch(0.96 0.003 80 / 0.97) !important; }
+[data-theme="light"] .bg-\[\#0f0f0f\] { background-color: var(--background) !important; }
+[data-theme="light"] .text-white { color: var(--foreground) !important; }
+[data-theme="light"] .border-white\/5 { border-color: oklch(0.10 0.01 60 / 0.08) !important; }
+[data-theme="light"] .border-white\/8 { border-color: oklch(0.10 0.01 60 / 0.10) !important; }
+[data-theme="light"] .border-white\/10 { border-color: oklch(0.10 0.01 60 / 0.12) !important; }
+[data-theme="light"] .bg-white\/3 { background-color: oklch(0.10 0.01 60 / 0.04) !important; }
+[data-theme="light"] .bg-white\/4 { background-color: oklch(0.10 0.01 60 / 0.05) !important; }
+[data-theme="light"] .bg-white\/5 { background-color: oklch(0.10 0.01 60 / 0.06) !important; }
+[data-theme="light"] .bg-white\/8 { background-color: oklch(0.10 0.01 60 / 0.07) !important; }
+[data-theme="light"] .bg-white\/10 { background-color: oklch(0.10 0.01 60 / 0.08) !important; }
+[data-theme="light"] .hover\:bg-white\/5:hover { background-color: oklch(0.10 0.01 60 / 0.06) !important; }
+[data-theme="light"] .hover\:bg-white\/8:hover { background-color: oklch(0.10 0.01 60 / 0.08) !important; }
+[data-theme="light"] .hover\:text-white:hover { color: var(--foreground) !important; }
+[data-theme="light"] .bg-black\/40 { background-color: oklch(0.90 0.004 80 / 0.80) !important; }
+[data-theme="light"] .bg-black\/50 { background-color: oklch(0.90 0.004 80 / 0.85) !important; }
+[data-theme="light"] .bg-black\/60 { background-color: oklch(0.10 0.01 60 / 0.40) !important; }
+[data-theme="light"] .text-white\/50 { color: oklch(0.10 0.01 60 / 0.55) !important; }
+[data-theme="light"] .text-white\/60 { color: oklch(0.10 0.01 60 / 0.65) !important; }
+[data-theme="light"] .text-white\/80 { color: oklch(0.10 0.01 60 / 0.85) !important; }
+
 .dark {
   --background: oklch(0.08 0 0);
   --foreground: oklch(0.95 0 0);

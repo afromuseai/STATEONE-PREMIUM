@@ -19,6 +19,7 @@ import {
   Shield,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { useLang } from "@/lib/i18n"
 
 interface AppSidebarProps {
   collapsed: boolean
@@ -26,31 +27,6 @@ interface AppSidebarProps {
   mobileOpen?: boolean
   onMobileClose?: () => void
 }
-
-const NAV_SECTIONS = [
-  {
-    label: "Generate",
-    items: [
-      { href: "/dashboard?tab=new", icon: BarChart3, label: "Business Intelligence" },
-      { href: "/website-generator", icon: Globe, label: "Website Generator" },
-      { href: "/chatbot-generator", icon: Bot, label: "AI Chatbot Generator" },
-      { href: "/automation-builder", icon: Workflow, label: "Automation Builder" },
-    ],
-  },
-  {
-    label: "Orchestrate",
-    items: [
-      { href: "/orchestrator", icon: Brain, label: "AI Orchestrator" },
-    ],
-  },
-  {
-    label: "Manage",
-    items: [
-      { href: "/dashboard?tab=projects", icon: FolderOpen, label: "Projects" },
-      { href: "/settings", icon: Settings, label: "Settings" },
-    ],
-  },
-]
 
 function SidebarContent({
   collapsed,
@@ -64,9 +40,36 @@ function SidebarContent({
   onMobileClose?: () => void
 }) {
   const { user, logout } = useAuth()
+  const { t } = useLang()
   const isAdmin = user?.isAdmin ?? false
   const [location] = useLocation()
   const search = useSearch()
+  const d = t.dashboard
+
+  const NAV_SECTIONS = [
+    {
+      label: d.sections.generate,
+      items: [
+        { href: "/dashboard?tab=new", icon: BarChart3, label: d.nav.businessIntelligence },
+        { href: "/website-generator", icon: Globe, label: d.nav.websiteGenerator },
+        { href: "/chatbot-generator", icon: Bot, label: d.nav.aiChatbot },
+        { href: "/automation-builder", icon: Workflow, label: d.nav.automationBuilder },
+      ],
+    },
+    {
+      label: d.sections.orchestrate,
+      items: [
+        { href: "/orchestrator", icon: Brain, label: d.nav.aiOrchestrator },
+      ],
+    },
+    {
+      label: d.sections.manage,
+      items: [
+        { href: "/dashboard?tab=projects", icon: FolderOpen, label: d.nav.projects },
+        { href: "/settings", icon: Settings, label: d.nav.settings },
+      ],
+    },
+  ]
 
   const isActive = (href: string) => {
     const base = href.split("?")[0]
@@ -83,7 +86,7 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex h-14 items-center justify-between border-b border-white/5 px-4 shrink-0">
+      <div className="flex h-14 items-center justify-between border-b border-border/20 px-4 shrink-0">
         <AnimatePresence mode="wait">
           {!effectiveCollapsed && (
             <motion.div
@@ -112,14 +115,14 @@ function SidebarContent({
         {isMobile ? (
           <button
             onClick={onMobileClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         ) : !effectiveCollapsed ? (
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -137,7 +140,7 @@ function SidebarContent({
                 className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all cursor-pointer group relative mb-1 ${
                   dashActive
                     ? "bg-primary/10 text-primary border border-primary/20 shadow-[inset_0_0_12px_rgba(212,175,55,0.05)]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/4 border border-transparent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border border-transparent"
                 } ${effectiveCollapsed ? "justify-center" : ""}`}
               >
                 <LayoutDashboard
@@ -152,7 +155,7 @@ function SidebarContent({
                       transition={{ duration: 0.12 }}
                       className="truncate flex-1 text-xs"
                     >
-                      Dashboard
+                      {d.nav.dashboard}
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -161,8 +164,8 @@ function SidebarContent({
                 )}
                 {effectiveCollapsed && (
                   <div className="pointer-events-none absolute left-full ml-3 hidden group-hover:flex items-center z-50">
-                    <div className="rounded-lg border border-white/10 bg-[#0e0e0e]/95 backdrop-blur px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap shadow-xl">
-                      Dashboard
+                    <div className="rounded-lg border border-border bg-popover backdrop-blur px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap shadow-xl">
+                      {d.nav.dashboard}
                     </div>
                   </div>
                 )}
@@ -180,7 +183,7 @@ function SidebarContent({
                 </p>
               </div>
             )}
-            {effectiveCollapsed && <div className="my-1 mx-2 h-px bg-white/5" />}
+            {effectiveCollapsed && <div className="my-1 mx-2 h-px bg-border/30" />}
 
             <div className="space-y-0.5">
               {section.items.map(({ href, icon: Icon, label }) => {
@@ -191,7 +194,7 @@ function SidebarContent({
                       className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all cursor-pointer group relative ${
                         active
                           ? "bg-primary/10 text-primary border border-primary/20 shadow-[inset_0_0_12px_rgba(212,175,55,0.05)]"
-                          : "text-muted-foreground hover:text-foreground hover:bg-white/4 border border-transparent"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/40 border border-transparent"
                       } ${effectiveCollapsed ? "justify-center" : ""}`}
                     >
                       <Icon
@@ -215,10 +218,9 @@ function SidebarContent({
                       {active && !effectiveCollapsed && (
                         <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_6px_rgba(212,175,55,0.6)] shrink-0" />
                       )}
-                      {/* Tooltip for collapsed state */}
                       {effectiveCollapsed && (
                         <div className="pointer-events-none absolute left-full ml-3 hidden group-hover:flex items-center z-50">
-                          <div className="rounded-lg border border-white/10 bg-[#0e0e0e]/95 backdrop-blur px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap shadow-xl">
+                          <div className="rounded-lg border border-border bg-popover backdrop-blur px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap shadow-xl">
                             {label}
                           </div>
                         </div>
@@ -251,14 +253,14 @@ function SidebarContent({
                     transition={{ duration: 0.12 }}
                     className="truncate flex-1 text-xs"
                   >
-                    Admin Panel
+                    {d.nav.adminPanel}
                   </motion.span>
                 )}
               </AnimatePresence>
               {effectiveCollapsed && (
                 <div className="pointer-events-none absolute left-full ml-3 hidden group-hover:flex items-center z-50">
-                  <div className="rounded-lg border border-white/10 bg-[#0e0e0e]/95 backdrop-blur px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap shadow-xl">
-                    Admin Panel
+                  <div className="rounded-lg border border-border bg-popover backdrop-blur px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap shadow-xl">
+                    {d.nav.adminPanel}
                   </div>
                 </div>
               )}
@@ -273,14 +275,14 @@ function SidebarContent({
           <Link href="/dashboard?tab=new">
             <div className="flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/8 px-3 py-2.5 text-xs font-semibold text-primary hover:bg-primary/15 transition-all cursor-pointer">
               <Sparkles className="h-3.5 w-3.5 shrink-0" />
-              <span>New Analysis</span>
+              <span>{d.actions.newAnalysis}</span>
             </div>
           </Link>
         </div>
       )}
 
       {/* User */}
-      <div className="border-t border-white/5 p-3 shrink-0">
+      <div className="border-t border-border/20 p-3 shrink-0">
         <div className={`flex items-center gap-3 ${effectiveCollapsed ? "justify-center" : ""}`}>
           {user && !effectiveCollapsed && (
             <>
@@ -298,7 +300,7 @@ function SidebarContent({
           <button
             onClick={() => logout()}
             className="p-2 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
-            title="Sign out"
+            title={d.actions.signOut}
           >
             <LogOut className="h-4 w-4" />
           </button>
@@ -311,7 +313,6 @@ function SidebarContent({
 export function AppSidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: AppSidebarProps) {
   const [location] = useLocation()
 
-  // Auto-close mobile drawer on navigation
   useEffect(() => {
     onMobileClose?.()
   }, [location])
@@ -323,7 +324,7 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen = false, onMobileCl
         initial={false}
         animate={{ width: collapsed ? 64 : 248 }}
         transition={{ duration: 0.2, ease: "easeInOut" }}
-        className="hidden lg:flex h-full flex-col border-r border-white/5 bg-[#080808] relative shrink-0 overflow-hidden"
+        className="hidden lg:flex h-full flex-col border-r border-border/20 bg-sidebar relative shrink-0 overflow-hidden"
       >
         {collapsed && (
           <button
@@ -356,7 +357,7 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen = false, onMobileCl
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-              className="lg:hidden fixed left-0 top-0 z-50 h-full w-64 border-r border-white/8 bg-[#080808] flex flex-col shadow-2xl"
+              className="lg:hidden fixed left-0 top-0 z-50 h-full w-64 border-r border-border/20 bg-sidebar flex flex-col shadow-2xl"
             >
               <SidebarContent
                 collapsed={false}

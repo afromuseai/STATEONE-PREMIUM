@@ -95,7 +95,8 @@ Create a complete orchestration chain with coordinated AI agents, clear data han
     }
 
     try {
-      const buffer = await forwardStream(streamBody, res, MODELS.ORCHESTRATION);
+      const rawBuffer = await forwardStream(streamBody, res, MODELS.ORCHESTRATION);
+      const buffer = rawBuffer.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
       try {
         const finalData = extractJson(buffer);
         res.write(`data: ${JSON.stringify({ done: true, data: finalData })}\n\n`);

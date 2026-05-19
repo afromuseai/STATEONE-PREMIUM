@@ -161,6 +161,30 @@ const translations = {
       rights: "All rights reserved.",
       builtWith: "Built with multi-model AI infrastructure.",
     },
+    dashboard: {
+      sections: {
+        generate: "Generate",
+        orchestrate: "Orchestrate",
+        manage: "Manage",
+      },
+      nav: {
+        dashboard: "Dashboard",
+        businessIntelligence: "Business Intelligence",
+        websiteGenerator: "Website Generator",
+        aiChatbot: "AI Chatbot Generator",
+        automationBuilder: "Automation Builder",
+        aiOrchestrator: "AI Orchestrator",
+        projects: "Projects",
+        settings: "Settings",
+        adminPanel: "Admin Panel",
+      },
+      actions: {
+        newAnalysis: "New Analysis",
+        search: "Search or jump to...",
+        signOut: "Sign out",
+        searchShortcut: "Quick Navigation",
+      },
+    },
   },
   es: {
     nav: {
@@ -311,6 +335,30 @@ const translations = {
       settings: "Configuración",
       rights: "Todos los derechos reservados.",
       builtWith: "Construido con infraestructura IA multi-modelo.",
+    },
+    dashboard: {
+      sections: {
+        generate: "Generar",
+        orchestrate: "Orquestar",
+        manage: "Gestionar",
+      },
+      nav: {
+        dashboard: "Panel",
+        businessIntelligence: "Inteligencia de Negocios",
+        websiteGenerator: "Generador Web",
+        aiChatbot: "Chatbot IA",
+        automationBuilder: "Constructor de Automatización",
+        aiOrchestrator: "Orquestador IA",
+        projects: "Proyectos",
+        settings: "Configuración",
+        adminPanel: "Panel Admin",
+      },
+      actions: {
+        newAnalysis: "Nuevo Análisis",
+        search: "Buscar o ir a...",
+        signOut: "Cerrar sesión",
+        searchShortcut: "Navegación Rápida",
+      },
     },
   },
   it: {
@@ -463,6 +511,30 @@ const translations = {
       rights: "Tutti i diritti riservati.",
       builtWith: "Costruito con infrastruttura AI multi-modello.",
     },
+    dashboard: {
+      sections: {
+        generate: "Genera",
+        orchestrate: "Orchestra",
+        manage: "Gestisci",
+      },
+      nav: {
+        dashboard: "Dashboard",
+        businessIntelligence: "Business Intelligence",
+        websiteGenerator: "Generatore Web",
+        aiChatbot: "Chatbot AI",
+        automationBuilder: "Costruttore Automazione",
+        aiOrchestrator: "Orchestratore AI",
+        projects: "Progetti",
+        settings: "Impostazioni",
+        adminPanel: "Pannello Admin",
+      },
+      actions: {
+        newAnalysis: "Nuova Analisi",
+        search: "Cerca o vai a...",
+        signOut: "Esci",
+        searchShortcut: "Navigazione Rapida",
+      },
+    },
   },
   fr: {
     nav: {
@@ -614,6 +686,30 @@ const translations = {
       rights: "Tous droits réservés.",
       builtWith: "Construit avec une infrastructure IA multi-modèles.",
     },
+    dashboard: {
+      sections: {
+        generate: "Générer",
+        orchestrate: "Orchestrer",
+        manage: "Gérer",
+      },
+      nav: {
+        dashboard: "Tableau de Bord",
+        businessIntelligence: "Intelligence d'Affaires",
+        websiteGenerator: "Générateur Web",
+        aiChatbot: "Chatbot IA",
+        automationBuilder: "Constructeur d'Automatisation",
+        aiOrchestrator: "Orchestrateur IA",
+        projects: "Projets",
+        settings: "Paramètres",
+        adminPanel: "Panneau Admin",
+      },
+      actions: {
+        newAnalysis: "Nouvelle Analyse",
+        search: "Rechercher ou accéder à...",
+        signOut: "Se déconnecter",
+        searchShortcut: "Navigation Rapide",
+      },
+    },
   },
   pt: {
     nav: {
@@ -764,6 +860,30 @@ const translations = {
       settings: "Configurações",
       rights: "Todos os direitos reservados.",
       builtWith: "Construído com infraestrutura de IA multi-modelo.",
+    },
+    dashboard: {
+      sections: {
+        generate: "Gerar",
+        orchestrate: "Orquestrar",
+        manage: "Gerenciar",
+      },
+      nav: {
+        dashboard: "Painel",
+        businessIntelligence: "Inteligência de Negócios",
+        websiteGenerator: "Gerador de Site",
+        aiChatbot: "Chatbot de IA",
+        automationBuilder: "Construtor de Automação",
+        aiOrchestrator: "Orquestrador de IA",
+        projects: "Projetos",
+        settings: "Configurações",
+        adminPanel: "Painel Admin",
+      },
+      actions: {
+        newAnalysis: "Nova Análise",
+        search: "Pesquisar ou ir para...",
+        signOut: "Sair",
+        searchShortcut: "Navegação Rápida",
+      },
     },
   },
 } as const
