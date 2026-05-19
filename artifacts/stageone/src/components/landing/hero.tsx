@@ -799,7 +799,10 @@ function HeroParticles() {
 
     const onMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect()
-      mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, active: true }
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      const inside = x >= 0 && y >= 0 && x <= rect.width && y <= rect.height
+      mouseRef.current = { x, y, active: inside }
     }
     const onMouseLeave = () => { mouseRef.current = { x: -9999, y: -9999, active: false } }
 
@@ -810,13 +813,14 @@ function HeroParticles() {
       streams.forEach((s, i) => { s.y = (h / 14) * i + Math.random() * (h / 14) })
     }
 
-    canvas.addEventListener("mousemove", onMouseMove)
-    canvas.addEventListener("mouseleave", onMouseLeave)
+    // Listen on window so events are captured even when the canvas is behind other elements
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseleave", onMouseLeave)
     window.addEventListener("resize", onResize)
     return () => {
       cancelAnimationFrame(animId)
-      canvas.removeEventListener("mousemove", onMouseMove)
-      canvas.removeEventListener("mouseleave", onMouseLeave)
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseleave", onMouseLeave)
       window.removeEventListener("resize", onResize)
     }
   }, [])
