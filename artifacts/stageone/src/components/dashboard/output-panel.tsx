@@ -2,8 +2,17 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   BarChart3, Bot, Globe, Rocket, Workflow, FileText, Target, TrendingUp,
   Zap, Gauge, Layers, Shield, Lightbulb, Code, AlertTriangle, Crosshair,
-  Sparkles, Brain, CheckCircle2, Circle, Activity, Cpu, BarChart2, Lock,
+  Sparkles, Brain, CheckCircle2, Circle, Activity, Cpu, BarChart2,
 } from "lucide-react"
+
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect width={18} height={11} x={3} y={11} rx={2} ry={2} />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  )
+}
 import { IntelligencePanel } from "./intelligence-panel"
 import { FeedbackWidget } from "./feedback-widget"
 import { useLang } from "@/lib/i18n"
@@ -692,8 +701,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
 
   return (
     <div className="h-full overflow-y-auto pr-2">
-      <AnimatePresence mode="wait">
-        <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
           {/* Header */}
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-5 flex items-center justify-between">
             <div>
@@ -716,7 +724,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 >
                   <Globe className="h-3.5 w-3.5" />
                   {ot.generateWebsite}
-                  {isFree && <Lock className="h-3 w-3 opacity-70" />}
+                  {isFree && <LockIcon className="h-3 w-3 opacity-70" />}
                 </motion.button>
               )}
               {onGenerateChatbot && (
@@ -727,7 +735,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 >
                   <Bot className="h-3.5 w-3.5" />
                   {ot.generateChatbot}
-                  {isFree && <Lock className="h-3 w-3 opacity-70" />}
+                  {isFree && <LockIcon className="h-3 w-3 opacity-70" />}
                 </motion.button>
               )}
               {onBuildAutomation && (
@@ -738,7 +746,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 >
                   <Workflow className="h-3.5 w-3.5" />
                   {ot.buildAutomation}
-                  {isFree && <Lock className="h-3 w-3 opacity-70" />}
+                  {isFree && <LockIcon className="h-3 w-3 opacity-70" />}
                 </motion.button>
               )}
               <div className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5">
@@ -849,7 +857,6 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
             optimizationGoal={data.metrics.revenueScalability >= 7 ? "growth" : data.metrics.automationPotential >= 60 ? "efficiency" : "conversion"}
           />
         </motion.div>
-      </AnimatePresence>
     </div>
   )
 }
