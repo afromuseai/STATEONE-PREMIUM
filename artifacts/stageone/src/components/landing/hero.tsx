@@ -658,7 +658,7 @@ export function Hero() {
             style={{ fontSize: "clamp(2.8rem, 5.5vw, 4.8rem)" }}
           >
             The AI Operating System for
-            <span className="block mt-1" style={{ height: "1.15em", overflow: "hidden" }}><TypingText /></span>
+            <span className="block mt-1" style={{ height: "1.15em" }}><TypingText /></span>
           </motion.h1>
 
           {/* Thin gold rule */}
