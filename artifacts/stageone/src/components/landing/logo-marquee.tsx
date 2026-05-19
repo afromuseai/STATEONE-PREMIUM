@@ -56,11 +56,6 @@ export function LogoMarquee() {
         style={{ background: "linear-gradient(to left, var(--background) 0%, transparent 100%)" }} />
 
       <div className="space-y-0">
-        {/* Label */}
-        <p className="text-center text-[10px] font-semibold tracking-[0.25em] uppercase text-muted-foreground/40 mb-7">
-          Trusted by teams at
-        </p>
-
         <MarqueeRow />
       </div>
 

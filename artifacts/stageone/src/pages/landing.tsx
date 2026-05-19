@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/navbar"
 import { Hero } from "@/components/landing/hero"
 import { LogoMarquee } from "@/components/landing/logo-marquee"
+import { BackToTop } from "@/components/landing/back-to-top"
 import { OSShowcase } from "@/components/landing/os-showcase"
 import { HowItWorks } from "@/components/landing/how-it-works"
 import { Features } from "@/components/landing/features"
@@ -20,6 +21,7 @@ export default function LandingPage() {
       <Trust />
       <CTA />
       <Footer />
+      <BackToTop />
     </main>
   )
 }
