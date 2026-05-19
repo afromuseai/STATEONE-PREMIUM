@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   Brain, ArrowRight, Play, RefreshCw, AlertCircle, CheckCircle,
   Clock, Cpu, GitBranch, Database, Globe, Zap, Activity,
-  ChevronDown, ChevronUp, Copy, Check, Network, Radio,
+  ChevronDown, ChevronUp, Copy, Check, Network, Radio, Lock, Rocket,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
+import { useAuth } from "@/lib/auth-context"
+import { useLocation } from "wouter"
 
 interface Agent {
   id: string; name: string; role: string; model: string
@@ -258,6 +260,54 @@ export default function OrchestratorPage() {
   const [isReplaying, setIsReplaying] = useState(false)
   const [replayStep, setReplayStep] = useState(-1)
   const abortRef = useRef<AbortController | null>(null)
+  const [userPlan, setUserPlan] = useState<string | null>(null)
+  const { user } = useAuth()
+  const [, navigate] = useLocation()
+
+  useEffect(() => {
+    if (!user) return
+    fetch("/api/subscriptions/me", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => setUserPlan(d.subscription?.plan ?? "free"))
+      .catch(() => setUserPlan("free"))
+  }, [user])
+
+  if (user && userPlan === "free") {
+    return (
+      <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
+        <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+        <div className="flex-1 flex items-center justify-center p-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-md w-full text-center"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/8 mx-auto mb-5">
+              <Lock className="h-7 w-7 text-primary/60" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">AI Orchestrator</h2>
+            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+              Multi-agent orchestration is available on the <strong className="text-primary/80">Pro plan</strong> and above. Design, coordinate, and replay complex AI agent pipelines with full execution visibility.
+            </p>
+            <div className="flex flex-col gap-3 items-center">
+              <button
+                onClick={() => navigate("/pricing")}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-7 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow"
+              >
+                <Rocket className="h-4 w-4" /> Upgrade Plan
+              </button>
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    )
+  }
 
   const generate = async () => {
     if (!goal.trim()) return

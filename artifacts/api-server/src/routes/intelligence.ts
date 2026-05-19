@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, businessMetricsTable, projectsTable, agentTasksTable, executionsTable, aiMemoryTable } from "@workspace/db";
+import { db, businessMetricsTable, projectsTable, agentTasksTable, executionsTable, aiMemoryTable, subscriptionsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { z } from "zod";
@@ -170,6 +170,18 @@ router.post("/intelligence/recommendations", requireAuth, async (req, res): Prom
   }
 
   const userId = req.user!.userId;
+
+  // Proactive Intelligence is restricted to Startup plan and above
+  const [sub] = await db
+    .select({ plan: subscriptionsTable.plan })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.userId, userId))
+    .limit(1);
+  const plan = sub?.plan ?? "free";
+  if (plan === "free" || plan === "pro") {
+    res.status(403).json({ error: "Proactive Intelligence requires the Startup plan or above." });
+    return;
+  }
   const { businessIntelligence } = parsed.data;
 
   const bi = businessIntelligence as {

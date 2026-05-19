@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
-import { Check, ArrowRight, ChevronDown, Zap, Crown, Rocket, Building2, Loader2, AlertTriangle, Lock } from "lucide-react"
+import { Check, ArrowRight, ChevronDown, Zap, Crown, Rocket, Building2, Loader2, AlertTriangle, Lock, X } from "lucide-react"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 import { useAuth } from "@/lib/auth-context"
@@ -75,7 +75,7 @@ const PLANS = [
     price: null,
     tagline: "For teams and organizations at scale",
     highlight: false,
-    comingSoon: true,
+    comingSoon: false,
     icon: Building2,
     color: "#64748B",
     features: [
@@ -217,12 +217,125 @@ function ConfirmDialog({
   )
 }
 
+function WaitlistModal({ onClose }: { onClose: () => void }) {
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState("")
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim() || !email.trim()) return
+    setSubmitting(true)
+    setError("")
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), plan: "enterprise" }),
+      })
+      if (!res.ok) throw new Error("Failed to join waitlist")
+      setDone(true)
+    } catch {
+      setError("Something went wrong. Please try again.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0c0c0c] p-7 shadow-2xl"
+      >
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-slate-500/15">
+              <Building2 className="h-5 w-5 text-slate-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Enterprise Waitlist</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">We'll reach out when Enterprise is ready</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {done ? (
+          <div className="text-center py-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 mx-auto mb-3">
+              <Check className="h-5 w-5 text-emerald-400" />
+            </div>
+            <p className="text-sm font-semibold text-foreground mb-1">You're on the list!</p>
+            <p className="text-xs text-muted-foreground">We'll email you when Enterprise launches.</p>
+            <button onClick={onClose} className="mt-4 inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all">
+              Close
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Your name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Jane Smith"
+                required
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Work email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="jane@company.com"
+                required
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-all"
+              />
+            </div>
+            {error && (
+              <p className="text-xs text-red-400">{error}</p>
+            )}
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={onClose}
+                className="flex-1 h-10 rounded-xl border border-white/10 bg-white/5 text-sm font-medium text-foreground hover:bg-white/8 transition-all">
+                Cancel
+              </button>
+              <button type="submit" disabled={submitting || !name.trim() || !email.trim()}
+                className="flex-1 h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow disabled:opacity-50 flex items-center justify-center gap-2">
+                {submitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Joining...</> : "Join Waitlist"}
+              </button>
+            </div>
+          </form>
+        )}
+      </motion.div>
+    </motion.div>
+  )
+}
+
 export default function PricingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [upgrading, setUpgrading] = useState<string | null>(null)
   const [currentPlan, setCurrentPlan] = useState<string | null>(null)
   const [subLoading, setSubLoading] = useState(false)
   const [pendingPlan, setPendingPlan] = useState<typeof PLANS[number] | null>(null)
+  const [showWaitlist, setShowWaitlist] = useState(false)
   const { user } = useAuth()
   const [, setLocation] = useLocation()
 
@@ -237,7 +350,10 @@ export default function PricingPage() {
   }, [user])
 
   const handleSelectPlan = (plan: typeof PLANS[number]) => {
-    if (plan.comingSoon) return
+    if (plan.id === "enterprise") {
+      setShowWaitlist(true)
+      return
+    }
     if (!user) {
       setLocation(plan.ctaHref)
       return
@@ -278,6 +394,9 @@ export default function PricingPage() {
             onCancel={() => setPendingPlan(null)}
             loading={!!upgrading}
           />
+        )}
+        {showWaitlist && (
+          <WaitlistModal onClose={() => setShowWaitlist(false)} />
         )}
       </AnimatePresence>
 
@@ -551,10 +670,10 @@ export default function PricingPage() {
               </h2>
               <p className="text-sm text-muted-foreground mb-7">Start free. No credit card required.</p>
               <Link
-                href="/signup"
+                href={user ? "/dashboard" : "/signup"}
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-8 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow"
               >
-                Get Started Free
+                {user ? "Go to Dashboard" : "Get Started Free"}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </motion.div>
