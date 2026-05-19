@@ -8,23 +8,21 @@ import logoImg from "@assets/ChatGPT_Image_May_9__2026__02_48_29_AM-removebg-pre
 function OSPanel() {
   return (
     <div className="relative w-full h-full overflow-hidden bg-black">
-      {/* Brand image — full cover */}
-      <img
-        src="/auth-bg.png"
-        alt="STAGEONE OS"
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ objectPosition: "70% center" }}
+      {/* Brand image — show only the right dashboard/city half */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: "url('/auth-bg.png')",
+          backgroundSize: "200% 100%",
+          backgroundPosition: "right center",
+          backgroundRepeat: "no-repeat",
+        }}
       />
-      {/* Subtle dark vignette on left edge */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-transparent pointer-events-none" />
-      {/* Top logo overlay */}
-      <Link href="/" className="absolute top-8 left-8 z-10 flex items-center gap-2">
-        <img src={logoImg} alt="STAGEONE" className="h-8 w-auto object-contain drop-shadow-lg" />
-        <span className="text-sm font-bold tracking-[0.25em] uppercase text-white drop-shadow-lg">STAGEONE</span>
-      </Link>
+      {/* Hard left mask to fully hide any leftover image form content */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent pointer-events-none" style={{ width: "35%" }} />
       {/* Bottom status badge */}
-      <div className="absolute bottom-8 left-8 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/15 backdrop-blur-md"
-        style={{ background: "oklch(0.08 0 0 / 0.75)" }}>
+      <div className="absolute bottom-8 right-8 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/15 backdrop-blur-md"
+        style={{ background: "oklch(0.08 0 0 / 0.80)" }}>
         <motion.div className="w-1.5 h-1.5 rounded-full bg-green-400"
           animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
         <span className="text-[9px] font-semibold text-green-400/90 tracking-wide">All Systems Active</span>
