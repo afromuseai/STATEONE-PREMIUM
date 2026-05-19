@@ -594,26 +594,32 @@ export function Hero() {
   return (
     <section ref={ref} className="relative overflow-hidden pt-[72px]" style={{ background: "#050505" }}>
 
-      {/* ── Background: subtle gold grid + faint radial glow ─────── */}
+      {/* ── Full-bleed background image ──────────────────────────── */}
       <div className="pointer-events-none absolute inset-0">
-        {/* Very faint gold grid */}
+        <img
+          src="/hero-visual.png"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-center"
+          style={{ opacity: 0.85 }}
+        />
+        {/* Left dark vignette so text reads clearly */}
         <div className="absolute inset-0" style={{
-          backgroundImage: "linear-gradient(to right, rgba(184,145,68,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(184,145,68,0.04) 1px, transparent 1px)",
+          background: "linear-gradient(100deg, rgba(5,5,5,0.96) 0%, rgba(5,5,5,0.80) 42%, rgba(5,5,5,0.20) 70%, rgba(5,5,5,0.05) 100%)",
+        }} />
+        {/* Bottom fade into page */}
+        <div className="absolute inset-x-0 bottom-0 h-40" style={{
+          background: "linear-gradient(to bottom, transparent, #050505)",
+        }} />
+        {/* Subtle gold grid on top */}
+        <div className="absolute inset-0" style={{
+          backgroundImage: "linear-gradient(to right, rgba(184,145,68,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(184,145,68,0.03) 1px, transparent 1px)",
           backgroundSize: "80px 80px",
         }} />
-        {/* Faint center radial glow */}
-        <div className="absolute inset-0" style={{
-          background: "radial-gradient(ellipse 70% 50% at 60% 40%, rgba(184,145,68,0.07) 0%, transparent 65%)",
-        }} />
-        {/* Bottom fade */}
-        <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: "linear-gradient(to bottom, transparent, #050505)" }} />
       </div>
 
-      {/* ── Main split layout ────────────────────────────────────── */}
-      <div className="relative mx-auto max-w-[1320px] px-8 lg:px-12 flex flex-col lg:flex-row items-center min-h-[calc(100vh-72px)] gap-10 lg:gap-0 py-16 lg:py-0">
-
-        {/* ── LEFT 48%: text ───────────────────────────────────── */}
-        <div className="relative z-10 w-full lg:w-[48%] flex flex-col items-start justify-center lg:pr-12 xl:pr-20">
+      {/* ── Hero content: text over background ───────────────────── */}
+      <div className="relative mx-auto max-w-[1320px] px-8 lg:px-12 flex flex-col items-start justify-center min-h-[calc(100vh-72px)] py-20">
+        <div className="w-full max-w-[600px]">
 
           {/* Badge pill */}
           <motion.div
@@ -622,8 +628,9 @@ export function Hero() {
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="mb-7 inline-flex items-center gap-2 rounded-full px-4 py-1.5"
             style={{
-              background: "rgba(184,145,68,0.08)",
-              border: "1px solid rgba(184,145,68,0.28)",
+              background: "rgba(184,145,68,0.10)",
+              border: "1px solid rgba(184,145,68,0.30)",
+              backdropFilter: "blur(8px)",
             }}
           >
             <motion.div className="w-1.5 h-1.5 rounded-full" style={{ background: "oklch(0.75 0.12 85)" }}
@@ -633,13 +640,13 @@ export function Hero() {
             </span>
           </motion.div>
 
-          {/* Headline — tight, no overflow */}
+          {/* Headline */}
           <motion.h1
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
             className="font-black tracking-[-0.03em] text-white leading-[1.02]"
-            style={{ fontSize: "clamp(2.6rem, 5vw, 4.5rem)" }}
+            style={{ fontSize: "clamp(2.8rem, 5.5vw, 4.8rem)" }}
           >
             The AI Operating System
             <br />
@@ -651,7 +658,7 @@ export function Hero() {
             initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
             transition={{ duration: 0.9, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="mt-7 mb-7 h-px w-32 origin-left"
-            style={{ background: "linear-gradient(90deg, rgba(184,145,68,0.8), transparent)" }}
+            style={{ background: "linear-gradient(90deg, rgba(184,145,68,0.9), transparent)" }}
           />
 
           {/* Supporting paragraph */}
@@ -659,10 +666,11 @@ export function Hero() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.45 }}
-            className="text-[15px] leading-[1.75] max-w-[420px]"
-            style={{ color: "rgba(255,255,255,0.42)" }}
+            className="text-[15px] leading-[1.75]"
+            style={{ color: "rgba(255,255,255,0.50)" }}
           >
-            Build, orchestrate, and scale through one unified AI intelligence platform — strategy, websites, execution, memory, and operations in one environment.
+            Build, orchestrate, and scale through one unified AI intelligence platform —
+            strategy, websites, execution, memory, and operations in one environment.
           </motion.p>
 
           {/* CTAs */}
@@ -673,11 +681,11 @@ export function Hero() {
             className="mt-9 flex items-center gap-3"
           >
             <Link href={user ? "/dashboard" : "/signup"}
-              className="group relative inline-flex h-12 items-center gap-2 rounded-xl px-8 text-[13px] font-bold overflow-hidden transition-all duration-250"
+              className="group relative inline-flex h-12 items-center gap-2 rounded-xl px-8 text-[13px] font-bold overflow-hidden"
               style={{
                 background: "linear-gradient(135deg, oklch(0.82 0.15 85), oklch(0.68 0.12 85))",
                 color: "#0a0900",
-                boxShadow: "0 0 32px rgba(184,145,68,0.28), 0 8px 24px rgba(0,0,0,0.5)",
+                boxShadow: "0 0 32px rgba(184,145,68,0.35), 0 8px 24px rgba(0,0,0,0.5)",
               }}
             >
               <motion.div className="absolute inset-0"
@@ -689,11 +697,12 @@ export function Hero() {
             </Link>
 
             <a href="/#how-it-works"
-              className="inline-flex h-12 items-center gap-2 rounded-xl px-7 text-[13px] font-medium transition-all duration-250 hover:text-white"
+              className="inline-flex h-12 items-center gap-2 rounded-xl px-7 text-[13px] font-medium transition-colors hover:text-white"
               style={{
-                color: "rgba(255,255,255,0.5)",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.09)",
+                color: "rgba(255,255,255,0.55)",
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                backdropFilter: "blur(8px)",
               }}
             >
               <Play className="h-3 w-3 opacity-60" />
@@ -712,65 +721,15 @@ export function Hero() {
                 <span key={i} style={{ color: "oklch(0.75 0.12 85)", fontSize: "11px" }}>★</span>
               ))}
             </div>
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Trusted by 2,400+ builders</span>
-            <div className="h-3 w-px" style={{ background: "rgba(255,255,255,0.08)" }} />
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>No credit card required</span>
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>Trusted by 2,400+ builders</span>
+            <div className="h-3 w-px" style={{ background: "rgba(255,255,255,0.10)" }} />
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>No credit card required</span>
           </motion.div>
         </div>
-
-        {/* ── RIGHT 52%: hero visual ───────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, x: 32 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.85, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full lg:w-[52%] flex-shrink-0 relative"
-        >
-          {/* Ambient glow behind the frame */}
-          <div className="absolute -inset-10 pointer-events-none" style={{
-            background: "radial-gradient(ellipse 75% 60% at 55% 50%, rgba(184,145,68,0.10), transparent 70%)",
-            filter: "blur(24px)",
-          }} />
-
-          {/* Glass frame */}
-          <div className="relative overflow-hidden" style={{
-            borderRadius: "24px",
-            border: "1px solid rgba(184,145,68,0.18)",
-            boxShadow: "0 0 0 1px rgba(184,145,68,0.05), 0 32px 80px rgba(0,0,0,0.85), 0 0 80px rgba(184,145,68,0.06)",
-            background: "rgba(10,8,4,0.6)",
-            backdropFilter: "blur(2px)",
-          }}>
-            {/* Top gold accent line */}
-            <div className="absolute inset-x-0 top-0 h-px z-10" style={{
-              background: "linear-gradient(90deg, transparent 5%, rgba(184,145,68,0.55) 40%, rgba(184,145,68,0.55) 60%, transparent 95%)",
-            }} />
-
-            <img
-              src="/hero-visual.png"
-              alt="STAGEONE AI Operating System"
-              className="w-full h-auto block"
-              style={{ display: "block" }}
-            />
-
-            {/* Subtle inner vignette at bottom */}
-            <div className="absolute inset-x-0 bottom-0 h-20 pointer-events-none" style={{
-              background: "linear-gradient(to bottom, transparent, rgba(5,5,5,0.5))",
-            }} />
-
-            {/* Live status badge */}
-            <div className="absolute bottom-5 right-5 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full"
-              style={{ background: "rgba(5,5,5,0.85)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(8px)" }}>
-              <motion.div className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-                animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
-              <span className="text-[9px] font-semibold tracking-wide text-emerald-400/90">All Systems Active</span>
-            </div>
-          </div>
-        </motion.div>
       </div>
 
       {/* ── Ticker ────────────────────────────────────────────────── */}
-      <div className="mt-12">
-        <Ticker />
-      </div>
+      <Ticker />
 
       {/* ── Metrics ───────────────────────────────────────────────── */}
       <MetricsStrip />
