@@ -1,5 +1,6 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/lib/auth-context";
 import { NotificationsProvider } from "@/lib/notifications-context";
 import { BusinessContextProvider } from "@/lib/business-context";
@@ -39,6 +40,24 @@ import NotFound from "@/pages/not-found";
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
+
+function AnimatedRoutes() {
+  const [location] = useLocation()
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={{ duration: 0.18, ease: "easeInOut" }}
+        style={{ minHeight: "100vh" }}
+      >
+        <Router />
+      </motion.div>
+    </AnimatePresence>
+  )
+}
 
 function Router() {
   return (
@@ -129,7 +148,7 @@ export default function App() {
           <OSProvider>
           <NotificationsProvider>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Router />
+              <AnimatedRoutes />
               <CopilotPanel />
             </WouterRouter>
             <Toaster position="bottom-right" richColors theme="dark" />
