@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/navbar"
 import { Hero } from "@/components/landing/hero"
+import { StatsCounter } from "@/components/landing/stats-counter"
 import { OSShowcase } from "@/components/landing/os-showcase"
 import { HowItWorks } from "@/components/landing/how-it-works"
 import { Features } from "@/components/landing/features"
@@ -12,6 +13,7 @@ export default function LandingPage() {
     <main className="min-h-screen bg-background">
       <Navbar />
       <Hero />
+      <StatsCounter />
       <OSShowcase />
       <HowItWorks />
       <Features />
