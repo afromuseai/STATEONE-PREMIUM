@@ -592,175 +592,173 @@ export function Hero() {
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
       />
 
-      {/* ── Hero text block ─────────────────────────────────────────── */}
-      <div className="relative mx-auto max-w-7xl px-6 py-28 pb-16 text-center">
+      {/* ── Split hero: text LEFT, image RIGHT ─────────────────────── */}
+      <div className="relative mx-auto max-w-[1400px] px-6 pt-20 pb-0 flex flex-col lg:flex-row items-center gap-12 lg:gap-0 min-h-[calc(100vh-64px)]">
 
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-8 inline-flex items-center gap-2.5 rounded-full px-5 py-2"
-          style={{
-            background: "linear-gradient(135deg, oklch(0.75 0.12 85 / 0.12), oklch(0.75 0.12 85 / 0.06))",
-            border: "1px solid oklch(0.75 0.12 85 / 0.35)",
-            boxShadow: "0 0 20px oklch(0.75 0.12 85 / 0.1), inset 0 1px 0 oklch(0.75 0.12 85 / 0.1)",
-            backdropFilter: "blur(12px)",
-          }}
-        >
+        {/* ── LEFT: text content ──────────────────────────────────── */}
+        <div className="relative z-10 flex-1 flex flex-col items-start justify-center py-16 lg:pr-16">
+
+          {/* Badge */}
           <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-          >
-            <Sparkles className="h-4 w-4 text-[oklch(0.75_0.12_85)]" />
-          </motion.div>
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-[oklch(0.75_0.12_85)]">
-            AI Business Operating System
-          </span>
-        </motion.div>
-
-        {/* Headline */}
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-          className="text-5xl sm:text-6xl md:text-7xl lg:text-[84px] font-black leading-[1.0] tracking-[-0.02em]"
-        >
-          <span className="block text-white" style={{
-            textShadow: "0 0 80px oklch(0.75 0.12 85 / 0.15)",
-          }}>The AI Operating System</span>
-          <span className="block mt-2" style={{
-            background: "linear-gradient(135deg, oklch(0.92 0.16 85) 0%, oklch(0.80 0.14 85) 40%, oklch(0.65 0.10 85) 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-            filter: "drop-shadow(0 0 40px oklch(0.75 0.12 85 / 0.25))",
-          }}>
-            for Modern Businesses.
-          </span>
-        </motion.h1>
-
-        {/* Gold separator */}
-        <motion.div
-          initial={{ scaleX: 0, opacity: 0 }}
-          animate={{ scaleX: 1, opacity: 1 }}
-          transition={{ duration: 1, delay: 0.45 }}
-          className="my-8 mx-auto h-px w-48"
-          style={{ background: "linear-gradient(90deg, transparent, oklch(0.75 0.12 85 / 0.9), transparent)" }}
-        />
-
-        {/* Subtext */}
-        <motion.p
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.5 }}
-          className="mx-auto max-w-2xl text-base md:text-lg leading-relaxed text-white/50"
-        >
-          Build, orchestrate, automate, and scale businesses through one unified AI intelligence
-          platform — combining strategy, websites, execution, memory, and operational systems
-          in one environment.
-        </motion.p>
-
-        {/* CTAs */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.6 }}
-          className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
-        >
-          {/* Primary CTA — executive-grade */}
-          <Link href={user ? "/dashboard" : "/signup"}
-            className="group relative inline-flex h-14 items-center justify-center gap-2.5 rounded-2xl px-10 text-sm font-bold overflow-hidden transition-all duration-300"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-8 inline-flex items-center gap-2.5 rounded-full px-5 py-2"
             style={{
-              background: "linear-gradient(135deg, oklch(0.83 0.15 85), oklch(0.70 0.13 85))",
-              color: "oklch(0.06 0 0)",
-              boxShadow: "0 0 40px oklch(0.75 0.12 85 / 0.35), 0 10px 30px rgba(0,0,0,0.5), inset 0 1px 0 oklch(0.90 0.16 85 / 0.5)",
-            }}
-          >
-            <motion.div
-              className="absolute inset-0"
-              style={{ background: "linear-gradient(135deg, oklch(0.90 0.17 85), oklch(0.78 0.14 85))" }}
-              initial={{ opacity: 0 }}
-              whileHover={{ opacity: 1 }}
-              transition={{ duration: 0.2 }}
-            />
-            <motion.div
-              className="absolute inset-0 rounded-2xl"
-              whileHover={{ boxShadow: "0 0 60px oklch(0.75 0.12 85 / 0.5), 0 16px 40px rgba(0,0,0,0.6)" }}
-              transition={{ duration: 0.2 }}
-            />
-            <span className="relative">Start Building</span>
-            <ArrowRight className="relative h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-          </Link>
-
-          {/* Secondary CTA */}
-          <a href="/#how-it-works"
-            className="group inline-flex h-14 items-center justify-center gap-2.5 rounded-2xl px-10 text-sm font-semibold text-white/70 transition-all duration-300 hover:text-white"
-            style={{
-              background: "oklch(0.13 0.004 60 / 0.7)",
-              border: "1px solid oklch(0.30 0.01 60 / 0.6)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+              background: "linear-gradient(135deg, oklch(0.75 0.12 85 / 0.12), oklch(0.75 0.12 85 / 0.06))",
+              border: "1px solid oklch(0.75 0.12 85 / 0.35)",
+              boxShadow: "0 0 20px oklch(0.75 0.12 85 / 0.1), inset 0 1px 0 oklch(0.75 0.12 85 / 0.1)",
               backdropFilter: "blur(12px)",
             }}
           >
-            <Play className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 transition-opacity" />
-            See How It Works
-          </a>
-        </motion.div>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            >
+              <Sparkles className="h-4 w-4 text-[oklch(0.75_0.12_85)]" />
+            </motion.div>
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-[oklch(0.75_0.12_85)]">
+              AI Business Operating System
+            </span>
+          </motion.div>
 
-        {/* Social proof line */}
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="text-5xl sm:text-6xl lg:text-[72px] xl:text-[84px] font-black leading-[1.0] tracking-[-0.02em]"
+          >
+            <span className="block text-white" style={{ textShadow: "0 0 80px oklch(0.75 0.12 85 / 0.15)" }}>
+              The AI Operating System
+            </span>
+            <span className="block mt-2" style={{
+              background: "linear-gradient(135deg, oklch(0.92 0.16 85) 0%, oklch(0.80 0.14 85) 40%, oklch(0.65 0.10 85) 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 0 40px oklch(0.75 0.12 85 / 0.25))",
+            }}>
+              for Modern Businesses.
+            </span>
+          </motion.h1>
+
+          {/* Gold separator */}
+          <motion.div
+            initial={{ scaleX: 0, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            transition={{ duration: 1, delay: 0.45 }}
+            className="my-8 h-px w-48 origin-left"
+            style={{ background: "linear-gradient(90deg, oklch(0.75 0.12 85 / 0.9), transparent)" }}
+          />
+
+          {/* Subtext */}
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.5 }}
+            className="max-w-lg text-base md:text-lg leading-relaxed text-white/50"
+          >
+            Build, orchestrate, automate, and scale businesses through one unified AI intelligence
+            platform — combining strategy, websites, execution, memory, and operational systems
+            in one environment.
+          </motion.p>
+
+          {/* CTAs */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.6 }}
+            className="mt-10 flex flex-col sm:flex-row items-start gap-4"
+          >
+            <Link href={user ? "/dashboard" : "/signup"}
+              className="group relative inline-flex h-14 items-center justify-center gap-2.5 rounded-2xl px-10 text-sm font-bold overflow-hidden transition-all duration-300"
+              style={{
+                background: "linear-gradient(135deg, oklch(0.83 0.15 85), oklch(0.70 0.13 85))",
+                color: "oklch(0.06 0 0)",
+                boxShadow: "0 0 40px oklch(0.75 0.12 85 / 0.35), 0 10px 30px rgba(0,0,0,0.5), inset 0 1px 0 oklch(0.90 0.16 85 / 0.5)",
+              }}
+            >
+              <motion.div className="absolute inset-0"
+                style={{ background: "linear-gradient(135deg, oklch(0.90 0.17 85), oklch(0.78 0.14 85))" }}
+                initial={{ opacity: 0 }} whileHover={{ opacity: 1 }} transition={{ duration: 0.2 }}
+              />
+              <span className="relative">Start Building</span>
+              <ArrowRight className="relative h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+            </Link>
+
+            <a href="/#how-it-works"
+              className="group inline-flex h-14 items-center justify-center gap-2.5 rounded-2xl px-10 text-sm font-semibold text-white/70 transition-all duration-300 hover:text-white"
+              style={{
+                background: "oklch(0.13 0.004 60 / 0.7)",
+                border: "1px solid oklch(0.30 0.01 60 / 0.6)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+                backdropFilter: "blur(12px)",
+              }}
+            >
+              <Play className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 transition-opacity" />
+              See How It Works
+            </a>
+          </motion.div>
+
+          {/* Social proof */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.9 }}
+            className="mt-10 flex items-center gap-5"
+          >
+            <div className="flex items-center gap-1">
+              {[...Array(5)].map((_, i) => (
+                <span key={i} className="text-[oklch(0.75_0.12_85)] text-xs">★</span>
+              ))}
+            </div>
+            <span className="text-[11px] text-white/30">Trusted by 2,400+ business builders</span>
+            <div className="h-3 w-px bg-white/10" />
+            <span className="text-[11px] text-white/30">No credit card required</span>
+          </motion.div>
+        </div>
+
+        {/* ── RIGHT: brand image ──────────────────────────────────── */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.9 }}
-          className="mt-10 flex items-center justify-center gap-6"
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="relative lg:w-[52%] xl:w-[55%] flex-shrink-0 w-full"
         >
-          <div className="flex items-center gap-1.5">
-            {[...Array(5)].map((_, i) => (
-              <span key={i} className="text-[oklch(0.75_0.12_85)] text-xs">★</span>
-            ))}
+          {/* Glow behind image */}
+          <div className="absolute -inset-8 rounded-3xl pointer-events-none"
+            style={{ background: "radial-gradient(ellipse 80% 60% at 50% 50%, oklch(0.75 0.12 85 / 0.12), transparent 70%)", filter: "blur(30px)" }} />
+
+          {/* Image frame */}
+          <div className="relative rounded-2xl overflow-hidden border border-[oklch(0.75_0.12_85/0.2)]"
+            style={{ boxShadow: "0 0 0 1px oklch(0.75 0.12 85 / 0.05), 0 40px 80px rgba(0,0,0,0.8), 0 0 100px oklch(0.75 0.12 85 / 0.08)" }}>
+            <img
+              src="/hero-dashboard.png"
+              alt="STAGEONE OS Dashboard"
+              className="w-full h-auto block"
+            />
+            {/* Top-edge gold line */}
+            <div className="absolute inset-x-0 top-0 h-px pointer-events-none"
+              style={{ background: "linear-gradient(90deg, transparent, oklch(0.75 0.12 85 / 0.7), transparent)" }} />
+            {/* Live badge */}
+            <div className="absolute bottom-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md"
+              style={{ background: "oklch(0.06 0 0 / 0.85)" }}>
+              <motion.div className="w-1.5 h-1.5 rounded-full bg-green-400"
+                animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
+              <span className="text-[9px] font-semibold text-green-400/90 tracking-wide">All Systems Active</span>
+            </div>
           </div>
-          <span className="text-[11px] text-white/30">Trusted by 2,400+ business builders</span>
-          <div className="h-3 w-px bg-white/10" />
-          <span className="text-[11px] text-white/30">No credit card required</span>
         </motion.div>
       </div>
 
       {/* ── Ticker ─────────────────────────────────────────────────── */}
-      <Ticker />
+      <div className="mt-16">
+        <Ticker />
+      </div>
 
       {/* ── Metrics ────────────────────────────────────────────────── */}
       <MetricsStrip />
-
-      {/* ── OS Command Center Preview ───────────────────────────────── */}
-      <div className="pt-20">
-        <div className="text-center mb-12 px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <span className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] text-[oklch(0.75_0.12_85/0.7)] mb-4 px-3 py-1 rounded-full border border-[oklch(0.75_0.12_85/0.15)] bg-[oklch(0.75_0.12_85/0.05)]">
-              Live OS Preview
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white mt-3" style={{
-              textShadow: "0 0 60px oklch(0.75 0.12 85 / 0.1)"
-            }}>
-              One Command Center. <span style={{
-                background: "linear-gradient(135deg, oklch(0.88 0.15 85), oklch(0.70 0.11 85))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}>Six AI Systems.</span>
-            </h2>
-            <p className="mt-4 text-sm text-white/40 max-w-lg mx-auto leading-relaxed">
-              Everything orchestrated in real time — business intelligence, website generation, execution, agents, memory, and deployments.
-            </p>
-          </motion.div>
-        </div>
-        <OSCommandCenter />
-      </div>
     </section>
   )
 }
