@@ -1,0 +1,215 @@
+STAGEONE TIER ENFORCEMENT + POST-GENERATION ACTION FLOW
+
+IMPORTANT:
+This is a product-access refinement pass.
+
+DO NOT:
+
+* rewrite architecture
+* remove existing systems
+* delete routes
+* modify core generation engine unnecessarily
+* remove hidden backend infrastructure
+
+The goal is:
+
+* create stronger upgrade incentives
+* improve product flow after generation
+* properly separate Free vs Pro vs Startup value
+* increase conversion into paid plans
+
+==================================================
+
+1. POST-GENERATION ACTION FLOW
+   ==================================================
+
+After every successful business generation,
+display contextual action cards directly Above results.
+
+Add action buttons at where ' Generate Website' is
+
+* Generate Chatbot
+* Build Automation
+
+IMPORTANT:
+These actions should automatically inherit:
+
+* business idea
+* generated business intelligence
+* target audience
+* positioning
+* execution strategy
+* visual direction
+
+WITHOUT requiring users to re-enter prompts.
+
+When user clicks:
+Generate Website
+
+Pass:
+
+* business summary
+* visual direction
+* positioning
+* audience
+* growth strategy
+* business category
+
+into Website Architect automatically.
+
+---
+
+When user clicks:
+Generate Chatbot
+
+Pass:
+
+* business type
+* customer support needs
+* lead generation goals
+* onboarding flow
+* FAQs
+* brand tone
+
+into AI Chatbot Generator automatically.
+
+---
+
+When user clicks:
+Build Automation
+
+Pass:
+
+* workflows
+* business operations
+* onboarding flow
+* lead pipeline
+* execution logic
+* automation opportunities
+
+into Automation Builder automatically.
+
+IMPORTANT:
+Free users currently have access to too much intelligence depth and too many advanced systems.
+
+This reduces upgrade pressure.
+
+Refine access control.
+
+---
+
+## FREE USERS SHOULD ONLY HAVE:
+
+Access to:
+
+* Business Intelligence generation
+* Basic Website generation
+* Limited project saving
+
+Limit:
+
+* 5 generations/month
+
+FREE OUTPUTS SHOULD BE:
+
+* shorter
+* simpler
+* less strategic
+* less operationally deep
+
+Free users should receive:
+
+* simplified execution plans
+* basic monetization insights
+* lightweight website drafts
+
+---
+
+## FREE USERS SHOULD NOT RECEIVE:
+
+* proactive intelligence engine
+* advanced automation strategy
+* operational diagnostics
+* advanced scalability analysis
+* deep defensibility analysis
+* advanced infrastructure planning
+* premium execution intelligence
+
+PRO users should unlock:
+
+* deeper business intelligence
+* richer website generation
+* Generate Chatbot access
+* Build Automation access
+* longer structured outputs
+* advanced execution planning
+* operational strategy insights
+* infrastructure recommendations
+
+PRO should feel:
+substantially smarter than Free.
+
+STARTUP users should unlock:
+
+* premium reasoning pipeline
+* proactive intelligence engine
+* advanced growth diagnostics
+* scalability analysis
+* strategic optimization recommendations
+* advanced automation systems
+* richer AI orchestration
+* priority generation queue
+
+STARTUP should feel:
+like executive-level business intelligence.
+
+If Free users attempt:
+
+* Generate Chatbot
+* Build Automation
+* advanced intelligence actions
+
+Display:
+upgrade modal or locked-state UI.
+
+Example:
+“Upgrade to Pro to unlock advanced business systems.”
+
+IMPORTANT:
+Do NOT fully hide premium capabilities.
+
+Show them visually:
+
+* but locked
+* slightly blurred/faded
+* upgrade-oriented
+
+This creates:
+feature visibility + upgrade desire.
+
+The user journey should feel like:
+
+1. Generate business idea
+2. Continue building the business
+3. Expand into:
+
+   * website
+   * chatbot
+   * automations
+4. Upgrade naturally for deeper intelligence
+
+STAGEONE should feel:
+like a connected AI business-building ecosystem,
+not isolated generators.
+
+Free tier should create:
+curiosity + momentum.
+
+Pro tier should feel:
+like the “real product.”
+
+Startup tier should feel:
+like premium strategic infrastructure.
+
+The product should naturally encourage:
+Free → Pro upgrades through visible capability differences.

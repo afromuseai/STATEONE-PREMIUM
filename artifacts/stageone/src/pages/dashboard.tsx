@@ -388,6 +388,7 @@ export default function DashboardPage() {
       memoryCount={memoryCount}
       websiteGenerated={websiteGenerated || showWebsite}
       results={results}
+      plan={subscription?.plan ?? "free"}
       onNavigate={setLocation}
       onOpenProject={handleOpenProject}
       onDeleteProject={handleDeleteProject}

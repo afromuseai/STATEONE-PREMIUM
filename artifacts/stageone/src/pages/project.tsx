@@ -209,6 +209,8 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   streamingText={streamingText}
                   generationStage={0}
                   onGenerateWebsite={biData ? () => setTab("website") : undefined}
+                  onGenerateChatbot={biData ? () => setLocation("/chatbot-generator") : undefined}
+                  onBuildAutomation={biData ? () => setLocation("/automation-builder") : undefined}
                 />
               </motion.div>
             ) : (
