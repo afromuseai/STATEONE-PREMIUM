@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   BarChart3, Bot, Globe, Rocket, Workflow, FileText, Target, TrendingUp,
   Zap, Gauge, Layers, Shield, Lightbulb, Code, AlertTriangle, Crosshair,
-  Sparkles, Brain, CheckCircle2, Circle, Activity, Cpu, BarChart2,
+  Sparkles, Brain, CheckCircle2, Circle, Activity, Cpu, BarChart2, Lock,
 } from "lucide-react"
 import { IntelligencePanel } from "./intelligence-panel"
 import { FeedbackWidget } from "./feedback-widget"
@@ -54,6 +54,7 @@ interface OutputPanelProps {
   onGenerateChatbot?: () => void
   onBuildAutomation?: () => void
   projectId?: string
+  userPlan?: string
 }
 
 // ─── Industry-Specific Reasoning Messages ─────────────────────────────────────
@@ -651,7 +652,8 @@ function EmptyState() {
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-export function OutputPanel({ data, partialData, isLoading, streamingText, generationStage, reasoningStages, detectedIndustry, onGenerateWebsite, onGenerateChatbot, onBuildAutomation, projectId }: OutputPanelProps) {
+export function OutputPanel({ data, partialData, isLoading, streamingText, generationStage, reasoningStages, detectedIndustry, onGenerateWebsite, onGenerateChatbot, onBuildAutomation, projectId, userPlan }: OutputPanelProps) {
+  const isFree = !userPlan || userPlan === "free"
   if (isLoading) {
     return (
       <div className="h-full overflow-y-auto pr-2">
@@ -689,30 +691,33 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 <motion.button
                   initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
                   onClick={onGenerateWebsite}
-                  className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+                  className={`flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors ${isFree ? "opacity-70" : ""}`}
                 >
                   <Globe className="h-3.5 w-3.5" />
                   Generate Website
+                  {isFree && <Lock className="h-3 w-3 opacity-70" />}
                 </motion.button>
               )}
               {onGenerateChatbot && (
                 <motion.button
                   initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
                   onClick={onGenerateChatbot}
-                  className="flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-400 hover:bg-blue-500/20 transition-colors"
+                  className={`flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors ${isFree ? "opacity-70" : ""}`}
                 >
                   <Bot className="h-3.5 w-3.5" />
                   Generate Chatbot
+                  {isFree && <Lock className="h-3 w-3 opacity-70" />}
                 </motion.button>
               )}
               {onBuildAutomation && (
                 <motion.button
                   initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5 }}
                   onClick={onBuildAutomation}
-                  className="flex items-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-400 hover:bg-violet-500/20 transition-colors"
+                  className={`flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors ${isFree ? "opacity-70" : ""}`}
                 >
                   <Workflow className="h-3.5 w-3.5" />
                   Build Automation
+                  {isFree && <Lock className="h-3 w-3 opacity-70" />}
                 </motion.button>
               )}
               <div className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5">

@@ -1,0 +1,139 @@
+// ─── Cross-Generator Context Passing ─────────────────────────────────────────
+// Stores business intelligence in sessionStorage so generator pages can
+// auto-fill and immediately trigger generation without re-entry.
+
+export interface GenerationContext {
+  idea: string
+  industry: string
+  businessSnapshot: string
+  targetMarket: string
+  chatbotRole: string
+  automations: string[]
+  growthPlan: string[]
+  strategicInsights: {
+    growthBottleneck: string
+    fastestChannel: string
+    highestLeverageAutomation: string
+    operationalRisk: string
+  }
+  recommendedStack: {
+    frontend: string[]
+    backend: string[]
+    automation: string[]
+    crm: string
+    payments: string
+  }
+  competitiveAdvantage: {
+    differentiation: string
+    defensibility: string
+    scalabilityEdge: string
+  }
+}
+
+const KEY = "stageone_gen_context"
+
+export function saveGenerationContext(ctx: GenerationContext): void {
+  try {
+    sessionStorage.setItem(KEY, JSON.stringify(ctx))
+  } catch { /* ignore */ }
+}
+
+export function loadGenerationContext(): GenerationContext | null {
+  try {
+    const raw = sessionStorage.getItem(KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as GenerationContext
+  } catch {
+    return null
+  }
+}
+
+export function clearGenerationContext(): void {
+  try {
+    sessionStorage.removeItem(KEY)
+  } catch { /* ignore */ }
+}
+
+// ─── Derivation helpers ───────────────────────────────────────────────────────
+
+export function deriveChatbotType(chatbotRole: string): string {
+  const r = chatbotRole.toLowerCase()
+  if (r.includes("sales") || r.includes("qualify") || r.includes("convert")) return "Sales Assistant"
+  if (r.includes("onboard") || r.includes("activate") || r.includes("guide")) return "Onboarding Assistant"
+  if (r.includes("book") || r.includes("schedul")) return "Booking Assistant"
+  if (r.includes("faq") || r.includes("answer") || r.includes("educat")) return "FAQ Assistant"
+  if (r.includes("internal") || r.includes("team") || r.includes("hr")) return "Internal Team Assistant"
+  return "Customer Support"
+}
+
+export function deriveChatbotIndustry(industry: string): string {
+  const map: Record<string, string> = {
+    "SaaS": "SaaS",
+    "Healthcare": "Healthcare",
+    "Fintech": "Finance",
+    "Finance": "Finance",
+    "E-commerce": "eCommerce",
+    "Education": "Education",
+    "Cybersecurity": "Cybersecurity",
+    "Fitness": "Fitness",
+    "Marketplace": "SaaS",
+    "Agency": "SaaS",
+    "Creator Economy": "SaaS",
+  }
+  return map[industry] ?? "SaaS"
+}
+
+export function deriveChatbotTone(industry: string): string {
+  const map: Record<string, string> = {
+    "Healthcare": "Professional",
+    "Fintech": "Professional",
+    "Finance": "Corporate",
+    "Cybersecurity": "Technical",
+    "Fitness": "Friendly",
+    "Education": "Friendly",
+    "Luxury": "Luxury",
+  }
+  return map[industry] ?? "Professional"
+}
+
+export function deriveWorkflowType(automations: string[]): string {
+  const text = automations.join(" ").toLowerCase()
+  if (text.includes("lead") || text.includes("prospect")) return "Lead Capture"
+  if (text.includes("onboard")) return "Customer Onboarding"
+  if (text.includes("sales") || text.includes("pipeline")) return "Sales Pipeline"
+  if (text.includes("support") || text.includes("ticket")) return "Support Automation"
+  if (text.includes("marketing") || text.includes("campaign")) return "Marketing Automation"
+  if (text.includes("crm")) return "CRM Automation"
+  return "Lead Capture"
+}
+
+export function buildChatbotDesc(ctx: GenerationContext): string {
+  return `Business: ${ctx.idea}
+
+Industry: ${ctx.industry}
+Overview: ${ctx.businessSnapshot}
+Target Market: ${ctx.targetMarket}
+Chatbot Role: ${ctx.chatbotRole}
+
+Key Automations Needed:
+${ctx.automations.slice(0, 3).map(a => `• ${a}`).join("\n")}
+
+Brand Tone: ${ctx.recommendedStack.crm ? `CRM: ${ctx.recommendedStack.crm}` : "Professional"}`
+}
+
+export function buildAutomationDesc(ctx: GenerationContext): string {
+  return `Business: ${ctx.idea}
+
+Industry: ${ctx.industry}
+Overview: ${ctx.businessSnapshot}
+Target Market: ${ctx.targetMarket}
+
+Key Automation Opportunities:
+${ctx.automations.map(a => `• ${a}`).join("\n")}
+
+Recommended Stack: ${ctx.recommendedStack.automation.join(", ")}
+CRM: ${ctx.recommendedStack.crm}
+Payments: ${ctx.recommendedStack.payments}
+
+Growth Focus: ${ctx.strategicInsights.highestLeverageAutomation}`
+}

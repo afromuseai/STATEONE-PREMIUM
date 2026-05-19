@@ -5,10 +5,14 @@ import {
   Mail, MessageSquare, CreditCard, Ticket, Play, RefreshCw,
   ChevronRight, Copy, Check, AlertCircle, Layers, GitBranch,
   Cpu, BarChart3, Shield, ArrowRight, Sparkles, Settings2,
-  Activity, Target, Clock, TrendingUp,
+  Activity, Target, Clock, TrendingUp, Lock, Crown,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
+import {
+  loadGenerationContext, clearGenerationContext,
+  deriveWorkflowType, buildAutomationDesc,
+} from "@/lib/generation-context"
 
 /* ── Types ─────────────────────────────────────────────── */
 type NodeType = "trigger" | "action" | "ai_agent" | "notification" | "crm" | "database" | "webhook"
@@ -304,7 +308,71 @@ export default function AutomationBuilderPage() {
   const [activeTab, setActiveTab] = useState<"workflow" | "integrations" | "agents" | "logic">("workflow")
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [copied, setCopied] = useState("")
+  const [contextBanner, setContextBanner] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Check subscription tier
+  useEffect(() => {
+    fetch("/api/subscriptions/me", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.subscription?.plan === "free") setIsLocked(true) })
+      .catch(() => {})
+  }, [])
+
+  // Auto-fill from business intelligence context
+  useEffect(() => {
+    const ctx = loadGenerationContext()
+    if (!ctx) return
+    clearGenerationContext()
+    const desc = buildAutomationDesc(ctx)
+    const wt = deriveWorkflowType(ctx.automations)
+    setBusinessDesc(desc)
+    setWorkflowType(wt)
+    setContextBanner(true)
+    setTimeout(() => generateWith(desc, wt, "Intermediate"), 150)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const generateWith = async (desc: string, wt: string, cplx: string) => {
+    if (!desc.trim()) return
+    setGenError(""); setStep("generating"); setStreamText(""); setData(null); setSelectedNode(null)
+    abortRef.current = new AbortController()
+    let buffer = ""
+    try {
+      const res = await fetch("/api/generate/automation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ businessDescription: desc.trim(), workflowType: wt, complexity: cplx }),
+        signal: abortRef.current.signal,
+      })
+      if (!res.ok || !res.body) throw new Error("Request failed")
+      const reader = res.body.getReader()
+      const dec = new TextDecoder()
+      let carry = ""
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = carry + dec.decode(value, { stream: true })
+        const lines = chunk.split("\n")
+        carry = lines.pop() ?? ""
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue
+          try {
+            const msg = JSON.parse(line.slice(6))
+            if (msg.error) { setGenError(msg.error); setStep("idle"); return }
+            if (msg.content) { buffer += msg.content; setStreamText(buffer) }
+            if (msg.done && msg.data) { setData(msg.data); setStep("done") }
+          } catch { /* fragment */ }
+        }
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== "AbortError") {
+        setGenError("Generation failed — please try again")
+        setStep("idle")
+      }
+    }
+  }
 
   const generate = async () => {
     if (!businessDesc.trim()) return
@@ -365,6 +433,48 @@ export default function AutomationBuilderPage() {
     <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
 
+      {/* Locked overlay for free users */}
+      {isLocked && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md" style={{ left: collapsed ? 64 : 220 }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-md rounded-2xl border border-primary/25 bg-[#0c0c0c] p-8 shadow-2xl mx-4"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary">
+                <Workflow className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-foreground">Automation Builder</h3>
+                  <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary">
+                    <Lock className="h-2.5 w-2.5" /> Pro
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">Upgrade to unlock this system</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+              Generate end-to-end automation workflows with a node-based canvas, AI agent configs, integration maps, and execution logic — auto-populated from your business intelligence.
+            </p>
+            <div className="rounded-xl border border-white/5 bg-white/2 p-4 mb-6 space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">Included with Pro</p>
+              {["Auto-filled from business intelligence", "Node-based workflow canvas", "AI agent configuration", "Integration mapping (CRM, Email, Webhooks)", "Trigger & action logic builder", "Exportable automation spec"].map(f => (
+                <div key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
+                  {f}
+                </div>
+              ))}
+            </div>
+            <a href="/pricing" className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
+              <Crown className="h-3.5 w-3.5" />
+              Upgrade to Pro
+            </a>
+          </motion.div>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT PANEL */}
         <div className="w-72 shrink-0 border-r border-white/5 bg-[#070707] flex flex-col overflow-y-auto">
@@ -377,6 +487,12 @@ export default function AutomationBuilderPage() {
                 <p className="text-[9px] text-muted-foreground tracking-widest uppercase">AI Workflow Engine</p>
               </div>
             </div>
+            {contextBanner && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                <p className="text-[11px] text-primary/80 font-medium">Auto-filled from your business intelligence</p>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 p-4 space-y-5">

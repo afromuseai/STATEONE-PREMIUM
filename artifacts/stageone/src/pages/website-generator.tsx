@@ -7,6 +7,7 @@ import {
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
+import { loadGenerationContext, clearGenerationContext } from "@/lib/generation-context"
 import JSZip from "jszip"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -103,8 +104,38 @@ export default function WebsiteGeneratorPage() {
   const [regenSectionKey, setRegenSectionKey] = useState<SectionKey | null>(null)
   const [showExport, setShowExport] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [contextBanner, setContextBanner] = useState(false)
   const exportRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Auto-fill from business intelligence context
+  useEffect(() => {
+    const ctx = loadGenerationContext()
+    if (!ctx) return
+    clearGenerationContext()
+    const ideaText = ctx.idea || ctx.businessSnapshot || ""
+    if (ideaText) {
+      setIdea(ideaText)
+      setContextBanner(true)
+      // Map industry to style
+      const industryStyleMap: Record<string, StyleOption> = {
+        "SaaS": "SaaS",
+        "Cybersecurity": "SaaS",
+        "Fintech": "Corporate",
+        "Healthcare": "Corporate",
+        "E-commerce": "Startup",
+        "Marketplace": "Startup",
+        "Education": "Startup",
+        "Agency": "Minimal",
+        "Creator Economy": "Startup",
+        "Luxury": "Luxury",
+      }
+      if (ctx.industry && industryStyleMap[ctx.industry]) {
+        setStyle(industryStyleMap[ctx.industry])
+      }
+      setTimeout(() => generateWithIdea(ideaText), 150)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close export dropdown on outside click
   useEffect(() => {
@@ -130,6 +161,55 @@ export default function WebsiteGeneratorPage() {
   const updatePreview = useCallback((d: WebsiteOutput) => {
     setPreviewHtml(buildPreviewHtml(d))
   }, [])
+
+  const generateWithIdea = async (ideaOverride: string) => {
+    if (!ideaOverride.trim()) return
+    setGenError("")
+    setStep("generating")
+    abortRef.current = new AbortController()
+    let buffer = ""
+    try {
+      const res = await fetch("/api/generate/website", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ idea: ideaOverride.trim(), style, tone }),
+        signal: abortRef.current.signal,
+      })
+      if (!res.ok) throw new Error("Request failed")
+      if (!res.body) throw new Error("No response stream")
+      const reader = res.body.getReader()
+      const dec = new TextDecoder()
+      let carry = ""
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = carry + dec.decode(value, { stream: true })
+        const lines = chunk.split("\n")
+        carry = lines.pop() ?? ""
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue
+          try {
+            const msg = JSON.parse(line.slice(6))
+            if (msg.content) buffer += msg.content
+            if (msg.error) { setGenError(msg.error); setStep("input"); return }
+            if (msg.done && msg.data) {
+              const out = msg.data as WebsiteOutput
+              setData(out)
+              updatePreview(out)
+              setStep("done")
+              return
+            }
+          } catch { /* fragment */ }
+        }
+      }
+      setGenError("Generation ended unexpectedly. Try again."); setStep("input")
+    } catch (err: unknown) {
+      if ((err as Error).name === "AbortError") { setStep("input"); return }
+      setGenError("Connection error. Check your API key and try again.")
+      setStep("input")
+    }
+  }
 
   const generate = async () => {
     if (!idea.trim()) return
@@ -306,6 +386,12 @@ export default function WebsiteGeneratorPage() {
                   <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                     Describe your business and we'll build a premium, launch-ready website.
                   </p>
+                  {contextBanner && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                      <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <p className="text-[11px] text-primary/80 font-medium">Auto-filled from your business intelligence</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">

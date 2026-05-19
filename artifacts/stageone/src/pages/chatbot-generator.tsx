@@ -4,8 +4,13 @@ import {
   Bot, Sparkles, Copy, Download, Check, Loader2, ArrowLeft,
   MessageCircle, Zap, RefreshCw, ChevronDown, X, Monitor,
   Smartphone, Send, User, Settings2, GitBranch, Plug, FileJson,
+  Lock, Crown,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import {
+  loadGenerationContext, clearGenerationContext,
+  deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
+} from "@/lib/generation-context"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Step = "input" | "generating" | "done"
@@ -105,9 +110,37 @@ export default function ChatbotGeneratorPage() {
   const [editedPrompt, setEditedPrompt] = useState("")
   const [copiedKey, setCopiedKey] = useState("")
   const [chatInput, setChatInput] = useState("")
+  const [contextBanner, setContextBanner] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const chatHistoryRef = useRef<ChatMessage[]>([])
+
+  // Check subscription tier
+  useEffect(() => {
+    fetch("/api/subscriptions/me", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.subscription?.plan === "free") setIsLocked(true) })
+      .catch(() => {})
+  }, [])
+
+  // Auto-fill from business intelligence context
+  useEffect(() => {
+    const ctx = loadGenerationContext()
+    if (!ctx) return
+    clearGenerationContext()
+    const desc = buildChatbotDesc(ctx)
+    const type = deriveChatbotType(ctx.chatbotRole) as ChatbotType
+    const ind = deriveChatbotIndustry(ctx.industry) as Industry
+    const tn = deriveChatbotTone(ctx.industry) as Tone
+    setBusinessDesc(desc)
+    setChatbotType(type)
+    setIndustry(ind)
+    setTone(tn)
+    setContextBanner(true)
+    // Auto-trigger generation after state propagates
+    setTimeout(() => generateWith(desc, type, ind, tn), 150)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll chat
   useEffect(() => {
@@ -200,6 +233,57 @@ export default function ChatbotGeneratorPage() {
     if (chatInput.trim()) { sendMessage(chatInput.trim()); setChatInput("") }
   }
 
+  const generateWith = async (desc: string, type: string, ind: string, tn: string) => {
+    if (!desc.trim()) return
+    setGenError(""); setStep("generating")
+    abortRef.current = new AbortController()
+    let buffer = ""
+    try {
+      const res = await fetch("/api/generate/chatbot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ businessDescription: desc.trim(), chatbotType: type, tone: tn, industry: ind }),
+        signal: abortRef.current.signal,
+      })
+      if (!res.ok || !res.body) throw new Error("Request failed")
+      const reader = res.body.getReader()
+      const dec = new TextDecoder()
+      let carry = ""
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = carry + dec.decode(value, { stream: true })
+        const lines = chunk.split("\n")
+        carry = lines.pop() ?? ""
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue
+          try {
+            const msg = JSON.parse(line.slice(6))
+            if (msg.content) buffer += msg.content
+            if (msg.error) { setGenError(msg.error); setStep("input"); return }
+            if (msg.done && msg.data) {
+              const out = msg.data as ChatbotOutput
+              setData(out)
+              setEditedPrompt(out.systemPrompt.main)
+              initChat(out)
+              setStep("done")
+              setRightTab("preview")
+              return
+            }
+          } catch { /* fragment */ }
+        }
+      }
+      setGenError("Generation ended unexpectedly. Please try again.")
+      setStep("input")
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== "AbortError") {
+        setGenError("Generation failed — please try again")
+        setStep("input")
+      }
+    }
+  }
+
   const generate = async () => {
     if (!businessDesc.trim()) return
     setGenError(""); setStep("generating")
@@ -261,6 +345,48 @@ export default function ChatbotGeneratorPage() {
     <div className="flex h-screen overflow-hidden bg-[#080808]">
       <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
 
+      {/* Locked overlay for free users */}
+      {isLocked && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md" style={{ left: sidebarCollapsed ? 64 : 220 }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-md rounded-2xl border border-primary/25 bg-[#0c0c0c] p-8 shadow-2xl mx-4"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-foreground">AI Chatbot Generator</h3>
+                  <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary">
+                    <Lock className="h-2.5 w-2.5" /> Pro
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">Upgrade to unlock this system</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+              Build a fully-configured AI chatbot with conversation flows, system prompts, integrations, and live preview — pre-filled from your business analysis.
+            </p>
+            <div className="rounded-xl border border-white/5 bg-white/2 p-4 mb-6 space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">Included with Pro</p>
+              {["Auto-filled from business intelligence", "Custom conversation flows & intents", "Live chat preview", "Embeddable widget code", "API integration config", "System prompt editor"].map(f => (
+                <div key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
+                  {f}
+                </div>
+              ))}
+            </div>
+            <a href="/pricing" className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
+              <Crown className="h-3.5 w-3.5" />
+              Upgrade to Pro
+            </a>
+          </motion.div>
+        </div>
+      )}
+
       <div className="flex flex-1 min-w-0 overflow-hidden">
         {/* ─── LEFT PANEL ─────────────────────────────────────────── */}
         <div className="w-[380px] shrink-0 border-r border-white/5 flex flex-col bg-[#090909] overflow-hidden">
@@ -279,6 +405,12 @@ export default function ChatbotGeneratorPage() {
                   <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                     Describe your business and generate a deployable AI assistant system.
                   </p>
+                  {contextBanner && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                      <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <p className="text-[11px] text-primary/80 font-medium">Auto-filled from your business intelligence</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">

@@ -250,6 +250,56 @@ HARD RULES:
 - competitiveAdvantage must reference real named competitors
 - NO filler phrases, NO motivational language, NO vague adjectives`;
 
+// ─── Free Tier System Prompt (shorter, simpler output) ─────────────────────────
+const freeSystemPrompt = `You are STAGEONE, an AI business analysis assistant. Analyze the business idea and return a concise structured overview.
+
+Return ONLY valid JSON matching this exact schema (keep text fields brief — 1 sentence max per field):
+{
+  "industry": "SaaS|E-commerce|Healthcare|Cybersecurity|Education|Marketplace|Agency|Fintech|Creator Economy",
+  "metrics": {
+    "marketDifficulty": 1-10,
+    "automationPotential": 1-100,
+    "revenueScalability": 1-10,
+    "operationalComplexity": 1-10,
+    "aiAdoptionOpportunity": 1-100
+  },
+  "businessSnapshot": "One sentence: business model and revenue approach",
+  "targetMarket": "One sentence: primary customer segment and main pain point",
+  "strategicInsights": {
+    "growthBottleneck": "Main growth constraint",
+    "fastestChannel": "Best acquisition channel",
+    "highestLeverageAutomation": "Key automation opportunity",
+    "operationalRisk": "Primary business risk"
+  },
+  "competitiveAdvantage": {
+    "differentiation": "Key differentiator vs competitors",
+    "defensibility": "Why customers stay",
+    "scalabilityEdge": "How the business scales"
+  },
+  "growthPlan": [
+    "Phase 1 (0-3mo): Core action and goal",
+    "Phase 2 (3-6mo): Expansion and goal",
+    "Phase 3 (6-12mo): Scale and goal"
+  ],
+  "websitePages": [
+    "Homepage → primary CTA",
+    "Product/Features → demo trigger",
+    "Pricing → tier structure"
+  ],
+  "chatbotRole": "Customer support and lead capture chatbot",
+  "automations": [
+    "Lead capture → email sequence",
+    "New signup → onboarding flow"
+  ],
+  "recommendedStack": {
+    "frontend": ["React", "Tailwind CSS", "Vercel"],
+    "backend": ["Node.js", "PostgreSQL"],
+    "automation": ["Zapier", "HubSpot"],
+    "crm": "HubSpot",
+    "payments": "Stripe"
+  }
+}`;
+
 router.post("/generate", requireAuth, async (req, res) => {
   try {
     const { idea } = req.body;
@@ -266,9 +316,11 @@ router.post("/generate", requireAuth, async (req, res) => {
       return;
     }
 
+    let userPlan = "pro"; // default for admins
     if (!isAdmin) {
       const { getOrCreateSubscription } = await import("./subscriptions");
       const sub = await getOrCreateSubscription(userId);
+      userPlan = sub.plan;
       if (sub.aiGenerationsUsed >= sub.aiGenerationsLimit) {
         res.status(429).json({
           error: `AI generation limit reached (${sub.aiGenerationsUsed}/${sub.aiGenerationsLimit}). Upgrade your plan to continue.`,
@@ -281,6 +333,10 @@ router.post("/generate", requireAuth, async (req, res) => {
       await db.update(subscriptionsTable).set({ aiGenerationsUsed: sub.aiGenerationsUsed + 1 }).where(eq(subscriptionsTable.userId, userId));
     }
 
+    const isFree = userPlan === "free";
+    const isStartup = userPlan === "startup" || userPlan === "enterprise";
+    const maxTokens = isFree ? 1800 : isStartup ? 5000 : 3500;
+
     // Set SSE headers early so we can stream reasoning events
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -289,26 +345,32 @@ router.post("/generate", requireAuth, async (req, res) => {
     // Emit initial reasoning state
     res.write(`data: ${JSON.stringify({ reasoning: "Initializing industry profiler...", phase: "init" })}\n\n`);
 
-    // Fetch cross-system context (memories + recent projects)
-    const crossSystemContext = await buildCrossSystemContext(userId);
-
-    res.write(`data: ${JSON.stringify({ reasoning: "Loading intelligence memory & cross-system context...", phase: "memory" })}\n\n`);
-
-    const systemPrompt = baseSystemPrompt + crossSystemContext;
+    // Free users get simplified analysis — skip cross-system context overhead
+    let systemPrompt: string;
+    if (isFree) {
+      systemPrompt = freeSystemPrompt;
+      res.write(`data: ${JSON.stringify({ reasoning: "Analyzing business model...", phase: "analysis" })}\n\n`);
+    } else {
+      // Fetch cross-system context (memories + recent projects) for paid tiers
+      const crossSystemContext = await buildCrossSystemContext(userId);
+      res.write(`data: ${JSON.stringify({ reasoning: "Loading intelligence memory & cross-system context...", phase: "memory" })}\n\n`);
+      systemPrompt = baseSystemPrompt + crossSystemContext;
+    }
 
     let streamBody: ReadableStream<Uint8Array>;
     try {
+      const userMessage = isFree
+        ? `Analyze this business idea and return a concise structured overview: "${idea}"`
+        : `Apply deep cross-system intelligence to analyze this business idea. Consider how every output (website, automations, agents, monetization) interconnects: "${idea}"`;
+
       streamBody = await streamNvidia({
         model: MODELS.BUSINESS_INTELLIGENCE,
         messages: [
           { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Apply deep cross-system intelligence to analyze this business idea. Consider how every output (website, automations, agents, monetization) interconnects: "${idea}"`,
-          },
+          { role: "user", content: userMessage },
         ],
         temperature: 0.7,
-        maxTokens: 3500,
+        maxTokens,
       });
     } catch (streamErr) {
       req.log.error({ streamErr, model: MODELS.BUSINESS_INTELLIGENCE }, `[AI:${MODELS.BUSINESS_INTELLIGENCE}] Failed to open stream`);

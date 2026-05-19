@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useBusinessContext } from "@/lib/business-context"
 import { api, type Project } from "@/lib/api"
 import { recordRevenueSignal } from "@/lib/intelligence-state"
+import { saveGenerationContext } from "@/lib/generation-context"
 import {
   FolderOpen,
   Plus,
@@ -24,6 +25,9 @@ import {
   AlertTriangle,
   Crown,
   X,
+  Bot,
+  Workflow,
+  Lock,
 } from "lucide-react"
 
 type Tab = "overview" | "new" | "projects"
@@ -178,6 +182,7 @@ export default function DashboardPage() {
   // Subscription state for usage warning + quota enforcement
   const [subscription, setSubscription] = useState<{ aiGenerationsUsed: number; aiGenerationsLimit: number; plan: string } | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [lockedFeature, setLockedFeature] = useState<{ name: string; icon: React.ReactNode; description: string } | null>(null)
 
   useEffect(() => {
     api.projects.list().then(({ projects }) => {
@@ -558,10 +563,65 @@ export default function DashboardPage() {
                 generationStage={generationStage}
                 reasoningStages={reasoningStages.length > 0 ? reasoningStages : undefined}
                 detectedIndustry={detectedIndustry}
-                onGenerateWebsite={results ? () => setShowWebsite(true) : undefined}
-                onGenerateChatbot={results ? () => setLocation("/chatbot-generator") : undefined}
-                onBuildAutomation={results ? () => setLocation("/automation-builder") : undefined}
+                onGenerateWebsite={results ? () => {
+                  if (subscription?.plan === "free" || !subscription) {
+                    setLockedFeature({ name: "Website Builder", icon: <Globe className="h-5 w-5" />, description: "Generate a complete, launch-ready website with AI — including copy, design system, React components, and live preview." })
+                    return
+                  }
+                  saveGenerationContext({
+                    idea: currentIdea,
+                    industry: results.industry,
+                    businessSnapshot: results.businessSnapshot,
+                    targetMarket: results.targetMarket,
+                    chatbotRole: results.chatbotRole,
+                    automations: results.automations,
+                    growthPlan: results.growthPlan,
+                    strategicInsights: results.strategicInsights,
+                    recommendedStack: results.recommendedStack,
+                    competitiveAdvantage: results.competitiveAdvantage,
+                  })
+                  setShowWebsite(true)
+                } : undefined}
+                onGenerateChatbot={results ? () => {
+                  if (subscription?.plan === "free" || !subscription) {
+                    setLockedFeature({ name: "AI Chatbot Generator", icon: <Bot className="h-5 w-5" />, description: "Build a fully-configured AI chatbot with conversation flows, system prompts, integrations, and live preview — pre-filled from your business analysis." })
+                    return
+                  }
+                  saveGenerationContext({
+                    idea: currentIdea,
+                    industry: results.industry,
+                    businessSnapshot: results.businessSnapshot,
+                    targetMarket: results.targetMarket,
+                    chatbotRole: results.chatbotRole,
+                    automations: results.automations,
+                    growthPlan: results.growthPlan,
+                    strategicInsights: results.strategicInsights,
+                    recommendedStack: results.recommendedStack,
+                    competitiveAdvantage: results.competitiveAdvantage,
+                  })
+                  setLocation("/chatbot-generator")
+                } : undefined}
+                onBuildAutomation={results ? () => {
+                  if (subscription?.plan === "free" || !subscription) {
+                    setLockedFeature({ name: "Automation Builder", icon: <Workflow className="h-5 w-5" />, description: "Generate end-to-end automation workflows with node-based canvas, AI agent configs, integration maps, and execution logic — auto-populated from your business intelligence." })
+                    return
+                  }
+                  saveGenerationContext({
+                    idea: currentIdea,
+                    industry: results.industry,
+                    businessSnapshot: results.businessSnapshot,
+                    targetMarket: results.targetMarket,
+                    chatbotRole: results.chatbotRole,
+                    automations: results.automations,
+                    growthPlan: results.growthPlan,
+                    strategicInsights: results.strategicInsights,
+                    recommendedStack: results.recommendedStack,
+                    competitiveAdvantage: results.competitiveAdvantage,
+                  })
+                  setLocation("/automation-builder")
+                } : undefined}
                 projectId={activeProjectId ?? undefined}
+                userPlan={subscription?.plan ?? "free"}
               />
             </motion.div>
           ) : (
@@ -596,6 +656,76 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {/* Feature locked modal (tier gating) */}
+      <AnimatePresence>
+        {lockedFeature && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+            onClick={() => setLockedFeature(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-primary/20 bg-[#0c0c0c] p-8 shadow-2xl"
+            >
+              <button
+                onClick={() => setLockedFeature(null)}
+                className="absolute top-5 right-5 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary">
+                  {lockedFeature.icon}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-foreground">{lockedFeature.name}</h3>
+                    <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary">
+                      <Lock className="h-2.5 w-2.5" /> Pro
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">Upgrade to unlock this system</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                {lockedFeature.description}
+              </p>
+              <div className="rounded-xl border border-white/5 bg-white/2 p-4 mb-6 space-y-2">
+                <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">Pro unlocks</p>
+                {["Deeper business intelligence", "AI Website Builder", "AI Chatbot Generator", "Automation Builder", "Advanced execution planning", "100 AI operations/month"].map(f => (
+                  <div key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
+                    {f}
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setLockedFeature(null)}
+                  className="flex-1 h-10 rounded-xl border border-white/10 bg-white/5 text-sm font-medium text-foreground hover:bg-white/8 transition-all"
+                >
+                  Maybe Later
+                </button>
+                <button
+                  onClick={() => { setLockedFeature(null); setLocation("/pricing") }}
+                  className="flex-1 h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow flex items-center justify-center gap-2"
+                >
+                  <Crown className="h-3.5 w-3.5" />
+                  Upgrade to Pro
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Quota upgrade modal */}
       <AnimatePresence>
         {showUpgradeModal && (
