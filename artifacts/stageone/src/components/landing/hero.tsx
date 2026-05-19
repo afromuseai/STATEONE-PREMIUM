@@ -872,13 +872,17 @@ export function Hero() {
           backgroundImage: "linear-gradient(to right, rgba(184,145,68,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(184,145,68,0.03) 1px, transparent 1px)",
           backgroundSize: "80px 80px",
         }} />
-        {/* Top strip — covers baked-in card */}
-        <div className="absolute inset-x-0 top-0 h-[130px]" style={{
-          background: "linear-gradient(to bottom, #050505 70%, transparent 100%)",
+        {/* Top fade — smooth reveal from top */}
+        <div className="absolute inset-x-0 top-0 h-[280px]" style={{
+          background: "linear-gradient(to bottom, #050505 30%, rgba(5,5,5,0.6) 60%, transparent 100%)",
         }} />
-        {/* Right-edge strip — additional coverage for top-right card */}
-        <div className="absolute top-0 right-0 w-[12%] h-[160px]" style={{
-          background: "linear-gradient(to left, #050505 60%, transparent 100%)",
+        {/* Top-right corner fade — diagonal blend */}
+        <div className="absolute top-0 right-0 w-[55%] h-[320px]" style={{
+          background: "linear-gradient(135deg, transparent 30%, rgba(5,5,5,0.55) 60%, #050505 100%)",
+        }} />
+        {/* Right-edge fade */}
+        <div className="absolute inset-y-0 right-0 w-[8%]" style={{
+          background: "linear-gradient(to left, #050505 0%, transparent 100%)",
         }} />
       </div>
 
