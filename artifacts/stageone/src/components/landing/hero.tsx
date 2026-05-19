@@ -592,222 +592,187 @@ export function Hero() {
   const parallaxY = useSpring(useTransform(scrollYProgress, [0, 1], [0, 80]), { stiffness: 80, damping: 20 })
 
   return (
-    <section ref={ref} className="relative overflow-hidden bg-[oklch(0.08_0_0)] pt-16">
+    <section ref={ref} className="relative overflow-hidden pt-[72px]" style={{ background: "#050505" }}>
 
-      {/* ── Background ─────────────────────────────────────────────── */}
+      {/* ── Background: subtle gold grid + faint radial glow ─────── */}
       <div className="pointer-events-none absolute inset-0">
-        {/* Primary gold halo */}
-        <motion.div className="absolute inset-x-0 top-0 h-[900px]" style={{ y: parallaxY }}
-          animate={{
-            background: [
-              "radial-gradient(ellipse 90% 70% at 50% -5%, oklch(0.75 0.12 85 / 0.20) 0%, oklch(0.75 0.12 85 / 0.07) 40%, transparent 70%)",
-              "radial-gradient(ellipse 95% 72% at 50% -5%, oklch(0.75 0.12 85 / 0.22) 0%, oklch(0.75 0.12 85 / 0.08) 40%, transparent 70%)",
-              "radial-gradient(ellipse 90% 70% at 50% -5%, oklch(0.75 0.12 85 / 0.20) 0%, oklch(0.75 0.12 85 / 0.07) 40%, transparent 70%)",
-            ]
-          }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        />
-
-        {/* Side ambient glows */}
-        <div className="absolute -left-32 top-1/3 h-[500px] w-[500px] rounded-full"
-          style={{ background: "radial-gradient(circle, oklch(0.75 0.12 85 / 0.04), transparent 70%)", filter: "blur(40px)" }} />
-        <div className="absolute -right-32 top-1/4 h-[400px] w-[400px] rounded-full"
-          style={{ background: "radial-gradient(circle, oklch(0.75 0.12 85 / 0.03), transparent 70%)", filter: "blur(40px)" }} />
-
-        {/* Grid — primary structure */}
+        {/* Very faint gold grid */}
         <div className="absolute inset-0" style={{
-          backgroundImage: "linear-gradient(to right, oklch(0.75 0.12 85 / 0.045) 1px, transparent 1px), linear-gradient(to bottom, oklch(0.75 0.12 85 / 0.045) 1px, transparent 1px)",
-          backgroundSize: "72px 72px",
+          backgroundImage: "linear-gradient(to right, rgba(184,145,68,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(184,145,68,0.04) 1px, transparent 1px)",
+          backgroundSize: "80px 80px",
         }} />
-
-        {/* Subtle secondary grid */}
-        <div className="absolute inset-0 opacity-40" style={{
-          backgroundImage: "linear-gradient(to right, oklch(0.75 0.12 85 / 0.02) 1px, transparent 1px), linear-gradient(to bottom, oklch(0.75 0.12 85 / 0.02) 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
+        {/* Faint center radial glow */}
+        <div className="absolute inset-0" style={{
+          background: "radial-gradient(ellipse 70% 50% at 60% 40%, rgba(184,145,68,0.07) 0%, transparent 65%)",
         }} />
-
-        {/* Fade grid at bottom */}
-        <div className="absolute inset-x-0 bottom-0 h-96"
-          style={{ background: "linear-gradient(to bottom, transparent, oklch(0.08 0 0))" }} />
+        {/* Bottom fade */}
+        <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: "linear-gradient(to bottom, transparent, #050505)" }} />
       </div>
 
-      {/* Ambient node network */}
-      <NodeGrid />
+      {/* ── Main split layout ────────────────────────────────────── */}
+      <div className="relative mx-auto max-w-[1320px] px-8 lg:px-12 flex flex-col lg:flex-row items-center min-h-[calc(100vh-72px)] gap-10 lg:gap-0 py-16 lg:py-0">
 
-      {/* Floating orbs */}
-      <motion.div
-        className="pointer-events-none absolute left-[8%] top-[22%] h-80 w-80 rounded-full"
-        style={{ background: "oklch(0.75 0.12 85 / 0.05)", filter: "blur(90px)" }}
-        animate={{ y: [0, -24, 0], scale: [1, 1.1, 1] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="pointer-events-none absolute right-[8%] top-[30%] h-56 w-56 rounded-full"
-        style={{ background: "oklch(0.75 0.12 85 / 0.04)", filter: "blur(70px)" }}
-        animate={{ y: [0, 24, 0], scale: [1, 1.12, 1] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-      />
+        {/* ── LEFT 48%: text ───────────────────────────────────── */}
+        <div className="relative z-10 w-full lg:w-[48%] flex flex-col items-start justify-center lg:pr-12 xl:pr-20">
 
-      {/* ── Split hero: text LEFT, image RIGHT ─────────────────────── */}
-      <div className="relative mx-auto max-w-[1400px] px-6 pt-20 pb-0 flex flex-col lg:flex-row items-center gap-12 lg:gap-0 min-h-[calc(100vh-64px)]">
-
-        {/* ── LEFT: text content ──────────────────────────────────── */}
-        <div className="relative z-10 flex-1 flex flex-col items-start justify-center py-16 lg:pr-16">
-
-          {/* Badge */}
+          {/* Badge pill */}
           <motion.div
-            initial={{ opacity: 0, y: -12 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="mb-8 inline-flex items-center gap-2.5 rounded-full px-5 py-2"
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-7 inline-flex items-center gap-2 rounded-full px-4 py-1.5"
             style={{
-              background: "linear-gradient(135deg, oklch(0.75 0.12 85 / 0.12), oklch(0.75 0.12 85 / 0.06))",
-              border: "1px solid oklch(0.75 0.12 85 / 0.35)",
-              boxShadow: "0 0 20px oklch(0.75 0.12 85 / 0.1), inset 0 1px 0 oklch(0.75 0.12 85 / 0.1)",
-              backdropFilter: "blur(12px)",
+              background: "rgba(184,145,68,0.08)",
+              border: "1px solid rgba(184,145,68,0.28)",
             }}
           >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-            >
-              <Sparkles className="h-4 w-4 text-[oklch(0.75_0.12_85)]" />
-            </motion.div>
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-[oklch(0.75_0.12_85)]">
+            <motion.div className="w-1.5 h-1.5 rounded-full" style={{ background: "oklch(0.75 0.12 85)" }}
+              animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "oklch(0.75 0.12 85)" }}>
               AI Business Operating System
             </span>
           </motion.div>
 
-          {/* Headline */}
+          {/* Headline — tight, no overflow */}
           <motion.h1
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="text-5xl sm:text-6xl lg:text-[72px] xl:text-[84px] font-black leading-[1.0] tracking-[-0.02em]"
+            transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+            className="font-black tracking-[-0.03em] text-white leading-[1.02]"
+            style={{ fontSize: "clamp(2.6rem, 5vw, 4.5rem)" }}
           >
-            <span className="block text-white" style={{ textShadow: "0 0 80px oklch(0.75 0.12 85 / 0.15)" }}>
-              The AI Operating System
-            </span>
-            <span className="block mt-2">
-              for <TypingText />
-            </span>
+            The AI Operating System
+            <br />
+            <span className="block mt-1">for <TypingText /></span>
           </motion.h1>
 
-          {/* Gold separator */}
+          {/* Thin gold rule */}
           <motion.div
-            initial={{ scaleX: 0, opacity: 0 }}
-            animate={{ scaleX: 1, opacity: 1 }}
-            transition={{ duration: 1, delay: 0.45 }}
-            className="my-8 h-px w-48 origin-left"
-            style={{ background: "linear-gradient(90deg, oklch(0.75 0.12 85 / 0.9), transparent)" }}
+            initial={{ scaleX: 0 }} animate={{ scaleX: 1 }}
+            transition={{ duration: 0.9, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-7 mb-7 h-px w-32 origin-left"
+            style={{ background: "linear-gradient(90deg, rgba(184,145,68,0.8), transparent)" }}
           />
 
-          {/* Subtext */}
+          {/* Supporting paragraph */}
           <motion.p
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.5 }}
-            className="max-w-lg text-base md:text-lg leading-relaxed text-white/50"
+            transition={{ duration: 0.6, delay: 0.45 }}
+            className="text-[15px] leading-[1.75] max-w-[420px]"
+            style={{ color: "rgba(255,255,255,0.42)" }}
           >
-            Build, orchestrate, automate, and scale businesses through one unified AI intelligence
-            platform — combining strategy, websites, execution, memory, and operational systems
-            in one environment.
+            Build, orchestrate, and scale through one unified AI intelligence platform — strategy, websites, execution, memory, and operations in one environment.
           </motion.p>
 
           {/* CTAs */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.6 }}
-            className="mt-10 flex flex-col sm:flex-row items-start gap-4"
+            transition={{ duration: 0.6, delay: 0.58 }}
+            className="mt-9 flex items-center gap-3"
           >
             <Link href={user ? "/dashboard" : "/signup"}
-              className="group relative inline-flex h-14 items-center justify-center gap-2.5 rounded-2xl px-10 text-sm font-bold overflow-hidden transition-all duration-300"
+              className="group relative inline-flex h-12 items-center gap-2 rounded-xl px-8 text-[13px] font-bold overflow-hidden transition-all duration-250"
               style={{
-                background: "linear-gradient(135deg, oklch(0.83 0.15 85), oklch(0.70 0.13 85))",
-                color: "oklch(0.06 0 0)",
-                boxShadow: "0 0 40px oklch(0.75 0.12 85 / 0.35), 0 10px 30px rgba(0,0,0,0.5), inset 0 1px 0 oklch(0.90 0.16 85 / 0.5)",
+                background: "linear-gradient(135deg, oklch(0.82 0.15 85), oklch(0.68 0.12 85))",
+                color: "#0a0900",
+                boxShadow: "0 0 32px rgba(184,145,68,0.28), 0 8px 24px rgba(0,0,0,0.5)",
               }}
             >
               <motion.div className="absolute inset-0"
-                style={{ background: "linear-gradient(135deg, oklch(0.90 0.17 85), oklch(0.78 0.14 85))" }}
-                initial={{ opacity: 0 }} whileHover={{ opacity: 1 }} transition={{ duration: 0.2 }}
+                style={{ background: "linear-gradient(135deg, oklch(0.88 0.16 85), oklch(0.76 0.13 85))" }}
+                initial={{ opacity: 0 }} whileHover={{ opacity: 1 }} transition={{ duration: 0.15 }}
               />
               <span className="relative">Start Building</span>
-              <ArrowRight className="relative h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+              <ArrowRight className="relative h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
 
             <a href="/#how-it-works"
-              className="group inline-flex h-14 items-center justify-center gap-2.5 rounded-2xl px-10 text-sm font-semibold text-white/70 transition-all duration-300 hover:text-white"
+              className="inline-flex h-12 items-center gap-2 rounded-xl px-7 text-[13px] font-medium transition-all duration-250 hover:text-white"
               style={{
-                background: "oklch(0.13 0.004 60 / 0.7)",
-                border: "1px solid oklch(0.30 0.01 60 / 0.6)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-                backdropFilter: "blur(12px)",
+                color: "rgba(255,255,255,0.5)",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.09)",
               }}
             >
-              <Play className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100 transition-opacity" />
+              <Play className="h-3 w-3 opacity-60" />
               See How It Works
             </a>
           </motion.div>
 
           {/* Social proof */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.9 }}
-            className="mt-10 flex items-center gap-5"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="mt-9 flex items-center gap-4"
           >
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {[...Array(5)].map((_, i) => (
-                <span key={i} className="text-[oklch(0.75_0.12_85)] text-xs">★</span>
+                <span key={i} style={{ color: "oklch(0.75 0.12 85)", fontSize: "11px" }}>★</span>
               ))}
             </div>
-            <span className="text-[11px] text-white/30">Trusted by 2,400+ business builders</span>
-            <div className="h-3 w-px bg-white/10" />
-            <span className="text-[11px] text-white/30">No credit card required</span>
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Trusted by 2,400+ builders</span>
+            <div className="h-3 w-px" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>No credit card required</span>
           </motion.div>
         </div>
 
-        {/* ── RIGHT: brand image ──────────────────────────────────── */}
+        {/* ── RIGHT 52%: hero visual ───────────────────────────── */}
         <motion.div
-          initial={{ opacity: 0, x: 40 }}
+          initial={{ opacity: 0, x: 32 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="relative lg:w-[52%] xl:w-[55%] flex-shrink-0 w-full"
+          transition={{ duration: 0.85, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full lg:w-[52%] flex-shrink-0 relative"
         >
-          {/* Glow behind image */}
-          <div className="absolute -inset-8 rounded-3xl pointer-events-none"
-            style={{ background: "radial-gradient(ellipse 80% 60% at 50% 50%, oklch(0.75 0.12 85 / 0.12), transparent 70%)", filter: "blur(30px)" }} />
+          {/* Ambient glow behind the frame */}
+          <div className="absolute -inset-10 pointer-events-none" style={{
+            background: "radial-gradient(ellipse 75% 60% at 55% 50%, rgba(184,145,68,0.10), transparent 70%)",
+            filter: "blur(24px)",
+          }} />
 
-          {/* Image frame */}
-          <div className="relative rounded-2xl overflow-hidden border border-[oklch(0.75_0.12_85/0.2)]"
-            style={{ boxShadow: "0 0 0 1px oklch(0.75 0.12 85 / 0.05), 0 40px 80px rgba(0,0,0,0.8), 0 0 100px oklch(0.75 0.12 85 / 0.08)" }}>
+          {/* Glass frame */}
+          <div className="relative overflow-hidden" style={{
+            borderRadius: "24px",
+            border: "1px solid rgba(184,145,68,0.18)",
+            boxShadow: "0 0 0 1px rgba(184,145,68,0.05), 0 32px 80px rgba(0,0,0,0.85), 0 0 80px rgba(184,145,68,0.06)",
+            background: "rgba(10,8,4,0.6)",
+            backdropFilter: "blur(2px)",
+          }}>
+            {/* Top gold accent line */}
+            <div className="absolute inset-x-0 top-0 h-px z-10" style={{
+              background: "linear-gradient(90deg, transparent 5%, rgba(184,145,68,0.55) 40%, rgba(184,145,68,0.55) 60%, transparent 95%)",
+            }} />
+
             <img
-              src="/hero-dashboard.png"
-              alt="STAGEONE OS Dashboard"
+              src="/hero-visual.png"
+              alt="STAGEONE AI Operating System"
               className="w-full h-auto block"
+              style={{ display: "block" }}
             />
-            {/* Top-edge gold line */}
-            <div className="absolute inset-x-0 top-0 h-px pointer-events-none"
-              style={{ background: "linear-gradient(90deg, transparent, oklch(0.75 0.12 85 / 0.7), transparent)" }} />
-            {/* Live badge */}
-            <div className="absolute bottom-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md"
-              style={{ background: "oklch(0.06 0 0 / 0.85)" }}>
-              <motion.div className="w-1.5 h-1.5 rounded-full bg-green-400"
+
+            {/* Subtle inner vignette at bottom */}
+            <div className="absolute inset-x-0 bottom-0 h-20 pointer-events-none" style={{
+              background: "linear-gradient(to bottom, transparent, rgba(5,5,5,0.5))",
+            }} />
+
+            {/* Live status badge */}
+            <div className="absolute bottom-5 right-5 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{ background: "rgba(5,5,5,0.85)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(8px)" }}>
+              <motion.div className="w-1.5 h-1.5 rounded-full bg-emerald-400"
                 animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }} />
-              <span className="text-[9px] font-semibold text-green-400/90 tracking-wide">All Systems Active</span>
+              <span className="text-[9px] font-semibold tracking-wide text-emerald-400/90">All Systems Active</span>
             </div>
           </div>
         </motion.div>
       </div>
 
-      {/* ── Ticker ─────────────────────────────────────────────────── */}
-      <div className="mt-16">
+      {/* ── Ticker ────────────────────────────────────────────────── */}
+      <div className="mt-12">
         <Ticker />
       </div>
 
-      {/* ── Metrics ────────────────────────────────────────────────── */}
+      {/* ── Metrics ───────────────────────────────────────────────── */}
       <MetricsStrip />
     </section>
   )

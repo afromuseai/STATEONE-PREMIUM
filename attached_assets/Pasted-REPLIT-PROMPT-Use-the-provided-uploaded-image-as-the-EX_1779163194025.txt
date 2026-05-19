@@ -1,0 +1,140 @@
+REPLIT PROMPT
+
+Use the provided uploaded image as the EXACT visual reference for the hero section.
+
+IMPORTANT:
+
+Do NOT generate a new dashboard design
+Do NOT create extra floating cards
+Do NOT redesign the visual
+Use the uploaded image directly inside the hero section mockup
+The image should appear as the premium cinematic visual on the RIGHT side of the hero
+
+The uploaded image already contains the correct:
+
+lighting
+atmosphere
+color balance
+premium aesthetic
+futuristic environment
+
+Your job is ONLY to integrate it cleanly into the landing page.
+
+STYLE DIRECTION:
+
+Inspired by ElevenLabs + Linear + Vercel
+Minimal
+Premium
+Spacious
+Enterprise AI aesthetic
+Cinematic black and gold
+Sophisticated and restrained
+
+BACKGROUND:
+
+Matte black (#050505)
+Subtle gold grid texture
+Very faint radial glow
+Soft cinematic lighting
+Minimal visual noise
+
+NAVBAR:
+Transparent dark navbar.
+
+LEFT:
+
+STAGEONE logo
+
+CENTER:
+
+Features
+How It Works
+Pricing
+
+RIGHT:
+
+Sign In
+Gold CTA button
+
+Navbar height:
+72px
+
+Thin subtle bottom border.
+
+HERO SECTION:
+Create a clean 2-column layout.
+
+LEFT COLUMN:
+Width: 48%
+
+Include:
+
+Small badge pill
+Massive bold heading
+Supporting paragraph
+Two CTA buttons
+
+IMPORTANT:
+
+Typography must NOT overflow
+Headline must remain fully inside container
+Use premium spacing like ElevenLabs
+Tight line-height
+Strong hierarchy
+Very clean layout
+
+RIGHT COLUMN:
+Width: 52%
+
+Use the uploaded image EXACTLY as the hero visual.
+
+DO NOT:
+
+add more cards
+add fake analytics
+add floating widgets
+add random UI elements
+recreate another dashboard
+
+Simply place the image inside:
+
+one large rounded container
+dark glassmorphism frame
+subtle gold border
+soft shadow
+cinematic presentation
+
+The image should feel like:
+“the operating system environment powering STAGEONE.”
+
+IMAGE STYLING:
+
+Border radius: 24px
+Overflow hidden
+Subtle glow
+Slight glass effect
+Very soft shadow
+Maintain original proportions
+Do NOT crop aggressively
+
+CRITICAL FIXES:
+
+Reduce clutter by 70%
+Keep layout minimal
+Preserve large negative space
+Do not compress the left text area
+Ensure responsive scaling
+Maintain enterprise luxury aesthetic
+
+FINAL FEELING:
+The page should feel like:
+
+ElevenLabs
+Linear
+premium AI infrastructure company
+
+NOT:
+
+crypto landing page
+startup template
+generic AI dashboard SaaS
