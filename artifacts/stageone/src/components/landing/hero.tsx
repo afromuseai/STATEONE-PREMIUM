@@ -589,6 +589,7 @@ function OSCommandCenter() {
 /* ─── Particle animation overlay ───────────────────────────────────── */
 function HeroParticles() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const mouseRef = useRef({ x: -9999, y: -9999, active: false })
 
   const init = useCallback(() => {
     const canvas = canvasRef.current
@@ -603,21 +604,29 @@ function HeroParticles() {
     canvas.height = h
     let t = 0
 
+    const REPEL_RADIUS = 130
+    const REPEL_STRENGTH = 2.8
+    const ATTRACT_RADIUS = 260
+    const ATTRACT_STRENGTH = 0.18
+
     /* ── Floating nodes ─────────────────────────────────────── */
     type Node = {
       x: number; y: number; vx: number; vy: number
+      baseVx: number; baseVy: number
       r: number; baseAlpha: number; gold: boolean; phase: number
     }
-    const nodes: Node[] = Array.from({ length: 70 }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: (Math.random() - 0.5) * 0.4,
-      r: Math.random() * 2 + 0.5,
-      baseAlpha: Math.random() * 0.55 + 0.2,
-      gold: Math.random() > 0.45,
-      phase: Math.random() * Math.PI * 2,
-    }))
+    const nodes: Node[] = Array.from({ length: 70 }, () => {
+      const bvx = (Math.random() - 0.5) * 0.4
+      const bvy = (Math.random() - 0.5) * 0.4
+      return {
+        x: Math.random() * w, y: Math.random() * h,
+        vx: bvx, vy: bvy, baseVx: bvx, baseVy: bvy,
+        r: Math.random() * 2 + 0.5,
+        baseAlpha: Math.random() * 0.55 + 0.2,
+        gold: Math.random() > 0.45,
+        phase: Math.random() * Math.PI * 2,
+      }
+    })
 
     /* ── Horizontal data streams ────────────────────────────── */
     type Stream = {
@@ -647,8 +656,11 @@ function HeroParticles() {
     function draw() {
       ctx!.clearRect(0, 0, w, h)
       t += 0.012
+      const mx = mouseRef.current.x
+      const my = mouseRef.current.y
+      const mouseActive = mouseRef.current.active
 
-      /* — pulsing orbs (radial glows) — */
+      /* — pulsing orbs — */
       for (const o of orbs) {
         const pulse = 0.5 + 0.5 * Math.sin(t * 0.8 + o.phase)
         const grd = ctx!.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r * (1 + pulse * 0.4))
@@ -658,6 +670,19 @@ function HeroParticles() {
         ctx!.fillStyle = grd
         ctx!.beginPath()
         ctx!.arc(o.x, o.y, o.r * (1 + pulse * 0.4), 0, Math.PI * 2)
+        ctx!.fill()
+      }
+
+      /* — cursor ripple glow — */
+      if (mouseActive) {
+        const ripple = 0.5 + 0.5 * Math.sin(t * 3)
+        const gr = ctx!.createRadialGradient(mx, my, 0, mx, my, REPEL_RADIUS * (0.8 + ripple * 0.2))
+        gr.addColorStop(0, `rgba(184,145,68,${0.12 * ripple})`)
+        gr.addColorStop(0.5, `rgba(184,145,68,${0.04 * ripple})`)
+        gr.addColorStop(1, `rgba(184,145,68,0)`)
+        ctx!.fillStyle = gr
+        ctx!.beginPath()
+        ctx!.arc(mx, my, REPEL_RADIUS * (0.8 + ripple * 0.2), 0, Math.PI * 2)
         ctx!.fill()
       }
 
@@ -677,25 +702,55 @@ function HeroParticles() {
         ctx!.strokeStyle = grd
         ctx!.lineWidth = s.gold ? 1.2 : 0.8
         ctx!.stroke()
-        /* bright leading dot */
         ctx!.beginPath()
         ctx!.arc(s.x, s.y, s.gold ? 1.8 : 1.2, 0, Math.PI * 2)
         ctx!.fillStyle = `rgba(${col},${Math.min(1, s.alpha * pulse * 2.2)})`
         ctx!.fill()
       }
 
-      /* — floating nodes — */
+      /* — floating nodes with cursor interaction — */
       for (const n of nodes) {
+        if (mouseActive) {
+          const dx = n.x - mx
+          const dy = n.y - my
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < REPEL_RADIUS && dist > 0) {
+            /* repel: push away from cursor */
+            const force = (1 - dist / REPEL_RADIUS) * REPEL_STRENGTH
+            n.vx += (dx / dist) * force * 0.06
+            n.vy += (dy / dist) * force * 0.06
+          } else if (dist < ATTRACT_RADIUS && dist > REPEL_RADIUS) {
+            /* attract: gently pull toward cursor in outer ring */
+            const force = (1 - dist / ATTRACT_RADIUS) * ATTRACT_STRENGTH
+            n.vx -= (dx / dist) * force * 0.04
+            n.vy -= (dy / dist) * force * 0.04
+          }
+        }
+        /* drift back toward base velocity */
+        n.vx += (n.baseVx - n.vx) * 0.03
+        n.vy += (n.baseVy - n.vy) * 0.03
+        /* clamp speed */
+        const spd = Math.sqrt(n.vx * n.vx + n.vy * n.vy)
+        if (spd > 3.5) { n.vx = (n.vx / spd) * 3.5; n.vy = (n.vy / spd) * 3.5 }
+
         n.x += n.vx; n.y += n.vy
         if (n.x < 0) n.x = w; if (n.x > w) n.x = 0
         if (n.y < 0) n.y = h; if (n.y > h) n.y = 0
+
         const pulse = 0.5 + 0.5 * Math.sin(t * 1.2 + n.phase)
-        const a = n.baseAlpha * pulse
+        /* boost glow if near cursor */
+        let glowBoost = 1
+        if (mouseActive) {
+          const cdx = n.x - mx; const cdy = n.y - my
+          const cd = Math.sqrt(cdx * cdx + cdy * cdy)
+          if (cd < ATTRACT_RADIUS) glowBoost = 1 + (1 - cd / ATTRACT_RADIUS) * 1.4
+        }
+        const a = n.baseAlpha * pulse * Math.min(glowBoost, 2)
         ctx!.beginPath()
-        ctx!.arc(n.x, n.y, n.r, 0, Math.PI * 2)
+        ctx!.arc(n.x, n.y, n.r * (mouseActive ? Math.min(glowBoost * 0.8, 1.5) : 1), 0, Math.PI * 2)
         ctx!.fillStyle = n.gold
-          ? `rgba(184,145,68,${a})`
-          : `rgba(200,220,255,${a * 0.7})`
+          ? `rgba(184,145,68,${Math.min(a, 0.95)})`
+          : `rgba(200,220,255,${Math.min(a * 0.7, 0.8)})`
         ctx!.fill()
       }
 
@@ -719,10 +774,34 @@ function HeroParticles() {
         }
       }
 
+      /* — lines from cursor to nearest nodes — */
+      if (mouseActive) {
+        const near = nodes
+          .map(n => ({ n, d: Math.sqrt((n.x - mx) ** 2 + (n.y - my) ** 2) }))
+          .filter(e => e.d < ATTRACT_RADIUS)
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 6)
+        for (const { n, d } of near) {
+          const a = (1 - d / ATTRACT_RADIUS) * 0.35
+          ctx!.beginPath()
+          ctx!.moveTo(mx, my)
+          ctx!.lineTo(n.x, n.y)
+          ctx!.strokeStyle = `rgba(184,145,68,${a})`
+          ctx!.lineWidth = 0.7
+          ctx!.stroke()
+        }
+      }
+
       animId = requestAnimationFrame(draw)
     }
 
     draw()
+
+    const onMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, active: true }
+    }
+    const onMouseLeave = () => { mouseRef.current = { x: -9999, y: -9999, active: false } }
 
     const onResize = () => {
       w = canvas.offsetWidth; h = canvas.offsetHeight
@@ -730,8 +809,16 @@ function HeroParticles() {
       orbs.forEach(o => { o.x = w * 0.45 + Math.random() * w * 0.55; o.y = Math.random() * h })
       streams.forEach((s, i) => { s.y = (h / 14) * i + Math.random() * (h / 14) })
     }
+
+    canvas.addEventListener("mousemove", onMouseMove)
+    canvas.addEventListener("mouseleave", onMouseLeave)
     window.addEventListener("resize", onResize)
-    return () => { cancelAnimationFrame(animId); window.removeEventListener("resize", onResize) }
+    return () => {
+      cancelAnimationFrame(animId)
+      canvas.removeEventListener("mousemove", onMouseMove)
+      canvas.removeEventListener("mouseleave", onMouseLeave)
+      window.removeEventListener("resize", onResize)
+    }
   }, [])
 
   useEffect(() => {
@@ -743,7 +830,7 @@ function HeroParticles() {
     <canvas
       ref={canvasRef}
       className="absolute inset-0 w-full h-full"
-      style={{ mixBlendMode: "screen", opacity: 0.9 }}
+      style={{ mixBlendMode: "screen", opacity: 0.9, pointerEvents: "auto" }}
     />
   )
 }
