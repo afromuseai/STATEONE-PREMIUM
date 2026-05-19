@@ -1,0 +1,209 @@
+Add a new "Automation Builder" module to STAGEONE dashboard.
+
+Dashboard Navigation:
+
+* Business Intelligence
+* Website Generator
+* AI Chatbot Generator
+* Automation Builder
+* Projects
+* Settings
+
+Purpose:
+Allow users to generate and visualize AI-powered business automation workflows.
+
+UI Layout:
+
+LEFT PANEL:
+
+* business type input
+* workflow type selector
+* automation complexity selector
+* generate workflow button
+
+RIGHT PANEL:
+
+* visual workflow diagram
+* automation steps
+* integrations
+* trigger/action logic
+
+Workflow Types:
+
+* Lead Capture
+* Customer Onboarding
+* Sales Pipeline
+* Support Automation
+* Marketing Automation
+* Internal Operations
+* CRM Automation
+
+Complexity:
+
+* Basic
+* Intermediate
+* Advanced
+
+Preserve:
+
+* premium STAGEONE aesthetic
+* black/gold UI
+* glassmorphism dashboard style
+* futuristic enterprise system feel
+
+
+
+
+Implement AI Automation Workflow Generation.
+
+When user submits a business and workflow type:
+
+Generate:
+
+1. Workflow Overview
+
+* workflow purpose
+* operational objective
+* expected outcome
+
+2. Trigger Events
+   Examples:
+
+* form submitted
+* payment failed
+* user signed up
+* support ticket created
+
+3. Actions
+   Examples:
+
+* send email
+* notify Slack
+* update CRM
+* create onboarding task
+* trigger chatbot
+
+4. Integrations
+   Recommend:
+
+* Zapier
+* HubSpot
+* Slack
+* Stripe
+* Mailchimp
+* Notion
+* Salesforce
+
+5. Workflow Logic
+   Generate:
+
+* step-by-step automation sequence
+* conditional logic
+* fallback actions
+* escalation rules
+
+6. AI Opportunities
+   Recommend:
+
+* AI summaries
+* sentiment analysis
+* lead scoring
+* automated classification
+* predictive recommendations
+
+Return:
+structured JSON workflow architecture.
+
+
+
+
+Create a visual automation workflow builder interface.
+
+Requirements:
+
+1. Visual Node System
+   Display workflows as connected nodes:
+
+* Trigger
+* Action
+* AI Logic
+* Notification
+* Database
+* CRM
+
+2. Add:
+
+* animated connection lines
+* draggable nodes
+* zoom/pan canvas
+* hover interactions
+
+3. Workflow Sidebar:
+
+* workflow details
+* integrations
+* editable logic
+* regenerate node button
+
+4. Add Node Types:
+
+* Email
+* SMS
+* AI Agent
+* CRM
+* Payment
+* Database
+* Support Ticket
+* Webhook
+
+5. Add:
+
+* workflow status indicator
+* automation complexity score
+* execution estimate
+
+6. Preserve:
+
+* futuristic enterprise dashboard aesthetic
+* black/gold visual system
+* smooth transitions
+* premium interaction design
+
+Goal:
+Make STAGEONE feel like an intelligent automation operating system.
+
+
+
+
+Add AI Agent capabilities to STAGEONE workflows.
+
+AI Agents can:
+
+* summarize customer requests
+* qualify leads
+* prioritize support tickets
+* generate responses
+* analyze customer behavior
+* automate operational decisions
+
+Features:
+
+1. AI Agent Node Type
+2. Agent configuration panel
+3. Agent objectives
+4. Agent behavior settings
+5. AI-generated automation suggestions
+
+Example:
+Lead submitted →
+AI Agent scores lead →
+CRM updated →
+Sales team notified →
+Follow-up email generated automatically
+
+Goal:
+Transform workflows into intelligent autonomous systems.
+
+
+
+

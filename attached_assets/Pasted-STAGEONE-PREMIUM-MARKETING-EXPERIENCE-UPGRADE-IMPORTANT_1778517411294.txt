@@ -1,0 +1,379 @@
+STAGEONE PREMIUM MARKETING EXPERIENCE UPGRADE
+
+IMPORTANT:
+Do NOT rewrite the STAGEONE application architecture.
+
+This task is ONLY to upgrade:
+
+* landing page
+* marketing presentation
+* visual storytelling
+* mockup systems
+* auth experience
+* pricing experience
+
+WITHOUT breaking:
+
+* authentication logic
+* routing
+* dashboard systems
+* Website Architect
+* Business Intelligence
+* AI systems
+* projects
+* database
+* API routes
+
+====================================
+CORE GOAL
+=========
+
+STAGEONE currently feels:
+
+* functional
+* technical
+* prototype-like
+
+But NOT:
+
+* premium
+* elite
+* futuristic
+* enterprise-grade
+
+The public-facing experience must immediately communicate:
+
+"AI Business Operating System"
+
+The current landing page does NOT visually explain:
+
+* what STAGEONE is
+* how it works
+* why it matters
+* the scale of the platform
+
+Users should instantly understand:
+STAGEONE is:
+an AI-powered operating system for building, operating, automating, and scaling businesses.
+
+====================================
+GLOBAL VISUAL DIRECTION
+=======================
+
+Target aesthetic:
+
+* cinematic enterprise AI
+* futuristic operating system
+* Apple × Linear × Vercel × Framer × Palantir energy
+* premium SaaS storytelling
+* immersive product marketing
+
+Visual characteristics:
+
+* deep blacks
+* glassmorphism accents
+* subtle gold/blue glow systems
+* cinematic gradients
+* layered depth
+* ambient lighting
+* modern enterprise typography
+* minimal but powerful motion
+* premium spacing rhythm
+
+IMPORTANT:
+Avoid:
+
+* generic startup gradients
+* cluttered dashboards
+* template-looking sections
+* cheap animations
+* repetitive cards
+
+====================================
+LANDING PAGE REBUILD
+====================
+
+The landing page must become:
+a cinematic product narrative.
+
+====================================
+SECTION FLOW
+============
+
+1. HERO SECTION
+
+* premium animated operating system mockup
+* immersive product presentation
+* dynamic intelligence visuals
+* motion-based dashboard preview
+* layered UI depth
+* live AI orchestration feel
+
+Headline example direction:
+"The AI Operating System for Modern Businesses"
+
+Subheadline:
+Explain:
+
+* AI orchestration
+* automation
+* execution
+* website generation
+* intelligence systems
+* business operations
+
+Hero CTAs:
+
+* Start Building
+* Watch Demo
+
+====================================
+2. OS VISUAL SHOWCASE
+=====================
+
+Create:
+large premium mockups showing:
+
+* OS Command Center
+* Website Architect
+* Business Intelligence
+* Execution Engine
+* AI Memory
+* Agent Systems
+
+IMPORTANT:
+These should NOT be screenshots pasted randomly.
+
+Build:
+purpose-designed product mockups.
+
+Use:
+
+* floating dashboard windows
+* cinematic perspective
+* layered glass UI
+* ambient glows
+* premium device framing
+
+====================================
+3. HOW STAGEONE WORKS
+=====================
+
+Explain operational flow visually:
+
+Business Intelligence
+→ Website Generation
+→ Automation
+→ Execution
+→ AI Memory
+→ Deployments
+
+Use:
+animated flow systems,
+not static cards.
+
+====================================
+4. FEATURE STORYTELLING
+=======================
+
+Each major capability should feel:
+enterprise-grade.
+
+Feature sections:
+
+* AI Business Intelligence
+* Website Architect
+* AI Execution Engine
+* Agent Systems
+* OS Command Center
+* AI Memory
+* Enterprise Control
+* Deployments & Integrations
+
+Each section requires:
+
+* premium visual
+* mockup
+* contextual storytelling
+* operational explanation
+
+====================================
+5. SOCIAL PROOF / TRUST SECTION
+===============================
+
+Add:
+
+* enterprise trust language
+* AI infrastructure positioning
+* operational scale messaging
+* reliability positioning
+
+Even before real customers:
+frame STAGEONE like:
+a next-generation AI platform.
+
+====================================
+6. PRICING PAGE UPGRADE
+=======================
+
+Current pricing feels:
+basic and template-like.
+
+Upgrade pricing into:
+premium SaaS pricing architecture.
+
+Requirements:
+
+* enterprise presentation
+* premium plan cards
+* visual hierarchy
+* comparison matrix
+* feature segmentation
+* AI usage explanation
+* execution credits explanation
+* deployment explanation
+
+Plans:
+
+* Starter
+* Pro
+* Enterprise
+
+Enterprise must feel:
+serious and operationally powerful.
+
+Use:
+
+* subtle glow emphasis
+* premium spacing
+* clean enterprise typography
+
+====================================
+7. AUTH EXPERIENCE UPGRADE
+==========================
+
+Current auth pages feel:
+generic.
+
+Upgrade:
+login/signup into:
+immersive onboarding experience.
+
+Requirements:
+
+* cinematic split layout
+* floating UI visuals
+* animated OS preview
+* premium typography
+* subtle motion
+* AI operating system branding
+
+Left side:
+dynamic STAGEONE showcase.
+
+Right side:
+clean auth form.
+
+Auth experience should feel:
+high-end AI infrastructure platform.
+
+====================================
+8. MOCKUP SYSTEM
+================
+
+Build:
+custom product mockup system.
+
+Do NOT rely only on:
+plain screenshots.
+
+Create:
+
+* floating panels
+* browser frames
+* device compositions
+* dashboard previews
+* layered perspective layouts
+* cinematic UI stacks
+
+Mockups must communicate:
+
+* orchestration
+* intelligence
+* execution
+* AI operations
+
+====================================
+9. MOTION SYSTEM
+================
+
+Add:
+premium restrained motion.
+
+Examples:
+
+* subtle parallax
+* floating panels
+* ambient glows
+* gradual reveals
+* cinematic transitions
+* smooth scroll animations
+
+Avoid:
+cheap excessive animation.
+
+====================================
+10. TYPOGRAPHY SYSTEM
+=====================
+
+Upgrade typography hierarchy:
+
+* stronger hero typography
+* enterprise-grade spacing
+* cleaner readability
+* cinematic scale
+
+Typography should feel:
+modern AI infrastructure platform.
+
+====================================
+11. RESPONSIVENESS
+==================
+
+Ensure:
+mobile experience still feels premium.
+
+Do NOT allow:
+desktop-only polish.
+
+====================================
+12. IMPORTANT
+=============
+
+This is NOT:
+a dashboard rewrite.
+
+Do NOT:
+
+* modify backend systems
+* alter APIs
+* rewrite OS systems
+* change execution logic
+
+This is:
+marketing + presentation refinement.
+
+====================================
+END GOAL
+========
+
+STAGEONE should visually feel like:
+a premium AI operating system platform,
+not:
+an early-stage prototype dashboard.
+
+The landing experience must create:
+immediate clarity,
+trust,
+curiosity,
+and perceived technological sophistication.

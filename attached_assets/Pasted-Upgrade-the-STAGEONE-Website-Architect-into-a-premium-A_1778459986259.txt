@@ -1,0 +1,168 @@
+Upgrade the STAGEONE Website Architect into a premium AI creative-direction system capable of generating professional, modern, agency-quality landing pages.
+
+IMPORTANT:
+Do NOT generate generic template-style websites.
+
+The system should behave like:
+
+* a creative director
+* UX designer
+* conversion strategist
+* brand stylist
+* frontend architect
+
+combined into one AI workflow.
+
+====================================
+GOAL
+====
+
+Generate landing pages comparable to:
+
+* modern startup websites
+* premium SaaS products
+* agency-designed landing pages
+* Framer/Webflow-quality layouts
+
+The AI should understand:
+
+* business positioning
+* target audience
+* visual direction
+* brand tone
+* conversion hierarchy
+
+====================================
+VISUAL DIRECTION ENGINE
+=======================
+
+Implement intelligent style generation modes.
+
+Examples:
+
+* Premium SaaS
+* Luxury Brand
+* AI Futuristic
+* Cyber Intelligence
+* Minimal Modern
+* Startup Clean
+* Editorial
+* Enterprise
+* Glassmorphism
+* Dark Tech
+
+The AI should infer style from the business idea automatically.
+
+====================================
+ASSET INTELLIGENCE
+==================
+
+The generator must intelligently include:
+
+* contextual hero images
+* illustrations
+* icons
+* UI mockups
+* brand-consistent visuals
+* gradients
+* supporting imagery
+
+Examples:
+
+* cybersecurity → dark futuristic visuals
+* fitness → energetic athletic visuals
+* fintech → dashboard imagery
+* luxury fashion → editorial photography
+* AI startup → futuristic interface visuals
+
+Assets should feel curated and premium.
+
+====================================
+SECTION COMPOSITION INTELLIGENCE
+================================
+
+The AI must generate complete page storytelling.
+
+Structure intelligently:
+
+1. Hero
+2. Social proof
+3. Problem framing
+4. Solution
+5. Features
+6. Visual showcase
+7. Testimonials
+8. Pricing
+9. FAQ
+10. Final CTA
+
+The layout should feel intentional and professionally composed.
+
+====================================
+DESIGN QUALITY
+==============
+
+Improve:
+
+* typography hierarchy
+* whitespace balance
+* visual rhythm
+* responsive behavior
+* animation polish
+* CTA placement
+* section transitions
+
+Avoid:
+
+* repetitive layouts
+* generic Tailwind templates
+* overcrowded sections
+* poor spacing
+* random component stacking
+
+====================================
+OUTPUT QUALITY
+==============
+
+Generated websites should feel:
+
+* modern
+* premium
+* conversion-focused
+* visually cohesive
+* startup-grade
+* agency-quality
+
+NOT:
+
+* AI-generated templates
+* random components
+* generic landing pages
+
+====================================
+TECHNICAL REQUIREMENTS
+======================
+
+Use:
+
+* responsive layouts
+* reusable component architecture
+* optimized image handling
+* modular sections
+* clean typography scaling
+* animation consistency
+
+Maintain:
+
+* export capability
+* editable sections
+* project persistence
+* deployment compatibility
+
+====================================
+IMPORTANT
+=========
+
+This is NOT a redesign of STAGEONE itself.
+
+This is an upgrade of the Website Architect generation intelligence and creative quality system.

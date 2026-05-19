@@ -1,0 +1,224 @@
+SAFE UPGRADE — ADD CONTROLLED DESIGN VARIATION TO WEBSITE ARCHITECT
+
+IMPORTANT:
+Do NOT rewrite or replace the existing website generation engine.
+
+The current generation pipeline already works.
+
+This upgrade must ONLY enhance visual uniqueness and regeneration diversity WITHOUT breaking:
+
+* current generation flow
+* project saving
+* layout rendering
+* generation stability
+* existing AI orchestration
+* component architecture
+
+DO NOT refactor the full system.
+
+DO NOT rebuild the architecture.
+
+DO NOT modify core generation logic unless necessary.
+
+====================================
+GOAL
+====
+
+Currently, generated websites feel too visually repetitive.
+
+Problems:
+
+* similar layouts
+* similar section composition
+* repeated typography styles
+* repeated animation behavior
+* repeated spacing rhythm
+* repeated visual hierarchy
+
+Even when prompts differ.
+
+The objective is:
+introduce controlled creative variation while preserving system stability.
+
+====================================
+IMPLEMENT A LIGHTWEIGHT DESIGN VARIATION SYSTEM
+===============================================
+
+Add a new layer called:
+designVariant
+
+This should be generated per website generation.
+
+The designVariant influences:
+
+* typography
+* spacing
+* layout style
+* section composition
+* animation style
+* visual density
+* component appearance
+
+WITHOUT changing the underlying website engine.
+
+====================================
+CREATE PREDEFINED DESIGN STYLES
+===============================
+
+Create 8 reusable style modes:
+
+1. Futuristic
+2. Premium SaaS
+3. Luxury Editorial
+4. Enterprise Minimal
+5. Startup Modern
+6. Bold Brutalist
+7. Glassmorphism
+8. Cinematic Dark
+
+Each style mode should define:
+
+* font pairings
+* spacing scale
+* border radius system
+* animation intensity
+* grid behavior
+* hero layout style
+* CTA styling
+* section spacing
+* card appearance
+* navbar behavior
+
+====================================
+IMPORTANT IMPLEMENTATION RULE
+=============================
+
+DO NOT randomize everything.
+
+Instead:
+select one coherent design system per generation.
+
+The entire website should follow that system consistently.
+
+====================================
+REGENERATION BEHAVIOR
+=====================
+
+When user clicks:
+
+* Regenerate
+* Remix
+* Alternate Version
+
+The system should:
+
+* preserve business intelligence
+* preserve content structure
+* preserve strategy
+
+BUT:
+switch designVariant.
+
+Example:
+Same fintech prompt could generate:
+
+* futuristic version
+* enterprise minimal version
+* luxury fintech version
+* startup-modern version
+
+without breaking the generation logic.
+
+====================================
+SAFE IMPLEMENTATION STRATEGY
+============================
+
+DO NOT dynamically generate layout algorithms.
+
+Instead:
+create stable predefined section templates.
+
+Then vary:
+
+* composition
+* styling
+* spacing
+* visual hierarchy
+* animations
+* typography
+* asset positioning
+
+This preserves reliability.
+
+====================================
+ANIMATION VARIATION
+===================
+
+Create 4 animation systems:
+
+1. Minimal Motion
+2. Cinematic Motion
+3. Modern SaaS Motion
+4. Premium Interactive Motion
+
+Only vary:
+
+* duration
+* easing
+* reveal direction
+* hover behavior
+
+Do NOT introduce complex animation engines.
+
+====================================
+TYPOGRAPHY SYSTEM
+=================
+
+Create curated font systems.
+
+Examples:
+
+* futuristic geometric
+* editorial serif
+* modern sans-serif
+* enterprise clean
+* startup-tech
+
+Fonts must remain:
+
+* readable
+* accessible
+* performant
+
+====================================
+ASSET POSITIONING
+=================
+
+Keep current asset generation.
+
+ONLY vary:
+
+* placement
+* framing
+* sizing
+* composition
+* overlays
+* visual treatment
+
+====================================
+MOST IMPORTANT RULE
+===================
+
+STABILITY > COMPLEXITY
+
+Do not break:
+
+* routing
+* saving
+* rendering
+* generation
+* projects
+* existing intelligence systems
+
+This is a refinement pass,
+NOT a rewrite.

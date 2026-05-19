@@ -1,0 +1,213 @@
+MODEL ARCHITECTURE REFACTOR — OPTIMIZE STAGEONE MODEL ASSIGNMENTS
+
+IMPORTANT:
+Do NOT rewrite the STAGEONE architecture.
+
+This task is ONLY to:
+
+* reorganize model responsibilities
+* assign the correct models to the correct systems
+* improve orchestration quality
+* improve execution reliability
+* improve continuity
+* remove incorrect model usage
+
+WITHOUT breaking:
+
+* authentication
+* projects
+* memory
+* execution engine
+* website generation pipeline
+* integrations
+* deployments
+* streaming
+* SSE events
+* database persistence
+
+STAGEONE currently uses models in the wrong places.
+
+The current issue:
+models optimized for reasoning/orchestration are being forced to handle:
+
+* creative website rendering
+* premium UI generation
+* aesthetic composition
+
+This causes:
+
+* repetitive layouts
+* generic frontend structure
+* weak visual diversity
+
+We are NOT solving website rendering yet.
+
+Instead:
+we are restructuring the AI architecture properly.
+
+Assign models based on their strengths.
+
+====================================
+
+1. BUSINESS INTELLIGENCE
+   ====================================
+
+Use:
+qwen/qwen3.5-397b-a17b
+
+Responsibilities:
+
+* business strategy
+* market positioning
+* automation planning
+* growth strategy
+* operational intelligence
+* SaaS architecture reasoning
+* execution planning
+* long-context continuity
+
+Why:
+Qwen is strongest at structured reasoning and strategic intelligence.
+
+Use:
+nvidia/llama-3.3-nemotron-super-49b-v1
+
+Responsibilities:
+
+* coordination scoring
+* optimization analysis
+* system health intelligence
+* predictive insights
+* operational recommendations
+* AI memory reasoning
+* orchestration diagnostics
+
+Why:
+Nemotron is ideal for enterprise AI orchestration and operational reasoning.
+
+Use:
+deepseek-v4-pro (if available)
+OR
+qwen/qwen3.5-397b-a17b
+
+Responsibilities:
+
+* execution planning
+* multi-step workflows
+* autonomous action chains
+* operational sequencing
+* business execution reasoning
+* cross-module execution intelligence
+
+Why:
+Execution Engine is an agentic workflow system,
+not a simple chatbot.
+
+Use:
+deepseek-v4-pro
+OR
+llama/llama-3.3-nemotron-super-49b-v1
+
+Responsibilities:
+
+* agent planning
+* task decomposition
+* memory-aware execution
+* multi-agent orchestration
+* objective tracking
+
+Use:
+llama/llama-3.3-nemotron-super-49b-v1
+
+Responsibilities:
+
+* memory summarization
+* context compression
+* semantic memory linking
+* continuity reasoning
+* historical insight generation
+
+Use:
+meta/llama-4-maverick-17b-128e-instruct
+
+Responsibilities:
+
+* temporary orchestration only
+* structured section planning
+* website JSON generation
+
+IMPORTANT:
+This is temporary until a stronger creative rendering model is integrated later.
+
+Do NOT attempt to solve aesthetic quality in this task.
+
+Use:
+qwen/qwen3.5-122b-a10b
+WITH:
+chat_template_kwargs: { "enable_thinking": false }
+
+Responsibilities:
+
+* React component generation
+* Tailwind implementation
+* section rendering
+* component composition
+* frontend implementation
+
+Remove ALL silent model fallbacks.
+
+If a model fails:
+
+* throw explicit errors
+* log the exact model failure
+* show the exact failing layer
+
+Do NOT silently downgrade quality.
+
+Create:
+centralized model registry/config.
+
+Example:
+
+* business intelligence model
+* orchestration model
+* execution model
+* website planning model
+* component generation model
+* memory model
+
+All systems must read from:
+one centralized configuration source.
+
+Do NOT hardcode models across multiple files.
+
+Add logging for:
+
+* model used
+* response time
+* token usage
+* failures
+* retries
+* orchestration stage
+
+This must be visible in:
+server logs.
+
+This task is ONLY:
+AI architecture optimization.
+
+Do NOT:
+
+* redesign the frontend
+* rewrite Website Architect
+* modify layouts
+* change UI systems
+* alter project structure
+
+STAGEONE should evolve into:
+a properly layered AI operating system,
+where each subsystem uses:
+the model best suited for its task.
+
+NOT:
+one general-purpose model for everything.

@@ -1,0 +1,239 @@
+Build the STAGEONE Website Intelligence Layer.
+
+IMPORTANT:
+This system should NOT be a decorative analytics dashboard.
+
+The goal is to transform STAGEONE Website Architect into a continuous AI-powered website optimization and intelligence platform.
+
+====================================
+CORE PHILOSOPHY
+===============
+
+Traditional website builders stop after generation.
+
+STAGEONE should continue analyzing, optimizing, scoring, and improving websites after deployment.
+
+The Website Intelligence Layer should function as:
+
+* an AI conversion strategist
+* UX analyst
+* SEO advisor
+* performance auditor
+* brand consistency engine
+* optimization assistant
+
+====================================
+CORE FEATURES
+=============
+
+1. CONVERSION INTELLIGENCE
+
+Analyze:
+
+* CTA placement
+* headline effectiveness
+* trust positioning
+* visual hierarchy
+* offer clarity
+* section ordering
+
+Generate grounded recommendations such as:
+
+* improve CTA visibility
+* move testimonials higher
+* simplify hero messaging
+* reduce friction in pricing section
+
+Recommendations must be explainable and contextual.
+
+====================================
+
+2. UX HEATMAP PREDICTION
+
+Generate AI-based engagement predictions:
+
+* attention hotspots
+* likely drop-off areas
+* CTA visibility analysis
+* section engagement estimates
+
+IMPORTANT:
+Do NOT fabricate real analytics.
+
+Label predictions honestly as:
+"AI UX Predictions"
+
+====================================
+
+3. SEO INTELLIGENCE
+
+Analyze:
+
+* metadata
+* heading structure
+* semantic HTML
+* keyword placement
+* readability
+* content depth
+* internal linking
+
+Generate:
+
+* SEO score
+* SEO recommendations
+* ranking opportunities
+
+====================================
+
+4. MOBILE EXPERIENCE ANALYSIS
+
+Audit:
+
+* responsiveness
+* spacing
+* overflow issues
+* touch targets
+* typography readability
+* mobile hierarchy
+
+Generate:
+
+* mobile optimization score
+* mobile-specific recommendations
+
+====================================
+
+5. BRAND CONSISTENCY ENGINE
+
+Analyze:
+
+* typography consistency
+* color harmony
+* button consistency
+* tone alignment
+* section rhythm
+* spacing consistency
+
+Generate:
+
+* brand cohesion score
+* consistency recommendations
+
+====================================
+
+6. PERFORMANCE INTELLIGENCE
+
+Analyze:
+
+* image optimization
+* render complexity
+* animation overhead
+* component weight
+* loading bottlenecks
+
+Generate:
+
+* performance score
+* optimization recommendations
+
+====================================
+
+7. COMPETITOR ANALYSIS
+
+Allow users to input competitor URLs.
+
+AI should compare:
+
+* messaging
+* structure
+* positioning
+* visual hierarchy
+* conversion strategy
+
+Generate:
+
+* competitive insights
+* strategic differentiation suggestions
+
+====================================
+
+8. AI REDESIGN RECOMMENDATIONS
+
+Generate:
+
+* improved layout suggestions
+* stronger CTA positioning
+* visual refinement ideas
+* section restructuring recommendations
+
+IMPORTANT:
+Do NOT automatically overwrite websites.
+
+Suggestions should be:
+
+* previewable
+* reversible
+* explainable
+
+====================================
+
+9. WEBSITE HEALTH SCORE
+
+Create a grounded scoring engine based on:
+
+* Conversion Readiness
+* SEO Health
+* UX Quality
+* Brand Consistency
+* Mobile Optimization
+* Performance
+* Content Clarity
+
+Display scores transparently with reasoning.
+
+====================================
+
+10. CONTINUOUS OPTIMIZATION SYSTEM
+
+Websites should evolve over time.
+
+Store:
+
+* previous recommendations
+* optimization history
+* AI audits
+* website revisions
+* improvement timelines
+
+====================================
+UI/UX REQUIREMENTS
+==================
+
+Design the intelligence layer as:
+
+* a premium operational dashboard
+* an AI optimization workspace
+* not a generic analytics panel
+
+Use:
+
+* clean enterprise layouts
+* explainable AI insights
+* operational clarity
+* intelligent hierarchy
+* actionable recommendations
+
+====================================
+IMPORTANT
+=========
+
+Do NOT generate fake analytics or deceptive metrics.
+
+All intelligence outputs must:
+
+* be explainable
+* grounded
+* contextual
+* operationally useful
+
+This system should increase trust, not simulate intelligence artificially.

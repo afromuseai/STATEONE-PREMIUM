@@ -1,0 +1,197 @@
+STAGEONE SIGN-UP PAGE — PREMIUM AI OPERATING SYSTEM ONBOARDING UPGRADE
+
+IMPORTANT:
+
+* DO NOT change authentication backend logic
+* DO NOT modify signup API behavior
+* DO NOT alter routing/session handling
+* DO NOT redesign the overall split layout
+
+ONLY enhance:
+
+* onboarding experience
+* visual sophistication
+* trust perception
+* OS identity
+* onboarding intelligence feel
+* micro-interactions
+* premium motion design
+
+---
+
+# OBJECTIVE
+
+Transform signup from:
+
+“Create account page”
+
+TO:
+
+# “Initialize your AI Operating System environment”
+
+The experience should feel like:
+
+* onboarding into infrastructure
+* entering an intelligent operating environment
+* provisioning an AI workspace
+
+NOT:
+
+* normal SaaS registration
+
+---
+
+# 1. HERO / LEFT PANEL — OS INITIALIZATION EXPERIENCE
+
+Upgrade the left-side panel into a more cinematic onboarding system.
+
+## Add dynamic onboarding system states:
+
+Cycle subtle statuses like:
+
+* “Initializing intelligence environment…”
+* “Provisioning execution layer…”
+* “Preparing AI memory context…”
+* “Connecting orchestration modules…”
+
+These should animate softly with:
+
+* pulse indicators
+* live system status feel
+* ambient shimmer effects
+
+DO NOT connect to backend.
+Purely UI simulation.
+
+---
+
+# 2. SIGNUP HEADLINE UPGRADE
+
+Replace generic signup messaging with OS-level language.
+
+Examples:
+
+# Primary:
+
+“Initialize Your AI Operating System”
+
+# Supporting text:
+
+“Create your STAGEONE environment and begin building through intelligence-driven infrastructure.”
+
+Alternative supporting line:
+“Deploy intelligence, execution, memory, and automation from one unified platform.”
+
+---
+
+# 3. FORM EXPERIENCE UPGRADE
+
+Keep same fields and functionality.
+
+Enhance:
+
+## Inputs:
+
+* premium focus glow
+* smoother transitions
+* subtle glassmorphism depth
+* refined spacing rhythm
+
+## Signup button:
+
+* gold glow hover
+* soft gradient sweep
+* subtle elevation animation
+* loading state should feel like:
+  “Provisioning environment…”
+
+---
+
+# 4. ADD “WHAT YOU GET” MICRO PANEL
+
+Near form or below hero section, add a subtle OS capability preview:
+
+Examples:
+
+✓ Business Intelligence Layer
+✓ AI Memory System
+✓ Website Generation Engine
+✓ Execution Infrastructure
+✓ Agent Orchestration
+✓ Deployment Environment
+
+Style:
+
+* minimal
+* elegant
+* subtle separators
+* soft gold highlights
+
+Goal:
+Make signup feel valuable immediately.
+
+---
+
+# 5. BACKGROUND ATMOSPHERE
+
+Add subtle:
+
+* AI network nodes
+* floating intelligence particles
+* ambient gold/charcoal lighting
+* slow grid movement
+* cinematic OS atmosphere
+
+DO NOT overdo effects.
+
+---
+
+# 6. TRUST & INFRASTRUCTURE SIGNALS
+
+Add subtle enterprise-grade indicators such as:
+
+* “Secure Infrastructure”
+* “Enterprise-grade Authentication”
+* “Persistent AI Memory”
+* “Operational Intelligence Layer”
+
+Keep extremely minimal.
+
+---
+
+# 7. MOTION DESIGN RULES
+
+Allowed:
+
+* slow fade-in
+* subtle hover lift
+* ambient motion
+* pulse indicators
+* soft shimmer
+
+Avoid:
+
+* flashy neon effects
+* startup-style animations
+* excessive movement
+
+---
+
+# 8. FINAL EXPERIENCE GOAL
+
+The signup page should feel like:
+
+* provisioning an AI operating environment
+* onboarding into intelligent infrastructure
+* entering a next-generation operating system
+
+NOT:
+
+* creating an ordinary account
+
+---
+
+# CORE RULE
+
+Enhance identity and perception ONLY.
+Do not modify signup functionality or architecture.

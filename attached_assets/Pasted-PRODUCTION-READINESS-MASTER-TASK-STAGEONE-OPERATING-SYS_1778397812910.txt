@@ -1,0 +1,587 @@
+PRODUCTION READINESS MASTER TASK — STAGEONE OPERATING SYSTEM
+
+IMPORTANT:
+This is NOT a redesign request.
+This is NOT a rebuild request.
+This is NOT a simplification request.
+
+Preserve:
+
+* existing architecture
+* existing routes
+* existing backend systems
+* existing AI systems
+* existing database schema where possible
+* existing styling direction
+* existing operational structure
+
+The goal is to transform STAGEONE from:
+“advanced prototype”
+into:
+“stable, trustworthy, production-ready MVP.”
+
+====================================
+CORE OBJECTIVE
+==============
+
+STAGEONE must become:
+
+* persistent
+* operationally coherent
+* trustworthy
+* connected
+* stateful
+* production-stable
+
+The current issue is NOT lack of features.
+The issue is:
+
+* incomplete operational continuity
+* disconnected systems
+* misleading UI expectations
+* partial backend depth
+
+This task focuses on:
+
+1. refinement
+2. grounding
+3. continuity
+4. operational realism
+
+DO NOT add unnecessary new systems.
+
+====================================
+PHASE 1 — PROJECT CONTINUITY SYSTEM
+(HIGHEST PRIORITY)
+==================
+
+Implement a complete persistent project system.
+
+CURRENT PROBLEM:
+Generations save partially but projects do not reliably reload or restore state.
+
+REQUIREMENTS:
+
+1. Every generation automatically creates or updates a project.
+
+Supported generation types:
+
+* Business Intelligence
+* Website Generation
+* Workflow Generation
+* Agent Installation
+* Execution Tasks
+* Predictive Intelligence Reports
+
+2. Persist ALL generated outputs.
+
+Save:
+
+* raw prompt
+* AI response
+* structured metadata
+* timestamps
+* recommendation data
+* linked memory references
+* linked execution history
+* linked workflows
+* linked agents
+
+3. Project restoration must fully work.
+
+When user opens a project:
+
+* restore analysis
+* restore generated website
+* restore workflows
+* restore memory context
+* restore executions
+* restore recommendations
+* restore agent configurations
+
+4. Add “Last Active” timestamps.
+
+5. Add automatic background autosave.
+
+6. Add project status:
+
+* Draft
+* Active
+* Completed
+* Archived
+
+7. Add project search/filter system.
+
+8. Ensure persistence survives:
+
+* refresh
+* logout/login
+* browser restart
+
+9. Fix all broken state hydration issues.
+
+10. Add optimistic UI updates with rollback on API failure.
+
+====================================
+PHASE 2 — SYSTEM CONNECTIVITY
+=============================
+
+CURRENT PROBLEM:
+Systems operate independently instead of as one OS.
+
+GOAL:
+All systems must connect through projects.
+
+Implement shared project relationships for:
+
+* memory
+* agents
+* workflows
+* executions
+* predictive intelligence
+* deployments
+* templates
+
+Examples:
+
+* installed agents belong to a project
+* execution logs belong to a project
+* workflows belong to a project
+* memory entries attach to projects
+
+The OS Command Center should aggregate real project-linked data.
+
+====================================
+PHASE 3 — TRUST & REALISM PASS
+==============================
+
+CURRENT PROBLEM:
+Some features imply functionality that does not yet exist.
+
+This creates trust issues.
+
+REQUIREMENTS:
+
+1. Add system maturity labels:
+
+* Active
+* Beta
+* Experimental
+* Simulation
+
+Apply to:
+
+* Integrations
+* Deployments
+* Agent Automation
+* Predictive Systems
+* Marketplace Features
+
+2. Remove fake operational illusions.
+
+Examples:
+
+* fake connected states
+* fake deployment URLs
+* fake live counters
+* fake activity generation
+
+3. Replace fake states with:
+
+* clear placeholders
+* beta notices
+* roadmap messaging
+* export/manual flow explanations
+
+4. NEVER show functionality that does not exist.
+
+====================================
+PHASE 4 — INTEGRATIONS SYSTEM
+=============================
+
+CURRENT PROBLEM:
+Integrations page is fake React-only state.
+
+REQUIREMENTS:
+
+1. Build REAL integration persistence.
+
+Create backend integration tables:
+
+* provider
+* userId
+* access tokens
+* scopes
+* status
+* timestamps
+
+2. Implement at least TWO REAL integrations.
+
+Priority:
+
+* Slack
+* Webhooks
+* Gmail OR HubSpot
+
+3. Integrations must persist across reloads.
+
+4. Connected integrations should become available to:
+
+* workflows
+* agents
+* execution engine
+
+5. Add secure credential handling.
+
+6. Add connection health states.
+
+7. Add reconnect/disconnect flows.
+
+====================================
+PHASE 5 — AGENT STORE REWORK
+============================
+
+CURRENT PROBLEM:
+Agent Store behaves like static UI.
+
+GOAL:
+Turn it into a grounded MVP system.
+
+REQUIREMENTS:
+
+1. Preserve current agent catalog.
+
+2. Installed agents must:
+
+* attach to projects
+* save configuration
+* persist objectives
+* persist memory
+* persist execution history
+
+3. Add lightweight operational behavior.
+
+Agents should support:
+
+* scheduled runs
+* manual execution
+* objective tracking
+* execution logs
+
+4. Add execution status:
+
+* idle
+* running
+* completed
+* failed
+
+5. Add agent activity history.
+
+6. Add “Install Agent” behavior:
+
+Installation should:
+
+* create DB record
+* attach templates
+* attach prompts
+* attach workflows
+* initialize memory context
+
+7. Add clear MVP framing.
+
+DO NOT pretend agents are fully autonomous AGI workers.
+
+====================================
+PHASE 6 — AGENT MONITOR
+=======================
+
+Transform Agent Monitor into:
+“AI workforce operations panel”
+
+REQUIREMENTS:
+
+Show:
+
+* installed agents
+* execution status
+* last run
+* objectives
+* recent tasks
+* project associations
+* execution logs
+
+Add:
+
+* retry execution
+* pause agent
+* run manually
+* execution history
+
+Use REAL backend data only.
+
+====================================
+PHASE 7 — AI MEMORY SYSTEM
+==========================
+
+CURRENT STATE:
+Strong foundation already exists.
+
+EXPAND IT.
+
+REQUIREMENTS:
+
+1. Attach memory to projects.
+
+2. Memory types:
+
+* business context
+* user preferences
+* accepted recommendations
+* rejected recommendations
+* workflow history
+* execution outcomes
+
+3. Improve retrieval relevance.
+
+4. Add memory confidence scores.
+
+5. Add memory timeline/history.
+
+6. Add memory editing.
+
+7. Inject memory intelligently into prompts.
+
+8. Avoid duplicate memory spam.
+
+====================================
+PHASE 8 — OS COMMAND CENTER
+===========================
+
+CURRENT PROBLEM:
+Strong visually but operationally shallow.
+
+GOAL:
+Turn into real operational intelligence hub.
+
+REQUIREMENTS:
+
+Display REAL aggregated system data:
+
+* active projects
+* active agents
+* executions
+* workflows
+* memory health
+* optimization opportunities
+* deployment states
+* integrations status
+
+Add:
+
+* operational alerts
+* recommendation prioritization
+* recent executions
+* workflow bottlenecks
+* AI optimization suggestions
+
+DO NOT show fake analytics.
+
+====================================
+PHASE 9 — PREDICTIVE INTELLIGENCE
+=================================
+
+CURRENT PROBLEM:
+Feels abstract.
+
+GOAL:
+Ground it in operational recommendations.
+
+REQUIREMENTS:
+
+Predictive Intelligence should:
+
+* analyze project history
+* analyze workflow usage
+* analyze execution outcomes
+* analyze business intelligence outputs
+
+Generate:
+
+* optimization recommendations
+* conversion suggestions
+* workflow improvements
+* operational warnings
+
+DO NOT frame as magical future prediction AI.
+
+Seed meaningful starter metrics for new users.
+
+====================================
+PHASE 10 — EXECUTION ENGINE
+===========================
+
+CURRENT STATE:
+Strong but confusing.
+
+GOAL:
+Clarify and operationalize.
+
+REQUIREMENTS:
+
+Execution Engine should behave as:
+“Natural language operational control layer.”
+
+Users should be able to:
+
+* trigger workflows
+* execute optimizations
+* modify generated systems
+* run operational actions
+
+Add:
+
+* execution history
+* rollback capability
+* execution status tracking
+* execution logs
+* action previews before execution
+
+Execution records must persist.
+
+====================================
+PHASE 11 — DEPLOY SYSTEM
+========================
+
+CURRENT PROBLEM:
+Fake deployment simulation reduces trust.
+
+REQUIREMENTS:
+
+1. Remove fake deployment URLs.
+
+2. Replace with:
+
+* export flow
+* deploy manually flow
+* OR real provider integration
+
+3. If deployment is simulated:
+   CLEARLY label:
+   “Simulation Mode”
+
+4. Improve STAGEONE Cloud clarity.
+
+Explain:
+
+* what is hosted
+* what is deployed
+* what is simulated
+
+====================================
+PHASE 12 — TEMPLATE MARKETPLACE
+===============================
+
+CURRENT STATE:
+Good foundation.
+
+IMPROVE:
+
+* project template linking
+* installation flow
+* ratings
+* cloning
+* template metadata
+* versioning
+
+Add:
+
+* business category filters
+* workflow templates
+* automation templates
+
+====================================
+PHASE 13 — UI/UX REFINEMENT
+===========================
+
+IMPORTANT:
+DO NOT redesign the platform.
+
+ONLY refine existing UI.
+
+Requirements:
+
+* improve spacing
+* improve typography
+* improve hierarchy
+* improve responsiveness
+* improve hover states
+* improve loading states
+* improve animation consistency
+* improve visual clarity
+* reduce clutter
+* improve empty states
+
+Preserve:
+
+* black/gold design system
+* premium cinematic feel
+* enterprise AI aesthetic
+
+====================================
+PHASE 14 — PERFORMANCE & STABILITY
+==================================
+
+Optimize:
+
+* unnecessary rerenders
+* API polling
+* loading delays
+* hydration mismatches
+* memory leaks
+* stale state bugs
+
+Add:
+
+* proper error boundaries
+* retry handling
+* toast notifications
+* loading skeletons
+* fallback states
+
+====================================
+PHASE 15 — MVP PRODUCTION READINESS
+===================================
+
+By the end of this task, STAGEONE should feel like:
+
+* a coherent AI operating system
+* persistent
+* stateful
+* operationally grounded
+* trustworthy
+* connected
+* premium
+* production-stable
+
+NOT:
+
+* experimental UI mockups
+* disconnected concepts
+* fake autonomy simulation
+
+====================================
+FINAL IMPORTANT RULE
+====================
+
+Do NOT expand architecture unnecessarily.
+
+Focus ONLY on:
+
+* continuity
+* operational depth
+* trust
+* persistence
+* refinement
+* production readiness
+
+This is a stabilization and operational grounding phase.

@@ -1,0 +1,184 @@
+Upgrade STAGEONE Website Generator into an AI Website Architect system.
+
+GOAL:
+Move beyond generic website generation and create strategically intelligent business websites optimized for industry, conversions, and operational realism.
+
+====================================
+INTELLIGENT WEBSITE GENERATION
+==============================
+
+The AI should understand:
+
+* business model
+* target audience
+* industry expectations
+* conversion strategy
+* trust requirements
+* monetization structure
+
+Before generating layouts.
+
+====================================
+INDUSTRY-AWARE DESIGN
+=====================
+
+Different industries should produce radically different website experiences.
+
+Examples:
+
+Cybersecurity:
+
+* trust-focused layout
+* enterprise visuals
+* compliance sections
+* infrastructure diagrams
+
+Fintech:
+
+* credibility-focused UI
+* onboarding funnels
+* security indicators
+* financial dashboards
+
+Luxury:
+
+* editorial composition
+* cinematic visuals
+* elegant typography
+* minimal layouts
+
+AI SaaS:
+
+* futuristic interface
+* workflow visuals
+* automation previews
+* interactive demos
+
+====================================
+CONVERSION INTELLIGENCE
+=======================
+
+Generate:
+
+* strategic CTA placement
+* optimized section ordering
+* lead generation flows
+* onboarding funnels
+* trust-building sections
+
+====================================
+WEBSITE STRATEGY LAYER
+======================
+
+For every generated website:
+Explain:
+
+* why sections were chosen
+* why layout structure works
+* conversion reasoning
+* user psychology strategy
+
+====================================
+ADVANCED EXPERIENCE
+===================
+
+Add:
+
+* interactive previews
+* dynamic section generation
+* live editing
+* AI layout recommendations
+* conversion optimization suggestions
+
+====================================
+END RESULT
+==========
+
+STAGEONE should feel like:
+
+* an AI website strategist
+* an AI creative director
+* an AI conversion architect
+
+NOT a generic template generator.
+---------------------------------------------------------------------
+
+
+
+
+
+Upgrade STAGEONE Copilot into an Operational AI Strategist.
+
+GOAL:
+Make the Copilot behave like an intelligent business operations advisor rather than a generic chatbot.
+
+====================================
+OPERATIONAL CONTEXT AWARENESS
+=============================
+
+Copilot should understand:
+
+* active workflows
+* current business model
+* scalability metrics
+* automation maturity
+* monetization systems
+* operational bottlenecks
+
+====================================
+PROACTIVE INTELLIGENCE
+======================
+
+The AI should proactively suggest:
+
+* workflow optimizations
+* scaling opportunities
+* automation gaps
+* conversion improvements
+* monetization upgrades
+
+====================================
+STRATEGIC RECOMMENDATIONS
+=========================
+
+Examples:
+
+* "Your onboarding flow has too many steps."
+* "This pricing model may reduce conversion."
+* "Add automated lead qualification."
+* "Your website lacks enterprise trust indicators."
+
+====================================
+LIVE BUSINESS ANALYSIS
+======================
+
+Copilot should continuously analyze:
+
+* workflows
+* AI systems
+* generated websites
+* operational efficiency
+
+====================================
+EXECUTION CAPABILITIES
+======================
+
+Allow Copilot to:
+
+* modify workflows
+* generate automation
+* update website sections
+* optimize chatbot systems
+* recommend integrations
+
+====================================
+END RESULT
+==========
+
+STAGEONE should feel like:
+
+* an operational AI advisor
+* an AI strategist
+* an AI systems architect
+
+NOT a generic AI assistant.

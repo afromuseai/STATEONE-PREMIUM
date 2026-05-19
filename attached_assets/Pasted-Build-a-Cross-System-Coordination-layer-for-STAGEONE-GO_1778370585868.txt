@@ -1,0 +1,114 @@
+Build a Cross-System Coordination layer for STAGEONE.
+
+GOAL:
+Make all STAGEONE systems intelligently connected instead of functioning like isolated generators.
+
+====================================
+CONNECTED INTELLIGENCE SYSTEM
+=============================
+
+All modules should share contextual awareness:
+
+* Business Intelligence
+* Website Architect
+* AI Copilot
+* Workflow Builder
+* AI Agents
+* Chatbot Systems
+
+Each system should understand:
+
+* active business model
+* target audience
+* monetization structure
+* automation maturity
+* operational complexity
+* industry type
+* strategic goals
+
+====================================
+INTELLIGENCE FLOW
+=================
+
+Example coordination:
+
+Business Intelligence
+→ informs Website Architect
+
+Website Structure
+→ informs Workflow Builder
+
+Workflow Complexity
+→ informs AI Agent recommendations
+
+Copilot
+→ analyzes all systems together
+
+====================================
+PROACTIVE RECOMMENDATIONS
+=========================
+
+STAGEONE should proactively detect:
+
+* weak onboarding flows
+* poor monetization structures
+* missing automation
+* scalability bottlenecks
+* conversion friction
+* operational inefficiencies
+
+Examples:
+
+* "Your fintech onboarding flow lacks trust indicators."
+* "This SaaS pricing model may reduce enterprise conversion."
+* "Add automated lead scoring to improve qualification."
+
+====================================
+SHARED CONTEXT MEMORY
+=====================
+
+All systems should share:
+
+* project history
+* generated websites
+* workflows
+* AI recommendations
+* integrations
+* user preferences
+
+Memory should persist across sessions.
+
+====================================
+INTELLIGENCE DASHBOARD
+======================
+
+Add a connected intelligence panel displaying:
+
+* AI recommendations
+* operational insights
+* scalability warnings
+* optimization opportunities
+* workflow relationships
+
+====================================
+AI REASONING STATES
+===================
+
+Display live AI reasoning states like:
+
+* Coordinating workflow intelligence...
+* Evaluating operational dependencies...
+* Optimizing conversion systems...
+* Detecting infrastructure bottlenecks...
+
+====================================
+END RESULT
+==========
+
+STAGEONE should feel like:
+
+* a connected AI operational platform
+* an intelligent orchestration system
+* a strategic AI business infrastructure layer
+
+NOT disconnected AI generators.

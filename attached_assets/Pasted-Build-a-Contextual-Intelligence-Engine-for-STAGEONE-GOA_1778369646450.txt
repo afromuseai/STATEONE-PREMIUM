@@ -1,0 +1,147 @@
+Build a Contextual Intelligence Engine for STAGEONE.
+
+GOAL:
+Make STAGEONE understand relationships between businesses, websites, workflows, AI agents, monetization systems, and operational infrastructure.
+
+STAGEONE should behave like an intelligent operational system with memory, awareness, and strategic reasoning.
+
+====================================
+CONTEXT MEMORY SYSTEM
+=====================
+
+STAGEONE should remember:
+
+* previously generated businesses
+* workflows
+* website structures
+* AI agents
+* monetization models
+* industry preferences
+* operational decisions
+* integrations used
+* automation maturity
+* strategic goals
+
+Memory should persist across sessions.
+
+====================================
+CROSS-SYSTEM AWARENESS
+======================
+
+The AI should understand relationships between:
+
+* business model
+* website structure
+* chatbot systems
+* workflows
+* integrations
+* monetization
+* growth strategy
+
+Example:
+If user generates a fintech onboarding workflow,
+STAGEONE should understand:
+
+* trust requirements
+* compliance expectations
+* onboarding friction
+* enterprise credibility needs
+
+====================================
+PROACTIVE AI RECOMMENDATIONS
+============================
+
+The AI should proactively suggest improvements.
+
+Examples:
+
+* "Your onboarding flow has unnecessary friction."
+* "Your pricing structure may reduce enterprise conversion."
+* "Your cybersecurity product lacks trust indicators."
+* "Add AI lead scoring to improve qualification efficiency."
+* "Your landing page CTA placement is weak."
+
+Recommendations should feel:
+
+* strategic
+* contextual
+* operationally intelligent
+
+NOT generic.
+
+====================================
+OPERATIONAL INTELLIGENCE
+========================
+
+The AI should continuously evaluate:
+
+* workflow efficiency
+* automation opportunities
+* scalability bottlenecks
+* conversion risks
+* monetization weaknesses
+* operational complexity
+
+====================================
+AI COORDINATION LAYER
+=====================
+
+Allow STAGEONE systems to communicate.
+
+Example flow:
+
+Business Intelligence
+→ informs Website Architect
+→ informs Workflow Builder
+→ informs AI Copilot
+→ informs AI Agents
+
+All systems should share context intelligently.
+
+====================================
+INDUSTRY DEPTH ENGINE
+=====================
+
+AI outputs should adapt deeply to industry context.
+
+Industries:
+
+* SaaS
+* fintech
+* cybersecurity
+* healthcare
+* eCommerce
+* luxury
+* education
+* AI startups
+
+Each industry should produce:
+
+* unique recommendations
+* different website structures
+* different automation logic
+* different trust indicators
+* different growth strategies
+
+====================================
+INTELLIGENCE EXPERIENCE
+=======================
+
+Display AI reasoning states like:
+
+* Evaluating operational bottlenecks...
+* Analyzing enterprise conversion patterns...
+* Optimizing automation structure...
+* Detecting scalability risks...
+
+====================================
+END RESULT
+==========
+
+STAGEONE should feel like:
+
+* an AI operational strategist
+* an intelligent infrastructure advisor
+* a connected AI business operating system
+
+NOT a collection of disconnected generators.

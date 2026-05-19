@@ -1,0 +1,139 @@
+Upgrade STAGEONE Website Generator into a Website Architect Intelligence System.
+
+GOAL:
+Transform STAGEONE from a generic AI website builder into an intelligent business website strategist.
+
+====================================
+BUSINESS-AWARE WEBSITE GENERATION
+=================================
+
+Before generating a website, the AI should analyze:
+
+* business model
+* target audience
+* pricing structure
+* customer psychology
+* trust requirements
+* onboarding complexity
+* monetization strategy
+* industry expectations
+
+The generated website should reflect those insights.
+
+====================================
+INDUSTRY-SPECIFIC WEBSITE INTELLIGENCE
+======================================
+
+Different industries must produce radically different structures.
+
+Cybersecurity:
+
+* trust-focused layout
+* compliance sections
+* infrastructure visuals
+* enterprise CTAs
+* security architecture explanations
+
+Fintech:
+
+* credibility indicators
+* onboarding funnels
+* transaction trust systems
+* financial dashboards
+
+Luxury:
+
+* editorial design
+* cinematic visuals
+* minimalist composition
+* high-end typography
+
+AI SaaS:
+
+* automation visuals
+* workflow demos
+* AI orchestration sections
+* product intelligence displays
+
+Healthcare:
+
+* compliance messaging
+* trust indicators
+* patient onboarding clarity
+* security/privacy sections
+
+====================================
+CONVERSION OPTIMIZATION ENGINE
+==============================
+
+AI should intelligently generate:
+
+* CTA placement
+* section ordering
+* lead funnels
+* trust-building components
+* onboarding flows
+* enterprise conversion systems
+
+====================================
+WEBSITE STRATEGY EXPLANATIONS
+=============================
+
+For every generated website:
+Explain:
+
+* why sections were selected
+* why layout structure works
+* conversion reasoning
+* psychological optimization strategy
+
+====================================
+LIVE OPTIMIZATION SYSTEM
+========================
+
+The AI should continuously analyze websites for:
+
+* conversion weaknesses
+* trust gaps
+* poor CTA structure
+* onboarding friction
+* visual imbalance
+
+Then recommend improvements automatically.
+
+====================================
+ADVANCED EDITING EXPERIENCE
+===========================
+
+Allow users to:
+
+* regenerate sections independently
+* switch business strategies
+* optimize for conversion goals
+* adjust target audience
+* evolve visual direction
+
+====================================
+PREMIUM UI EXPERIENCE
+=====================
+
+Add:
+
+* cinematic previews
+* responsive device views
+* smooth transitions
+* animated layout rendering
+* premium visual polish
+
+====================================
+END RESULT
+==========
+
+STAGEONE should feel like:
+
+* an AI website strategist
+* an AI conversion architect
+* an AI creative director
+* an operational business designer
+
+NOT a generic template generator.

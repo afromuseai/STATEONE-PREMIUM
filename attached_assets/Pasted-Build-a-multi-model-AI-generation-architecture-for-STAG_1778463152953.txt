@@ -1,0 +1,346 @@
+Build a multi-model AI generation architecture for STAGEONE Website Architect.
+
+IMPORTANT:
+This is NOT a simple website generator upgrade.
+
+Transform STAGEONE into a layered AI website operating system using specialized AI models for:
+
+* reasoning
+* orchestration
+* creative direction
+* asset generation
+* frontend implementation
+* optimization intelligence
+
+The system must behave like a coordinated AI creative pipeline rather than a single-output generator.
+
+====================================
+CORE ARCHITECTURE
+=================
+
+STAGEONE Website Architect must operate using multiple specialized AI layers.
+
+Separate:
+
+1. Business reasoning
+2. Creative direction
+3. Visual asset generation
+4. Frontend implementation
+5. Optimization intelligence
+
+Do NOT attempt to make one model handle everything.
+
+====================================
+AI MODEL RESPONSIBILITIES
+=========================
+
+1. ORCHESTRATION + BUSINESS INTELLIGENCE LAYER
+   Primary model:
+
+* Qwen3.5-122B-A10B
+
+Responsibilities:
+
+* understand business ideas
+* generate positioning
+* analyze target audience
+* define conversion strategy
+* generate copywriting direction
+* define brand tone
+* define website structure
+* determine visual direction
+* orchestrate downstream AI systems
+
+This model acts as:
+
+* the brain
+* the strategist
+* the creative director
+
+NOT the frontend renderer.
+
+====================================
+
+2. VISUAL ASSET GENERATION LAYER
+
+Primary image model:
+
+* FLUX.1-dev
+
+Optional support models:
+
+* FLUX.1-schnell for previews
+* Qwen Image Edit for refinement
+* FLUX.1-Kontext-dev for redesign iteration
+
+Responsibilities:
+
+* generate hero imagery
+* generate editorial visuals
+* generate SaaS dashboard mockups
+* generate futuristic UI imagery
+* generate contextual illustrations
+* generate supporting graphics
+* generate business-specific visual assets
+
+Examples:
+
+* cybersecurity → dark futuristic enterprise visuals
+* fitness → energetic modern athlete visuals
+* fintech → sleek dashboard mockups
+* AI startup → futuristic glowing interface visuals
+* luxury fashion → editorial-style photography
+
+IMPORTANT:
+Assets must feel:
+
+* curated
+* premium
+* cinematic
+* startup-grade
+* agency-quality
+
+NOT:
+
+* stock-photo-like
+* random AI imagery
+* low-quality generations
+
+====================================
+
+3. WEBSITE IMPLEMENTATION LAYER
+
+Primary implementation model:
+
+* Mistral Small 4 119B
+
+Responsibilities:
+
+* generate React components
+* generate Next.js layouts
+* generate Tailwind styling
+* generate responsive architecture
+* generate animations
+* generate modular sections
+* optimize frontend structure
+
+Requirements:
+
+* clean component architecture
+* reusable sections
+* responsive layouts
+* production-ready code
+* mobile optimization
+* scalable frontend structure
+
+====================================
+
+4. WEBSITE INTELLIGENCE LAYER
+
+STAGEONE internal AI system.
+
+Responsibilities:
+
+* conversion optimization
+* UX analysis
+* SEO analysis
+* mobile optimization analysis
+* brand consistency analysis
+* performance intelligence
+* redesign recommendations
+
+This layer should continuously analyze generated websites after creation.
+
+====================================
+FULL GENERATION PIPELINE
+========================
+
+STEP 1 — BUSINESS ANALYSIS
+(Qwen3.5)
+
+Input:
+business idea + goals + audience
+
+Generate:
+
+* positioning
+* messaging
+* tone
+* conversion strategy
+* website direction
+
+====================================
+
+STEP 2 — CREATIVE DIRECTION
+(Qwen3.5)
+
+Generate:
+
+* visual style system
+* typography direction
+* spacing style
+* color direction
+* section composition
+* asset requirements
+
+Examples:
+
+* premium SaaS
+* dark tech
+* AI futuristic
+* luxury editorial
+* enterprise minimal
+* startup modern
+
+====================================
+
+STEP 3 — VISUAL ASSET GENERATION
+(FLUX.1-dev)
+
+Generate:
+
+* hero visuals
+* supporting imagery
+* dashboard mockups
+* illustrations
+* feature visuals
+* branded graphics
+
+Assets must align with:
+
+* business category
+* tone
+* visual direction
+* conversion goals
+
+====================================
+
+STEP 4 — WEBSITE IMPLEMENTATION
+(Mistral)
+
+Generate:
+
+* React pages
+* responsive layouts
+* Tailwind UI
+* animations
+* reusable sections
+* clean architecture
+
+Generated websites should feel comparable to:
+
+* Framer-quality builds
+* premium startup landing pages
+* modern SaaS products
+* agency-designed websites
+
+====================================
+
+STEP 5 — WEBSITE INTELLIGENCE ANALYSIS
+(STAGEONE internal intelligence)
+
+Analyze:
+
+* conversion readiness
+* CTA placement
+* UX hierarchy
+* SEO quality
+* mobile responsiveness
+* visual consistency
+* performance
+
+Generate:
+
+* optimization recommendations
+* redesign suggestions
+* improvement insights
+
+====================================
+VISUAL QUALITY REQUIREMENTS
+===========================
+
+Generated websites must feel:
+
+* premium
+* modern
+* intentional
+* cinematic
+* conversion-focused
+* startup-grade
+* visually balanced
+* professionally composed
+
+Avoid:
+
+* repetitive layouts
+* generic AI templates
+* random section stacking
+* excessive gradients
+* cluttered interfaces
+* weak typography
+* poor spacing
+* stock-template feel
+
+====================================
+DESIGN SYSTEM REQUIREMENTS
+==========================
+
+Implement:
+
+* reusable section system
+* visual hierarchy engine
+* responsive spacing system
+* typography scaling
+* animation consistency
+* dark/light adaptability
+* premium UI composition logic
+
+====================================
+ASSET SYSTEM REQUIREMENTS
+=========================
+
+Build:
+
+* AI asset orchestration pipeline
+* asset caching system
+* image optimization flow
+* fallback placeholder logic
+* image-to-section matching system
+
+Generated assets should automatically map to:
+
+* hero sections
+* features
+* testimonials
+* dashboards
+* product previews
+* brand visuals
+
+====================================
+PROJECT CONTINUITY
+==================
+
+All generated websites must:
+
+* auto-save to projects
+* preserve assets
+* preserve prompts
+* preserve revisions
+* preserve intelligence reports
+* support future editing
+
+Projects should feel persistent and operational.
+
+====================================
+IMPORTANT PRODUCT DIRECTION
+===========================
+
+STAGEONE Website Architect is evolving from:
+"AI website generator"
+
+into:
+"AI creative operating system for intelligent digital experiences"
+
+The implementation must reflect this higher-level product direction.
+
+Do NOT simplify the architecture into generic template generation.

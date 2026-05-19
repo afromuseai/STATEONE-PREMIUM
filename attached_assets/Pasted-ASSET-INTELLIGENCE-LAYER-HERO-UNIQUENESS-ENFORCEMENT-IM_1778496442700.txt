@@ -1,0 +1,267 @@
+ASSET INTELLIGENCE LAYER + HERO UNIQUENESS ENFORCEMENT
+
+IMPORTANT:
+Do NOT rewrite the Website Architect system.
+
+This upgrade must ONLY improve:
+
+* asset relevance
+* visual uniqueness
+* hero section quality
+* business-specific art direction
+* regeneration diversity
+
+WITHOUT breaking:
+
+* current generation flow
+* project saving
+* Business Intelligence integration
+* renderer stability
+* existing website generation
+
+====================================
+ROOT PROBLEM
+============
+
+Generated websites still feel:
+
+* repetitive
+* generic
+* template-like
+
+Main issues:
+
+1. Hero sections feel too similar
+2. Assets do not match the business type
+3. Regenerate produces weak variation
+4. Visual direction is not strongly enforced
+
+The problem is:
+the renderer lacks:
+
+* semantic visual intelligence
+* asset intelligence
+* variant-aware hero composition
+
+====================================
+BUILD ASSET INTELLIGENCE LAYER
+==============================
+
+Before asset generation:
+run an "Asset Intelligence Phase."
+
+The system must first determine:
+
+* business category
+* emotional tone
+* buyer psychology
+* visual language
+* industry aesthetic
+* art direction style
+* composition style
+
+Then generate assets accordingly.
+
+====================================
+BUSINESS-AWARE VISUAL MAPPING
+=============================
+
+Cybersecurity SaaS:
+
+* dark enterprise visuals
+* command centers
+* glowing data systems
+* futuristic threat monitoring
+* network visualization
+* intelligence aesthetics
+
+Luxury Fashion:
+
+* editorial photography
+* cinematic portraits
+* luxury compositions
+* fashion campaign visuals
+* premium texture imagery
+
+Fintech:
+
+* clean premium dashboards
+* trust-oriented visuals
+* modern financial interfaces
+* minimal enterprise imagery
+
+Fitness:
+
+* energetic athlete visuals
+* performance lighting
+* motion-heavy compositions
+* cinematic workout imagery
+
+AI Startup:
+
+* futuristic interfaces
+* ambient intelligence visuals
+* abstract AI systems
+* premium SaaS compositions
+
+====================================
+IMPORTANT
+=========
+
+Do NOT use:
+
+* generic AI art
+* random gradients
+* unrelated imagery
+* stock-photo-feeling assets
+
+Assets must feel:
+purpose-built for the business.
+
+====================================
+HERO UNIQUENESS ENGINE
+======================
+
+The renderer currently reuses:
+
+* similar hero structures
+* similar layouts
+* similar hierarchy
+
+Implement:
+variant-aware hero rendering.
+
+====================================
+CREATE DISTINCT HERO TYPES
+==========================
+
+1. Editorial Hero
+
+* oversized typography
+* cinematic imagery
+* asymmetrical composition
+* luxury spacing
+
+2. Futuristic Hero
+
+* immersive UI visuals
+* glowing systems
+* layered depth
+* advanced motion
+
+3. Enterprise Hero
+
+* structured grids
+* trust-focused hierarchy
+* dashboard composition
+* restrained motion
+
+4. Startup Hero
+
+* modern SaaS structure
+* strong CTA positioning
+* product-first storytelling
+
+5. Cinematic Hero
+
+* fullscreen visual storytelling
+* ambient overlays
+* emotional atmosphere
+
+====================================
+IMPORTANT
+=========
+
+Do NOT simply recolor the same hero template.
+
+Each hero type must have:
+
+* different composition
+* different spacing
+* different typography rhythm
+* different image behavior
+* different CTA positioning
+
+====================================
+REGENERATION ENFORCEMENT
+========================
+
+When user clicks:
+
+* regenerate
+* remix
+* alternate version
+
+Force:
+
+* different hero type
+* different asset strategy
+* different layout composition
+* different typography system
+
+while preserving:
+
+* business intelligence
+* strategy
+* messaging
+* positioning
+
+====================================
+TYPOGRAPHY ENFORCEMENT
+======================
+
+Typography must branch by visual direction.
+
+Luxury:
+
+* elegant serif systems
+
+Futuristic:
+
+* geometric modern fonts
+
+Enterprise:
+
+* clean structured typography
+
+Editorial:
+
+* magazine-style hierarchy
+
+Startup:
+
+* bold modern sans-serif
+
+====================================
+VISUAL QUALITY GOAL
+===================
+
+Generated websites should feel comparable to:
+
+* premium Framer templates
+* elite startup launches
+* modern SaaS products
+* creative agency websites
+* venture-backed company landing pages
+
+NOT:
+generic AI-generated templates.
+
+====================================
+MOST IMPORTANT RULE
+===================
+
+This upgrade is about:
+controlled creative direction.
+
+NOT:
+randomness.
+
+Maintain:
+
+* usability
+* readability
+* responsiveness
+* accessibility
+* conversion quality
+* rendering stability

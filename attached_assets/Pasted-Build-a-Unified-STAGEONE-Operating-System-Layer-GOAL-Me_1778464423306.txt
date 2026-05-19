@@ -1,0 +1,107 @@
+Build a Unified STAGEONE Operating System Layer.
+
+GOAL:
+Merge all STAGEONE modules into a single cohesive AI operating system where intelligence, generation, execution, and memory function as one continuous system.
+
+====================================
+CORE SYSTEM PRINCIPLE
+=====================
+
+STAGEONE must operate as a single intelligence loop:
+
+INPUT → ANALYSIS → DECISION → EXECUTION → UPDATE → MEMORY
+
+No module should function in isolation.
+
+====================================
+GLOBAL SYSTEM MEMORY
+====================
+
+All modules share one unified memory layer:
+
+* Business Intelligence history
+* Website generations
+* Workflow executions
+* Copilot interactions
+* AI decisions
+* System optimizations
+
+Memory is global and continuously updated.
+
+====================================
+UNIFIED INTELLIGENCE LAYER
+==========================
+
+All AI reasoning should pass through a central intelligence layer that:
+
+* evaluates context
+* decides best action path
+* prioritizes tasks
+* prevents conflicts between modules
+* maintains system coherence
+
+====================================
+SYSTEM SYNC ENGINE
+==================
+
+Every action must automatically sync across:
+
+* Website Architect
+* Workflow Builder
+* AI Copilot
+* Execution Engine
+* Business Intelligence
+
+Changes in one system MUST reflect in all others.
+
+====================================
+REAL-TIME STATE MANAGEMENT
+==========================
+
+Maintain live system state:
+
+* active projects
+* running workflows
+* executed actions
+* pending optimizations
+* AI recommendations
+
+State must always be consistent.
+
+====================================
+INTELLIGENCE PRIORITY SYSTEM
+============================
+
+AI must prioritize:
+
+1. Execution-critical tasks
+2. Revenue-impacting recommendations
+3. Conversion improvements
+4. Automation opportunities
+5. Cosmetic/UI changes
+
+====================================
+SELF-OPTIMIZING LOOP
+====================
+
+STAGEONE should continuously:
+
+* detect inefficiencies
+* suggest improvements
+* optimize workflows
+* refine websites
+* improve automation logic
+
+System becomes progressively smarter over time.
+
+====================================
+END RESULT
+==========
+
+STAGEONE should behave like:
+
+* a unified AI operating system
+* a self-coordinating intelligence platform
+* a continuously improving business engine
+
+NOT a collection of disconnected features.

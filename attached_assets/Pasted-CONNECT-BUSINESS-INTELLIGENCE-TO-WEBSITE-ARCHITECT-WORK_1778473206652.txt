@@ -1,0 +1,159 @@
+CONNECT BUSINESS INTELLIGENCE TO WEBSITE ARCHITECT WORKFLOW
+
+IMPORTANT:
+Business Intelligence and Website Architect currently feel disconnected.
+
+They must operate as:
+connected layers of the same operating system.
+
+====================================
+GOAL
+====
+
+After a user generates a business idea inside Business Intelligence,
+they should be able to instantly generate a website from that business intelligence context.
+
+The website generator should inherit:
+
+* business summary
+* positioning
+* target audience
+* growth strategy
+* brand tone
+* visual direction
+* industry type
+* business goals
+* conversion strategy
+
+WITHOUT requiring the user to manually re-enter prompts.
+
+====================================
+UI IMPLEMENTATION
+=================
+
+Inside the Business Intelligence page:
+
+After successful business generation,
+add a top-right action button:
+
+"Generate Website"
+
+Button behavior:
+
+* opens Website Architect
+* automatically transfers the generated business intelligence context
+* preloads the website generation workflow
+* starts generation using the existing business strategy
+
+====================================
+DATA FLOW
+=========
+
+When user clicks:
+Generate Website
+
+Pass:
+
+* business idea
+* generated business summary
+* market positioning
+* audience
+* branding direction
+* style direction
+* business category
+* growth strategy
+* chatbot ideas
+* automation strategy
+* website structure recommendations
+
+into Website Architect.
+
+====================================
+IMPORTANT
+=========
+
+Do NOT only pass:
+the raw business prompt.
+
+Pass:
+the FULL generated intelligence object.
+
+Website generation should feel:
+context-aware and strategically informed.
+
+====================================
+WEBSITE GENERATOR BEHAVIOR
+==========================
+
+The Website Generator should use the imported intelligence to determine:
+
+* designVariant
+* layout style
+* asset direction
+* typography style
+* CTA structure
+* section hierarchy
+* conversion strategy
+* visual tone
+
+Example:
+
+Cybersecurity SaaS →
+futuristic enterprise design
+
+Luxury fashion marketplace →
+editorial luxury aesthetic
+
+AI startup →
+modern futuristic startup aesthetic
+
+====================================
+PROJECT CONTINUITY
+==================
+
+When website is generated from Business Intelligence:
+
+Automatically:
+
+* link website project to the originating business intelligence project
+* preserve continuity between systems
+* allow users to navigate back and forth
+
+Projects should feel unified.
+
+====================================
+USER EXPERIENCE GOAL
+====================
+
+The flow should feel like:
+
+Business Intelligence
+→ strategic thinking
+
+then
+
+Website Architect
+→ visual execution
+
+inside one continuous operational workflow.
+
+NOT:
+two disconnected tools.
+
+====================================
+IMPORTANT IMPLEMENTATION RULE
+=============================
+
+Do NOT create duplicate projects unnecessarily.
+
+Instead:
+associate website generations with the originating business intelligence project whenever possible.
+
+Maintain:
+
+* project continuity
+* memory continuity
+* execution continuity
+* design continuity
+
+across the operating system.

@@ -1,0 +1,196 @@
+STAGEONE CORE INTELLIGENCE ARCHITECTURE V2
+
+This is your system-level design upgrade, not a UI feature.
+
+It defines how STAGEONE thinks, decides, learns, and improves.
+
+⚙️ 1. CORE PRINCIPLE: SINGLE INTELLIGENCE LOOP
+
+Replace “modules” thinking with one continuous loop:
+
+OBSERVE → UNDERSTAND → PLAN → EXECUTE → EVALUATE → LEARN
+
+Every action in STAGEONE must pass through this loop.
+
+No bypassing it.
+
+🧠 2. INTELLIGENCE STACK (4 LAYERS)
+LAYER 1 — INPUT CONTEXT LAYER
+
+This is everything STAGEONE knows at the moment.
+
+Includes:
+
+user prompt
+project state
+website state
+workflows
+agent activity
+previous decisions
+memory history
+
+👉 Purpose: “What is happening right now?”
+
+LAYER 2 — REASONING LAYER (THE BRAIN)
+
+This is where decisions are made.
+
+It performs:
+
+intent detection
+business understanding
+industry classification
+constraint detection
+opportunity mapping
+risk detection
+
+Outputs:
+
+structured plan
+action priority list
+confidence scores
+
+👉 Purpose: “What should we do?”
+
+LAYER 3 — ORCHESTRATION LAYER (THE OPERATOR)
+
+This is your Execution Engine’s real brain.
+
+It decides:
+
+what gets executed now
+what is queued
+what is ignored
+what requires confirmation
+
+It controls:
+
+Website Architect
+Workflow Builder
+Copilot
+Agents
+
+👉 Purpose: “How do we execute this safely and correctly?”
+
+LAYER 4 — LEARNING LAYER (THE MEMORY SYSTEM)
+
+This is what makes STAGEONE evolve.
+
+It tracks:
+
+what users accept
+what users ignore
+what leads to success
+what leads to rejection
+system performance over time
+
+It updates:
+
+reasoning weights
+recommendation quality
+prioritization logic
+
+👉 Purpose: “How do we improve over time?”
+
+🔁 3. INTELLIGENCE FEEDBACK LOOP (CRITICAL)
+
+Every request MUST go through:
+
+User Input
+   ↓
+Context Layer
+   ↓
+Reasoning Layer
+   ↓
+Orchestration Layer
+   ↓
+Execution Layer
+   ↓
+Evaluation Layer
+   ↓
+Learning Layer
+   ↓
+Memory Update
+
+This is what makes it “alive”.
+
+🧩 4. GLOBAL SHARED INTELLIGENCE STATE
+
+Replace isolated module state with one unified structure:
+
+GLOBAL STATE OBJECT
+STAGEONE_STATE = {
+  businessContext,
+  activeProjects,
+  generatedWebsites,
+  workflows,
+  agents,
+  executions,
+  recommendations,
+  performanceSignals,
+  memoryGraph
+}
+
+Everything reads from and writes to this.
+
+No silos.
+
+⚡ 5. INTELLIGENCE PRIORITY ENGINE
+
+Not all actions are equal.
+
+You now assign priorities:
+
+Priority Levels:
+🔴 CRITICAL → affects revenue, system stability
+🟠 HIGH → conversion, automation, execution
+🟡 MEDIUM → UX improvements
+🔵 LOW → cosmetic, suggestions
+
+The system ALWAYS executes highest value first.
+
+🧠 6. DECISION TYPES (VERY IMPORTANT)
+
+Every AI output must be one of:
+
+1. EXECUTE
+
+Do it immediately (safe + high confidence)
+
+2. SUGGEST
+
+Recommend but don’t act
+
+3. QUEUE
+
+Wait for context or dependencies
+
+4. IGNORE
+
+Low value or irrelevant
+
+This prevents chaos.
+
+🔄 7. SELF-IMPROVING INTELLIGENCE BEHAVIOR
+
+STAGEONE must continuously adjust:
+
+what it recommends
+what it prioritizes
+what it executes
+what it ignores
+
+Based on:
+
+user acceptance rate
+workflow success rate
+engagement signals
+repeated patterns
+🧠 8. WHAT THIS ACHIEVES
+
+With this architecture, STAGEONE becomes:
+
+BEFORE
+multiple AI tools connected
+AFTER
+a single decision-making intelligence system

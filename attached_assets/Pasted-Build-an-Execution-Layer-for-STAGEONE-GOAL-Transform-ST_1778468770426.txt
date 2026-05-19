@@ -1,0 +1,122 @@
+Build an Execution Layer for STAGEONE.
+
+GOAL:
+Transform STAGEONE from a recommendation system into an AI system that can execute and coordinate real platform actions across all modules.
+
+====================================
+EXECUTION SYSTEM CORE
+=====================
+
+STAGEONE should be able to perform actions like:
+
+* generate website sections
+* update workflows
+* modify chatbot behavior
+* optimize pricing models
+* restructure dashboards
+* trigger automation flows
+
+Each action should be treated as an executable task, not just a suggestion.
+
+====================================
+ACTION TYPES
+============
+
+Define structured AI actions:
+
+1. GenerateAction
+
+* create websites
+* create workflows
+* create AI agents
+
+2. ModifyAction
+
+* update existing systems
+* optimize sections
+* improve conversion flows
+
+3. AnalyzeAction
+
+* evaluate business performance
+* detect weaknesses
+* identify bottlenecks
+
+4. RecommendAction
+
+* suggest improvements
+* propose strategies
+* highlight risks
+
+====================================
+AI DECISION LAYER
+=================
+
+The AI should decide:
+
+* what to execute immediately
+* what to recommend
+* what to queue for later
+* what requires user confirmation
+
+====================================
+EXECUTION WORKFLOW
+==================
+
+Every request should follow:
+
+1. Understand intent
+2. Analyze system context
+3. Choose action type
+4. Execute or stage action
+5. Update system state
+6. Reflect changes across all modules
+
+====================================
+CROSS-SYSTEM IMPACT
+===================
+
+Every execution should automatically update:
+
+* Website Architect
+* Workflow Builder
+* AI Copilot
+* Business Intelligence
+* AI Agents
+
+All systems remain synchronized.
+
+====================================
+VISUAL EXECUTION TRACKING
+=========================
+
+Add an "Execution Timeline" UI showing:
+
+* pending actions
+* active executions
+* completed operations
+* system updates
+* AI decisions made
+
+====================================
+AI THINKING STATES
+==================
+
+Display:
+
+* Executing system optimization...
+* Updating website architecture...
+* Synchronizing workflow dependencies...
+* Applying cross-system changes...
+
+====================================
+END RESULT
+==========
+
+STAGEONE should feel like:
+
+* an AI operating system
+* an execution-driven intelligence layer
+* a real-time business automation engine
+
+NOT a passive recommendation tool.

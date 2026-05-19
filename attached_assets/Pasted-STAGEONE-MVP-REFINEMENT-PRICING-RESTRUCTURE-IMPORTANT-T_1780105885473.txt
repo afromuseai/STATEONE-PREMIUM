@@ -1,0 +1,554 @@
+STAGEONE MVP REFINEMENT + PRICING RESTRUCTURE
+
+IMPORTANT:
+This is a UI simplification + MVP refinement pass.
+
+DO NOT:
+
+* rewrite the architecture
+* remove backend systems
+* delete routes
+* modify core generation engine
+* remove orchestration infrastructure
+* alter database structure unnecessarily
+
+The goal is:
+make STAGEONE feel focused, simple, and ready for MVP launch.
+
+==================================================
+
+1. SIDEBAR SIMPLIFICATION
+   ==================================================
+
+Temporarily remove these items from visible sidebar navigation ONLY:
+
+* ORCHESTRATE  BLOG (Remove everything except AI Orchestrator tab)
+* INTELLIGENCE  BLOG  
+* DEPLOY  BLOG  
+* DEVELOPER BLOG
+* Integrations tab
+
+IMPORTANT:
+
+* preserve routes
+* preserve backend architecture
+* preserve related systems
+* do NOT delete code
+
+This is ONLY a visible navigation simplification for MVP clarity.
+
+The visible product experience should now focus on:
+
+INPUT:
+Business idea
+
+OUTPUT:
+
+* business strategy
+* execution roadmap
+* website draft
+* pricing suggestion
+
+The product should feel like:
+“AI Business System Generator”
+
+NOT:
+a large enterprise dashboard with many modules.
+
+Update pricing flow to the following structure.
+
+---
+
+## HERO SECTION
+
+Headline:
+Simple pricing for building AI-powered business systems
+
+Subheadline:
+Start free. Build your first system. Scale when ready.
+
+Use:
+
+* 3 visible active tiers
+* 1 future enterprise signal tier
+
+Order:
+
+1. Free
+2. Pro
+3. Startup
+4. Enterprise (coming soon)
+
+---
+
+## FREE PLAN
+
+Title:
+Free
+
+Price:
+$0 / month
+
+Tagline:
+Start building your first business system
+
+Features:
+
+* 5 AI generations per month
+* Basic business idea analysis
+* Simple execution plan
+* Limited project saving
+
+CTA:
+Get Started Free
+
+---
+
+## PRO PLAN (PRIMARY CONVERSION PLAN)
+
+IMPORTANT:
+This is the main conversion-focused plan.
+
+Visually:
+
+* make most prominent
+* highlighted border/glow
+* strongest CTA emphasis
+
+Title:
+Pro
+
+Price:
+$29 / month
+
+Tagline:
+For founders building real products
+
+Features:
+
+* Expanded AI generation limits
+* Business strategy engine
+* Website generation
+* Execution roadmap builder
+* Project saving + history
+* Faster processing
+
+CTA:
+Go Pro
+
+---
+
+## STARTUP PLAN
+
+Title:
+Startup
+
+Price:
+$99 / month
+
+Tagline:
+For serious founders scaling businesses
+
+Features:
+
+* Everything in Pro
+* Advanced execution intelligence
+* Enhanced AI reasoning outputs
+* High-quality website generation
+* Growth strategy suggestions
+* Priority processing
+
+CTA:
+Start Building
+
+---
+
+## ENTERPRISE PLAN (COMING SOON)
+
+IMPORTANT:
+Enterprise is NOT active yet.
+
+This tier exists for:
+
+* future positioning
+* credibility
+* enterprise signal
+
+Display as:
+“Coming Soon”
+
+Title:
+Enterprise
+
+Price:
+Custom
+
+Tagline:
+For teams and organizations at scale
+
+Features:
+
+* Team collaboration
+* API access
+* Advanced automation workflows
+* Custom integrations
+
+CTA:
+Join Waitlist
+
+Visually:
+
+* lower emphasis
+* slightly faded/greyed
+* not primary CTA
+
+Heading:
+Not another SaaS tool. A business operating system.
+
+Text:
+STAGEONE turns ideas into structured business systems using AI — helping founders move from concept to execution faster and more intelligently.
+
+Visual hierarchy:
+
+* Pro = most visible
+* Startup = premium anchor
+* Free = simple entry
+* Enterprise = future signal
+
+Psychology:
+
+* Free builds trust
+* Pro feels like obvious choice
+* Startup creates premium anchor effect
+* Enterprise signals scale
+
+IMPORTANT:
+The page should optimize for:
+Pro conversions.
+
+Update AI generation intelligence based on user plan.
+
+FREE:
+
+* lightweight models
+* shorter outputs
+* slower queue priority
+
+PRO:
+
+* stronger reasoning models
+* longer structured outputs
+* faster generation
+
+STARTUP:
+
+* premium reasoning pipeline
+* enhanced formatting
+* highest generation priority
+* richer execution outputs
+
+IMPORTANT:
+Do NOT hardcode logic across multiple files.
+
+Use:
+centralized model routing/config architecture.
+
+The visible product should feel:
+
+* simple
+* focused
+* fast
+* clear
+
+Avoid:
+
+* feature overload
+* enterprise complexity
+* excessive navigation
+* overwhelming UI
+
+STAGEONE should currently feel like:
+a powerful AI business builder,
+while preserving the deeper OS architecture underneath.
+
+Make [Joshuaa2g5@gmail.com](mailto:Joshuaa2g5@gmail.com) ADMIN
+=========================================================
+
+
+STAGEONE DASHBOARD REFINEMENT + PROJECT CONTINUITY + TIER ENFORCEMENT REFACTOR
+
+IMPORTANT:
+This is a workflow-alignment and MVP refinement pass.
+
+DO NOT:
+
+* rewrite core architecture
+* remove backend systems
+* break routing
+* remove orchestration infrastructure
+* alter database structure unnecessarily
+* remove hidden future systems
+
+The goal is:
+
+* align dashboard with MVP workflow
+* enforce proper tier separation
+* improve project continuity
+* remove confusing enterprise/system UI exposure
+* make STAGEONE feel like a focused AI business-building platform
+
+==================================================
+
+1. DASHBOARD REFINEMENT (CRITICAL)
+   ==================================================
+
+The current dashboard still exposes hidden/future systems through:
+
+* operational modules
+* quick actions
+* optimization cards
+* intelligence panels
+* execution system references
+
+This breaks MVP clarity.
+
+The dashboard must now align with:
+the simplified AI Business Builder workflow.
+
+---
+
+## REMOVE OR HIDE FROM DASHBOARD UI:
+
+* Deploy Agent
+* Sync All Modules
+* AI Agents
+* Executions
+* Global Memory Health
+* System Coordination
+* Intelligence Queue
+* Optimization Opportunities
+* Coordination %
+* Operational Systems
+* Hidden infrastructure references
+* Enterprise orchestration visuals
+
+IMPORTANT:
+Preserve backend systems.
+Do NOT delete architecture.
+
+This is ONLY a dashboard experience simplification.
+
+Dashboard should now focus on:
+
+PRIMARY ACTION:
+
+* New Analysis
+
+SECONDARY ACTIONS:
+
+* Continue Recent Project
+* Generate Website
+* Generate Chatbot
+* Build Automation
+
+Dashboard should feel:
+
+* focused
+* clean
+* actionable
+* startup-friendly
+* AI business workflow centered
+
+NOT:
+like enterprise infrastructure monitoring software.
+
+ 
+
+After every successful business generation,
+display contextual action cards directly Above results.
+
+Add action buttons at where ' Generate Website' is
+
+* Generate Chatbot
+* Build Automation
+
+These cards should appear:
+ABOVE.
+
+IMPORTANT:
+All actions must inherit:
+
+* business summary
+* audience
+* strategy
+* positioning
+* execution context
+* brand direction
+
+WITHOUT requiring re-entry.
+
+Currently:
+Only Business Intelligence saves into Projects.
+
+This is incorrect.
+
+ALL generated systems must save into the SAME originating project.
+
+This includes:
+
+* business intelligence
+* generated websites
+* chatbot systems
+* automation workflows
+* Orchestration
+
+IMPORTANT:
+Do NOT create isolated disconnected projects.
+
+Instead:
+associate all generated assets under:
+one unified business project.
+
+Projects should behave like:
+living business workspaces.
+
+Current issue:
+When reopening an existing project,
+Proactive Intelligence regenerates new outputs every time.
+
+This is incorrect behavior.
+
+Fix:
+Previously generated intelligence should persist.
+
+When reopening projects:
+
+* display saved intelligence
+* display saved recommendations
+* display saved diagnostics
+
+ONLY regenerate when user explicitly clicks:
+
+* Refresh Intelligence
+* Reanalyze
+* Regenerate Insights
+
+IMPORTANT:
+Projects should feel:
+persistent and stable,
+not randomly regenerated.
+
+Current issue:
+Users can manually control:
+
+* Output Preferences
+* API Configuration
+
+This breaks:
+
+* tier intelligence structure
+* product simplicity
+* abstraction quality
+
+---
+
+## REMOVE FROM USER SETTINGS UI:
+
+* Output Length Preferences
+* Concise vs Detailed toggle
+* API Configuration section
+* AI engine/system exposure
+
+Users should NOT manage:
+
+* model behavior
+* intelligence routing
+* backend AI systems
+
+Tier determines:
+
+* output depth
+* reasoning quality
+* generation richness
+* intelligence complexity
+
+automatically.
+
+* Account settings
+* Billing/subscription
+* Saved projects overview
+* Sign out
+* Basic profile/preferences
+
+Settings should feel:
+minimal and consumer-friendly.
+
+FREE:
+
+* basic business intelligence
+* lightweight website generation
+* shorter outputs
+* limited project saves
+* 5 generations/month
+
+FREE USERS SHOULD NOT ACCESS:
+
+* chatbot generation
+* automation builder
+* proactive intelligence
+* advanced operational diagnostics
+* advanced execution intelligence
+
+---
+
+PRO:
+
+* richer intelligence
+* chatbot generation
+* automation builder
+* better website outputs
+* deeper execution plans
+* stronger reasoning models
+
+---
+
+STARTUP:
+
+* proactive intelligence
+* advanced diagnostics
+* premium reasoning pipeline
+* scalability analysis
+* strategic optimization systems
+* highest generation quality
+
+For Free users:
+show premium features visually,
+BUT:
+
+* locked
+* blurred/faded
+* upgrade-oriented
+
+Display upgrade messaging:
+
+“Upgrade to Pro to unlock advanced business systems.”
+
+IMPORTANT:
+Do NOT fully hide premium systems.
+Visibility creates upgrade motivation.
+
+STAGEONE should now feel like:
+
+* an AI business-building platform
+* a connected execution ecosystem
+* a guided founder workflow
+
+NOT:
+
+* enterprise infrastructure monitoring software
+* AI DevOps dashboard
+* orchestration control panel
+
+The experience should prioritize:
+clarity, continuity, simplicity, and conversion.
+=================================================================

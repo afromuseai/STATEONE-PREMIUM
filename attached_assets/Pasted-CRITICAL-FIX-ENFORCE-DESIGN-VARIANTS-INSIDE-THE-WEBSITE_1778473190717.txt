@@ -1,0 +1,226 @@
+CRITICAL FIX — ENFORCE DESIGN VARIANTS INSIDE THE WEBSITE RENDERING ENGINE
+
+IMPORTANT:
+The issue is NOT Business Intelligence quality.
+
+The issue is:
+the Website Generator renderer is NOT consistently obeying the generated creative direction and designVariant system.
+
+Right now:
+Business Intelligence produces strong creative direction,
+BUT
+the Website Generator falls back to default rendering behavior and repetitive layouts.
+
+This creates:
+
+* repetitive outputs
+* repeated typography
+* repeated spacing
+* repeated animation behavior
+* repeated section structures
+
+The first generation sometimes looks correct because the creative direction heavily influences the initial context.
+
+But subsequent generations regress back into:
+generic SaaS rendering patterns.
+
+====================================
+ROOT PROBLEM
+============
+
+The designVariant system is currently acting like:
+
+* metadata
+* suggestions
+* optional styling hints
+
+Instead:
+it must become:
+a HARD rendering constraint system.
+
+====================================
+IMPORTANT ARCHITECTURE RULE
+===========================
+
+The Website Generator renderer itself must branch based on:
+
+* designVariant
+* creativeDirection
+* typographyDNA
+* motionDNA
+* layoutDNA
+* spacingDNA
+* assetDNA
+
+The rendering engine must directly consume these values during section generation.
+
+====================================
+IMPLEMENT RENDERING ENFORCEMENT
+===============================
+
+DO NOT rely only on prompts.
+
+Instead:
+build explicit rendering mappings.
+
+Example:
+
+IF:
+designVariant = "Luxury Editorial"
+
+THEN ENFORCE:
+
+* editorial serif typography
+* asymmetric layouts
+* cinematic whitespace
+* muted premium colors
+* slower animation pacing
+* luxury image framing
+* magazine-style composition
+* minimal SaaS cards
+* large typography scaling
+
+====================================
+
+IF:
+designVariant = "Futuristic"
+
+THEN ENFORCE:
+
+* glowing UI
+* futuristic typography
+* dark visual system
+* high-tech gradients
+* immersive layouts
+* advanced motion
+* AI-style compositions
+
+====================================
+
+IF:
+designVariant = "Enterprise Minimal"
+
+THEN ENFORCE:
+
+* clean grids
+* restrained motion
+* enterprise spacing
+* structured hierarchy
+* high readability
+* professional typography
+
+====================================
+MOST IMPORTANT FIX
+==================
+
+The renderer must NOT use the same:
+
+* hero structure
+* card layout
+* spacing system
+* CTA style
+* navbar composition
+* animation pacing
+
+across all variants.
+
+Each designVariant needs:
+its own rendering identity.
+
+====================================
+SECTION RENDERING SYSTEM
+========================
+
+Create variant-aware section renderers.
+
+Example:
+
+Hero section should render differently for:
+
+* luxury
+* futuristic
+* editorial
+* enterprise
+* brutalist
+* startup modern
+
+Do NOT reuse the same hero template with different colors.
+
+Each variant needs:
+distinct composition behavior.
+
+====================================
+TYPOGRAPHY ENFORCEMENT
+======================
+
+Typography must NOT fall back to the same defaults.
+
+Each variant requires:
+
+* unique font pairing
+* unique scaling
+* unique weight hierarchy
+* unique spacing rhythm
+
+====================================
+ANIMATION ENFORCEMENT
+=====================
+
+Animation systems must branch by variant.
+
+Examples:
+
+* luxury → smooth cinematic motion
+* futuristic → immersive layered motion
+* enterprise → restrained professional motion
+* startup → modern fast interaction
+
+====================================
+ASSET ENFORCEMENT
+=================
+
+Asset composition must differ per variant.
+
+Examples:
+
+* editorial → photography-heavy
+* futuristic → interface visuals
+* SaaS → dashboard imagery
+* luxury → cinematic compositions
+
+====================================
+REGENERATION BEHAVIOR
+=====================
+
+When user clicks regenerate:
+preserve:
+
+* business intelligence
+* product strategy
+* messaging
+
+BUT:
+force renderer to use:
+
+* new designVariant
+* new rendering preset
+* new composition style
+
+The renderer must visibly produce:
+a different creative direction.
+
+====================================
+IMPORTANT
+=========
+
+This is NOT a Business Intelligence issue.
+
+This is:
+a rendering enforcement issue.
+
+The rendering engine itself must become:
+variant-aware and composition-aware.
+
+The design system must affect:
+actual rendering behavior,
+not merely prompt generation.
