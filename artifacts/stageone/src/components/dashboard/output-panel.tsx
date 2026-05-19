@@ -817,7 +817,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
           </div>
 
           {/* Proactive Intelligence Panel */}
-          <IntelligencePanel businessIntelligence={data} />
+          <IntelligencePanel businessIntelligence={data} userPlan={userPlan} autoRun={userPlan !== "free"} />
 
           {/* Impact Feedback Loop */}
           <FeedbackWidget

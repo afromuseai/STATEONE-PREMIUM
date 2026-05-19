@@ -18,6 +18,8 @@ export interface ProactiveRecommendation {
 
 interface IntelligencePanelProps {
   businessIntelligence: BusinessIntelligence
+  userPlan?: string
+  autoRun?: boolean
 }
 
 // ─── Reasoning States ─────────────────────────────────────────────────────────
@@ -173,7 +175,7 @@ function RecommendationCard({ rec, index }: { rec: ProactiveRecommendation; inde
 }
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
-export function IntelligencePanel({ businessIntelligence }: IntelligencePanelProps) {
+export function IntelligencePanel({ businessIntelligence, userPlan, autoRun }: IntelligencePanelProps) {
   const [recommendations, setRecommendations] = useState<ProactiveRecommendation[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [hasLoaded, setHasLoaded] = useState(false)
@@ -181,6 +183,7 @@ export function IntelligencePanel({ businessIntelligence }: IntelligencePanelPro
   const [error, setError] = useState<string | null>(null)
   const reasoningInterval = useRef<ReturnType<typeof setInterval> | null>(null)
   const hasFetched = useRef(false)
+  const isFree = !userPlan || userPlan === "free"
 
   const fetchRecommendations = async () => {
     setIsLoading(true)
@@ -260,6 +263,14 @@ export function IntelligencePanel({ businessIntelligence }: IntelligencePanelPro
     }
   }
 
+  // Auto-run for paid users immediately after mount
+  useEffect(() => {
+    if (autoRun && !hasFetched.current && !isFree) {
+      hasFetched.current = true
+      fetchRecommendations()
+    }
+  }, [autoRun, isFree])
+
   useEffect(() => {
     return () => {
       if (reasoningInterval.current) clearInterval(reasoningInterval.current)
@@ -318,7 +329,7 @@ export function IntelligencePanel({ businessIntelligence }: IntelligencePanelPro
               <RefreshCw className="h-3 w-3" /> Refresh
             </button>
           )}
-          {!isLoading && !hasLoaded && (
+          {!isLoading && !hasLoaded && !isFree && (
             <button
               onClick={() => fetchRecommendations()}
               className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-[10px] font-semibold text-primary hover:bg-primary/20 transition-all"
@@ -362,7 +373,24 @@ export function IntelligencePanel({ businessIntelligence }: IntelligencePanelPro
           </motion.div>
         )}
 
-        {!isLoading && !hasLoaded && (
+        {!isLoading && !hasLoaded && isFree && (
+          <motion.div key="locked" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="rounded-xl border border-border/30 bg-secondary/10 p-8 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/20 bg-primary/8 mx-auto mb-3">
+              <Lock className="h-5 w-5 text-primary/60" />
+            </div>
+            <p className="text-sm font-semibold text-foreground mb-1">Proactive Intelligence</p>
+            <p className="text-xs text-muted-foreground mb-4 max-w-xs mx-auto">
+              Auto-generated strategic recommendations are available on the <strong className="text-primary/80">Startup</strong> plan and above.
+            </p>
+            <a href="/pricing"
+              className="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-all"
+            >
+              <Rocket className="h-3.5 w-3.5" /> Upgrade to Startup
+            </a>
+          </motion.div>
+        )}
+        {!isLoading && !hasLoaded && !isFree && (
           <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border/30 bg-secondary/10 p-8 text-center">
             <Brain className="h-7 w-7 text-primary/40 mx-auto mb-3" />
             <p className="text-sm font-medium text-foreground mb-1">AI Operational Insights</p>

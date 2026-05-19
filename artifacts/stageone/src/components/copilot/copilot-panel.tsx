@@ -211,7 +211,7 @@ export function CopilotPanel() {
             exit={{ opacity: 0, scale: 0.94, y: 20 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
             className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl border border-white/8 bg-[#090909] shadow-[0_24px_80px_rgba(0,0,0,0.85)] overflow-hidden"
-            style={{ width: 390, maxHeight: minimized ? 52 : 620, transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1)" }}
+            style={{ width: 340, maxHeight: minimized ? 52 : 520, transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1)" }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-[#0d0d0d] shrink-0">

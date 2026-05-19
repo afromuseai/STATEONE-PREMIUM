@@ -32,6 +32,7 @@ import revenueRouter from "./revenue";
 import autonomousRouter from "./autonomous";
 import integrationsRouter from "./integrations";
 import adminRouter from "./admin";
+import waitlistRouter from "./waitlist";
 
 const router: IRouter = Router();
 
@@ -68,5 +69,6 @@ router.use(revenueRouter);
 router.use(autonomousRouter);
 router.use(integrationsRouter);
 router.use(adminRouter);
+router.use(waitlistRouter);
 
 export default router;
