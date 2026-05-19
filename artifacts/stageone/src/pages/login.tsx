@@ -71,7 +71,7 @@ export default function LoginPage() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }} className="w-full max-w-sm relative"
         >
-          <Link href="/" className="flex items-center gap-2 mb-8 lg:hidden">
+          <Link href="/" className="flex items-center gap-2 mb-8">
             <img src={logoImg} alt="STAGEONE" className="h-8 w-auto object-contain" />
             <span className="text-sm font-bold tracking-[0.25em] uppercase text-foreground">STAGEONE</span>
           </Link>

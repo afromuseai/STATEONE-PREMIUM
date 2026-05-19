@@ -7,6 +7,62 @@ import {
 import { useEffect, useState, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
 
+/* ─── Typing headline ─────────────────────────────────────────────── */
+const BUSINESS_TYPES = [
+  "Modern Businesses.",
+  "SaaS Startups.",
+  "E-commerce Brands.",
+  "Creative Agencies.",
+  "Tech Founders.",
+  "Service Companies.",
+]
+
+function TypingText() {
+  const [index, setIndex] = useState(0)
+  const [displayed, setDisplayed] = useState("")
+  const [phase, setPhase] = useState<"typing" | "pause" | "erasing">("typing")
+
+  useEffect(() => {
+    const target = BUSINESS_TYPES[index]
+    let timeout: ReturnType<typeof setTimeout>
+
+    if (phase === "typing") {
+      if (displayed.length < target.length) {
+        timeout = setTimeout(() => setDisplayed(target.slice(0, displayed.length + 1)), 55)
+      } else {
+        timeout = setTimeout(() => setPhase("pause"), 1800)
+      }
+    } else if (phase === "pause") {
+      timeout = setTimeout(() => setPhase("erasing"), 200)
+    } else {
+      if (displayed.length > 0) {
+        timeout = setTimeout(() => setDisplayed(displayed.slice(0, -1)), 30)
+      } else {
+        setIndex((i) => (i + 1) % BUSINESS_TYPES.length)
+        setPhase("typing")
+      }
+    }
+    return () => clearTimeout(timeout)
+  }, [displayed, phase, index])
+
+  return (
+    <span style={{
+      background: "linear-gradient(135deg, oklch(0.92 0.16 85) 0%, oklch(0.80 0.14 85) 40%, oklch(0.65 0.10 85) 100%)",
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      backgroundClip: "text",
+      filter: "drop-shadow(0 0 40px oklch(0.75 0.12 85 / 0.25))",
+    }}>
+      {displayed}
+      <motion.span
+        animate={{ opacity: [1, 0] }}
+        transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+        style={{ WebkitTextFillColor: "oklch(0.75 0.12 85 / 0.8)" }}
+      >|</motion.span>
+    </span>
+  )
+}
+
 /* ─── Counter ─────────────────────────────────────────────────────── */
 function Counter({ to, suffix = "" }: { to: number; suffix?: string }) {
   const count = useMotionValue(0)
@@ -632,14 +688,8 @@ export function Hero() {
             <span className="block text-white" style={{ textShadow: "0 0 80px oklch(0.75 0.12 85 / 0.15)" }}>
               The AI Operating System
             </span>
-            <span className="block mt-2" style={{
-              background: "linear-gradient(135deg, oklch(0.92 0.16 85) 0%, oklch(0.80 0.14 85) 40%, oklch(0.65 0.10 85) 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-              filter: "drop-shadow(0 0 40px oklch(0.75 0.12 85 / 0.25))",
-            }}>
-              for Modern Businesses.
+            <span className="block mt-2">
+              for <TypingText />
             </span>
           </motion.h1>
 
