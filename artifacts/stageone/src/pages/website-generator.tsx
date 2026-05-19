@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   Globe, Sparkles, RotateCcw, Download, Monitor, Tablet, Smartphone,
   ChevronDown, Check, Pencil, RefreshCw, Copy, FileCode, ArrowLeft,
-  Layers, Loader2, X, ChevronRight, Zap,
+  Layers, Loader2, X, ChevronRight, Zap, Lock, Crown,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
@@ -105,8 +105,17 @@ export default function WebsiteGeneratorPage() {
   const [showExport, setShowExport] = useState(false)
   const [copied, setCopied] = useState(false)
   const [contextBanner, setContextBanner] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
   const exportRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // Check subscription tier
+  useEffect(() => {
+    fetch("/api/subscriptions/me", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.subscription?.plan === "free") setIsLocked(true) })
+      .catch(() => {})
+  }, [])
 
   // Auto-fill from business intelligence context
   useEffect(() => {
@@ -361,6 +370,48 @@ export default function WebsiteGeneratorPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-[#080808]">
       <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
+
+      {/* Locked overlay for free users */}
+      {isLocked && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md" style={{ left: sidebarCollapsed ? 64 : 220 }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-md rounded-2xl border border-primary/25 bg-[#0c0c0c] p-8 shadow-2xl mx-4"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary">
+                <Globe className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-foreground">AI Website Builder</h3>
+                  <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary">
+                    <Lock className="h-2.5 w-2.5" /> Pro
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">Upgrade to unlock this system</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+              Generate a complete, launch-ready website with AI — including copy, design system, React + Tailwind components, live preview, and one-click Next.js export.
+            </p>
+            <div className="rounded-xl border border-white/5 bg-white/2 p-4 mb-6 space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">Included with Pro</p>
+              {["Auto-filled from business intelligence", "8-section AI website (hero, features, pricing…)", "Live browser preview with mobile toggle", "Editable sections & inline text editing", "React + Tailwind component code", "One-click Next.js 14 ZIP export"].map(f => (
+                <div key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
+                  {f}
+                </div>
+              ))}
+            </div>
+            <a href="/pricing" className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
+              <Crown className="h-3.5 w-3.5" />
+              Upgrade to Pro
+            </a>
+          </motion.div>
+        </div>
+      )}
 
       <div className="flex flex-1 min-w-0 overflow-hidden">
         {/* ─── LEFT PANEL ─────────────────────────────────────── */}

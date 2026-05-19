@@ -17,10 +17,11 @@ const PLANS = [
     icon: Zap,
     color: "#10B981",
     features: [
-      "5 AI generations per month",
-      "Basic business idea analysis",
-      "Simple execution plan",
-      "Limited project saving",
+      "5 AI generations / month",
+      "Business idea analysis",
+      "Market metrics & insights",
+      "Growth plan overview",
+      "Project saving",
     ],
     cta: "Get Started Free",
     ctaHref: "/signup",
@@ -36,13 +37,13 @@ const PLANS = [
     icon: Crown,
     color: "#D4AF37",
     features: [
-      "Expanded AI generation limits",
-      "Business strategy engine",
-      "Website generation",
-      "Execution roadmap builder",
-      "Project saving + history",
-      "Chatbot & automation builder",
-      "Faster processing",
+      "100 AI generations / month",
+      "Deep business intelligence",
+      "AI Website Builder",
+      "AI Chatbot Generator",
+      "Automation Builder",
+      "AI memory & cross-context",
+      "Project history + CRUD",
     ],
     cta: "Go Pro",
     ctaHref: "/signup",
@@ -57,13 +58,13 @@ const PLANS = [
     icon: Rocket,
     color: "#8B5CF6",
     features: [
+      "500 AI generations / month",
       "Everything in Pro",
-      "Advanced execution intelligence",
-      "Enhanced AI reasoning outputs",
-      "High-quality website generation",
+      "Extended AI reasoning depth",
       "Proactive intelligence insights",
-      "Growth strategy suggestions",
-      "Priority processing",
+      "Growth strategy engine",
+      "Priority processing (5000 tokens)",
+      "Advanced execution planning",
     ],
     cta: "Start Building",
     ctaHref: "/signup",
@@ -78,9 +79,9 @@ const PLANS = [
     icon: Building2,
     color: "#64748B",
     features: [
+      "Unlimited AI generations",
       "Team collaboration",
       "API access",
-      "Advanced automation workflows",
       "Custom integrations",
       "SSO & enterprise auth",
       "Dedicated support",
@@ -88,6 +89,21 @@ const PLANS = [
     cta: "Join Waitlist",
     ctaHref: "/signup",
   },
+]
+
+const COMPARISON_ROWS: { label: string; free: boolean | string; pro: boolean | string; startup: boolean | string }[] = [
+  { label: "Business idea analysis",        free: true,           pro: true,              startup: true },
+  { label: "AI generations / month",        free: "5",            pro: "100",             startup: "500" },
+  { label: "AI depth",                      free: "Basic",        pro: "Full",            startup: "Extended" },
+  { label: "AI Website Builder",            free: false,          pro: true,              startup: true },
+  { label: "AI Chatbot Generator",          free: false,          pro: true,              startup: true },
+  { label: "Automation Builder",            free: false,          pro: true,              startup: true },
+  { label: "AI Memory & cross-context",     free: false,          pro: true,              startup: true },
+  { label: "Project history & CRUD",        free: "Limited",      pro: true,              startup: true },
+  { label: "Token depth per generation",    free: "1,800",        pro: "3,500",           startup: "5,000" },
+  { label: "Proactive intelligence",        free: false,          pro: false,             startup: true },
+  { label: "Priority processing",           free: false,          pro: false,             startup: true },
+  { label: "Advanced execution planning",   free: false,          pro: false,             startup: true },
 ]
 
 const faqs = [
@@ -409,6 +425,55 @@ export default function PricingPage() {
             >
               No credit card required to start. Upgrade anytime.
             </motion.p>
+          </div>
+        </section>
+
+        {/* Feature comparison table */}
+        <section className="pb-20">
+          <div className="mx-auto max-w-4xl px-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+            >
+              <h2 className="text-xl font-bold text-foreground text-center mb-8">Full feature comparison</h2>
+              <div className="rounded-2xl border border-white/8 overflow-hidden">
+                {/* Table header */}
+                <div className="grid grid-cols-4 bg-white/[0.02] border-b border-white/8">
+                  <div className="px-5 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Feature</div>
+                  {[
+                    { name: "Free", color: "#10B981" },
+                    { name: "Pro", color: "#D4AF37" },
+                    { name: "Startup", color: "#8B5CF6" },
+                  ].map(p => (
+                    <div key={p.name} className="px-5 py-4 text-center">
+                      <span className="text-xs font-bold" style={{ color: p.color }}>{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Rows */}
+                {COMPARISON_ROWS.map((row, i) => (
+                  <div
+                    key={row.label}
+                    className={`grid grid-cols-4 border-b border-white/5 last:border-0 ${i % 2 === 0 ? "bg-white/[0.005]" : ""}`}
+                  >
+                    <div className="px-5 py-3.5 text-xs text-muted-foreground font-medium">{row.label}</div>
+                    {([row.free, row.pro, row.startup] as (boolean | string)[]).map((val, j) => (
+                      <div key={j} className="px-5 py-3.5 flex items-center justify-center">
+                        {val === true ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        ) : val === false ? (
+                          <span className="h-[2px] w-4 rounded bg-white/10 block" />
+                        ) : (
+                          <span className="text-[11px] font-semibold text-foreground/80">{val}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
           </div>
         </section>
 

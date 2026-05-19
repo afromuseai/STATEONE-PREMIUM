@@ -181,7 +181,7 @@ export function CopilotPanel() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
             onClick={() => setOpen(true)}
-            className="fixed bottom-6 left-6 z-50 flex items-center gap-2.5 rounded-2xl border border-primary/30 bg-[#0c0c0c] px-4 py-3 shadow-[0_0_28px_rgba(212,175,55,0.2)] hover:shadow-[0_0_40px_rgba(212,175,55,0.35)] transition-all group"
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl border border-primary/30 bg-[#0c0c0c] px-4 py-3 shadow-[0_0_28px_rgba(212,175,55,0.2)] hover:shadow-[0_0_40px_rgba(212,175,55,0.35)] transition-all group"
           >
             <div className="relative">
               <div className="p-1 rounded-lg bg-primary/15">
@@ -210,7 +210,7 @@ export function CopilotPanel() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 20 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="fixed bottom-6 left-6 z-50 flex flex-col rounded-2xl border border-white/8 bg-[#090909] shadow-[0_24px_80px_rgba(0,0,0,0.85)] overflow-hidden"
+            className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl border border-white/8 bg-[#090909] shadow-[0_24px_80px_rgba(0,0,0,0.85)] overflow-hidden"
             style={{ width: 390, maxHeight: minimized ? 52 : 620, transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1)" }}
           >
             {/* Header */}
