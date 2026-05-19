@@ -4,22 +4,30 @@ import { motion } from "framer-motion"
 import { useAuth } from "@/lib/auth-context"
 import { Loader2, Mail, Lock, ArrowRight, Eye, EyeOff, Shield } from "lucide-react"
 import logoImg from "@assets/ChatGPT_Image_May_9__2026__02_48_29_AM-removebg-preview_1778518770581.png"
+import authBg from "@assets/image_1779169751394.png"
 
 function OSPanel() {
   return (
-    <div className="relative w-full h-full overflow-hidden bg-black">
-      {/* Brand image — show only the right dashboard/city half */}
+    <div className="relative w-full h-full overflow-hidden bg-[#07090d]">
+      {/* Cube grid background */}
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: "url('/auth-bg.png')",
-          backgroundSize: "200% 100%",
-          backgroundPosition: "right center",
+          backgroundImage: `url(${authBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
         }}
       />
-      {/* Hard left mask to fully hide any leftover image form content */}
-      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent pointer-events-none" style={{ width: "35%" }} />
+      {/* Left-edge fade into form panel */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "linear-gradient(to right, #07090d 0%, rgba(7,9,13,0.55) 30%, transparent 100%)" }} />
+      {/* Top fade */}
+      <div className="absolute inset-x-0 top-0 h-32 pointer-events-none"
+        style={{ background: "linear-gradient(to bottom, #07090d 0%, transparent 100%)" }} />
+      {/* Bottom fade */}
+      <div className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
+        style={{ background: "linear-gradient(to top, #07090d 0%, transparent 100%)" }} />
       {/* Bottom status badge */}
       <div className="absolute bottom-8 right-8 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/15 backdrop-blur-md"
         style={{ background: "oklch(0.08 0 0 / 0.80)" }}>
