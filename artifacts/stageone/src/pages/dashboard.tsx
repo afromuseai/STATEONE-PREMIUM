@@ -398,7 +398,7 @@ export default function DashboardPage() {
       setPartialData({})
       if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
     }
-  }, [])
+  }, [lang])
 
   const handleDeleteProject = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()

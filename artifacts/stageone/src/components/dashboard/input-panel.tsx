@@ -75,7 +75,7 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
       }
     } catch {}
     finally { setEnhancing(false) }
-  }, [idea, enhancing])
+  }, [idea, enhancing, lang])
 
   const applyTemplate = (template: string) => {
     setIdea(template)
