@@ -6,12 +6,14 @@ import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/o
 import { WebsitePanel } from "@/components/dashboard/website-panel"
 import { api, type Project } from "@/lib/api"
 import { ArrowLeft, RefreshCw, Globe, BarChart3, Loader2, Pencil, Check, X } from "lucide-react"
+import { useLang } from "@/lib/i18n"
 
 interface ProjectPageProps {
   id: string
 }
 
 export default function ProjectPage({ id }: ProjectPageProps) {
+  const { lang } = useLang()
   const [, setLocation] = useLocation()
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
@@ -44,7 +46,7 @@ export default function ProjectPage({ id }: ProjectPageProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idea: project.businessIdea }),
+        body: JSON.stringify({ idea: project.businessIdea, language: lang }),
       })
 
       if (!response.ok) throw new Error("Generation failed")

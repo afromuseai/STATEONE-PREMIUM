@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { useLang } from "@/lib/i18n"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Globe, Palette, Sparkles, Loader2, Monitor, Smartphone,
@@ -376,6 +377,7 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function WebsitePanel({ businessIdea, businessIntelligence, projectId, existingOutput, onSaved, autoGenerate }: WebsitePanelProps) {
+  const { lang } = useLang()
   const [data, setData] = useState<WebsiteOutput | null>(existingOutput as unknown as WebsiteOutput | null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamingText, setStreamingText] = useState("")
@@ -446,7 +448,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idea: ideaToUse, businessIntelligence, variantSeed: currentVariantSeed }),
+        body: JSON.stringify({ idea: ideaToUse, businessIntelligence, variantSeed: currentVariantSeed, language: lang }),
       })
 
       if (!response.ok) {
@@ -532,7 +534,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idea: ideaToUse, businessIntelligence, sectionName }),
+        body: JSON.stringify({ idea: ideaToUse, businessIntelligence, sectionName, language: lang }),
       })
 
       const reader = response.body?.getReader()
@@ -578,7 +580,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ websiteData: data, businessIntelligence }),
+        body: JSON.stringify({ websiteData: data, businessIntelligence, language: lang }),
       })
 
       const reader = response.body?.getReader()
@@ -625,7 +627,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idea: ideaToUse, businessIntelligence, strategyMode: mode, sections: data.sections }),
+        body: JSON.stringify({ idea: ideaToUse, businessIntelligence, strategyMode: mode, sections: data.sections, language: lang }),
       })
 
       const reader = response.body?.getReader()

@@ -29,7 +29,7 @@ const TEMPLATE_COLORS = [
 ]
 
 export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const wi = t.workspace.input
   const [idea, setIdea] = useState("")
   const [focused, setFocused] = useState(false)
@@ -64,7 +64,7 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idea: idea.trim() }),
+        body: JSON.stringify({ idea: idea.trim(), language: lang }),
       })
       if (res.ok) {
         const { enhanced } = await res.json()

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
+import { getLanguageInstruction } from "../lib/language";
 
 const router = Router();
 
@@ -86,6 +87,7 @@ router.post("/generate/automation", requireAuth, async (req, res): Promise<void>
       businessDescription,
       workflowType = "Lead Capture",
       complexity = "Intermediate",
+      language,
     } = req.body;
 
     if (!businessDescription?.trim()) {
@@ -112,7 +114,7 @@ Generate a production-ready workflow with real tool integrations, AI agent nodes
       streamBody = await streamNvidia({
         model: MODELS.AUTOMATION,
         messages: [
-          { role: "system", content: buildSystemPrompt() },
+          { role: "system", content: buildSystemPrompt() + getLanguageInstruction(language) },
           { role: "user", content: userMessage },
         ],
         temperature: 0.7,

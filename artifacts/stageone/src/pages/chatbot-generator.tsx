@@ -11,6 +11,7 @@ import {
   loadGenerationContext, clearGenerationContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
 } from "@/lib/generation-context"
+import { useLang } from "@/lib/i18n"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Step = "input" | "generating" | "done"
@@ -93,6 +94,7 @@ let msgId = 0
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ChatbotGeneratorPage() {
+  const { lang } = useLang()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [step, setStep] = useState<Step>("input")
   const [businessDesc, setBusinessDesc] = useState("")
@@ -189,6 +191,7 @@ export default function ChatbotGeneratorPage() {
           message: text,
           systemPrompt: data.systemPrompt.main,
           history: currentHistory.slice(-8),
+          language: lang,
         }),
       })
 
@@ -243,7 +246,7 @@ export default function ChatbotGeneratorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ businessDescription: desc.trim(), chatbotType: type, tone: tn, industry: ind }),
+        body: JSON.stringify({ businessDescription: desc.trim(), chatbotType: type, tone: tn, industry: ind, language: lang }),
         signal: abortRef.current.signal,
       })
       if (!res.ok || !res.body) throw new Error("Request failed")
@@ -294,7 +297,7 @@ export default function ChatbotGeneratorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ businessDescription: businessDesc.trim(), chatbotType, tone, industry }),
+        body: JSON.stringify({ businessDescription: businessDesc.trim(), chatbotType, tone, industry, language: lang }),
         signal: abortRef.current.signal,
       })
       if (!res.ok || !res.body) throw new Error("Request failed")

@@ -2,11 +2,12 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
 import { callNvidia } from "../lib/nvidia";
+import { getLanguageInstruction } from "../lib/language";
 
 const router = Router();
 
 router.post("/generate/enhance", requireAuth, async (req, res): Promise<void> => {
-  const { idea } = req.body;
+  const { idea, language } = req.body;
 
   if (!idea || typeof idea !== "string" || !idea.trim()) {
     res.status(400).json({ error: "Idea is required" });
@@ -14,6 +15,7 @@ router.post("/generate/enhance", requireAuth, async (req, res): Promise<void> =>
   }
 
   try {
+    const langInstruction = getLanguageInstruction(language);
     const enhanced = await callNvidia({
       model: MODELS.ENHANCE,
       messages: [
@@ -27,7 +29,7 @@ Expand the idea to include:
 3. The core value proposition in one specific, quantifiable claim
 4. One key differentiator vs. existing solutions
 
-Keep it to 2-4 sentences. Be concrete and specific. Use business terminology. Return ONLY the enhanced idea text — no headers, no labels, no explanations.`,
+Keep it to 2-4 sentences. Be concrete and specific. Use business terminology. Return ONLY the enhanced idea text — no headers, no labels, no explanations.${langInstruction}`,
         },
         {
           role: "user",

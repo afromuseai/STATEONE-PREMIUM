@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson, callNvidia } from "../lib/nvidia";
+import { getLanguageInstruction } from "../lib/language";
 
 const router = Router();
 
@@ -156,12 +157,12 @@ Rules:
 // POST /api/generate/chatbot/message — real-time NVIDIA-powered chat reply
 router.post("/generate/chatbot/message", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { message, systemPrompt: botSystemPrompt, history = [] } = req.body;
+    const { message, systemPrompt: botSystemPrompt, history = [], language: msgLanguage } = req.body;
     if (!message?.trim()) { res.status(400).json({ error: "message is required" }); return; }
     if (!process.env.NVIDIA_API_KEY) { res.status(500).json({ error: "NVIDIA_API_KEY not configured" }); return; }
 
     const messages = [
-      { role: "system" as const, content: botSystemPrompt || "You are a helpful AI assistant. Be concise and friendly." },
+      { role: "system" as const, content: (botSystemPrompt || "You are a helpful AI assistant. Be concise and friendly.") + getLanguageInstruction(msgLanguage) },
       ...history.slice(-8).map((m: { role: string; text: string }) => ({
         role: (m.role === "bot" ? "assistant" : "user") as "assistant" | "user",
         content: m.text,
@@ -194,7 +195,7 @@ router.post("/generate/chatbot/message", requireAuth, async (req, res): Promise<
 
 router.post("/generate/chatbot", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { businessDescription, chatbotType = "Customer Support", tone = "Professional", industry = "SaaS" } = req.body;
+    const { businessDescription, chatbotType = "Customer Support", tone = "Professional", industry = "SaaS", language } = req.body;
 
     if (!businessDescription?.trim()) {
       res.status(400).json({ error: "Business description is required" }); return;
@@ -229,7 +230,7 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
     try {
       streamBody = await streamNvidia({
         model: MODELS.CHATBOT,
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userMessage }],
+        messages: [{ role: "system", content: SYSTEM_PROMPT + getLanguageInstruction(language) }, { role: "user", content: userMessage }],
         temperature: 0.7,
         maxTokens: 5000,
       });

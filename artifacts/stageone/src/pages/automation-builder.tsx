@@ -13,6 +13,7 @@ import {
   loadGenerationContext, clearGenerationContext,
   deriveWorkflowType, buildAutomationDesc,
 } from "@/lib/generation-context"
+import { useLang } from "@/lib/i18n"
 
 /* ── Types ─────────────────────────────────────────────── */
 type NodeType = "trigger" | "action" | "ai_agent" | "notification" | "crm" | "database" | "webhook"
@@ -297,6 +298,7 @@ function NodeDetailPanel({ node, logic }: { node: WorkflowNode; logic: LogicStep
 
 /* ── Main Page ──────────────────────────────────────────── */
 export default function AutomationBuilderPage() {
+  const { lang } = useLang()
   const [collapsed, setCollapsed] = useState(false)
   const [businessDesc, setBusinessDesc] = useState("")
   const [workflowType, setWorkflowType] = useState("Lead Capture")
@@ -343,7 +345,7 @@ export default function AutomationBuilderPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ businessDescription: desc.trim(), workflowType: wt, complexity: cplx }),
+        body: JSON.stringify({ businessDescription: desc.trim(), workflowType: wt, complexity: cplx, language: lang }),
         signal: abortRef.current.signal,
       })
       if (!res.ok || !res.body) throw new Error("Request failed")
@@ -384,7 +386,7 @@ export default function AutomationBuilderPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ businessDescription: businessDesc.trim(), workflowType, complexity }),
+        body: JSON.stringify({ businessDescription: businessDesc.trim(), workflowType, complexity, language: lang }),
         signal: abortRef.current.signal,
       })
       if (!res.ok || !res.body) throw new Error("Request failed")

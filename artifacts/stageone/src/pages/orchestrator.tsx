@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import { useAuth } from "@/lib/auth-context"
 import { useLocation } from "wouter"
+import { useLang } from "@/lib/i18n"
 
 interface Agent {
   id: string; name: string; role: string; model: string
@@ -262,6 +263,7 @@ export default function OrchestratorPage() {
   const abortRef = useRef<AbortController | null>(null)
   const [userPlan, setUserPlan] = useState<string | null>(null)
   const { user } = useAuth()
+  const { lang } = useLang()
   const [, navigate] = useLocation()
 
   useEffect(() => {
@@ -284,7 +286,7 @@ export default function OrchestratorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ goal: goal.trim(), businessContext }),
+        body: JSON.stringify({ goal: goal.trim(), businessContext, language: lang }),
         signal: abortRef.current.signal,
       })
       if (!res.ok || !res.body) throw new Error("Request failed")

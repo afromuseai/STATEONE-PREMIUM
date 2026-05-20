@@ -699,7 +699,7 @@ const DEFAULT_STAGES = [
 // POST /api/generate/website — full site generation (industry-aware)
 router.post("/generate/website", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { idea, businessIntelligence, variantSeed } = req.body;
+    const { idea, businessIntelligence, variantSeed, language } = req.body;
     if (!idea || typeof idea !== "string" || !idea.trim()) {
       res.status(400).json({ error: "Business idea is required" }); return;
     }
@@ -730,11 +730,13 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
 
     // ─── Phase 1: Orchestration (Qwen streams to client) ─────────────────────
     // Qwen generates all strategic content: copy, sections, colors, typography, brand, SEO
+    const { getLanguageInstruction } = await import("../lib/language");
+    const langInstruction = getLanguageInstruction(language);
     let buffer = "";
     try {
       buffer = await streamNvidiaRequest(
         ORCHESTRATION_MODEL,
-        BASE_SYSTEM_PROMPT,
+        BASE_SYSTEM_PROMPT + langInstruction,
         buildPrompt(idea, businessIntelligence, designVariant, seedOffset),
         res, req, 6500, 0.88
       );
@@ -797,10 +799,12 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
 // POST /api/generate/website/section — regenerate one section
 router.post("/generate/website/section", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { idea, businessIntelligence, sectionName } = req.body;
+    const { idea, businessIntelligence, sectionName, language } = req.body;
     if (!idea || !sectionName) {
       res.status(400).json({ error: "idea and sectionName are required" }); return;
     }
+    const { getLanguageInstruction: getLangInstr1 } = await import("../lib/language");
+    const langInstr1 = getLangInstr1(language);
     if (!NVIDIA_API_KEY) {
       res.status(500).json({ error: "API key not configured" }); return;
     }
@@ -832,7 +836,7 @@ router.post("/generate/website/section", requireAuth, async (req, res): Promise<
     try {
       buffer = await streamNvidiaRequest(
         ORCHESTRATION_MODEL,
-        `You are an elite conversion copywriter specializing in ${industry}. Return ONLY valid JSON, no explanation, no <think> blocks.`,
+        `You are an elite conversion copywriter specializing in ${industry}. Return ONLY valid JSON, no explanation, no <think> blocks.` + langInstr1,
         sectionPrompt,
         res, req, 1500, 0.88
       );
@@ -856,8 +860,10 @@ router.post("/generate/website/section", requireAuth, async (req, res): Promise<
 // POST /api/generate/website/optimize — AI conversion optimization analysis
 router.post("/generate/website/optimize", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { websiteData, businessIntelligence } = req.body;
+    const { websiteData, businessIntelligence, language: optLanguage } = req.body;
     if (!websiteData) { res.status(400).json({ error: "websiteData required" }); return; }
+    const { getLanguageInstruction: getLangInstr2 } = await import("../lib/language");
+    const langInstr2 = getLangInstr2(optLanguage);
     if (!NVIDIA_API_KEY) { res.status(500).json({ error: "API key not configured" }); return; }
 
     const bi = businessIntelligence as { industry?: string; targetMarket?: string; metrics?: Record<string, number> } | null;
@@ -870,7 +876,7 @@ router.post("/generate/website/optimize", requireAuth, async (req, res): Promise
     const industry = bi?.industry ?? "SaaS";
     const designSystem = INDUSTRY_DESIGN_SYSTEMS[industry] ?? INDUSTRY_DESIGN_SYSTEMS["SaaS"];
 
-    const systemPrompt = `You are STAGEONE's AI Conversion Optimizer — a senior CRO strategist with expertise in ${industry} websites. You analyze websites with surgical precision and identify SPECIFIC, ACTIONABLE conversion weaknesses.
+    const systemPrompt = `You are STAGEONE's AI Conversion Optimizer — a senior CRO strategist with expertise in ${industry} websites. You analyze websites with surgical precision and identify SPECIFIC, ACTIONABLE conversion weaknesses.` + langInstr2 + `
 
 Return ONLY valid JSON. No markdown.
 
@@ -947,9 +953,11 @@ Identify the most impactful conversion gaps for a ${industry} website targeting 
 // POST /api/generate/website/strategy — switch conversion strategy
 router.post("/generate/website/strategy", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { idea, businessIntelligence, strategyMode, sections } = req.body;
+    const { idea, businessIntelligence, strategyMode, sections, language: stratLanguage } = req.body;
     if (!idea || !strategyMode) { res.status(400).json({ error: "idea and strategyMode required" }); return; }
     if (!NVIDIA_API_KEY) { res.status(500).json({ error: "API key not configured" }); return; }
+    const { getLanguageInstruction: getLangInstr3 } = await import("../lib/language");
+    const langInstr3 = getLangInstr3(stratLanguage);
 
     const bi = businessIntelligence as { industry?: string; targetMarket?: string } | null;
     const industry = bi?.industry ?? "SaaS";
@@ -975,7 +983,7 @@ router.post("/generate/website/strategy", requireAuth, async (req, res): Promise
     res.setHeader("Connection", "keep-alive");
 
     const results: Record<string, unknown> = {};
-    const sysPrompt = `You are an elite conversion strategist specializing in ${industry}. Return ONLY valid JSON. No markdown, no explanation, no <think> blocks.`;
+    const sysPrompt = `You are an elite conversion strategist specializing in ${industry}. Return ONLY valid JSON. No markdown, no explanation, no <think> blocks.` + langInstr3;
 
     for (const sectionName of ["hero", "pricing", "cta"]) {
       res.write(`data: ${JSON.stringify({ phase: "section", section: sectionName })}\n\n`);

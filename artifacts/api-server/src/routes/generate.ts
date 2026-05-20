@@ -4,6 +4,7 @@ import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream } from "../lib/nvidia";
+import { getLanguageInstruction } from "../lib/language";
 
 const router = Router();
 
@@ -302,7 +303,7 @@ Return ONLY valid JSON matching this exact schema (keep text fields brief — 1 
 
 router.post("/generate", requireAuth, async (req, res) => {
   try {
-    const { idea } = req.body;
+    const { idea, language } = req.body;
     const userId = req.user!.userId;
     const isAdmin = req.user!.isAdmin ?? false;
 
@@ -345,16 +346,18 @@ router.post("/generate", requireAuth, async (req, res) => {
     // Emit initial reasoning state
     res.write(`data: ${JSON.stringify({ reasoning: "Initializing industry profiler...", phase: "init" })}\n\n`);
 
+    const langInstruction = getLanguageInstruction(language);
+
     // Free users get simplified analysis — skip cross-system context overhead
     let systemPrompt: string;
     if (isFree) {
-      systemPrompt = freeSystemPrompt;
+      systemPrompt = freeSystemPrompt + langInstruction;
       res.write(`data: ${JSON.stringify({ reasoning: "Analyzing business model...", phase: "analysis" })}\n\n`);
     } else {
       // Fetch cross-system context (memories + recent projects) for paid tiers
       const crossSystemContext = await buildCrossSystemContext(userId);
       res.write(`data: ${JSON.stringify({ reasoning: "Loading intelligence memory & cross-system context...", phase: "memory" })}\n\n`);
-      systemPrompt = baseSystemPrompt + crossSystemContext;
+      systemPrompt = baseSystemPrompt + crossSystemContext + langInstruction;
     }
 
     let streamBody: ReadableStream<Uint8Array>;

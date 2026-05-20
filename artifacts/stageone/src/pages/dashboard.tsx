@@ -140,7 +140,7 @@ function computeStage(partial: Partial<BusinessIntelligence>, text: string): num
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { t } = useLang()
+  const { t, lang } = useLang()
   const wp = t.workspace.projects
   const wm = t.workspace.modals
   const { user } = useAuth()
@@ -235,7 +235,7 @@ export default function DashboardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idea }),
+        body: JSON.stringify({ idea, language: lang }),
       })
 
       if (!response.ok) {

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
+import { getLanguageInstruction } from "../lib/language";
 
 const router = Router();
 
@@ -64,7 +65,7 @@ Rules:
 
 router.post("/generate/orchestrator", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { goal, businessContext = "" } = req.body;
+    const { goal, businessContext = "", language } = req.body;
     if (!goal?.trim()) { res.status(400).json({ error: "goal is required" }); return; }
     if (!process.env.NVIDIA_API_KEY) { res.status(500).json({ error: "NVIDIA_API_KEY not configured" }); return; }
 
@@ -83,7 +84,7 @@ Create a complete orchestration chain with coordinated AI agents, clear data han
     try {
       streamBody = await streamNvidia({
         model: MODELS.ORCHESTRATION,
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userMessage }],
+        messages: [{ role: "system", content: systemPrompt + getLanguageInstruction(language) }, { role: "user", content: userMessage }],
         temperature: 0.65,
         maxTokens: 3500,
       });
