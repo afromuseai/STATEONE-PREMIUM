@@ -7,6 +7,15 @@ import {
 } from "lucide-react"
 import type { BusinessIntelligence } from "./output-panel"
 
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  )
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 export interface ProactiveRecommendation {
   system: "Website" | "Automation" | "Growth" | "Risk" | "Operations" | "Monetization" | "AI Agents"
@@ -377,7 +386,7 @@ export function IntelligencePanel({ businessIntelligence, userPlan, autoRun }: I
           <motion.div key="locked" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="rounded-xl border border-border/30 bg-secondary/10 p-8 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/20 bg-primary/8 mx-auto mb-3">
-              <Lock className="h-5 w-5 text-primary/60" />
+              <LockIcon className="h-5 w-5 text-primary/60" />
             </div>
             <p className="text-sm font-semibold text-foreground mb-1">Proactive Intelligence</p>
             <p className="text-xs text-muted-foreground mb-4 max-w-xs mx-auto">

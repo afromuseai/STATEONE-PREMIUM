@@ -169,6 +169,10 @@ export default function DashboardPage() {
   const [projectsLoading, setProjectsLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
   const projectsRef = useRef<Project[]>([])
+  const draftProjectIdRef = useRef<string | null>(null)
+  const draftCreatingRef = useRef(false)
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestPartialRef = useRef<Partial<BusinessIntelligence>>({})
   const [memoryCount, setMemoryCount] = useState(0)
   const [agentCount, setAgentCount] = useState(0)
   const [websiteGenerated, setWebsiteGenerated] = useState(false)
@@ -221,6 +225,10 @@ export default function DashboardPage() {
     setActiveProjectId(null)
     setReasoningStages([])
     setDetectedIndustry(undefined)
+    draftProjectIdRef.current = null
+    draftCreatingRef.current = false
+    if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
+    latestPartialRef.current = {}
 
     try {
       const response = await fetch("/api/generate", {
@@ -281,6 +289,27 @@ export default function DashboardPage() {
                 const stage = computeStage(partial, accumulated)
                 setPartialData(partial)
                 setGenerationStage(stage)
+                latestPartialRef.current = partial
+                // Auto-persist: create draft on first meaningful partial data, debounce updates
+                if (stage >= 1 && !draftProjectIdRef.current && !draftCreatingRef.current) {
+                  draftCreatingRef.current = true
+                  const draftTitle = idea.length > 60 ? idea.slice(0, 60) + "…" : idea
+                  api.projects.create({ title: draftTitle, businessIdea: idea, status: "draft", output: partial as unknown as Record<string, unknown> })
+                    .then(({ project }) => {
+                      draftProjectIdRef.current = project.id
+                      draftCreatingRef.current = false
+                      setActiveProjectId(project.id)
+                      const updated = [project, ...projectsRef.current].slice(0, 50)
+                      projectsRef.current = updated
+                      setProjects(updated)
+                    }).catch(() => { draftCreatingRef.current = false })
+                } else if (draftProjectIdRef.current) {
+                  if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current)
+                  draftSaveTimerRef.current = setTimeout(() => {
+                    const id = draftProjectIdRef.current
+                    if (id) api.projects.update(id, { output: latestPartialRef.current as unknown as Record<string, unknown> }).catch(() => {})
+                  }, 5000)
+                }
               }
             } catch { /* incomplete chunk */ }
           }
@@ -315,16 +344,35 @@ export default function DashboardPage() {
         },
       }).catch(() => {})
 
-      // Auto-save to DB
+      // Finalize: cancel any pending debounced update, then save/update project
+      if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
       setSaveStatus("saving")
       const title = idea.length > 60 ? idea.slice(0, 60) + "…" : idea
       try {
-        const { project } = await api.projects.create({
-          title,
-          businessIdea: idea,
-          output: finalData as unknown as Record<string, unknown>,
-        })
-        setActiveProjectId(project.id)
+        let project: import("@/lib/api").Project
+        if (draftProjectIdRef.current) {
+          // Draft was created during streaming — finalize it
+          ;({ project } = await api.projects.update(draftProjectIdRef.current, {
+            title,
+            status: "active",
+            output: finalData as unknown as Record<string, unknown>,
+          }))
+          setActiveProjectId(project.id)
+          const updated = projectsRef.current.map(p => p.id === project.id ? project : p)
+          projectsRef.current = updated
+          setProjects(updated)
+        } else {
+          // Draft creation failed or was skipped — create fresh
+          ;({ project } = await api.projects.create({
+            title,
+            businessIdea: idea,
+            output: finalData as unknown as Record<string, unknown>,
+          }))
+          setActiveProjectId(project.id)
+          const updated = [project, ...projectsRef.current].slice(0, 50)
+          projectsRef.current = updated
+          setProjects(updated)
+        }
         // Link revenue signal to project (best-effort)
         recordRevenueSignal({
           projectId: project.id,
@@ -338,9 +386,6 @@ export default function DashboardPage() {
             aiAdoptionOpportunity: finalData.metrics.aiAdoptionOpportunity,
           },
         }).catch(() => {})
-        const updated = [project, ...projectsRef.current].slice(0, 50)
-        projectsRef.current = updated
-        setProjects(updated)
         setSaveStatus("saved")
         setTimeout(() => setSaveStatus("idle"), 3000)
       } catch { setSaveStatus("idle") }
@@ -351,6 +396,7 @@ export default function DashboardPage() {
       setIsLoading(false)
       setStreamingText("")
       setPartialData({})
+      if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
     }
   }, [])
 
