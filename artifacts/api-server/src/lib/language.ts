@@ -4,6 +4,10 @@ const LANGUAGE_NAMES: Record<string, string> = {
   it: "Italian",
   fr: "French",
   pt: "Portuguese",
+  de: "German",
+  ja: "Japanese",
+  ar: "Arabic",
+  zh: "Chinese (Simplified)",
 };
 
 export function getLanguageInstruction(lang?: string): string {
