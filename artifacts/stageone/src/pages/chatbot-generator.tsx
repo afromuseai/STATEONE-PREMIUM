@@ -117,6 +117,9 @@ export default function ChatbotGeneratorPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const chatHistoryRef = useRef<ChatMessage[]>([])
+  // Holds the auto-generation payload until businessDesc state has propagated
+  const autoGenPending = useRef<{ type: ChatbotType; ind: Industry; tn: Tone } | null>(null)
+  const autoGenFired = useRef(false)
 
   // Check subscription tier
   useEffect(() => {
@@ -126,7 +129,7 @@ export default function ChatbotGeneratorPage() {
       .catch(() => {})
   }, [])
 
-  // Auto-fill from business intelligence context
+  // Phase 1 — Load context and hydrate state fields
   useEffect(() => {
     const ctx = loadGenerationContext()
     if (!ctx) return
@@ -135,14 +138,24 @@ export default function ChatbotGeneratorPage() {
     const type = deriveChatbotType(ctx.chatbotRole) as ChatbotType
     const ind = deriveChatbotIndustry(ctx.industry) as Industry
     const tn = deriveChatbotTone(ctx.industry) as Tone
+    // Hydrate all fields into React state
     setBusinessDesc(desc)
     setChatbotType(type)
     setIndustry(ind)
     setTone(tn)
     setContextBanner(true)
-    // Auto-trigger generation after state propagates
-    setTimeout(() => generateWith(desc, type, ind, tn), 150)
+    // Store payload — generation fires in Phase 2 once businessDesc state has propagated
+    autoGenPending.current = { type, ind, tn }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Phase 2 — Start generation after state propagation is confirmed by businessDesc change
+  useEffect(() => {
+    if (!autoGenPending.current || !businessDesc.trim() || autoGenFired.current) return
+    autoGenFired.current = true
+    const { type, ind, tn } = autoGenPending.current
+    autoGenPending.current = null
+    generateWith(businessDesc, type, ind, tn)
+  }, [businessDesc]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll chat
   useEffect(() => {

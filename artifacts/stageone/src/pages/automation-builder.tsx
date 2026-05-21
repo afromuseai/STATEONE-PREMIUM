@@ -313,6 +313,9 @@ export default function AutomationBuilderPage() {
   const [contextBanner, setContextBanner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  // Holds the auto-generation payload until businessDesc state has propagated
+  const autoGenPending = useRef<{ wt: string; cplx: string } | null>(null)
+  const autoGenFired = useRef(false)
 
   // Check subscription tier
   useEffect(() => {
@@ -322,18 +325,29 @@ export default function AutomationBuilderPage() {
       .catch(() => {})
   }, [])
 
-  // Auto-fill from business intelligence context
+  // Phase 1 — Load context and hydrate state fields
   useEffect(() => {
     const ctx = loadGenerationContext()
     if (!ctx) return
     clearGenerationContext()
     const desc = buildAutomationDesc(ctx)
     const wt = deriveWorkflowType(ctx.automations)
+    // Hydrate all fields into React state
     setBusinessDesc(desc)
     setWorkflowType(wt)
     setContextBanner(true)
-    setTimeout(() => generateWith(desc, wt, "Intermediate"), 150)
+    // Store payload — generation fires in Phase 2 once businessDesc state has propagated
+    autoGenPending.current = { wt, cplx: "Intermediate" }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Phase 2 — Start generation after state propagation is confirmed by businessDesc change
+  useEffect(() => {
+    if (!autoGenPending.current || !businessDesc.trim() || autoGenFired.current) return
+    autoGenFired.current = true
+    const { wt, cplx } = autoGenPending.current
+    autoGenPending.current = null
+    generateWith(businessDesc, wt, cplx)
+  }, [businessDesc]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateWith = async (desc: string, wt: string, cplx: string) => {
     if (!desc.trim()) return

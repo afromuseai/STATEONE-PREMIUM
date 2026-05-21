@@ -1,0 +1,125 @@
+CRITICAL FIX — CHATBOT + AUTOMATION ARE NOT ENTERING GENERATION PIPELINE
+
+IMPORTANT:
+The issue is NOT navigation.
+
+The issue is:
+Chatbot Generator and Automation Builder are NOT actually entering the same generation lifecycle as Website Generator.
+
+Right now:
+
+* tabs open correctly
+
+BUT:
+generation does NOT automatically execute.
+
+The current implementation likely only performs:
+
+* route navigation
+* tab switching
+* partial context hydration
+
+WITHOUT triggering:
+the actual generation lifecycle.
+
+Website Generator already correctly performs:
+
+1. context import
+2. state hydration
+3. generation initialization
+4. streaming lifecycle
+5. SSE processing
+6. output persistence
+7. project linkage
+
+Chatbot and Automation must follow the SAME orchestration lifecycle.
+
+When user clicks:
+
+* Generate Chatbot
+  OR
+* Build Automation
+
+The system must:
+
+1. import originating Business Intelligence context
+2. fully hydrate generation state
+3. populate ALL required internal fields
+4. trigger generation automatically
+5. enter streaming/live-processing state
+6. persist outputs to the SAME project
+7. restore generation state on revisit
+
+NOT:
+just open the tab.
+
+The generation trigger must happen AFTER:
+
+* state hydration
+* context loading
+* required fields population
+
+Likely current problem:
+autoGenerate() fires too early OR never fires.
+
+The workflow should behave like Website Generator:
+
+loadContext()
+→ hydrateState()
+→ populateFields()
+→ startGeneration()
+→ streamOutputs()
+→ persistResults()
+
+Automatically derive and inject:
+
+* business description
+* business summary
+* industry
+* business category
+* target audience
+* tone
+* brand voice
+* operational context
+* support workflow type
+
+Infer chatbot type intelligently.
+
+Automatically derive and inject:
+
+* workflows
+* operational bottlenecks
+* repetitive tasks
+* customer lifecycle
+* execution systems
+* growth workflows
+* onboarding flows
+* retention flows
+
+Infer automation structure intelligently.
+
+Chatbot + Automation must visibly enter:
+
+* live processing state
+* streaming generation
+* orchestration phases
+* completion lifecycle
+
+EXACTLY like Website Generator.
+
+Users should feel:
+the operational workflow is continuing automatically.
+
+Do NOT modify:
+
+* Website Generator flow
+* routing
+* project persistence
+* SSE architecture
+* generation pipelines
+* live processing system
+
+This is:
+generation lifecycle parity enforcement.
+
+NOT a redesign.
