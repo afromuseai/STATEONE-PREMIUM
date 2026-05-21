@@ -2858,10 +2858,25 @@ interface LangContextValue {
 
 const LangContext = createContext<LangContextValue | null>(null)
 
+const SUPPORTED_LANGS = Object.keys(translations) as Lang[]
+
+function detectBrowserLang(): Lang {
+  const candidates = navigator.languages?.length ? navigator.languages : [navigator.language]
+  for (const raw of candidates) {
+    const full = raw.toLowerCase()
+    const base = full.split("-")[0]
+    if ((SUPPORTED_LANGS as string[]).includes(base)) return base as Lang
+    if (full.startsWith("zh")) return "zh"
+    if (full.startsWith("pt")) return "pt"
+  }
+  return "en"
+}
+
 export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
     const stored = localStorage.getItem("stageone-lang") as Lang | null
-    return stored && stored in translations ? stored : "en"
+    if (stored && (SUPPORTED_LANGS as string[]).includes(stored)) return stored
+    return detectBrowserLang()
   })
 
   const setLang = (l: Lang) => {
