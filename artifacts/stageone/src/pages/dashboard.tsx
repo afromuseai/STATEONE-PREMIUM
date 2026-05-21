@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useBusinessContext } from "@/lib/business-context"
 import { api, type Project } from "@/lib/api"
 import { recordRevenueSignal } from "@/lib/intelligence-state"
-import { saveGenerationContext } from "@/lib/generation-context"
+import { saveGenerationContext, saveDashboardState, loadDashboardState, clearDashboardState } from "@/lib/generation-context"
 import { useLang, useFormatters } from "@/lib/i18n"
 import {
   FolderOpen,
@@ -186,6 +186,26 @@ export default function DashboardPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [lockedFeature, setLockedFeature] = useState<{ name: string; icon: React.ReactNode; description: string } | null>(null)
 
+  // Restore persisted generation state on mount so navigating away and back
+  // doesn't wipe out the user's current workspace context.
+  useEffect(() => {
+    const saved = loadDashboardState()
+    if (saved?.results) {
+      setResults(saved.results)
+      setCurrentIdea(saved.currentIdea)
+      setGenerationStage(saved.generationStage)
+      setActiveProjectId(saved.activeProjectId)
+      setBusinessData(saved.results as unknown as Record<string, unknown>)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist generation results whenever they change (non-null only)
+  useEffect(() => {
+    if (results) {
+      saveDashboardState({ results, currentIdea, activeProjectId, generationStage: 6 })
+    }
+  }, [results, currentIdea, activeProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     api.projects.list().then(({ projects }) => {
       setProjects(projects)
@@ -214,6 +234,8 @@ export default function DashboardPage() {
   }, [])
 
   const handleGenerate = useCallback(async (idea: string) => {
+    // Clear persisted workspace before starting a fresh generation
+    clearDashboardState()
     setIsLoading(true)
     setResults(null)
     setPartialData({})
@@ -613,7 +635,8 @@ export default function DashboardPage() {
                 reasoningStages={reasoningStages.length > 0 ? reasoningStages : undefined}
                 detectedIndustry={detectedIndustry}
                 onGenerateWebsite={results ? () => {
-                  if (subscription?.plan === "free" || !subscription) {
+                  // Only gate on a confirmed free plan — never on null (still loading)
+                  if (subscription?.plan === "free") {
                     setLockedFeature({ name: "Website Builder", icon: <Globe className="h-5 w-5" />, description: "Generate a complete, launch-ready website with AI — including copy, design system, React components, and live preview." })
                     return
                   }
@@ -632,10 +655,11 @@ export default function DashboardPage() {
                   setShowWebsite(true)
                 } : undefined}
                 onGenerateChatbot={results ? () => {
-                  if (subscription?.plan === "free" || !subscription) {
+                  if (subscription?.plan === "free") {
                     setLockedFeature({ name: "AI Chatbot Generator", icon: <Bot className="h-5 w-5" />, description: "Build a fully-configured AI chatbot with conversation flows, system prompts, integrations, and live preview — pre-filled from your business analysis." })
                     return
                   }
+                  // Always save context and navigate — the destination page handles its own lock overlay
                   saveGenerationContext({
                     idea: currentIdea,
                     industry: results.industry,
@@ -651,7 +675,7 @@ export default function DashboardPage() {
                   setLocation("/chatbot-generator")
                 } : undefined}
                 onBuildAutomation={results ? () => {
-                  if (subscription?.plan === "free" || !subscription) {
+                  if (subscription?.plan === "free") {
                     setLockedFeature({ name: "Automation Builder", icon: <Workflow className="h-5 w-5" />, description: "Generate end-to-end automation workflows with node-based canvas, AI agent configs, integration maps, and execution logic — auto-populated from your business intelligence." })
                     return
                   }

@@ -54,6 +54,42 @@ export function clearGenerationContext(): void {
   } catch { /* ignore */ }
 }
 
+// ─── Dashboard State Persistence ─────────────────────────────────────────────
+// Persists generation results across sidebar navigation so users never lose
+// their workspace context by switching tabs. Only cleared on explicit new
+// generation or "New Analysis" action.
+
+const DASHBOARD_KEY = "stageone_dashboard_state"
+
+export interface DashboardPersistedState {
+  results: import("@/components/dashboard/output-panel").BusinessIntelligence
+  currentIdea: string
+  activeProjectId: string | null
+  generationStage: number
+}
+
+export function saveDashboardState(state: DashboardPersistedState): void {
+  try {
+    sessionStorage.setItem(DASHBOARD_KEY, JSON.stringify(state))
+  } catch { /* ignore */ }
+}
+
+export function loadDashboardState(): DashboardPersistedState | null {
+  try {
+    const raw = sessionStorage.getItem(DASHBOARD_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as DashboardPersistedState
+  } catch {
+    return null
+  }
+}
+
+export function clearDashboardState(): void {
+  try {
+    sessionStorage.removeItem(DASHBOARD_KEY)
+  } catch { /* ignore */ }
+}
+
 // ─── Derivation helpers ───────────────────────────────────────────────────────
 
 export function deriveChatbotType(chatbotRole: string): string {

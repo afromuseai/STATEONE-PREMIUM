@@ -1,0 +1,219 @@
+SAFE WORKFLOW CONTINUITY + STATE PERSISTENCE FIX
+
+IMPORTANT:
+Do NOT refactor architecture.
+Do NOT modify routing.
+Do NOT break existing Website Generator flow.
+Do NOT alter project persistence logic.
+Do NOT change Business Intelligence generation behavior.
+
+This is ONLY:
+
+* workflow continuity enforcement
+* generation state persistence
+* context continuity stabilization
+
+====================================
+CURRENT ISSUES
+==============
+
+ISSUE 1:
+After Business Intelligence generation completes,
+users see:
+
+* Generate Website
+* Generate Chatbot
+* Build Automation
+
+Current behavior:
+
+* Website generation works correctly
+* Clicking "Generate Website" automatically starts generation using the existing Business Intelligence context
+
+BUT:
+
+* Generate Chatbot only opens the chatbot tab
+* Build Automation only opens the automation tab
+
+No generation auto-starts.
+
+This breaks workflow continuity.
+
+---
+
+ISSUE 2:
+When users switch sidebar tabs,
+the current generation state resets automatically as if nothing was generated.
+
+This creates:
+
+* broken continuity
+* loss of workspace context
+* disconnected operational flow
+* poor UX
+
+Users should NOT lose current generation state simply by navigating tabs.
+
+====================================
+REQUIRED STATE PERSISTENCE BEHAVIOR
+===================================
+
+Generated outputs must remain persisted in memory/UI until the user intentionally starts a new generation.
+
+Meaning:
+
+If a user:
+
+* generates Business Intelligence
+* opens Projects
+* opens Settings
+* opens Website Architect
+* returns back
+
+The existing generation should STILL remain visible.
+
+DO NOT auto-reset state on tab change.
+
+====================================
+ONLY RESET WHEN
+===============
+
+Generation state should ONLY clear when:
+
+* user clicks "New Analysis"
+* user clicks "New Project"
+* user explicitly starts a fresh generation
+* user intentionally resets workspace
+
+NOT:
+
+* sidebar navigation
+* tab switching
+* route transitions
+* module viewing
+
+====================================
+WORKFLOW CONTINUITY FIX
+=======================
+
+Chatbot Generator and Automation Builder must behave EXACTLY like Website Generator.
+
+When user clicks:
+
+* Generate Chatbot
+  OR
+* Build Automation
+
+The system should:
+
+1. Navigate to the correct module
+2. Automatically preload Business Intelligence context
+3. Automatically populate required fields
+4. Automatically trigger generation
+5. Save outputs into the SAME linked project
+
+WITHOUT requiring manual input.
+
+====================================
+CHATBOT GENERATION AUTO-FILL
+============================
+
+Auto-populate from Business Intelligence:
+
+* business description
+* business summary
+* industry
+* target audience
+* tone
+* brand direction
+* business category
+* operational context
+
+Infer chatbot type intelligently.
+
+Examples:
+
+* SaaS → onboarding + support chatbot
+* Marketplace → booking + support assistant
+* Healthcare → appointment + intake assistant
+* E-commerce → sales + recommendation assistant
+
+Generation should auto-start after navigation.
+
+====================================
+AUTOMATION GENERATION AUTO-FILL
+===============================
+
+Auto-populate from Business Intelligence:
+
+* workflows
+* growth strategy
+* operational bottlenecks
+* repetitive tasks
+* customer lifecycle
+* execution recommendations
+
+Infer automation systems intelligently.
+
+Examples:
+
+* SaaS → onboarding + retention automation
+* Marketplace → provider matching workflows
+* Healthcare → reminders + scheduling workflows
+* E-commerce → abandoned cart + CRM automation
+
+Generation should auto-start after navigation.
+
+====================================
+PROJECT CONTINUITY
+==================
+
+IMPORTANT:
+Do NOT create disconnected projects.
+
+Website
+Chatbot
+Automation
+
+must remain linked to the originating Business Intelligence project.
+
+Maintain:
+
+* same project ID
+* same continuity chain
+* same memory context
+* same operational workspace
+
+====================================
+IMPORTANT UX GOAL
+=================
+
+The platform should feel like:
+one continuous AI operating workspace.
+
+NOT:
+multiple disconnected generators.
+
+The user should feel:
+the AI system is continuing operational execution across modules automatically.
+
+====================================
+IMPORTANT IMPLEMENTATION RULE
+=============================
+
+Preserve:
+
+* existing generation pipelines
+* existing architecture
+* existing routes
+* existing project persistence
+* existing streaming flow
+
+This task is ONLY:
+
+* continuity orchestration
+* state persistence stabilization
+* automatic context transfer
+* auto-generation triggering
+
+NOT a rewrite.
