@@ -9,9 +9,30 @@ import { streamNvidia, forwardStream } from "../lib/nvidia";
 
 const router = Router();
 
+const WorkspaceContextSchema = z.object({
+  activePage: z.string().optional(),
+  activePagePath: z.string().optional(),
+  currentProject: z.object({
+    id: z.string(),
+    title: z.string(),
+    businessIdea: z.string(),
+    hasBi: z.boolean(),
+    hasWebsite: z.boolean(),
+  }).nullable().optional(),
+  modules: z.object({
+    businessIntelligence: z.boolean(),
+    website: z.boolean(),
+    chatbot: z.boolean(),
+    automation: z.boolean(),
+  }).optional(),
+  projectCount: z.number().optional(),
+  activeAgents: z.number().optional(),
+}).optional();
+
 const CopilotBody = z.object({
   messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })),
   businessContext: z.unknown().optional(),
+  workspaceContext: WorkspaceContextSchema,
 });
 
 router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
@@ -27,7 +48,7 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
   }
 
   const userId = req.user!.userId;
-  const { messages, businessContext } = parsed.data;
+  const { messages, businessContext, workspaceContext } = parsed.data;
 
   // ─── Fetch all cross-system context in parallel ──────────────────────────────
   const [projects, agents, memories] = await Promise.all([
@@ -36,6 +57,8 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
       title: projectsTable.title,
       businessIdea: projectsTable.businessIdea,
       createdAt: projectsTable.createdAt,
+      hasOutput: projectsTable.output,
+      hasWebsite: projectsTable.websiteOutput,
     }).from(projectsTable).where(eq(projectsTable.userId, userId)).orderBy(desc(projectsTable.createdAt)).limit(5),
     db.select({
       id: agentsTable.id,
@@ -145,8 +168,33 @@ RECOMMENDED STACK: CRM: ${bi.recommendedStack?.crm ?? "N/A"} · Payments: ${bi.r
 ${healthFlags.length > 0 ? `\n⚠ OPERATIONAL FLAGS:\n${healthFlags.map(f => `• ${f}`).join("\n")}` : ""}
 ═══════════════════════════════════════════════` : "";
 
+  // ─── Workspace context block ─────────────────────────────────────────────────
+  const ws = workspaceContext;
+  const wsModules = ws?.modules;
+  const wsProject = ws?.currentProject;
+
+  const workspaceBlock = ws ? `
+═══ LIVE WORKSPACE STATE ═══
+Active Page: ${ws.activePage ?? "Unknown"} (${ws.activePagePath ?? "/"})
+${wsProject ? `Current Project: "${wsProject.title}"
+  Business Idea: ${wsProject.businessIdea}` : "Current Project: None (user has not created a project yet)"}
+
+MODULE COMPLETION STATUS:
+• Business Intelligence: ${wsModules?.businessIntelligence ? "✓ COMPLETE" : "⏳ Pending — guide user to run an analysis"}
+• Website Builder: ${wsModules?.website ? "✓ COMPLETE" : "⏳ Pending — website not yet generated"}
+• Chatbot: ${wsModules?.chatbot ? "✓ COMPLETE" : "⏳ Pending"}
+• Automation: ${wsModules?.automation ? "✓ COMPLETE" : "⏳ Pending — no automations configured"}
+
+WORKSPACE STATS:
+• Total Projects: ${ws.projectCount ?? projects.length}
+• Active Agents: ${ws.activeAgents ?? activeAgents.length}
+${!wsProject ? "\nACTION NEEDED: User has no project — recommend starting with a Business Intelligence analysis at /dashboard" : ""}
+═══════════════════════════════════════` : "";
+
   const systemPrompt = [
     `You are STAGEONE's Cross-System Intelligence Engine — a senior AI strategist with full visibility into the user's entire business operating system. You have the combined expertise of a McKinsey engagement manager, a YC partner, and a CTO who has scaled businesses from 0 to $50M ARR.`,
+    ``,
+    `CRITICAL RULE: Never ask the user to repeat or re-explain information that already exists in their workspace context below. You already have access to their project, business analysis, module statuses, and workspace state. Reference this data proactively and directly.`,
     ``,
     `CROSS-SYSTEM AWARENESS:`,
     `You see ALL connected systems simultaneously:`,
@@ -161,20 +209,22 @@ ${healthFlags.length > 0 ? `\n⚠ OPERATIONAL FLAGS:\n${healthFlags.map(f => `�
     `3. Proactively surface operational flags from the active analysis`,
     `4. Use AI memory to detect patterns across sessions ("Last time you analyzed SaaS, CAC was the constraint")`,
     `5. Suggest specific tools with exact configurations — never generic advice`,
+    `6. When a module shows as Pending, proactively guide the user toward completing it`,
     ``,
     `RESPONSE STYLE:`,
     `- Lead with the highest-impact cross-system insight`,
-    `- Reference actual metrics from the active analysis`,
+    `- Reference actual metrics and data from the active analysis`,
     `- Use markdown (headers, bullets, **bold**) for clarity`,
     `- Quantify wherever possible ("this could reduce CAC by ~30%")`,
     `- Keep responses focused — 150-300 words unless user asks for detail`,
     `- When no analysis is active, help the user understand what to analyze and why`,
     ``,
+    workspaceBlock,
     businessBlock,
     memoryBlock,
     `USER WORKSPACE:`,
     projects.length
-      ? `Projects (${projects.length}): ${projects.map(p => `"${p.title}"`).join(", ")}`
+      ? `Projects (${projects.length}): ${projects.map(p => `"${p.title}" [BI: ${p.hasOutput ? "✓" : "✗"}, Website: ${p.hasWebsite ? "✓" : "✗"}]`).join(", ")}`
       : `No projects yet.`,
     activeAgents.length > 0
       ? `Active Agents (${activeAgents.length}): ${activeAgents.map(a => `${a.name} [${a.category}]`).join(", ")}`

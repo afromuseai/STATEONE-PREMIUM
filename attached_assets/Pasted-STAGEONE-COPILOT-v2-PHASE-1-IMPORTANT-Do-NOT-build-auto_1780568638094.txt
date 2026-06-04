@@ -1,0 +1,151 @@
+STAGEONE COPILOT v2 — PHASE 1
+
+IMPORTANT:
+
+Do NOT build autonomous execution yet.
+
+Do NOT modify existing generation pipelines.
+
+Do NOT modify routing.
+
+Do NOT modify project persistence.
+
+Do NOT modify Business Intelligence.
+
+This phase is ONLY:
+
+* workspace awareness
+* project awareness
+* memory awareness
+* context awareness
+
+====================================
+GOAL
+====
+
+The current Copilot behaves like a disconnected chatbot.
+
+It does not understand:
+
+* current project
+* current generation
+* project history
+* generated outputs
+* workspace context
+
+The Copilot must become workspace-aware.
+
+====================================
+REQUIRED CONTEXT
+================
+
+Whenever Copilot opens, automatically load:
+
+Current Project:
+
+* project id
+* project name
+* project type
+
+Current Workspace:
+
+* active page
+* active module
+* active generation
+
+Generated Outputs:
+
+* business intelligence
+* website generations
+* chatbot generations
+* automation generations
+
+Project History:
+
+* previous generations
+* timestamps
+* linked outputs
+
+====================================
+COPILOT SYSTEM PROMPT
+=====================
+
+The Copilot must understand:
+
+* everything currently visible
+* project context
+* generated intelligence
+* website outputs
+* automation outputs
+* chatbot outputs
+
+The user should never need to re-explain information already generated inside the project.
+
+====================================
+EXAMPLE
+=======
+
+User:
+
+"What should I do next?"
+
+Current project:
+
+Healthcare Scheduling SaaS
+
+Copilot should analyze:
+
+* growth plan
+* bottlenecks
+* website status
+* automation status
+
+before responding.
+
+====================================
+COPILOT MEMORY PANEL
+====================
+
+Add internal workspace memory:
+
+Current Project
+Current Stage
+Generated Modules
+Pending Modules
+
+Examples:
+
+Business Intelligence:
+✓ Complete
+
+Website:
+✓ Complete
+
+Chatbot:
+Pending
+
+Automation:
+Pending
+
+====================================
+IMPORTANT
+=========
+
+The Copilot should respond using project context automatically.
+
+Do NOT ask users to repeat information that already exists in the workspace.
+
+====================================
+DO NOT BUILD YET
+================
+
+Do NOT:
+
+* auto click buttons
+* auto generate modules
+* autonomous execution
+* workflow control
+
+Those come in later phases.
+
+First establish workspace awareness.

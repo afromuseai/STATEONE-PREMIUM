@@ -1,17 +1,69 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useLocation } from "wouter"
+import { useQuery } from "@tanstack/react-query"
 import {
   Bot, X, Send, Sparkles, RotateCcw, Minimize2,
   Globe, Workflow, Brain, Rocket, BarChart3, TrendingUp,
   Zap, Target, ChevronRight, MessageSquare, Activity,
+  CheckCircle2, Clock, Layers, FolderOpen, MapPin, ChevronDown,
 } from "lucide-react"
 import { useBusinessContext } from "@/lib/business-context"
 import { useAuth } from "@/lib/auth-context"
+import { api, type Project } from "@/lib/api"
 
 interface Message {
   role: "user" | "assistant"
   content: string
+}
+
+interface WorkspaceContext {
+  activePage: string
+  activePagePath: string
+  currentProject: {
+    id: string
+    title: string
+    businessIdea: string
+    hasBi: boolean
+    hasWebsite: boolean
+  } | null
+  modules: {
+    businessIntelligence: boolean
+    website: boolean
+    chatbot: boolean
+    automation: boolean
+  }
+  projectCount: number
+  activeAgents: number
+}
+
+const PAGE_NAMES: Record<string, string> = {
+  "/": "Landing",
+  "/dashboard": "Dashboard",
+  "/agents": "Agent Store",
+  "/webhooks": "Webhooks",
+  "/automation-builder": "Automation Builder",
+  "/chatbot-generator": "Chatbot Generator",
+  "/website-generator": "Website Generator",
+  "/deployments": "Deployments",
+  "/memory": "AI Memory",
+  "/settings": "Settings",
+  "/templates": "Templates",
+  "/analytics": "Analytics",
+  "/developer": "Developer API",
+  "/integrations": "Integrations",
+  "/intelligence": "Intelligence",
+  "/os": "OS Hub",
+  "/orchestrator": "Orchestrator",
+  "/agent-monitor": "Agent Monitor",
+  "/execution-engine": "Execution Engine",
+}
+
+function getPageName(path: string): string {
+  const clean = path.split("?")[0]
+  if (PAGE_NAMES[clean]) return PAGE_NAMES[clean]
+  if (clean.startsWith("/projects/")) return "Project"
+  return "Workspace"
 }
 
 const QUICK_COMMANDS = [
@@ -24,6 +76,13 @@ const QUICK_COMMANDS = [
   { icon: Rocket, label: "Deploy a project", prompt: "How do I deploy my generated website or application to production using STAGEONE?" },
   { icon: BarChart3, label: "New analysis", prompt: "Help me craft a detailed business idea for analysis. Ask me questions about my target market and goals." },
 ]
+
+const MODULE_LABELS = [
+  { key: "businessIntelligence", label: "Business Intelligence", icon: BarChart3 },
+  { key: "website", label: "Website", icon: Globe },
+  { key: "chatbot", label: "Chatbot", icon: MessageSquare },
+  { key: "automation", label: "Automation", icon: Workflow },
+] as const
 
 function renderMessage(content: string) {
   if (!content) return null
@@ -74,12 +133,51 @@ export function CopilotPanel() {
   const [streaming, setStreaming] = useState(false)
   const [minimized, setMinimized] = useState(false)
   const [showCommands, setShowCommands] = useState(false)
+  const [showMemory, setShowMemory] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const [, navigate] = useLocation()
-  const { businessData } = useBusinessContext()
+  const [location, navigate] = useLocation()
+  const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
+
+  // Fetch projects to derive workspace context
+  const { data: projectsData } = useQuery({
+    queryKey: ["copilot-projects"],
+    queryFn: () => api.projects.list(),
+    enabled: !!user && open,
+    staleTime: 30_000,
+  })
+
+  const projects = projectsData?.projects ?? []
+  const currentProject: Project | null = projects[0] ?? null
+
+  // Derive module statuses
+  const modules = {
+    businessIntelligence: !!(currentProject?.output) || !!businessData?.industry,
+    website: !!(currentProject?.websiteOutput) || crossSystem.websiteGenerated,
+    chatbot: false,
+    automation: crossSystem.automationsConfigured > 0,
+  }
+
+  const activePage = getPageName(location)
+
+  const workspaceContext: WorkspaceContext = {
+    activePage,
+    activePagePath: location,
+    currentProject: currentProject ? {
+      id: currentProject.id,
+      title: currentProject.title,
+      businessIdea: currentProject.businessIdea.slice(0, 300),
+      hasBi: !!currentProject.output,
+      hasWebsite: !!currentProject.websiteOutput,
+    } : null,
+    modules,
+    projectCount: projects.length,
+    activeAgents: crossSystem.agentsInstalled,
+  }
+
+  const completedCount = Object.values(modules).filter(Boolean).length
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -112,7 +210,11 @@ export function CopilotPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ messages: newMessages, businessContext: businessData }),
+        body: JSON.stringify({
+          messages: newMessages,
+          businessContext: businessData,
+          workspaceContext,
+        }),
         signal: abortRef.current.signal,
       })
 
@@ -155,7 +257,7 @@ export function CopilotPanel() {
     } finally {
       setStreaming(false)
     }
-  }, [input, messages, streaming])
+  }, [input, messages, streaming, businessData, workspaceContext])
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage() }
@@ -211,7 +313,7 @@ export function CopilotPanel() {
             exit={{ opacity: 0, scale: 0.94, y: 20 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
             className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl border border-white/8 bg-[#090909] shadow-[0_24px_80px_rgba(0,0,0,0.85)] overflow-hidden"
-            style={{ width: 300, maxHeight: minimized ? 52 : 400, transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1)" }}
+            style={{ width: 300, maxHeight: minimized ? 52 : 480, transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1)" }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-[#0d0d0d] shrink-0">
@@ -229,7 +331,7 @@ export function CopilotPanel() {
                 <div>
                   <p className="text-xs font-black text-foreground">STAGEONE Copilot</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <p className="text-[9px] text-emerald-400/80">Online · AI Assistant</p>
+                    <p className="text-[9px] text-emerald-400/80">Online</p>
                     {hasBusinessContext && (
                       <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
@@ -246,6 +348,14 @@ export function CopilotPanel() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                {/* Workspace Memory Toggle */}
+                <button
+                  onClick={() => setShowMemory(m => !m)}
+                  title="Workspace Memory"
+                  className={`p-1.5 rounded-lg transition-all ${showMemory ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                </button>
                 {messages.length > 0 && (
                   <button onClick={clearChat} title="Clear" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
                     <RotateCcw className="h-3.5 w-3.5" />
@@ -262,6 +372,73 @@ export function CopilotPanel() {
 
             {!minimized && (
               <>
+                {/* Workspace Memory Panel */}
+                <AnimatePresence>
+                  {showMemory && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.22 }}
+                      className="overflow-hidden shrink-0"
+                    >
+                      <div className="px-4 py-3 border-b border-white/5 bg-[#0b0b0b] space-y-3">
+                        {/* Context row */}
+                        <div className="flex items-center justify-between">
+                          <p className="text-[8px] font-black text-muted-foreground/35 uppercase tracking-[0.18em]">Workspace Memory</p>
+                          <span className="text-[8px] text-muted-foreground/30">{completedCount}/4 modules</span>
+                        </div>
+
+                        {/* Active page + project */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div className="rounded-xl border border-white/4 bg-white/2 p-2">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <MapPin className="h-2.5 w-2.5 text-muted-foreground/40" />
+                              <span className="text-[8px] text-muted-foreground/35 uppercase tracking-wider">Active Page</span>
+                            </div>
+                            <p className="text-[10px] font-semibold text-foreground truncate">{activePage}</p>
+                          </div>
+                          <div className="rounded-xl border border-white/4 bg-white/2 p-2">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <FolderOpen className="h-2.5 w-2.5 text-muted-foreground/40" />
+                              <span className="text-[8px] text-muted-foreground/35 uppercase tracking-wider">Project</span>
+                            </div>
+                            <p className="text-[10px] font-semibold text-foreground truncate">
+                              {currentProject?.title ?? "None"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Module statuses */}
+                        <div className="space-y-1">
+                          {MODULE_LABELS.map(({ key, label, icon: Icon }) => {
+                            const done = modules[key]
+                            return (
+                              <div key={key} className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <Icon className="h-2.5 w-2.5 text-muted-foreground/30" />
+                                  <span className="text-[10px] text-muted-foreground/60">{label}</span>
+                                </div>
+                                {done ? (
+                                  <div className="flex items-center gap-1">
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                                    <span className="text-[9px] text-emerald-400/80 font-medium">Complete</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3 text-muted-foreground/30" />
+                                    <span className="text-[9px] text-muted-foreground/40">Pending</span>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ minHeight: 0 }}>
                   {messages.length === 0 ? (
@@ -276,9 +453,15 @@ export function CopilotPanel() {
                           <Sparkles className="h-7 w-7 text-primary" />
                         </motion.div>
                         <p className="text-sm font-black text-foreground mb-1">Your AI Business Copilot</p>
-                        <p className="text-[10px] text-muted-foreground/60 leading-relaxed max-w-[260px] mx-auto">
-                          I can help you build strategy, generate workflows, explain metrics, and optimize your STAGEONE workspace.
-                        </p>
+                        {currentProject ? (
+                          <p className="text-[10px] text-muted-foreground/60 leading-relaxed max-w-[260px] mx-auto">
+                            Workspace loaded: <span className="text-primary/70 font-semibold">{currentProject.title}</span>. I know your project context — ask me anything.
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground/60 leading-relaxed max-w-[260px] mx-auto">
+                            I can help you build strategy, generate workflows, explain metrics, and optimize your STAGEONE workspace.
+                          </p>
+                        )}
                       </div>
 
                       {/* Quick commands */}
@@ -300,8 +483,9 @@ export function CopilotPanel() {
                         </div>
                         <button
                           onClick={() => setShowCommands(v => !v)}
-                          className="mt-1.5 w-full text-center text-[9px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
+                          className="mt-1.5 w-full text-center text-[9px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors flex items-center justify-center gap-1"
                         >
+                          <ChevronDown className={`h-3 w-3 transition-transform ${showCommands ? "rotate-180" : ""}`} />
                           {showCommands ? "Show less" : `+${QUICK_COMMANDS.length - 5} more commands`}
                         </button>
                         <AnimatePresence>
@@ -363,7 +547,6 @@ export function CopilotPanel() {
 
                 {/* Input area */}
                 <div className="border-t border-white/5 p-3 shrink-0 bg-[#0a0a0a]">
-                  {/* Suggestion chips when typing */}
                   <AnimatePresence>
                     {messages.length > 0 && !streaming && (
                       <motion.div
