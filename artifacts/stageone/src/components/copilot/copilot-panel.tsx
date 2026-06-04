@@ -290,9 +290,12 @@ export function CopilotPanel() {
     greeted.current = true
     setStreaming(true)
 
+    const hasContext = !!(workspaceContextRef.current?.currentProject || businessDataRef.current?.industry)
     const greetingTrigger: Message = {
       role: "user",
-      content: "Open the conversation. You already know this project. Reference what they're building and where things stand right now — be specific, be direct. Don't introduce yourself, don't say hello, don't use the platform name. Two sentences max, then ask one direct question.",
+      content: hasContext
+        ? "Open the conversation. You already know this project. Reference what they're building and where things stand right now — be specific, be direct. Don't introduce yourself, don't say hello, don't use the platform name. Two sentences max, then ask one direct question."
+        : "Start the conversation. You don't know anything about their business yet. Ask one question — the single sharpest question to understand what they're building. Just the question, nothing else.",
       hidden: true,
     }
     const assistantMsg: Message = { role: "assistant", content: "" }
