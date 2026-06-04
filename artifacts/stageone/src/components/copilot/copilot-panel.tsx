@@ -230,6 +230,15 @@ export function CopilotPanel() {
     staleTime: 30_000,
   })
 
+  const { data: memoryData } = useQuery({
+    queryKey: ["copilot-memory-count"],
+    queryFn: () => fetch("/api/memory", { credentials: "include" }).then(r => r.json()) as Promise<{ memories: unknown[] }>,
+    enabled: !!user,
+    staleTime: 60_000,
+    refetchInterval: 90_000,
+  })
+  const memoryCount = memoryData?.memories?.length ?? 0
+
   const projects = projectsData?.projects ?? []
   const currentProject: Project | null = projects[0] ?? null
 
@@ -493,7 +502,22 @@ export function CopilotPanel() {
               <p className="text-[11px] font-black text-foreground leading-none">AI Copilot</p>
               <p className="text-[8px] text-muted-foreground/60 mt-0.5">AI-powered assistant</p>
             </div>
-            <Sparkles className="h-3 w-3 text-primary/50 group-hover:text-primary/80 transition-colors" />
+            <AnimatePresence>
+              {memoryCount > 0 && (
+                <motion.div
+                  key={memoryCount}
+                  initial={{ scale: 0.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.6, opacity: 0 }}
+                  transition={{ type: "spring", damping: 15, stiffness: 400 }}
+                  className="flex items-center gap-0.5 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5"
+                  title={`${memoryCount} things remembered about your business`}
+                >
+                  <Brain className="h-2.5 w-2.5 text-primary/70" />
+                  <span className="text-[9px] font-bold text-primary/80">{memoryCount}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.button>
         )}
       </AnimatePresence>
