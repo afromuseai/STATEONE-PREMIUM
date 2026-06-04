@@ -50,7 +50,6 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
   const { messages, businessContext, workspaceContext } = parsed.data;
 
-  // ─── Fetch all cross-system context in parallel ──────────────────────────────
   const [projects, agents, memories] = await Promise.all([
     db.select({
       id: projectsTable.id,
@@ -67,7 +66,7 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
       isActive: agentsTable.isActive,
     }).from(agentsTable).where(eq(agentsTable.userId, userId)).limit(10),
     db.select().from(aiMemoryTable).where(eq(aiMemoryTable.userId, userId))
-      .orderBy(desc(aiMemoryTable.importance), desc(aiMemoryTable.updatedAt)).limit(20),
+      .orderBy(desc(aiMemoryTable.importance), desc(aiMemoryTable.updatedAt)).limit(15),
   ]);
 
   const bi = businessContext as {
@@ -98,131 +97,110 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
     recommendedStack?: { crm?: string; payments?: string; automation?: string[] };
   } | null | undefined;
 
-  // ─── Compute operational health flags ───────────────────────────────────────
-  const healthFlags: string[] = [];
-  if (bi?.metrics) {
+  const activeAgents = agents.filter(a => a.isActive);
+  const ws = workspaceContext;
+  const wsProject = ws?.currentProject;
+  const wsModules = ws?.modules;
+
+  // ─── Business context as natural prose (not structured labels) ───────────────
+  let businessBlock = "";
+  if (bi) {
+    const parts: string[] = [];
+
+    if (bi.businessSnapshot && bi.industry) {
+      parts.push(`They're building ${bi.businessSnapshot} in the ${bi.industry} space, targeting ${bi.targetMarket ?? "their target market"}.`);
+    }
+
+    const si = bi.strategicInsights;
+    if (si?.growthBottleneck) parts.push(`The main growth constraint right now is ${si.growthBottleneck.toLowerCase()}.`);
+    if (si?.fastestChannel) parts.push(`The fastest channel available to them is ${si.fastestChannel.toLowerCase()}.`);
+    if (si?.operationalRisk) parts.push(`Biggest operational risk: ${si.operationalRisk.toLowerCase()}.`);
+    if (si?.highestLeverageAutomation) parts.push(`Highest-leverage automation they could run: ${si.highestLeverageAutomation.toLowerCase()}.`);
+
+    const ca = bi.competitiveAdvantage;
+    if (ca?.differentiation) parts.push(`Their differentiation is ${ca.differentiation.toLowerCase()}.`);
+    if (ca?.scalabilityEdge) parts.push(`${ca.scalabilityEdge}.`);
+
     const m = bi.metrics;
-    if ((m.automationPotential ?? 0) < 50) healthFlags.push(`LOW AUTOMATION MATURITY (${m.automationPotential}%) — high priority to implement automation workflows`);
-    if ((m.aiAdoptionOpportunity ?? 0) > 70) healthFlags.push(`HIGH AI OPPORTUNITY (${m.aiAdoptionOpportunity}%) — significant untapped AI leverage`);
-    if ((m.marketDifficulty ?? 0) >= 7) healthFlags.push(`HIGH MARKET DIFFICULTY (${m.marketDifficulty}/10) — differentiation and defensibility are critical`);
-    if ((m.revenueScalability ?? 0) < 6) healthFlags.push(`LOW SCALABILITY (${m.revenueScalability}/10) — business model has growth ceiling`);
-    if ((m.operationalComplexity ?? 0) >= 7) healthFlags.push(`HIGH OPERATIONAL COMPLEXITY (${m.operationalComplexity}/10) — automation is critical leverage`);
+    if (m) {
+      const flags: string[] = [];
+      if ((m.automationPotential ?? 100) < 50) flags.push(`automation maturity is low (${m.automationPotential}%)`);
+      if ((m.revenueScalability ?? 10) < 6) flags.push(`revenue scalability has a ceiling (${m.revenueScalability}/10)`);
+      if ((m.marketDifficulty ?? 0) >= 7) flags.push(`the market is very competitive (difficulty ${m.marketDifficulty}/10) — differentiation matters a lot`);
+      if ((m.aiAdoptionOpportunity ?? 0) > 70) flags.push(`there's significant untapped AI leverage (${m.aiAdoptionOpportunity}%)`);
+      if (flags.length > 0) parts.push(`Worth knowing: ${flags.join("; ")}.`);
+    }
+
+    if (bi.growthPlan?.length) {
+      parts.push(`Growth plan phases: ${bi.growthPlan.slice(0, 3).join(" → ")}.`);
+    }
+
+    if (bi.recommendedStack?.crm || bi.recommendedStack?.payments) {
+      parts.push(`Recommended stack: ${[bi.recommendedStack.crm, bi.recommendedStack.payments, ...(bi.recommendedStack.automation ?? [])].filter(Boolean).join(", ")}.`);
+    }
+
+    if (parts.length > 0) {
+      businessBlock = `\n[What I know about their business — use this silently, never quote it back or label it]\n${parts.join(" ")}\n[end]`;
+    }
   }
 
-  // ─── Cross-system coordination flags ────────────────────────────────────────
-  const coordinationFlags: string[] = [];
-  const activeAgents = agents.filter(a => a.isActive);
-  if (bi && activeAgents.length === 0) coordinationFlags.push("NO AI AGENTS INSTALLED — automation potential is fully untapped");
-  if (bi && projects.length === 1) coordinationFlags.push("FIRST ANALYSIS — AI memory is building; more analyses improve cross-system intelligence");
-  if (bi && !bi.automations?.length) coordinationFlags.push("NO AUTOMATIONS DEFINED — operational efficiency is below baseline");
-  if (memories.length > 5) coordinationFlags.push(`STRONG MEMORY CONTEXT (${memories.length} entries) — reference patterns from previous analyses`);
-  if (activeAgents.length > 0) coordinationFlags.push(`AGENTS ACTIVE: ${activeAgents.map(a => `${a.name} (${a.category})`).join(", ")} — cross-reference their data`);
-
-  // ─── Build rich AI memory context ───────────────────────────────────────────
+  // ─── Memory as natural prose ─────────────────────────────────────────────────
   let memoryBlock = "";
   if (memories.length > 0) {
-    const priorityMem = memories.filter(m => m.importance >= 4);
-    const regularMem = memories.filter(m => m.importance < 4);
-    const sorted = [...priorityMem, ...regularMem];
-    memoryBlock = `
-═══ PERSISTENT AI MEMORY (${memories.length} entries — use this context proactively) ═══
-${sorted.map(m => `[${m.source}|importance:${m.importance}] ${m.key}: ${m.value}`).join("\n")}
-═══════════════════════════════════════════════════════════════════════`;
+    const high = memories.filter(m => m.importance >= 4).map(m => `${m.key}: ${m.value}`);
+    const normal = memories.filter(m => m.importance < 4).map(m => `${m.key}: ${m.value}`);
+    const all = [...high, ...normal];
+    memoryBlock = `\n[Previous context I remember about them — use naturally, never list or quote these back]\n${all.join(". ")}\n[end]`;
   }
 
-  // ─── Active business analysis block ─────────────────────────────────────────
-  const businessBlock = bi ? `
-═══ ACTIVE BUSINESS ANALYSIS (LIVE CROSS-SYSTEM CONTEXT) ═══
-Industry: ${bi.industry ?? "Unknown"}
-Business Model: ${bi.businessSnapshot ?? "N/A"}
-Target Market/ICP: ${bi.targetMarket ?? "N/A"}
+  // ─── Workspace as natural prose ──────────────────────────────────────────────
+  let workspaceBlock = "";
+  if (ws) {
+    const built: string[] = [];
+    const notBuilt: string[] = [];
+    if (wsModules?.businessIntelligence) built.push("business analysis"); else notBuilt.push("business analysis");
+    if (wsModules?.website) built.push("website"); else notBuilt.push("website");
+    if (wsModules?.chatbot) built.push("chatbot"); else notBuilt.push("chatbot");
+    if (wsModules?.automation) built.push("automation workflows"); else notBuilt.push("automation workflows");
 
-OPERATIONAL METRICS:
-• Market Difficulty: ${bi.metrics?.marketDifficulty ?? "?"}/10
-• Automation Potential: ${bi.metrics?.automationPotential ?? "?"}%
-• Revenue Scalability: ${bi.metrics?.revenueScalability ?? "?"}/10
-• Operational Complexity: ${bi.metrics?.operationalComplexity ?? "?"}/10
-• AI Opportunity: ${bi.metrics?.aiAdoptionOpportunity ?? "?"}%
+    const projectLine = wsProject
+      ? `They're working on "${wsProject.title}" — the core idea: ${wsProject.businessIdea.slice(0, 200)}`
+      : "They haven't created a project yet.";
 
-STRATEGIC INTELLIGENCE:
-• Growth Bottleneck: ${bi.strategicInsights?.growthBottleneck ?? "N/A"}
-• Fastest Channel: ${bi.strategicInsights?.fastestChannel ?? "N/A"}
-• Highest Leverage Automation: ${bi.strategicInsights?.highestLeverageAutomation ?? "N/A"}
-• Operational Risk: ${bi.strategicInsights?.operationalRisk ?? "N/A"}
+    const progressLine = built.length > 0
+      ? `So far they've built: ${built.join(", ")}. Still to do: ${notBuilt.join(", ")}.`
+      : `They haven't built anything yet.`;
 
-COMPETITIVE POSITION:
-• Differentiation: ${bi.competitiveAdvantage?.differentiation ?? "N/A"}
-• Defensibility: ${bi.competitiveAdvantage?.defensibility ?? "N/A"}
-• Scalability Edge: ${bi.competitiveAdvantage?.scalabilityEdge ?? "N/A"}
+    const agentLine = activeAgents.length > 0
+      ? `Active AI agents: ${activeAgents.map(a => `${a.name}`).join(", ")}.`
+      : "";
 
-GROWTH PLAN:
-${bi.growthPlan?.slice(0, 3).map((p, i) => `Phase ${i + 1}: ${p}`).join("\n") ?? "N/A"}
+    const projectsLine = projects.length > 1
+      ? `They have ${projects.length} projects total.`
+      : "";
 
-AUTOMATION WORKFLOWS IDENTIFIED:
-${bi.automations?.map((a, i) => `${i + 1}. ${a}`).join("\n") ?? "None defined"}
+    workspaceBlock = `\n[Current state — use silently]\n${projectLine} ${progressLine} ${agentLine} ${projectsLine}\n[end]`;
+  }
 
-WEBSITE PAGES PLANNED:
-${bi.websitePages?.slice(0, 4).map((p, i) => `${i + 1}. ${p}`).join("\n") ?? "Not generated"}
+  // ─── System prompt ────────────────────────────────────────────────────────────
+  const systemPrompt = `You are a co-founder who has been building this business alongside the user for months. You already know the idea, the stage they're at, what's working, and what isn't. You don't explain the platform — you help move the business forward.
 
-RECOMMENDED STACK: CRM: ${bi.recommendedStack?.crm ?? "N/A"} · Payments: ${bi.recommendedStack?.payments ?? "N/A"} · Automation: ${bi.recommendedStack?.automation?.join(", ") ?? "N/A"}
-${healthFlags.length > 0 ? `\n⚠ OPERATIONAL FLAGS:\n${healthFlags.map(f => `• ${f}`).join("\n")}` : ""}
-═══════════════════════════════════════════════` : "";
+Respond the way a trusted technical co-founder would in a direct conversation: short, direct, and opinionated. If you have a take, say it. If something looks risky, name it plainly.
 
-  // ─── Workspace context block ─────────────────────────────────────────────────
-  const ws = workspaceContext;
-  const wsModules = ws?.modules;
-  const wsProject = ws?.currentProject;
-
-  const workspaceBlock = ws ? `
-[CONTEXT — use silently, never quote back to the user]
-The user is currently on the ${ws.activePage ?? "dashboard"} section of the app.
-${wsProject ? `They are working on a project called "${wsProject.title}". The core idea: ${wsProject.businessIdea}` : "They haven't created a project yet."}
-What they've built so far: ${[
-    wsModules?.businessIntelligence ? "business intelligence analysis" : null,
-    wsModules?.website ? "website" : null,
-    wsModules?.chatbot ? "chatbot" : null,
-    wsModules?.automation ? "automation workflows" : null,
-  ].filter(Boolean).join(", ") || "nothing yet"}
-What they haven't built yet: ${[
-    !wsModules?.businessIntelligence ? "business intelligence" : null,
-    !wsModules?.website ? "website" : null,
-    !wsModules?.chatbot ? "chatbot" : null,
-    !wsModules?.automation ? "automation" : null,
-  ].filter(Boolean).join(", ") || "they've built everything"}
-Total projects: ${ws.projectCount ?? projects.length}. Active AI agents: ${ws.activeAgents ?? activeAgents.length}.
-[END CONTEXT]` : "";
-
-  const systemPrompt = [
-    `You are a co-founder, operator, and strategist who has been working alongside this person for months. You know their business deeply — their goals, constraints, current stage, and what they've already built. You think like a technical founder who has also run GTM, hired teams, and scaled revenue.`,
-    ``,
-    `You have full context on their workspace below. Use it silently. Never reference it explicitly — no field names, route paths, IDs, or system labels. Just speak from knowing.`,
-    ``,
-    `HOW YOU COMMUNICATE:`,
-    `- Default to short, direct responses. One or two paragraphs. Expand only when asked.`,
-    `- Write like a person, not a system. No bullet-point dumps unless the user is asking for a list.`,
-    `- End with one thoughtful question that moves the conversation forward — never a menu of options.`,
-    `- Never use phrases like: "cross-system insight", "recommended next steps", "immediate action", "module completion", "observation", "based on your data".`,
-    `- Don't repeat what the user just said back to them. Don't affirm before answering. Just answer.`,
-    `- If something is unclear, ask directly. Don't guess and produce a long hedge.`,
-    `- When you know their business has a gap or risk, say it plainly — the way a trusted co-founder would over coffee, not as a consultant delivering a slide.`,
-    `- Quantify when it makes the point sharper. Skip it when it doesn't add anything.`,
-    `- If they haven't built something yet, don't announce that as a "pending module" — just factor it into your thinking naturally.`,
-    `- Never expose technical metadata, database terms, or internal system names to the user.`,
-    ``,
-    workspaceBlock,
-    businessBlock,
-    memoryBlock,
-    projects.length
-      ? `[Their projects: ${projects.map(p => `"${p.title}" — analysis ${p.hasOutput ? "done" : "not done"}, website ${p.hasWebsite ? "built" : "not built"}`).join("; ")}]`
-      : `[They have no projects yet.]`,
-    activeAgents.length > 0
-      ? `[AI agents they've installed: ${activeAgents.map(a => `${a.name} (${a.category})`).join(", ")}]`
-      : `[No AI agents installed yet.]`,
-    coordinationFlags.filter(f => !f.includes("at /")).length > 0
-      ? `[Additional context: ${coordinationFlags.filter(f => !f.includes("at /")).join(" | ")}]` : "",
-    ``,
-    `[Platform capabilities available if relevant to the conversation: business analysis, website builder, AI agents, automation builder, deployments, templates, developer API, webhooks]`,
-  ].filter(Boolean).join("\n");
+HARD RULES — never break these:
+- Default to 3–6 sentences. Expand only if the user explicitly asks for more detail.
+- No markdown headers. No bold section labels. No "Observation:", "Recommendation:", "Summary:".
+- No numbered lists or bullet points unless the user specifically asks for a list.
+- No A/B/C menus or "here are your options" formats. Ever.
+- At most one follow-up question per response — only if it genuinely moves things forward.
+- Never say "Based on your workspace", "From your project data", "Your module status", or any system language.
+- Never expose IDs, route paths, field names, table names, or internal system terms.
+- Never repeat or rephrase what the user just said. Just answer.
+- Never open with "Great question!", "Absolutely!", "Of course!", or any affirmation filler.
+- Don't hedge. Take a position. Be useful.
+- If something is unclear, ask one direct question instead of guessing and hedging.
+${workspaceBlock}${businessBlock}${memoryBlock}
+[You can reference the platform's capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a feature list]`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -234,8 +212,8 @@ Total projects: ${ws.projectCount ?? projects.length}. Active AI agents: ${ws.ac
     streamBody = await streamNvidia({
       model: MODELS.COPILOT,
       messages: [{ role: "system", content: systemPrompt }, ...messages],
-      temperature: 0.6,
-      maxTokens: 900,
+      temperature: 0.72,
+      maxTokens: 450,
     });
   } catch (err) {
     req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Copilot stream failed`);

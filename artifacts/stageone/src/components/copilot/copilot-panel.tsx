@@ -165,6 +165,11 @@ async function streamCopilot(
   }
 }
 
+interface InsightBubble {
+  text: string
+  id: number
+}
+
 export function CopilotPanel() {
   const { user, isLoading } = useAuth()
   const [open, setOpen] = useState(false)
@@ -174,10 +179,14 @@ export function CopilotPanel() {
   const [minimized, setMinimized] = useState(false)
   const [showCommands, setShowCommands] = useState(false)
   const [showMemory, setShowMemory] = useState(false)
+  const [bubble, setBubble] = useState<InsightBubble | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const greeted = useRef(false)
+  const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevCrossSystemRef = useRef<typeof crossSystem | null>(null)
+  const prevProjectCountRef = useRef<number | null>(null)
   const [location] = useLocation()
   const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
@@ -350,12 +359,83 @@ export function CopilotPanel() {
     greeted.current = false
   }
 
+  // ─── Insight bubble ───────────────────────────────────────────────────────────
+  const showBubble = (text: string) => {
+    if (open) return
+    if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current)
+    setBubble({ text, id: Date.now() })
+    bubbleTimerRef.current = setTimeout(() => setBubble(null), 9000)
+  }
+
+  useEffect(() => {
+    const prev = prevCrossSystemRef.current
+    if (prev === null) {
+      prevCrossSystemRef.current = crossSystem
+      return
+    }
+
+    if (!prev.websiteGenerated && crossSystem.websiteGenerated) {
+      showBubble("Website's ready. Worth reviewing the copy before you go live.")
+    } else if (crossSystem.agentsInstalled > prev.agentsInstalled) {
+      showBubble("New agent installed. Want to wire it into your workflow?")
+    } else if (crossSystem.automationsConfigured > 0 && prev.automationsConfigured === 0) {
+      showBubble("Automation's set up. Let's make sure the triggers are right.")
+    }
+
+    prevCrossSystemRef.current = crossSystem
+  }, [crossSystem]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (prevProjectCountRef.current === null) {
+      prevProjectCountRef.current = projects.length
+      return
+    }
+    if (projects.length > prevProjectCountRef.current) {
+      showBubble("New project created. I'll get up to speed.")
+    }
+    prevProjectCountRef.current = projects.length
+  }, [projects.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (open && bubble) setBubble(null)
+  }, [open, bubble])
+
   const visibleMessages = messages.filter(m => !m.hidden)
 
   if (isLoading || !user) return null
 
   return (
     <>
+      {/* Insight bubble */}
+      <AnimatePresence>
+        {!open && bubble && (
+          <motion.button
+            key={bubble.id}
+            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+            transition={{ type: "spring", damping: 22, stiffness: 340 }}
+            onClick={() => { setBubble(null); setOpen(true) }}
+            className="fixed bottom-24 right-6 z-50 max-w-[220px] rounded-2xl border border-primary/25 bg-[#0e0d0b] px-3.5 py-2.5 text-left shadow-[0_8px_32px_rgba(0,0,0,0.6)] hover:border-primary/45 transition-all"
+          >
+            <div className="flex items-start gap-2">
+              <div className="mt-0.5 p-1 rounded-lg bg-primary/15 shrink-0">
+                <Sparkles className="h-2.5 w-2.5 text-primary" />
+              </div>
+              <p className="text-[11px] leading-relaxed text-foreground/85">{bubble.text}</p>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setBubble(null) }}
+              className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-[#1a1a1a] border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+            >
+              <X className="h-2.5 w-2.5 text-muted-foreground/60" />
+            </button>
+            {/* tail */}
+            <div className="absolute -bottom-1.5 right-8 h-3 w-3 rotate-45 rounded-sm border-r border-b border-primary/25 bg-[#0e0d0b]" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       {/* Floating Trigger */}
       <AnimatePresence>
         {!open && (
