@@ -272,7 +272,34 @@ function SidebarContent({
       )}
 
       {/* AI Copilot trigger */}
-      {!effectiveCollapsed && (
+      {effectiveCollapsed ? (
+        <div className="px-2 pb-2">
+          <button
+            onClick={() => setCopilotOpen(v => !v)}
+            className={`w-full flex items-center justify-center rounded-xl border py-2.5 transition-all cursor-pointer group relative ${
+              copilotOpen
+                ? "border-primary/30 bg-primary/10"
+                : "border-white/8 bg-white/3 hover:border-primary/20 hover:bg-primary/5"
+            }`}
+          >
+            <div className="relative">
+              <div className={`p-1 rounded-lg ${copilotOpen ? "bg-primary/20" : "bg-primary/10"}`}>
+                <Bot className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <motion.div
+                className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 border border-sidebar"
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+            </div>
+            <div className="pointer-events-none absolute left-full ml-3 hidden group-hover:flex items-center z-50">
+              <div className="rounded-lg border border-border bg-popover backdrop-blur px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap shadow-xl">
+                AI Copilot
+              </div>
+            </div>
+          </button>
+        </div>
+      ) : (
         <div className="px-3 pb-2">
           <button
             onClick={() => setCopilotOpen(v => !v)}
