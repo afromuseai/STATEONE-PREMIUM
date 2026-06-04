@@ -126,6 +126,32 @@ function renderMessage(content: string) {
   return <div className="space-y-0.5">{elements}</div>
 }
 
+function ThinkingIndicator() {
+  const PHRASES = ["thinking", "on it", "hold on", "one sec", "let me think"]
+  const [phrase] = useState(() => PHRASES[Math.floor(Math.random() * PHRASES.length)])
+  return (
+    <div className="flex items-center gap-1.5 py-0.5">
+      <motion.span
+        className="text-[11px] text-muted-foreground/50 italic"
+        animate={{ opacity: [0.4, 0.8, 0.4] }}
+        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+      >
+        {phrase}
+      </motion.span>
+      <div className="flex items-center gap-0.5">
+        {[0, 1, 2].map((j) => (
+          <motion.span
+            key={j}
+            className="h-1 w-1 rounded-full bg-primary/40"
+            animate={{ opacity: [0.2, 0.9, 0.2], y: [0, -2, 0] }}
+            transition={{ duration: 1.1, repeat: Infinity, delay: j * 0.18, ease: "easeInOut" }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 async function streamCopilot(
   payload: { messages: Message[]; businessContext: unknown; workspaceContext: WorkspaceContext },
   signal: AbortSignal,
@@ -607,16 +633,7 @@ export function CopilotPanel() {
                           <Bot className="h-3 w-3 text-primary" />
                         </div>
                         <div className="max-w-[88%] rounded-2xl px-3.5 py-2.5 bg-white/3 border border-white/6">
-                          <div className="flex items-center gap-1 py-0.5">
-                            {[0, 1, 2].map((j) => (
-                              <motion.span
-                                key={j}
-                                className="h-1.5 w-1.5 rounded-full bg-primary/50"
-                                animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
-                                transition={{ duration: 0.9, repeat: Infinity, delay: j * 0.2 }}
-                              />
-                            ))}
-                          </div>
+                          <ThinkingIndicator />
                         </div>
                       </div>
                     ) : (
@@ -699,16 +716,7 @@ export function CopilotPanel() {
                           ) : msg.content ? (
                             renderMessage(msg.content)
                           ) : (
-                            <div className="flex items-center gap-1 py-0.5">
-                              {[0, 1, 2].map((j) => (
-                                <motion.span
-                                  key={j}
-                                  className="h-1.5 w-1.5 rounded-full bg-primary/50"
-                                  animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
-                                  transition={{ duration: 0.9, repeat: Infinity, delay: j * 0.2 }}
-                                />
-                              ))}
-                            </div>
+                            <ThinkingIndicator />
                           )}
                         </div>
                       </motion.div>
