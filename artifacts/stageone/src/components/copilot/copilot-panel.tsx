@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react"
+import { useCopilot } from "@/lib/copilot-context"
 import { motion, AnimatePresence } from "framer-motion"
 import { useLocation } from "wouter"
 import { useQuery } from "@tanstack/react-query"
@@ -204,7 +205,7 @@ interface InsightBubble {
 
 export function CopilotPanel() {
   const { user, isLoading } = useAuth()
-  const [open, setOpen] = useState(false)
+  const { open, setOpen } = useCopilot()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
@@ -477,50 +478,6 @@ export function CopilotPanel() {
         )}
       </AnimatePresence>
 
-      {/* Floating Trigger */}
-      <AnimatePresence>
-        {!open && (
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            onClick={() => setOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl border border-primary/30 bg-[#0c0c0c] px-4 py-3 shadow-[0_0_28px_rgba(212,175,55,0.2)] hover:shadow-[0_0_40px_rgba(212,175,55,0.35)] transition-all group"
-          >
-            <div className="relative">
-              <div className="p-1 rounded-lg bg-primary/15">
-                <Bot className="h-4 w-4 text-primary" />
-              </div>
-              <motion.div
-                className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400 border border-[#0c0c0c]"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-            </div>
-            <div className="text-left">
-              <p className="text-[11px] font-black text-foreground leading-none">AI Copilot</p>
-              <p className="text-[8px] text-muted-foreground/60 mt-0.5">AI-powered assistant</p>
-            </div>
-            <AnimatePresence>
-              {memoryCount > 0 && (
-                <motion.div
-                  key={memoryCount}
-                  initial={{ scale: 0.6, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.6, opacity: 0 }}
-                  transition={{ type: "spring", damping: 15, stiffness: 400 }}
-                  className="flex items-center gap-0.5 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5"
-                  title={`${memoryCount} things remembered about your business`}
-                >
-                  <Brain className="h-2.5 w-2.5 text-primary/70" />
-                  <span className="text-[9px] font-bold text-primary/80">{memoryCount}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.button>
-        )}
-      </AnimatePresence>
 
       {/* Chat Panel */}
       <AnimatePresence>

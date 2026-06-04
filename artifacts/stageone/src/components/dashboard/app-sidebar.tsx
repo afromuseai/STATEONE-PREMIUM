@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useLang } from "@/lib/i18n"
+import { useCopilot } from "@/lib/copilot-context"
 
 interface AppSidebarProps {
   collapsed: boolean
@@ -41,8 +42,9 @@ function SidebarContent({
 }) {
   const { user, logout } = useAuth()
   const { t } = useLang()
+  const { open: copilotOpen, setOpen: setCopilotOpen } = useCopilot()
   const isAdmin = user?.isAdmin ?? false
-  const [location] = useLocation()
+  const [location, navigate] = useLocation()
   const search = useSearch()
   const d = t.dashboard
 
@@ -269,10 +271,40 @@ function SidebarContent({
         </div>
       )}
 
+      {/* AI Copilot trigger */}
+      {!effectiveCollapsed && (
+        <div className="px-3 pb-2">
+          <button
+            onClick={() => setCopilotOpen(v => !v)}
+            className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-all cursor-pointer ${
+              copilotOpen
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-white/8 bg-white/3 text-foreground hover:border-primary/20 hover:bg-primary/5"
+            }`}
+          >
+            <div className="relative shrink-0">
+              <div className={`p-1 rounded-lg ${copilotOpen ? "bg-primary/20" : "bg-primary/10"}`}>
+                <Bot className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <motion.div
+                className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 border border-sidebar"
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+            </div>
+            <div className="text-left flex-1 min-w-0">
+              <p className="text-[11px] font-black text-foreground leading-none">AI Copilot</p>
+              <p className="text-[8px] text-muted-foreground/50 mt-0.5">Ask me anything</p>
+            </div>
+            <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground/30 shrink-0 transition-transform ${copilotOpen ? "rotate-90 text-primary/50" : ""}`} />
+          </button>
+        </div>
+      )}
+
       {/* Quick action CTA */}
       {!effectiveCollapsed && (
         <div className="px-3 pb-2">
-            <button
+          <button
             onClick={() => navigate("/dashboard?tab=new&_r=" + Date.now())}
             className="w-full flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/8 px-3 py-2.5 text-xs font-semibold text-primary hover:bg-primary/15 transition-all cursor-pointer"
           >

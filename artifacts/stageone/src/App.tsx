@@ -7,6 +7,7 @@ import { BusinessContextProvider } from "@/lib/business-context";
 import { OSProvider } from "@/lib/os-context";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { CopilotPanel } from "@/components/copilot/copilot-panel";
+import { CopilotProvider } from "@/lib/copilot-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { LangProvider } from "@/lib/i18n";
 import { Toaster } from "sonner";
@@ -151,11 +152,13 @@ export default function App() {
             <BusinessContextProvider>
               <OSProvider>
                 <NotificationsProvider>
-                  <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                    <AnimatedRoutes />
-                    <CopilotPanel />
-                  </WouterRouter>
-                  <Toaster position="bottom-right" richColors theme="dark" />
+                  <CopilotProvider>
+                    <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                      <AnimatedRoutes />
+                      <CopilotPanel />
+                    </WouterRouter>
+                    <Toaster position="bottom-right" richColors theme="dark" />
+                  </CopilotProvider>
                 </NotificationsProvider>
               </OSProvider>
             </BusinessContextProvider>
