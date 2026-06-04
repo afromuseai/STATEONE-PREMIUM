@@ -279,6 +279,14 @@ export function CopilotPanel() {
     }
   }, [open, minimized])
 
+  // Auto-grow textarea up to 4 lines, then scroll
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = Math.min(el.scrollHeight, 72) + "px"
+  }, [input])
+
   // ─── Greeting trigger ────────────────────────────────────────────────────────
   const workspaceContextRef = useRef(workspaceContext)
   workspaceContextRef.current = workspaceContext
@@ -749,8 +757,8 @@ export function CopilotPanel() {
                       placeholder="Ask anything about your business..."
                       rows={1}
                       disabled={streaming}
-                      className="flex-1 resize-none bg-transparent text-[11px] text-foreground placeholder:text-muted-foreground/25 focus:outline-none"
-                      style={{ maxHeight: "80px" }}
+                      className="flex-1 resize-none bg-transparent text-[11px] text-foreground placeholder:text-muted-foreground/25 focus:outline-none leading-[18px]"
+                      style={{ maxHeight: "72px", overflowY: "auto" }}
                     />
                     <motion.button
                       whileHover={{ scale: 1.05 }}
