@@ -126,9 +126,15 @@ function renderMessage(content: string) {
   return <div className="space-y-0.5">{elements}</div>
 }
 
+const THINKING_PHRASES = ["thinking", "on it", "hold on", "let me think", "give me a sec", "hmm", "right"]
+let thinkingIndex = 0
+
 function ThinkingIndicator() {
-  const PHRASES = ["thinking", "on it", "hold on", "one sec", "let me think"]
-  const [phrase] = useState(() => PHRASES[Math.floor(Math.random() * PHRASES.length)])
+  const [phrase] = useState(() => {
+    const p = THINKING_PHRASES[thinkingIndex % THINKING_PHRASES.length]
+    thinkingIndex++
+    return p
+  })
   return (
     <div className="flex items-center gap-1.5 py-0.5">
       <motion.span
