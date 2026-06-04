@@ -15,6 +15,7 @@ import { api, type Project } from "@/lib/api"
 interface Message {
   role: "user" | "assistant"
   content: string
+  hidden?: boolean
 }
 
 interface WorkspaceContext {
@@ -125,6 +126,45 @@ function renderMessage(content: string) {
   return <div className="space-y-0.5">{elements}</div>
 }
 
+async function streamCopilot(
+  payload: { messages: Message[]; businessContext: unknown; workspaceContext: WorkspaceContext },
+  signal: AbortSignal,
+  onChunk: (buffer: string) => void
+) {
+  const res = await fetch("/api/copilot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+    signal,
+  })
+
+  if (!res.ok || !res.body) throw new Error("Request failed")
+
+  const reader = res.body.getReader()
+  const dec = new TextDecoder()
+  let carry = ""
+  let buffer = ""
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    const chunk = carry + dec.decode(value, { stream: true })
+    const lines = chunk.split("\n")
+    carry = lines.pop() ?? ""
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue
+      try {
+        const msg = JSON.parse(line.slice(6))
+        if (msg.content) {
+          buffer += msg.content
+          onChunk(buffer)
+        }
+      } catch { /* fragment */ }
+    }
+  }
+}
+
 export function CopilotPanel() {
   const { user, isLoading } = useAuth()
   const [open, setOpen] = useState(false)
@@ -137,11 +177,11 @@ export function CopilotPanel() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const [location, navigate] = useLocation()
+  const greeted = useRef(false)
+  const [location] = useLocation()
   const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
 
-  // Fetch projects to derive workspace context
   const { data: projectsData } = useQuery({
     queryKey: ["copilot-projects"],
     queryFn: () => api.projects.list(),
@@ -152,7 +192,6 @@ export function CopilotPanel() {
   const projects = projectsData?.projects ?? []
   const currentProject: Project | null = projects[0] ?? null
 
-  // Derive module statuses
   const modules = {
     businessIntelligence: !!(currentProject?.output) || !!businessData?.industry,
     website: !!(currentProject?.websiteOutput) || crossSystem.websiteGenerated,
@@ -189,6 +228,71 @@ export function CopilotPanel() {
     }
   }, [open, minimized])
 
+  // ─── Greeting trigger ────────────────────────────────────────────────────────
+  const workspaceContextRef = useRef(workspaceContext)
+  workspaceContextRef.current = workspaceContext
+  const businessDataRef = useRef(businessData)
+  businessDataRef.current = businessData
+
+  const triggerGreeting = useCallback(async () => {
+    if (greeted.current) return
+    greeted.current = true
+    setStreaming(true)
+
+    const greetingTrigger: Message = {
+      role: "user",
+      content: "Open the conversation. You already know this project. Reference what they're building and where things stand right now — be specific, be direct. Don't introduce yourself, don't say hello, don't use the platform name. Two sentences max, then ask one direct question.",
+      hidden: true,
+    }
+    const assistantMsg: Message = { role: "assistant", content: "" }
+    setMessages([greetingTrigger, assistantMsg])
+
+    abortRef.current = new AbortController()
+
+    try {
+      await streamCopilot(
+        {
+          messages: [greetingTrigger],
+          businessContext: businessDataRef.current,
+          workspaceContext: workspaceContextRef.current,
+        },
+        abortRef.current.signal,
+        (buffer) => {
+          setMessages(prev => {
+            const updated = [...prev]
+            updated[updated.length - 1] = { role: "assistant", content: buffer }
+            return updated
+          })
+        }
+      )
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== "AbortError") {
+        setMessages([{ role: "assistant", content: "What are you working on today?" }])
+      } else if (!(e instanceof Error)) {
+        setMessages([{ role: "assistant", content: "What are you working on today?" }])
+      }
+    } finally {
+      setStreaming(false)
+    }
+  }, [])
+
+  // Fire greeting when panel opens — wait for project data or fall back after 900ms
+  useEffect(() => {
+    if (!open || greeted.current) return
+
+    if (projectsData !== undefined || businessData) {
+      triggerGreeting()
+      return
+    }
+
+    const timer = setTimeout(() => {
+      if (!greeted.current) triggerGreeting()
+    }, 900)
+
+    return () => clearTimeout(timer)
+  }, [open, projectsData, businessData, triggerGreeting])
+
+  // ─── Send message ─────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text?: string) => {
     const content = (text ?? input).trim()
     if (!content || streaming) return
@@ -206,46 +310,21 @@ export function CopilotPanel() {
     abortRef.current = new AbortController()
 
     try {
-      const res = await fetch("/api/copilot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          messages: newMessages,
+      await streamCopilot(
+        {
+          messages: newMessages.filter(m => !m.hidden),
           businessContext: businessData,
           workspaceContext,
-        }),
-        signal: abortRef.current.signal,
-      })
-
-      if (!res.ok || !res.body) throw new Error("Request failed")
-
-      const reader = res.body.getReader()
-      const dec = new TextDecoder()
-      let carry = ""
-      let buffer = ""
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = carry + dec.decode(value, { stream: true })
-        const lines = chunk.split("\n")
-        carry = lines.pop() ?? ""
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
-          try {
-            const msg = JSON.parse(line.slice(6))
-            if (msg.content) {
-              buffer += msg.content
-              setMessages(prev => {
-                const updated = [...prev]
-                updated[updated.length - 1] = { role: "assistant", content: buffer }
-                return updated
-              })
-            }
-          } catch { /* fragment */ }
+        },
+        abortRef.current.signal,
+        (buffer) => {
+          setMessages(prev => {
+            const updated = [...prev]
+            updated[updated.length - 1] = { role: "assistant", content: buffer }
+            return updated
+          })
         }
-      }
+      )
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
         setMessages(prev => {
@@ -268,7 +347,10 @@ export function CopilotPanel() {
     setMessages([])
     setStreaming(false)
     setShowCommands(false)
+    greeted.current = false
   }
+
+  const visibleMessages = messages.filter(m => !m.hidden)
 
   if (isLoading || !user) return null
 
@@ -348,7 +430,6 @@ export function CopilotPanel() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                {/* Workspace Memory Toggle */}
                 <button
                   onClick={() => setShowMemory(m => !m)}
                   title="Workspace Memory"
@@ -356,7 +437,7 @@ export function CopilotPanel() {
                 >
                   <Layers className="h-3.5 w-3.5" />
                 </button>
-                {messages.length > 0 && (
+                {visibleMessages.length > 0 && (
                   <button onClick={clearChat} title="Clear" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
                     <RotateCcw className="h-3.5 w-3.5" />
                   </button>
@@ -383,13 +464,11 @@ export function CopilotPanel() {
                       className="overflow-hidden shrink-0"
                     >
                       <div className="px-4 py-3 border-b border-white/5 bg-[#0b0b0b] space-y-3">
-                        {/* Context row */}
                         <div className="flex items-center justify-between">
                           <p className="text-[8px] font-black text-muted-foreground/35 uppercase tracking-[0.18em]">Workspace Memory</p>
                           <span className="text-[8px] text-muted-foreground/30">{completedCount}/4 modules</span>
                         </div>
 
-                        {/* Active page + project */}
                         <div className="grid grid-cols-2 gap-1.5">
                           <div className="rounded-xl border border-white/4 bg-white/2 p-2">
                             <div className="flex items-center gap-1.5 mb-1">
@@ -409,7 +488,6 @@ export function CopilotPanel() {
                           </div>
                         </div>
 
-                        {/* Module statuses */}
                         <div className="space-y-1">
                           {MODULE_LABELS.map(({ key, label, icon: Icon }) => {
                             const done = modules[key]
@@ -441,70 +519,84 @@ export function CopilotPanel() {
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ minHeight: 0 }}>
-                  {messages.length === 0 ? (
-                    <div className="space-y-4">
-                      {/* Welcome */}
-                      <div className="text-center pt-2">
-                        <motion.div
-                          className="mx-auto w-14 h-14 rounded-2xl border border-primary/20 bg-primary/5 flex items-center justify-center mb-3"
-                          animate={{ boxShadow: ["0 0 0px rgba(212,175,55,0)", "0 0 20px rgba(212,175,55,0.2)", "0 0 0px rgba(212,175,55,0)"] }}
-                          transition={{ duration: 3, repeat: Infinity }}
-                        >
-                          <Sparkles className="h-7 w-7 text-primary" />
-                        </motion.div>
-                        <p className="text-sm font-black text-foreground mb-1">Your AI Business Copilot</p>
-                        {currentProject ? (
-                          <p className="text-[10px] text-muted-foreground/60 leading-relaxed max-w-[260px] mx-auto">
-                            Workspace loaded: <span className="text-primary/70 font-semibold">{currentProject.title}</span>. I know your project context — ask me anything.
-                          </p>
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground/60 leading-relaxed max-w-[260px] mx-auto">
-                            I can help you build strategy, generate workflows, explain metrics, and optimize your STAGEONE workspace.
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Quick commands */}
-                      <div>
-                        <p className="text-[8px] font-black text-muted-foreground/35 uppercase tracking-[0.18em] mb-2">Quick Commands</p>
-                        <div className="space-y-1">
-                          {QUICK_COMMANDS.slice(0, 5).map(({ icon: Icon, label, prompt }) => (
-                            <motion.button
-                              key={label}
-                              whileHover={{ x: 2 }}
-                              onClick={() => sendMessage(prompt)}
-                              className="w-full flex items-center gap-2.5 rounded-xl border border-white/4 bg-white/2 p-2.5 text-left hover:border-primary/20 hover:bg-primary/5 transition-all group"
-                            >
-                              <Icon className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary/70 transition-colors shrink-0" />
-                              <span className="flex-1 text-[10px] font-semibold text-muted-foreground/60 group-hover:text-foreground transition-colors">{label}</span>
-                              <ChevronRight className="h-3 w-3 text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors shrink-0" />
-                            </motion.button>
-                          ))}
+                  {visibleMessages.length === 0 ? (
+                    /* Loading state while greeting streams in */
+                    streaming ? (
+                      <div className="flex justify-start pt-2">
+                        <div className="p-1.5 rounded-xl bg-primary/10 border border-primary/15 h-6 w-6 flex items-center justify-center shrink-0 mt-0.5 mr-2">
+                          <Bot className="h-3 w-3 text-primary" />
                         </div>
-                        <button
-                          onClick={() => setShowCommands(v => !v)}
-                          className="mt-1.5 w-full text-center text-[9px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors flex items-center justify-center gap-1"
-                        >
-                          <ChevronDown className={`h-3 w-3 transition-transform ${showCommands ? "rotate-180" : ""}`} />
-                          {showCommands ? "Show less" : `+${QUICK_COMMANDS.length - 5} more commands`}
-                        </button>
-                        <AnimatePresence>
-                          {showCommands && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden space-y-1 mt-1">
-                              {QUICK_COMMANDS.slice(5).map(({ icon: Icon, label, prompt }) => (
-                                <motion.button key={label} whileHover={{ x: 2 }} onClick={() => sendMessage(prompt)} className="w-full flex items-center gap-2.5 rounded-xl border border-white/4 bg-white/2 p-2.5 text-left hover:border-primary/20 hover:bg-primary/5 transition-all group">
-                                  <Icon className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary/70 transition-colors shrink-0" />
-                                  <span className="flex-1 text-[10px] font-semibold text-muted-foreground/60 group-hover:text-foreground transition-colors">{label}</span>
-                                  <ChevronRight className="h-3 w-3 text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors shrink-0" />
-                                </motion.button>
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                        <div className="max-w-[88%] rounded-2xl px-3.5 py-2.5 bg-white/3 border border-white/6">
+                          <div className="flex items-center gap-1 py-0.5">
+                            {[0, 1, 2].map((j) => (
+                              <motion.span
+                                key={j}
+                                className="h-1.5 w-1.5 rounded-full bg-primary/50"
+                                animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }}
+                                transition={{ duration: 0.9, repeat: Infinity, delay: j * 0.2 }}
+                              />
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      /* Fallback empty state — only shown if greeting fails entirely */
+                      <div className="space-y-4">
+                        <div className="text-center pt-2">
+                          <motion.div
+                            className="mx-auto w-14 h-14 rounded-2xl border border-primary/20 bg-primary/5 flex items-center justify-center mb-3"
+                            animate={{ boxShadow: ["0 0 0px rgba(212,175,55,0)", "0 0 20px rgba(212,175,55,0.2)", "0 0 0px rgba(212,175,55,0)"] }}
+                            transition={{ duration: 3, repeat: Infinity }}
+                          >
+                            <Sparkles className="h-7 w-7 text-primary" />
+                          </motion.div>
+                          <p className="text-sm font-black text-foreground mb-1">Your AI Business Copilot</p>
+                          <p className="text-[10px] text-muted-foreground/60 leading-relaxed max-w-[260px] mx-auto">
+                            Ask me anything about your business.
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-[8px] font-black text-muted-foreground/35 uppercase tracking-[0.18em] mb-2">Quick Commands</p>
+                          <div className="space-y-1">
+                            {QUICK_COMMANDS.slice(0, 5).map(({ icon: Icon, label, prompt }) => (
+                              <motion.button
+                                key={label}
+                                whileHover={{ x: 2 }}
+                                onClick={() => sendMessage(prompt)}
+                                className="w-full flex items-center gap-2.5 rounded-xl border border-white/4 bg-white/2 p-2.5 text-left hover:border-primary/20 hover:bg-primary/5 transition-all group"
+                              >
+                                <Icon className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary/70 transition-colors shrink-0" />
+                                <span className="flex-1 text-[10px] font-semibold text-muted-foreground/60 group-hover:text-foreground transition-colors">{label}</span>
+                                <ChevronRight className="h-3 w-3 text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors shrink-0" />
+                              </motion.button>
+                            ))}
+                          </div>
+                          <button
+                            onClick={() => setShowCommands(v => !v)}
+                            className="mt-1.5 w-full text-center text-[9px] text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <ChevronDown className={`h-3 w-3 transition-transform ${showCommands ? "rotate-180" : ""}`} />
+                            {showCommands ? "Show less" : `+${QUICK_COMMANDS.length - 5} more commands`}
+                          </button>
+                          <AnimatePresence>
+                            {showCommands && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden space-y-1 mt-1">
+                                {QUICK_COMMANDS.slice(5).map(({ icon: Icon, label, prompt }) => (
+                                  <motion.button key={label} whileHover={{ x: 2 }} onClick={() => sendMessage(prompt)} className="w-full flex items-center gap-2.5 rounded-xl border border-white/4 bg-white/2 p-2.5 text-left hover:border-primary/20 hover:bg-primary/5 transition-all group">
+                                    <Icon className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary/70 transition-colors shrink-0" />
+                                    <span className="flex-1 text-[10px] font-semibold text-muted-foreground/60 group-hover:text-foreground transition-colors">{label}</span>
+                                    <ChevronRight className="h-3 w-3 text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors shrink-0" />
+                                  </motion.button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+                    )
                   ) : (
-                    messages.map((msg, i) => (
+                    visibleMessages.map((msg, i) => (
                       <motion.div
                         key={i}
                         initial={{ opacity: 0, y: 6 }}
@@ -548,7 +640,7 @@ export function CopilotPanel() {
                 {/* Input area */}
                 <div className="border-t border-white/5 p-3 shrink-0 bg-[#0a0a0a]">
                   <AnimatePresence>
-                    {messages.length > 0 && !streaming && (
+                    {visibleMessages.length > 0 && !streaming && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
