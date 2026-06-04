@@ -372,7 +372,7 @@ function EmptyState({ onNavigate }: { onNavigate: (path: string) => void }) {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => go("/dashboard?tab=new")}
+          onClick={() => go("/dashboard?tab=new&_r=" + Date.now())}
           className="flex items-center gap-4 glass-card rounded-2xl p-4 border-primary/20 hover:border-primary/40 hover:bg-primary/5 transition-all text-left"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 border border-primary/20 shrink-0">
@@ -547,7 +547,7 @@ export function OSDashboard({ onNavigate }: OSDashboardProps) {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => go("/dashboard?tab=new")}
+          onClick={() => go("/dashboard?tab=new&_r=" + Date.now())}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 transition-all shadow-[0_4px_16px_rgba(212,175,55,0.25)] hover:shadow-[0_4px_24px_rgba(212,175,55,0.35)]"
         >
           <Plus className="h-4 w-4" />

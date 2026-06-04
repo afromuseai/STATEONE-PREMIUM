@@ -200,6 +200,7 @@ function UserMenu({ user, logout }: { user: { name: string; email: string } | nu
 export function DashboardHeader({ onMenuToggle }: DashboardHeaderProps) {
   const { user, logout } = useAuth()
   const [searchOpen, setSearchOpen] = useState(false)
+  const [, navigate] = useLocation()
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -249,12 +250,13 @@ export function DashboardHeader({ onMenuToggle }: DashboardHeaderProps) {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          <Link href="/dashboard?tab=new">
-            <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/8 hover:bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-all cursor-pointer">
-              <Sparkles className="h-3 w-3" />
-              <span>New Analysis</span>
-            </div>
-          </Link>
+          <button
+            onClick={() => navigate("/dashboard?tab=new&_r=" + Date.now())}
+            className="hidden sm:flex items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/8 hover:bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-all cursor-pointer"
+          >
+            <Sparkles className="h-3 w-3" />
+            <span>New Analysis</span>
+          </button>
           <LangMenu />
           <NotificationBell />
           <UserMenu user={user} logout={logout} />

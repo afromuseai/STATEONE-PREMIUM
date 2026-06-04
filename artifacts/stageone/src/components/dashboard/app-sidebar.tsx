@@ -272,12 +272,13 @@ function SidebarContent({
       {/* Quick action CTA */}
       {!effectiveCollapsed && (
         <div className="px-3 pb-2">
-          <Link href="/dashboard?tab=new">
-            <div className="flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/8 px-3 py-2.5 text-xs font-semibold text-primary hover:bg-primary/15 transition-all cursor-pointer">
-              <Sparkles className="h-3.5 w-3.5 shrink-0" />
-              <span>{d.actions.newAnalysis}</span>
-            </div>
-          </Link>
+            <button
+            onClick={() => navigate("/dashboard?tab=new&_r=" + Date.now())}
+            className="w-full flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/8 px-3 py-2.5 text-xs font-semibold text-primary hover:bg-primary/15 transition-all cursor-pointer"
+          >
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            <span>{d.actions.newAnalysis}</span>
+          </button>
         </div>
       )}
 
@@ -311,7 +312,7 @@ function SidebarContent({
 }
 
 export function AppSidebar({ collapsed, onToggle, mobileOpen = false, onMobileClose }: AppSidebarProps) {
-  const [location] = useLocation()
+  const [location, navigate] = useLocation()
 
   useEffect(() => {
     onMobileClose?.()

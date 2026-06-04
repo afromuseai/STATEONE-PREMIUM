@@ -206,6 +206,24 @@ export default function DashboardPage() {
     }
   }, [results, currentIdea, activeProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Reset state when any "New Analysis" button is clicked (detected via _r param)
+  useEffect(() => {
+    const params = new URLSearchParams(search.replace("?", ""))
+    if (params.get("tab") === "new" && params.get("_r")) {
+      setResults(null)
+      setPartialData({})
+      setGenerationStage(0)
+      setCurrentIdea("")
+      setError(null)
+      setStreamingText("")
+      setShowWebsite(false)
+      setActiveProjectId(null)
+      setBusinessData({})
+      clearDashboardState()
+      setLocation("/dashboard?tab=new")
+    }
+  }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     api.projects.list().then(({ projects }) => {
       setProjects(projects)
@@ -485,7 +503,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-foreground">{wp.allProjects}</h2>
         <button
-          onClick={() => setLocation("/dashboard?tab=new")}
+          onClick={() => setLocation("/dashboard?tab=new&_r=" + Date.now())}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           <Plus className="h-4 w-4" />{wp.new}
