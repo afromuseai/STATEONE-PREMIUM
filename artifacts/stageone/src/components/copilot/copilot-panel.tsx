@@ -458,7 +458,8 @@ export function CopilotPanel() {
             exit={{ opacity: 0, y: 4, scale: 0.95 }}
             transition={{ type: "spring", damping: 22, stiffness: 340 }}
             onClick={() => { setBubble(null); setOpen(true) }}
-            className="fixed bottom-24 right-6 z-50 max-w-[220px] rounded-2xl border border-primary/25 bg-[#0e0d0b] px-3.5 py-2.5 text-left shadow-[0_8px_32px_rgba(0,0,0,0.6)] hover:border-primary/45 transition-all"
+            className="fixed z-50 max-w-[220px] rounded-2xl border border-primary/25 bg-[#0e0d0b] px-3.5 py-2.5 text-left shadow-[0_8px_32px_rgba(0,0,0,0.6)] hover:border-primary/45 transition-all"
+            style={{ bottom: "96px", left: "calc(var(--sidebar-w, 0px) + 12px)" }}
           >
             <div className="flex items-start gap-2">
               <div className="mt-0.5 p-1 rounded-lg bg-primary/15 shrink-0">
@@ -473,7 +474,7 @@ export function CopilotPanel() {
               <X className="h-2.5 w-2.5 text-muted-foreground/60" />
             </button>
             {/* tail */}
-            <div className="absolute -bottom-1.5 right-8 h-3 w-3 rotate-45 rounded-sm border-r border-b border-primary/25 bg-[#0e0d0b]" />
+            <div className="absolute -bottom-1.5 left-8 h-3 w-3 rotate-45 rounded-sm border-l border-b border-primary/25 bg-[#0e0d0b]" />
           </motion.button>
         )}
       </AnimatePresence>
@@ -487,8 +488,8 @@ export function CopilotPanel() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 20 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="fixed bottom-6 right-6 z-50 flex flex-col rounded-2xl border border-white/8 bg-[#090909] shadow-[0_24px_80px_rgba(0,0,0,0.85)] overflow-hidden"
-            style={{ width: 300, maxHeight: minimized ? 52 : 480, transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1)" }}
+            className="fixed bottom-6 z-50 flex flex-col rounded-2xl border border-white/8 bg-[#090909] shadow-[0_24px_80px_rgba(0,0,0,0.85)] overflow-hidden"
+            style={{ left: "calc(var(--sidebar-w, 0px) + 12px)", width: 300, maxHeight: minimized ? 52 : 480, transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1)" }}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-[#0d0d0d] shrink-0">

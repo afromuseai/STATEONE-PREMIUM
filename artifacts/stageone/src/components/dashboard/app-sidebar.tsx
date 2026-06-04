@@ -374,6 +374,13 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen = false, onMobileCl
   const [location, navigate] = useLocation()
 
   useEffect(() => {
+    document.documentElement.style.setProperty("--sidebar-w", collapsed ? "64px" : "248px")
+    return () => {
+      document.documentElement.style.setProperty("--sidebar-w", "0px")
+    }
+  }, [collapsed])
+
+  useEffect(() => {
     onMobileClose?.()
   }, [location])
 
