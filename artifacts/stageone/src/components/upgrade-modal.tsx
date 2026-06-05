@@ -259,9 +259,14 @@ export function UpgradeModal() {
                       disabled={plan.ctaDisabled}
                       onClick={() => {
                         if (!plan.ctaDisabled) {
-                          window.location.href = plan.id === "enterprise"
-                            ? "mailto:hello@stageone.ai"
-                            : "/signup"
+                          if (plan.id === "enterprise") {
+                            window.open(
+                              "mailto:hello@stageone.ai?subject=Enterprise%20Waitlist%20Request&body=Hi%2C%20I%27d%20like%20to%20join%20the%20STAGEONE%20Enterprise%20waitlist.",
+                              "_blank"
+                            )
+                          } else {
+                            window.location.href = "/signup"
+                          }
                         }
                       }}
                       className={`w-full h-9 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
