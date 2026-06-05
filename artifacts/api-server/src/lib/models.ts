@@ -26,7 +26,6 @@ export const MODELS = {
   WEBSITE_PLANNING:      "meta/llama-4-maverick-17b-128e-instruct",
   COMPONENT_GENERATION:  "meta/llama-4-maverick-17b-128e-instruct",
   COPILOT:               "qwen/qwen3.5-122b-a10b",
-  COPILOT_FALLBACK:      "nvidia/llama-3.3-nemotron-super-49b-v1",
   CHATBOT:               "qwen/qwen3.5-397b-a17b",
   AUTOMATION:            "qwen/qwen3.5-397b-a17b",
   ENHANCE:               "qwen/qwen3.5-397b-a17b",
