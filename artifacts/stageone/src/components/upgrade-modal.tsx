@@ -112,7 +112,7 @@ export function UpgradeModal() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           onClick={(e) => { if (e.target === overlayRef.current) closeUpgradeModal() }}
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/30 backdrop-blur-[2px]"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 16 }}
