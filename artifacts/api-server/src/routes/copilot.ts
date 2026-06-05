@@ -288,8 +288,11 @@ ${workspaceBlock}${businessBlock}${memoryBlock}
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  // Cap history to last 10 exchanges to prevent prompt bloat on long conversations
+  const trimmedMessages = messages.slice(-10);
+
   const copilotPayload = {
-    messages: [{ role: "system" as const, content: systemPrompt }, ...messages],
+    messages: [{ role: "system" as const, content: systemPrompt }, ...trimmedMessages],
     temperature: 0.72,
     maxTokens: 300,
   };
@@ -297,7 +300,7 @@ ${workspaceBlock}${businessBlock}${memoryBlock}
   let streamBody: ReadableStream<Uint8Array>;
 
   try {
-    streamBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(30_000) });
+    streamBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(60_000) });
   } catch (err) {
     req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Stream failed`);
     res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
