@@ -102,93 +102,105 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
   const wsProject = ws?.currentProject;
   const wsModules = ws?.modules;
 
-  // ─── Knowledge Classification ─────────────────────────────────────────────────
-  // Every context block is tagged with its knowledge class so Marcus knows
-  // what to present as established fact vs. AI-generated suggestion vs. history.
-  //
-  // FACT        — things that exist right now in the workspace (projects, agents, modules built)
-  // MEMORY      — recorded past events saved to workspace memory
-  // ANALYSIS    — AI-generated Business Intelligence output (suggestions, not validated reality)
-  // USER_INPUT  — what the user explicitly told the system (their idea, their words)
+  // ─── WORKSPACE REALITY block ──────────────────────────────────────────────────
+  // Hard facts only: what exists in the workspace right now.
+  // Nothing from this block can be confused with AI analysis.
+  let workspaceBlock = "";
+  if (ws) {
+    const completed: string[] = [];
+    const notCompleted: string[] = [];
+    if (wsModules?.businessIntelligence) completed.push("Business Intelligence"); else notCompleted.push("Business Intelligence");
+    if (wsModules?.website) completed.push("Website"); else notCompleted.push("Website");
+    if (wsModules?.chatbot) completed.push("Chatbot"); else notCompleted.push("Chatbot");
+    if (wsModules?.automation) completed.push("Automation"); else notCompleted.push("Automation");
 
-  // ─── ANALYSIS block (Business Intelligence output) ────────────────────────────
+    const lines: string[] = [];
+    if (wsProject) {
+      lines.push(`Project: "${wsProject.title}"`);
+      lines.push(`User's idea (their exact words): "${wsProject.businessIdea.slice(0, 200)}"`);
+    } else {
+      lines.push("No project created yet.");
+    }
+    if (completed.length > 0) lines.push(`Completed: ${completed.join(", ")}`);
+    if (notCompleted.length > 0) lines.push(`Not completed: ${notCompleted.join(", ")}`);
+    if (activeAgents.length > 0) lines.push(`Active agents: ${activeAgents.map(a => a.name).join(", ")}`);
+    if (projects.length > 1) lines.push(`Total projects: ${projects.length}`);
+
+    workspaceBlock = `
+
+=== WORKSPACE REALITY ===
+These are verified facts. They exist in the workspace right now.
+You may state these confidently as things that have happened or exist.
+Do NOT mix these with hypotheses from the Business Analysis section below.
+${lines.join("\n")}
+=== END WORKSPACE REALITY ===`;
+  }
+
+  // ─── MEMORY block ─────────────────────────────────────────────────────────────
+  // Recorded past events explicitly saved to workspace memory.
+  // These are real — reference confidently.
+  let memoryBlock = "";
+  if (memories.length > 0) {
+    const high = memories.filter(m => m.importance >= 4).map(m => `- ${m.key}: ${m.value}`);
+    const normal = memories.filter(m => m.importance < 4).map(m => `- ${m.key}: ${m.value}`);
+    const all = [...high, ...normal];
+    memoryBlock = `
+
+=== WORKSPACE MEMORY ===
+These are things that were explicitly recorded. They happened or were stated.
+Reference naturally. Never list them back to the user.
+${all.join("\n")}
+=== END WORKSPACE MEMORY ===`;
+  }
+
+  // ─── BUSINESS ANALYSIS block ──────────────────────────────────────────────────
+  // AI-generated hypotheses. NOT validated. NOT real-world evidence.
+  // Must NEVER be blended with Workspace Reality above.
   let businessBlock = "";
   if (bi) {
-    const parts: string[] = [];
+    const hypotheses: string[] = [];
 
     if (bi.businessSnapshot && bi.industry) {
-      parts.push(`The user is building something in ${bi.industry}, targeting ${bi.targetMarket ?? "their target market"}. Business snapshot: ${bi.businessSnapshot}.`);
+      hypotheses.push(`- Industry: ${bi.industry}. Target: ${bi.targetMarket ?? "unspecified"}. Snapshot: ${bi.businessSnapshot}`);
     }
 
     const si = bi.strategicInsights;
-    if (si?.growthBottleneck) parts.push(`Growth constraint suggested: ${si.growthBottleneck}.`);
-    if (si?.fastestChannel) parts.push(`Fastest channel suggested: ${si.fastestChannel}.`);
-    if (si?.operationalRisk) parts.push(`Operational risk flagged: ${si.operationalRisk}.`);
-    if (si?.highestLeverageAutomation) parts.push(`Highest-leverage automation suggested: ${si.highestLeverageAutomation}.`);
+    if (si?.growthBottleneck) hypotheses.push(`- Growth constraint may be: ${si.growthBottleneck}`);
+    if (si?.fastestChannel) hypotheses.push(`- Fastest channel may be: ${si.fastestChannel}`);
+    if (si?.operationalRisk) hypotheses.push(`- Operational risk may be: ${si.operationalRisk}`);
+    if (si?.highestLeverageAutomation) hypotheses.push(`- Highest-leverage automation may be: ${si.highestLeverageAutomation}`);
 
     const ca = bi.competitiveAdvantage;
-    if (ca?.differentiation) parts.push(`Differentiation suggested: ${ca.differentiation}.`);
-    if (ca?.scalabilityEdge) parts.push(`Scalability edge suggested: ${ca.scalabilityEdge}.`);
+    if (ca?.differentiation) hypotheses.push(`- Differentiation may be: ${ca.differentiation}`);
+    if (ca?.scalabilityEdge) hypotheses.push(`- Scalability edge may be: ${ca.scalabilityEdge}`);
 
     const m = bi.metrics;
     if (m) {
-      const flags: string[] = [];
-      if ((m.automationPotential ?? 100) < 50) flags.push(`automation maturity scored low (${m.automationPotential}%)`);
-      if ((m.revenueScalability ?? 10) < 6) flags.push(`revenue scalability scored low (${m.revenueScalability}/10)`);
-      if ((m.marketDifficulty ?? 0) >= 7) flags.push(`market difficulty scored high (${m.marketDifficulty}/10)`);
-      if ((m.aiAdoptionOpportunity ?? 0) > 70) flags.push(`AI adoption opportunity scored high (${m.aiAdoptionOpportunity}%)`);
-      if (flags.length > 0) parts.push(`Scoring signals: ${flags.join("; ")}.`);
+      if ((m.automationPotential ?? 100) < 50) hypotheses.push(`- Automation maturity may be low (scored ${m.automationPotential}%)`);
+      if ((m.revenueScalability ?? 10) < 6) hypotheses.push(`- Revenue scalability may be limited (scored ${m.revenueScalability}/10)`);
+      if ((m.marketDifficulty ?? 0) >= 7) hypotheses.push(`- Market may be highly competitive (scored ${m.marketDifficulty}/10)`);
+      if ((m.aiAdoptionOpportunity ?? 0) > 70) hypotheses.push(`- AI adoption opportunity may be high (scored ${m.aiAdoptionOpportunity}%)`);
     }
 
     if (bi.growthPlan?.length) {
-      parts.push(`Suggested growth phases: ${bi.growthPlan.slice(0, 3).join(" → ")}.`);
+      hypotheses.push(`- Suggested growth path may be: ${bi.growthPlan.slice(0, 3).join(" → ")}`);
     }
 
     if (bi.recommendedStack?.crm || bi.recommendedStack?.payments) {
-      parts.push(`Suggested stack: ${[bi.recommendedStack.crm, bi.recommendedStack.payments, ...(bi.recommendedStack.automation ?? [])].filter(Boolean).join(", ")}.`);
+      hypotheses.push(`- Suggested stack may include: ${[bi.recommendedStack.crm, bi.recommendedStack.payments, ...(bi.recommendedStack.automation ?? [])].filter(Boolean).join(", ")}`);
     }
 
-    if (parts.length > 0) {
-      businessBlock = `\n[ANALYSIS — knowledge class: ANALYSIS. Source: AI-generated Business Intelligence. These are model suggestions — they have NOT been validated in the real world. When referencing this, use language like "the analysis suggests...", "may be...", "appears to...". Never state these as established facts or claim them as things that happened.]\n${parts.join(" ")}\n[end analysis]`;
+    if (hypotheses.length > 0) {
+      businessBlock = `
+
+=== BUSINESS ANALYSIS (UNVALIDATED HYPOTHESES) ===
+CRITICAL: These are AI-generated hypotheses. They have NOT been validated in the real world.
+They are NOT facts. They are NOT things that happened.
+When referencing these, ALWAYS use: "the analysis suggests...", "may be...", "could be...", "appears to..."
+Do NOT mix these with Workspace Reality above. These two sections must stay separate.
+${hypotheses.join("\n")}
+=== END BUSINESS ANALYSIS ===`;
     }
-  }
-
-  // ─── MEMORY block (recorded workspace history) ────────────────────────────────
-  let memoryBlock = "";
-  if (memories.length > 0) {
-    const high = memories.filter(m => m.importance >= 4).map(m => `${m.key}: ${m.value}`);
-    const normal = memories.filter(m => m.importance < 4).map(m => `${m.key}: ${m.value}`);
-    const all = [...high, ...normal];
-    memoryBlock = `\n[MEMORY — knowledge class: MEMORY. Source: recorded workspace history. These are things that actually happened or were explicitly saved. You may reference these confidently. Use naturally, never list them back.]\n${all.join(". ")}\n[end memory]`;
-  }
-
-  // ─── FACT block (current workspace state) ─────────────────────────────────────
-  let workspaceBlock = "";
-  if (ws) {
-    const built: string[] = [];
-    const notBuilt: string[] = [];
-    if (wsModules?.businessIntelligence) built.push("business analysis"); else notBuilt.push("business analysis");
-    if (wsModules?.website) built.push("website"); else notBuilt.push("website");
-    if (wsModules?.chatbot) built.push("chatbot"); else notBuilt.push("chatbot");
-    if (wsModules?.automation) built.push("automation workflows"); else notBuilt.push("automation workflows");
-
-    const projectLine = wsProject
-      ? `Active project: "${wsProject.title}" — idea: ${wsProject.businessIdea.slice(0, 200)}`
-      : "No project created yet.";
-
-    const progressLine = built.length > 0
-      ? `Built so far: ${built.join(", ")}. Not yet built: ${notBuilt.join(", ")}.`
-      : `Nothing built yet.`;
-
-    const agentLine = activeAgents.length > 0
-      ? `Active AI agents: ${activeAgents.map(a => a.name).join(", ")}.`
-      : "";
-
-    const projectsLine = projects.length > 1
-      ? `Total projects in workspace: ${projects.length}.`
-      : "";
-
-    workspaceBlock = `\n[FACT — knowledge class: FACT. Source: live workspace state. These are established facts about what exists right now. State these confidently.]\n${projectLine} ${progressLine} ${agentLine} ${projectsLine}\n[end fact]`;
   }
 
   // ─── System prompt ────────────────────────────────────────────────────────────
@@ -211,21 +223,30 @@ Opinions stand alone — no justification unless explicitly asked. Don't say "I'
 When asked open-ended questions like "what am I missing?", "what should I focus on?", or "what's the risk?" — do NOT list options or map the domain. Identify the single most important constraint right now and say only that. A real co-founder says "this is the one thing I'm most worried about" — not "here are several things to consider."
 
 [Epistemic grounding — non-negotiable]
-Before every response, internally identify the source and confidence of what you're about to say:
-- Source "fact" (confidence ~0.95): from the FACT block — workspace state, things that actually exist right now. State directly.
-- Source "memory" (confidence ~0.90): from the MEMORY block — recorded past events. Reference naturally and confidently.
-- Source "analysis" (confidence ~0.60): from the ANALYSIS block — AI-generated Business Intelligence. These are model suggestions, NOT validated reality. Signal with: "the analysis suggests...", "may be...", "appears to...", "I suspect...". Never state as fact.
-- Source "inference" (confidence ~0.50): your own reasoning from context. Signal with: "I suspect...", "My concern is...", "My guess is...", "It looks like...".
-- Source "hypothesis" (confidence <0.40): speculation without evidence. Signal with: "I don't know yet", "We'd need to test that", "That's only a hypothesis."
+Before every response, internally identify the source of what you're about to say:
+- WORKSPACE REALITY block → state confidently. These are facts.
+- WORKSPACE MEMORY block → reference confidently. These happened.
+- BUSINESS ANALYSIS block → always signal with "the analysis suggests...", "may be...", "could be...". Never state as fact.
+- Your own reasoning → signal with "I suspect...", "My concern is...", "My guess is...".
+- Pure speculation → signal with "I don't know yet", "We'd need to test that", "That's only a hypothesis."
 
-Evidence mode — when the user asks "Why?", "How do you know?", "What evidence do you have?", or "How confident are you?":
-Search FACT block first. Then MEMORY block. Then ANALYSIS block. If real evidence exists, state it and its source. If only analysis or inference exists, say: "I don't actually have evidence for that — that's an inference based on the business analysis." Never invent evidence.
+EVIDENCE CHECK — when the user asks "Why?", "How do you know?", "What evidence do you have?", "How confident are you?", or anything asking you to justify a claim:
 
-You do not have personal memories. You only know what is in the FACT, MEMORY, and ANALYSIS blocks, plus what the user has said in this conversation. Never claim you attended meetings, ran pilots, interviewed customers, saw experiments, or witnessed events unless those events exist in the MEMORY block.
+Step 1: Search WORKSPACE REALITY block for hard facts.
+Step 2: Search WORKSPACE MEMORY block for recorded events.
+Step 3: Search BUSINESS ANALYSIS block for AI-generated hypotheses.
+
+If Step 1 or Step 2 finds something: state it clearly and stop.
+If only Step 3 finds something: say "I don't have evidence for that — that's a hypothesis from the business analysis." Then stop. No further reasoning. No storytelling. No speculation added after.
+If nothing is found anywhere: say "I don't have evidence for that." Then stop. Do not continue the response.
+
+The hard stop is mandatory. When evidence mode triggers and no real evidence exists, the response ends after the admission. Never fill the silence with inference or narrative.
+
+You have no personal memories. You only know what is in the three blocks above and what the user has said in this conversation. Never claim you attended meetings, ran pilots, interviewed customers, saw experiments, or witnessed events.
 
 FORBIDDEN — never invent or imply the existence of:
 customers · interviews · pilots · experiments · meetings · partnerships · revenue figures · user counts · conversion rates · historical events · previous conversations
-...unless they exist in the MEMORY block.
+...unless they exist in WORKSPACE MEMORY.
 [end]
 ${workspaceBlock}${businessBlock}${memoryBlock}
 [Reference platform capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a list]`;
