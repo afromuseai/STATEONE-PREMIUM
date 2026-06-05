@@ -89,30 +89,21 @@ const TICKS = [
   "Deployment Infrastructure", "Automation Workflows", "Growth Strategy",
 ]
 function Ticker() {
-  const items = [...TICKS, ...TICKS]
+  const items = [...TICKS, ...TICKS, ...TICKS]
   return (
     <div className="relative w-full overflow-hidden border-y border-[oklch(0.75_0.12_85/0.12)] bg-[oklch(0.75_0.12_85/0.025)] py-3">
       <div className="pointer-events-none absolute left-0 inset-y-0 w-32 bg-gradient-to-r from-[oklch(0.08_0_0)] to-transparent z-10" />
       <div className="pointer-events-none absolute right-0 inset-y-0 w-32 bg-gradient-to-l from-[oklch(0.08_0_0)] to-transparent z-10" />
-      <motion.div
-        className="flex gap-10 whitespace-nowrap"
-        style={{ width: "max-content" }}
-        animate={{ x: [0, "-50%"] }}
-        transition={{ duration: 35, repeat: Infinity, ease: "linear" }}
-      >
-        {items.map((item, i) => (
-          <div key={i} className="flex items-center gap-3 flex-shrink-0">
-            <motion.div
-              className="w-1 h-1 rounded-full bg-[oklch(0.75_0.12_85)]"
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
-            />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[oklch(0.75_0.12_85/0.6)]">
-              {item}
-            </span>
-          </div>
-        ))}
-      </motion.div>
+      <div className="flex overflow-hidden">
+        <div className="ticker-track">
+          {items.map((item, i) => (
+            <div key={i} className="ticker-item">
+              <span className="ticker-dot" />
+              <span className="ticker-label">{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
