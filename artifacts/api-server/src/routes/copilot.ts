@@ -301,7 +301,7 @@ ${workspaceBlock}${businessBlock}${memoryBlock}
   let activeModel: string = MODELS.COPILOT;
 
   try {
-    streamBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(60_000) });
+    streamBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(90_000) });
   } catch (primaryErr) {
     req.log.warn({ err: primaryErr, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Primary failed — trying fallback`);
     try {
