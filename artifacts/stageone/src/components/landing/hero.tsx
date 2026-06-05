@@ -96,6 +96,7 @@ function Ticker() {
       <div className="pointer-events-none absolute right-0 inset-y-0 w-32 bg-gradient-to-l from-[oklch(0.08_0_0)] to-transparent z-10" />
       <motion.div
         className="flex gap-10 whitespace-nowrap"
+        style={{ width: "max-content" }}
         animate={{ x: [0, "-50%"] }}
         transition={{ duration: 35, repeat: Infinity, ease: "linear" }}
       >
