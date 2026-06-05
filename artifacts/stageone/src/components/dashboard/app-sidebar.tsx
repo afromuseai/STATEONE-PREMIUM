@@ -17,7 +17,6 @@ import {
   X,
   LayoutDashboard,
   Shield,
-  Activity,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useLang } from "@/lib/i18n"
@@ -63,7 +62,7 @@ function SidebarContent({
       label: d.sections.orchestrate,
       items: [
         { href: "/orchestrator", icon: Brain, label: d.nav.aiOrchestrator },
-        { href: "/intelligence", icon: Activity, label: "Analysis" },
+        { href: "/analytics", icon: BarChart3, label: "Analytics" },
       ],
     },
     {
