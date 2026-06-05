@@ -155,7 +155,7 @@ export function CommandCenterOverview({
             transition={{ delay: 0.13 }}
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => isPro ? go("/chatbot-generator") : go("/billing")}
+            onClick={() => isPro ? go("/chatbot-generator") : openUpgradeModal()}
             className={`glass-card rounded-xl p-4 flex flex-col gap-3 border transition-all text-left relative overflow-hidden ${
               isPro
                 ? "border-purple-500/20 bg-purple-500/5 hover:border-purple-500/40 hover:bg-purple-500/10"
@@ -195,7 +195,7 @@ export function CommandCenterOverview({
             transition={{ delay: 0.16 }}
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => isPro ? go("/automation-builder") : go("/billing")}
+            onClick={() => isPro ? go("/automation-builder") : openUpgradeModal()}
             className={`glass-card rounded-xl p-4 flex flex-col gap-3 border transition-all text-left relative overflow-hidden ${
               isPro
                 ? "border-green-500/20 bg-green-500/5 hover:border-green-500/40 hover:bg-green-500/10"
