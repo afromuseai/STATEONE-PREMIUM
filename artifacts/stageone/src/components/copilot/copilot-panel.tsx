@@ -203,6 +203,24 @@ interface InsightBubble {
   id: number
 }
 
+// ─── Session persistence helpers ─────────────────────────────────────────────
+function storageKey(userId: string) { return `copilot:msgs:${userId}` }
+function greetedKey(userId: string) { return `copilot:greeted:${userId}` }
+
+function loadMessages(userId: string): Message[] {
+  try {
+    const raw = sessionStorage.getItem(storageKey(userId))
+    if (!raw) return []
+    return JSON.parse(raw) as Message[]
+  } catch { return [] }
+}
+
+function saveMessages(msgs: Message[], userId: string) {
+  try {
+    sessionStorage.setItem(storageKey(userId), JSON.stringify(msgs.filter(m => !m.hidden)))
+  } catch { /* quota exceeded — ignore */ }
+}
+
 export function CopilotPanel() {
   const { user, isLoading } = useAuth()
   const { open, setOpen } = useCopilot()
@@ -217,6 +235,7 @@ export function CopilotPanel() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const greeted = useRef(false)
+  const loadedUserRef = useRef<string | null>(null)
   const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevCrossSystemRef = useRef<typeof crossSystem | null>(null)
   const prevProjectCountRef = useRef<number | null>(null)
@@ -272,6 +291,26 @@ export function CopilotPanel() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  // Load persisted messages once per user session
+  useEffect(() => {
+    if (!user?.id || loadedUserRef.current === user.id) return
+    loadedUserRef.current = user.id
+    const stored = loadMessages(user.id)
+    if (stored.length > 0) {
+      setMessages(stored)
+      greeted.current = true
+    } else if (sessionStorage.getItem(greetedKey(user.id)) === "1") {
+      greeted.current = true
+    }
+  }, [user?.id])
+
+  // Save messages to sessionStorage on every change
+  useEffect(() => {
+    if (!user?.id || messages.length === 0) return
+    saveMessages(messages, user.id)
+    sessionStorage.setItem(greetedKey(user.id), "1")
+  }, [messages, user?.id])
 
   useEffect(() => {
     if (open && !minimized) {
