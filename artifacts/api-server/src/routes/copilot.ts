@@ -215,6 +215,7 @@ ${workspaceBlock}${businessBlock}${memoryBlock}
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       temperature: 0.72,
       maxTokens: 450,
+      signal: AbortSignal.timeout(30_000),
     });
   } catch (err) {
     req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Copilot stream failed`);
@@ -224,7 +225,11 @@ ${workspaceBlock}${businessBlock}${memoryBlock}
   }
 
   try {
-    await forwardStream(streamBody, res, MODELS.COPILOT);
+    const result = await forwardStream(streamBody, res, MODELS.COPILOT);
+    if (!result) {
+      // Model returned an empty stream — send a recoverable fallback
+      res.write(`data: ${JSON.stringify({ content: "Something went wrong on my end. Try asking again." })}\n\n`);
+    }
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {
     req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Copilot stream error`);

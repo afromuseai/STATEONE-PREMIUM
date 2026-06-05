@@ -18,6 +18,7 @@ export interface NvidiaCallOptions {
   temperature?: number;
   maxTokens?: number;
   chatTemplateKwargs?: Record<string, unknown>;
+  signal?: AbortSignal;
 }
 
 function getApiKey(): string {
@@ -105,7 +106,7 @@ export async function streamNvidia(
   options: NvidiaCallOptions
 ): Promise<ReadableStream<Uint8Array>> {
   const apiKey = getApiKey();
-  const { model } = options;
+  const { model, signal } = options;
 
   logger.info(
     { layer: "nvidia", model, stage: "stream_start", messageCount: options.messages.length },
@@ -116,6 +117,7 @@ export async function streamNvidia(
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify(buildBody(options, true)),
+    signal,
   });
 
   if (!response.ok) {
