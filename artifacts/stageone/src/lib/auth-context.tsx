@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { api, type UserInfo } from "./api";
+import { clearWorkspaceSessionData } from "./generation-context";
 
 interface AuthContextType {
   user: UserInfo | null;
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const prevUserIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -29,8 +31,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh().finally(() => setIsLoading(false));
   }, [refresh]);
 
+  // Detect user identity changes (including switching accounts in the same tab)
+  // and wipe workspace session data so no context bleeds across accounts.
+  useEffect(() => {
+    const currentId = user?.id ?? null;
+    if (prevUserIdRef.current !== null && prevUserIdRef.current !== currentId) {
+      clearWorkspaceSessionData();
+    }
+    prevUserIdRef.current = currentId;
+  }, [user?.id]);
+
   const login = async (email: string, password: string) => {
     try {
+      // Clear before setting new user so the incoming user sees a clean slate
+      clearWorkspaceSessionData();
       const { user } = await api.auth.login(email, password);
       setUser(user);
       return { success: true };
@@ -41,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (email: string, password: string, name: string) => {
     try {
+      clearWorkspaceSessionData();
       const { user } = await api.auth.signup(email, password, name);
       setUser(user);
       return { success: true };
@@ -51,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try { await api.auth.logout(); } catch { /* ignore */ }
+    clearWorkspaceSessionData();
     setUser(null);
   };
 

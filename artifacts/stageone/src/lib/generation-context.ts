@@ -90,6 +90,23 @@ export function clearDashboardState(): void {
   } catch { /* ignore */ }
 }
 
+// ─── Workspace session isolation ──────────────────────────────────────────────
+// Call this on every login, signup, and logout to prevent one user's
+// sessionStorage data from leaking into a different user's session.
+// Wipes every key that belongs to STAGEONE — copilot messages are already
+// user-scoped (copilot:msgs:<userId>) so they survive this sweep safely.
+export function clearWorkspaceSessionData(): void {
+  try {
+    const STAGEONE_KEYS = [KEY, DASHBOARD_KEY, AUTORUN_KEY]
+    for (const k of STAGEONE_KEYS) sessionStorage.removeItem(k)
+    // Also sweep any dynamically created keys with the stageone_ prefix
+    const allKeys = Object.keys(sessionStorage)
+    for (const k of allKeys) {
+      if (k.startsWith("stageone_")) sessionStorage.removeItem(k)
+    }
+  } catch { /* ignore */ }
+}
+
 // ─── Copilot Autorun ──────────────────────────────────────────────────────────
 // Written by the Copilot before navigating. Target pages read this on mount
 // and auto-execute the requested action without user interaction.
