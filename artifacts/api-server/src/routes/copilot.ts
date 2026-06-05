@@ -294,46 +294,25 @@ ${workspaceBlock}${businessBlock}${memoryBlock}
     maxTokens: 300,
   };
 
-  const tryStreamModel = (model: string) =>
-    streamNvidia({ ...copilotPayload, model, signal: AbortSignal.timeout(30_000) });
-
-  // ── Primary: Qwen — Fallback: Nemotron Ultra ──────────────────────────────────
   let streamBody: ReadableStream<Uint8Array>;
-  let activeModel: string = MODELS.COPILOT;
 
   try {
-    streamBody = await tryStreamModel(MODELS.COPILOT);
-  } catch (primaryErr) {
-    req.log.warn({ err: primaryErr, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Primary failed — trying fallback`);
-    try {
-      activeModel = MODELS.COPILOT_FALLBACK;
-      streamBody = await tryStreamModel(MODELS.COPILOT_FALLBACK);
-    } catch (fallbackErr) {
-      req.log.error({ err: fallbackErr, model: MODELS.COPILOT_FALLBACK }, `[AI:${MODELS.COPILOT_FALLBACK}] Fallback also failed`);
-      res.write(`data: ${JSON.stringify({ error: String(fallbackErr) })}\n\n`);
-      res.end();
-      return;
-    }
+    streamBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(30_000) });
+  } catch (err) {
+    req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Stream failed`);
+    res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
+    res.end();
+    return;
   }
 
   try {
-    const result = await forwardStream(streamBody, res, activeModel);
-    if (!result && activeModel === MODELS.COPILOT) {
-      // Primary returned empty — try fallback
-      req.log.warn({ model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Empty stream — trying fallback`);
-      try {
-        const fallbackBody = await tryStreamModel(MODELS.COPILOT_FALLBACK);
-        await forwardStream(fallbackBody, res, MODELS.COPILOT_FALLBACK);
-      } catch (fallbackErr) {
-        req.log.error({ err: fallbackErr }, "Fallback stream also failed");
-        res.write(`data: ${JSON.stringify({ content: "Something went wrong on my end. Try asking again." })}\n\n`);
-      }
-    } else if (!result) {
+    const result = await forwardStream(streamBody, res, MODELS.COPILOT);
+    if (!result) {
       res.write(`data: ${JSON.stringify({ content: "Something went wrong on my end. Try asking again." })}\n\n`);
     }
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {
-    req.log.error({ err, model: activeModel }, `[AI:${activeModel}] Copilot stream error`);
+    req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Copilot stream error`);
     res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
   }
 
