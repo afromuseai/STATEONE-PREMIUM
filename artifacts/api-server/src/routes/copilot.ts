@@ -291,7 +291,7 @@ ${workspaceBlock}${businessBlock}${memoryBlock}
   const copilotPayload = {
     messages: [{ role: "system" as const, content: systemPrompt }, ...messages],
     temperature: 0.72,
-    maxTokens: 450,
+    maxTokens: 300,
   };
 
   const tryStreamModel = (model: string) =>
