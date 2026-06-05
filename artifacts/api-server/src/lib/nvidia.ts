@@ -2,6 +2,7 @@
 // All AI calls flow through this module for unified logging, error handling,
 // and observability. NO silent fallbacks — failures throw explicit errors.
 
+import { jsonrepair } from "jsonrepair";
 import { logger } from "./logger";
 import { MODEL_KWARGS, type ModelId } from "./models";
 
@@ -226,5 +227,11 @@ export function extractJson(raw: string): unknown {
   } else if (objStart !== -1 && objEnd !== -1) {
     clean = clean.slice(objStart, objEnd + 1);
   }
-  return JSON.parse(clean);
+  // Try strict parse first; fall back to jsonrepair for model output quirks
+  // (missing commas, trailing commas, unquoted keys, etc.)
+  try {
+    return JSON.parse(clean);
+  } catch {
+    return JSON.parse(jsonrepair(clean));
+  }
 }
