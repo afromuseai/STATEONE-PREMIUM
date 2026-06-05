@@ -9,6 +9,7 @@ import {
 import type { Project } from "@/lib/api"
 import type { BusinessIntelligence } from "./output-panel"
 import { useLang, useFormatters } from "@/lib/i18n"
+import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 
 interface CommandCenterOverviewProps {
   user: { name: string; email: string } | null
@@ -40,6 +41,7 @@ export function CommandCenterOverview({
   const { t } = useLang()
   const { formatNumber } = useFormatters()
   const wo = t.workspace.overview
+  const { openUpgradeModal } = useUpgradeModal()
 
   const go = (path: string) => { onNavigate(path); navigate(path) }
 
@@ -243,7 +245,7 @@ export function CommandCenterOverview({
               </p>
             </div>
             <button
-              onClick={() => go("/billing")}
+              onClick={openUpgradeModal}
               className="ml-4 shrink-0 text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1"
             >
               {wo.upgrade} <ChevronRight className="h-3 w-3" />
