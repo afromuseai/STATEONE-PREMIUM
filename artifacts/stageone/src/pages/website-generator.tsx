@@ -7,7 +7,7 @@ import {
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun } from "@/lib/generation-context"
 import JSZip from "jszip"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -117,8 +117,18 @@ export default function WebsiteGeneratorPage() {
       .catch(() => {})
   }, [])
 
-  // Auto-fill from business intelligence context
+  // Auto-fill from business intelligence context or Copilot autorun
   useEffect(() => {
+    // Copilot autorun takes priority — it carries the idea directly
+    const autorun = consumeCopilotAutorun()
+    if (autorun?.action === "generate_website" && autorun.idea) {
+      setIdea(autorun.idea)
+      setContextBanner(true)
+      setTimeout(() => generateWithIdea(autorun.idea!), 150)
+      return
+    }
+
+    // Fallback: auto-fill from saved business intelligence context
     const ctx = loadGenerationContext()
     if (!ctx) return
     clearGenerationContext()
@@ -126,7 +136,6 @@ export default function WebsiteGeneratorPage() {
     if (ideaText) {
       setIdea(ideaText)
       setContextBanner(true)
-      // Map industry to style
       const industryStyleMap: Record<string, StyleOption> = {
         "SaaS": "SaaS",
         "Cybersecurity": "SaaS",

@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useBusinessContext } from "@/lib/business-context"
 import { api, type Project } from "@/lib/api"
 import { recordRevenueSignal } from "@/lib/intelligence-state"
-import { saveGenerationContext, saveDashboardState, loadDashboardState, clearDashboardState } from "@/lib/generation-context"
+import { saveGenerationContext, saveDashboardState, loadDashboardState, clearDashboardState, consumeCopilotAutorun } from "@/lib/generation-context"
 import { useLang, useFormatters } from "@/lib/i18n"
 import {
   FolderOpen,
@@ -196,6 +196,16 @@ export default function DashboardPage() {
       setGenerationStage(saved.generationStage)
       setActiveProjectId(saved.activeProjectId)
       setBusinessData(saved.results as unknown as Record<string, unknown>)
+    }
+
+    // Copilot autorun: if Copilot navigated here to run business intelligence,
+    // auto-trigger handleGenerate without any user interaction.
+    const autorun = consumeCopilotAutorun()
+    if (autorun?.action === "generate_intelligence" && autorun.idea) {
+      // Switch to the "new" tab so the generation flow renders correctly,
+      // then fire after a short tick to ensure state is settled.
+      setLocation("/dashboard?tab=new")
+      setTimeout(() => handleGenerate(autorun.idea!), 200)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

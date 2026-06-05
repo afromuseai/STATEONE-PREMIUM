@@ -90,6 +90,38 @@ export function clearDashboardState(): void {
   } catch { /* ignore */ }
 }
 
+// ─── Copilot Autorun ──────────────────────────────────────────────────────────
+// Written by the Copilot before navigating. Target pages read this on mount
+// and auto-execute the requested action without user interaction.
+
+export interface CopilotAutorun {
+  action: string        // matches ACTION_ROUTES key e.g. "generate_intelligence"
+  idea?: string         // business idea text if available
+  timestamp: number
+}
+
+const AUTORUN_KEY = "copilot_autorun"
+
+export function setCopilotAutorun(run: CopilotAutorun): void {
+  try {
+    sessionStorage.setItem(AUTORUN_KEY, JSON.stringify(run))
+  } catch { /* ignore */ }
+}
+
+export function consumeCopilotAutorun(): CopilotAutorun | null {
+  try {
+    const raw = sessionStorage.getItem(AUTORUN_KEY)
+    if (!raw) return null
+    sessionStorage.removeItem(AUTORUN_KEY)
+    const run = JSON.parse(raw) as CopilotAutorun
+    // Expire after 30 seconds to avoid stale triggers on back-navigation
+    if (Date.now() - run.timestamp > 30_000) return null
+    return run
+  } catch {
+    return null
+  }
+}
+
 // ─── Derivation helpers ───────────────────────────────────────────────────────
 
 export function deriveChatbotType(chatbotRole: string): string {

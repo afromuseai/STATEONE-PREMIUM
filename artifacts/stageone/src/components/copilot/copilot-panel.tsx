@@ -8,11 +8,12 @@ import {
   Globe, Workflow, Brain, Rocket, BarChart3, TrendingUp,
   Zap, Target, ChevronRight, MessageSquare, Activity,
   CheckCircle2, Clock, Layers, FolderOpen, MapPin, ChevronDown,
-  ArrowRight, XCircle,
+  ArrowRight, XCircle, Loader2,
 } from "lucide-react"
 import { useBusinessContext } from "@/lib/business-context"
 import { useAuth } from "@/lib/auth-context"
 import { api, type Project } from "@/lib/api"
+import { setCopilotAutorun } from "@/lib/generation-context"
 
 interface Message {
   role: "user" | "assistant"
@@ -268,6 +269,9 @@ export function CopilotPanel() {
   const [showMemory, setShowMemory] = useState(false)
   const [bubble, setBubble] = useState<InsightBubble | null>(null)
   const [pendingAction, setPendingAction] = useState<DetectedAction | null>(null)
+  const [autorunCountdown, setAutorunCountdown] = useState<number | null>(null)
+  const autorunTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autorunIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -493,14 +497,57 @@ export function CopilotPanel() {
     greeted.current = false
   }
 
-  const executeAction = (action: DetectedAction) => {
-    const route = ACTION_ROUTES[action.id]
+  const cancelAutorun = useCallback(() => {
+    if (autorunTimerRef.current) clearTimeout(autorunTimerRef.current)
+    if (autorunIntervalRef.current) clearInterval(autorunIntervalRef.current)
+    autorunTimerRef.current = null
+    autorunIntervalRef.current = null
+    setAutorunCountdown(null)
     setPendingAction(null)
-    if (route) {
-      navigate(route)
-      setOpen(false)
+  }, [])
+
+  const executeAction = useCallback((action: DetectedAction) => {
+    const route = ACTION_ROUTES[action.id]
+    if (!route) return
+    setPendingAction(null)
+    setAutorunCountdown(null)
+    // Write autorun intent so target page picks it up and executes immediately
+    const idea = crossSystem.lastBusinessIdea ?? undefined
+    setCopilotAutorun({ action: action.id, idea, timestamp: Date.now() })
+    navigate(route)
+    setOpen(false)
+  }, [crossSystem.lastBusinessIdea, navigate, setOpen])
+
+  // When an action is detected after streaming, start a 2-second countdown
+  // then auto-execute — user can cancel any time during the countdown
+  useEffect(() => {
+    if (!pendingAction || streaming) return
+    // Clear any existing timers
+    if (autorunTimerRef.current) clearTimeout(autorunTimerRef.current)
+    if (autorunIntervalRef.current) clearInterval(autorunIntervalRef.current)
+
+    setAutorunCountdown(2)
+    autorunIntervalRef.current = setInterval(() => {
+      setAutorunCountdown(prev => {
+        if (prev === null || prev <= 1) return null
+        return prev - 1
+      })
+    }, 1000)
+    autorunTimerRef.current = setTimeout(() => {
+      if (autorunIntervalRef.current) clearInterval(autorunIntervalRef.current)
+      autorunIntervalRef.current = null
+      setAutorunCountdown(null)
+      setPendingAction(prev => {
+        if (prev) executeAction(prev)
+        return null
+      })
+    }, 2000)
+
+    return () => {
+      if (autorunTimerRef.current) clearTimeout(autorunTimerRef.current)
+      if (autorunIntervalRef.current) clearInterval(autorunIntervalRef.current)
     }
-  }
+  }, [pendingAction, streaming]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Insight bubble ───────────────────────────────────────────────────────────
   const showBubble = (text: string) => {
@@ -811,7 +858,7 @@ export function CopilotPanel() {
                           </div>
                         </motion.div>
                       ))}
-                      {/* Pending action card */}
+                      {/* Pending action card — auto-executes after countdown */}
                       <AnimatePresence>
                         {pendingAction && !streaming && (
                           <motion.div
@@ -821,20 +868,30 @@ export function CopilotPanel() {
                             transition={{ duration: 0.25 }}
                             className="flex justify-start pl-8"
                           >
-                            <div className="max-w-[88%] rounded-2xl border border-primary/25 bg-primary/8 px-3.5 py-3 space-y-2.5">
+                            <div className="max-w-[88%] rounded-2xl border border-primary/30 bg-primary/10 px-3.5 py-3 space-y-2">
                               <p className="text-[10px] font-semibold text-primary/90">{pendingAction.detail}</p>
                               <div className="flex items-center gap-2">
-                                <motion.button
-                                  whileHover={{ scale: 1.02 }}
-                                  whileTap={{ scale: 0.97 }}
-                                  onClick={() => executeAction(pendingAction)}
-                                  className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-black hover:bg-primary/90 transition-colors"
-                                >
-                                  <ArrowRight className="h-3 w-3" />
-                                  {pendingAction.label}
-                                </motion.button>
+                                {autorunCountdown !== null ? (
+                                  <div className="flex items-center gap-1.5 rounded-lg bg-primary/20 border border-primary/30 px-2.5 py-1.5">
+                                    <Loader2 className="h-3 w-3 text-primary animate-spin" />
+                                    <span className="text-[10px] font-bold text-primary">
+                                      Executing in {autorunCountdown}s…
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.97 }}
+                                    onClick={() => executeAction(pendingAction)}
+                                    className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-black hover:bg-primary/90 transition-colors"
+                                  >
+                                    <ArrowRight className="h-3 w-3" />
+                                    {pendingAction.label}
+                                  </motion.button>
+                                )}
                                 <button
-                                  onClick={() => setPendingAction(null)}
+                                  onClick={cancelAutorun}
+                                  title="Cancel"
                                   className="p-1 rounded-lg text-muted-foreground/40 hover:text-muted-foreground/80 transition-colors"
                                 >
                                   <XCircle className="h-3.5 w-3.5" />
