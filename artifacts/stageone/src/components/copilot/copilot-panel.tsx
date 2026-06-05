@@ -8,6 +8,7 @@ import {
   Globe, Workflow, Brain, Rocket, BarChart3, TrendingUp,
   Zap, Target, ChevronRight, MessageSquare, Activity,
   CheckCircle2, Clock, Layers, FolderOpen, MapPin, ChevronDown,
+  ArrowRight, XCircle,
 } from "lucide-react"
 import { useBusinessContext } from "@/lib/business-context"
 import { useAuth } from "@/lib/auth-context"
@@ -17,6 +18,27 @@ interface Message {
   role: "user" | "assistant"
   content: string
   hidden?: boolean
+}
+
+interface DetectedAction {
+  id: string
+  label: string
+  detail: string
+}
+
+const ACTION_TAG_RE = /\{\{ACTION:([^|]+)\|([^|]+)\|([^}]+)\}\}/
+
+const ACTION_ROUTES: Record<string, string> = {
+  generate_website: "/website-generator",
+  generate_intelligence: "/dashboard",
+  open_agents: "/agents",
+  open_automation: "/automation-builder",
+  open_chatbot: "/chatbot-generator",
+  open_deployments: "/deployments",
+  open_orchestrator: "/orchestrator",
+  create_project: "/dashboard",
+  open_memory: "/memory",
+  open_templates: "/templates",
 }
 
 interface WorkspaceContext {
@@ -162,7 +184,8 @@ function ThinkingIndicator() {
 async function streamCopilot(
   payload: { messages: Message[]; businessContext: unknown; workspaceContext: WorkspaceContext },
   signal: AbortSignal,
-  onChunk: (buffer: string) => void
+  onChunk: (buffer: string) => void,
+  onAction?: (action: DetectedAction) => void
 ) {
   const res = await fetch("/api/copilot", {
     method: "POST",
@@ -191,10 +214,23 @@ async function streamCopilot(
         const msg = JSON.parse(line.slice(6))
         if (msg.content) {
           buffer += msg.content
-          onChunk(buffer)
+          // Stream clean content — suppress partial action tags at the tail
+          const partialTag = buffer.match(/\{\{ACTION:[^}]*$/)
+          const displayBuffer = partialTag
+            ? buffer.slice(0, buffer.length - partialTag[0].length)
+            : buffer
+          onChunk(displayBuffer.replace(ACTION_TAG_RE, "").trimEnd())
         }
       } catch { /* fragment */ }
     }
+  }
+
+  // Post-stream: extract action tag from final buffer, emit clean content + action
+  const actionMatch = buffer.match(ACTION_TAG_RE)
+  if (actionMatch) {
+    const cleanBuffer = buffer.replace(ACTION_TAG_RE, "").trimEnd()
+    onChunk(cleanBuffer)
+    onAction?.({ id: actionMatch[1].trim(), label: actionMatch[2].trim(), detail: actionMatch[3].trim() })
   }
 }
 
@@ -231,6 +267,7 @@ export function CopilotPanel() {
   const [showCommands, setShowCommands] = useState(false)
   const [showMemory, setShowMemory] = useState(false)
   const [bubble, setBubble] = useState<InsightBubble | null>(null)
+  const [pendingAction, setPendingAction] = useState<DetectedAction | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -239,7 +276,7 @@ export function CopilotPanel() {
   const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevCrossSystemRef = useRef<typeof crossSystem | null>(null)
   const prevProjectCountRef = useRef<number | null>(null)
-  const [location] = useLocation()
+  const [location, navigate] = useLocation()
   const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
 
@@ -400,6 +437,7 @@ export function CopilotPanel() {
 
     setInput("")
     setShowCommands(false)
+    setPendingAction(null)
     const userMsg: Message = { role: "user", content }
     const newMessages = [...messages, userMsg]
     setMessages(newMessages)
@@ -424,6 +462,9 @@ export function CopilotPanel() {
             updated[updated.length - 1] = { role: "assistant", content: buffer }
             return updated
           })
+        },
+        (action) => {
+          setPendingAction(action)
         }
       )
     } catch (e: unknown) {
@@ -448,7 +489,17 @@ export function CopilotPanel() {
     setMessages([])
     setStreaming(false)
     setShowCommands(false)
+    setPendingAction(null)
     greeted.current = false
+  }
+
+  const executeAction = (action: DetectedAction) => {
+    const route = ACTION_ROUTES[action.id]
+    setPendingAction(null)
+    if (route) {
+      navigate(route)
+      setOpen(false)
+    }
   }
 
   // ─── Insight bubble ───────────────────────────────────────────────────────────
@@ -731,34 +782,69 @@ export function CopilotPanel() {
                       </div>
                     )
                   ) : (
-                    visibleMessages.map((msg, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.25 }}
-                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                      >
-                        {msg.role === "assistant" && (
-                          <div className="p-1.5 rounded-xl bg-primary/10 border border-primary/15 h-6 w-6 flex items-center justify-center shrink-0 mt-0.5 mr-2">
-                            <Bot className="h-3 w-3 text-primary" />
-                          </div>
-                        )}
-                        <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 ${
-                          msg.role === "user"
-                            ? "bg-primary/15 border border-primary/20 text-foreground text-[11px] leading-relaxed"
-                            : "bg-white/3 border border-white/6"
-                        }`}>
-                          {msg.role === "user" ? (
-                            msg.content
-                          ) : msg.content ? (
-                            renderMessage(msg.content)
-                          ) : (
-                            <ThinkingIndicator />
+                    <>
+                      {visibleMessages.map((msg, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.25 }}
+                          className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                        >
+                          {msg.role === "assistant" && (
+                            <div className="p-1.5 rounded-xl bg-primary/10 border border-primary/15 h-6 w-6 flex items-center justify-center shrink-0 mt-0.5 mr-2">
+                              <Bot className="h-3 w-3 text-primary" />
+                            </div>
                           )}
-                        </div>
-                      </motion.div>
-                    ))
+                          <div className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 ${
+                            msg.role === "user"
+                              ? "bg-primary/15 border border-primary/20 text-foreground text-[11px] leading-relaxed"
+                              : "bg-white/3 border border-white/6"
+                          }`}>
+                            {msg.role === "user" ? (
+                              msg.content
+                            ) : msg.content ? (
+                              renderMessage(msg.content)
+                            ) : (
+                              <ThinkingIndicator />
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                      {/* Pending action card */}
+                      <AnimatePresence>
+                        {pendingAction && !streaming && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 4 }}
+                            transition={{ duration: 0.25 }}
+                            className="flex justify-start pl-8"
+                          >
+                            <div className="max-w-[88%] rounded-2xl border border-primary/25 bg-primary/8 px-3.5 py-3 space-y-2.5">
+                              <p className="text-[10px] font-semibold text-primary/90">{pendingAction.detail}</p>
+                              <div className="flex items-center gap-2">
+                                <motion.button
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.97 }}
+                                  onClick={() => executeAction(pendingAction)}
+                                  className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-black hover:bg-primary/90 transition-colors"
+                                >
+                                  <ArrowRight className="h-3 w-3" />
+                                  {pendingAction.label}
+                                </motion.button>
+                                <button
+                                  onClick={() => setPendingAction(null)}
+                                  className="p-1 rounded-lg text-muted-foreground/40 hover:text-muted-foreground/80 transition-colors"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </>
                   )}
                   <div ref={messagesEndRef} />
                 </div>
