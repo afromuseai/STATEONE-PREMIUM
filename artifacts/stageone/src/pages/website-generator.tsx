@@ -6,6 +6,7 @@ import {
   Layers, Loader2, X, ChevronRight, Zap, Lock, Crown,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
 import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun } from "@/lib/generation-context"
 import JSZip from "jszip"
@@ -106,6 +107,7 @@ export default function WebsiteGeneratorPage() {
   const [copied, setCopied] = useState(false)
   const [contextBanner, setContextBanner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+  const { openUpgradeModal } = useUpgradeModal()
   const exportRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -414,10 +416,10 @@ export default function WebsiteGeneratorPage() {
                 </div>
               ))}
             </div>
-            <a href="/pricing" className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
+            <button onClick={openUpgradeModal} className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
               <Crown className="h-3.5 w-3.5" />
               Upgrade to Pro
-            </a>
+            </button>
           </motion.div>
         </div>
       )}

@@ -8,6 +8,7 @@ import {
   Activity, Target, Clock, TrendingUp, Lock, Crown,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import {
   loadGenerationContext, clearGenerationContext,
@@ -312,6 +313,7 @@ export default function AutomationBuilderPage() {
   const [copied, setCopied] = useState("")
   const [contextBanner, setContextBanner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+  const { openUpgradeModal } = useUpgradeModal()
   const abortRef = useRef<AbortController | null>(null)
   // Holds the auto-generation payload until businessDesc state has propagated
   const autoGenPending = useRef<{ wt: string; cplx: string } | null>(null)
@@ -483,10 +485,10 @@ export default function AutomationBuilderPage() {
                 </div>
               ))}
             </div>
-            <a href="/pricing" className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
+            <button onClick={openUpgradeModal} className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
               <Crown className="h-3.5 w-3.5" />
               Upgrade to Pro
-            </a>
+            </button>
           </motion.div>
         </div>
       )}

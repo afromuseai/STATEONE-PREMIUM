@@ -7,6 +7,7 @@ import {
   Lock, Crown,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import {
   loadGenerationContext, clearGenerationContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
@@ -114,6 +115,7 @@ export default function ChatbotGeneratorPage() {
   const [chatInput, setChatInput] = useState("")
   const [contextBanner, setContextBanner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+  const { openUpgradeModal } = useUpgradeModal()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const chatHistoryRef = useRef<ChatMessage[]>([])
@@ -395,10 +397,10 @@ export default function ChatbotGeneratorPage() {
                 </div>
               ))}
             </div>
-            <a href="/pricing" className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
+            <button onClick={openUpgradeModal} className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
               <Crown className="h-3.5 w-3.5" />
               Upgrade to Pro
-            </a>
+            </button>
           </motion.div>
         </div>
       )}

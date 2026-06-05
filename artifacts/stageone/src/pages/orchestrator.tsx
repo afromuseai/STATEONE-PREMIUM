@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import { useAuth } from "@/lib/auth-context"
 import { useLocation } from "wouter"
+import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { useLang } from "@/lib/i18n"
 
 interface Agent {
@@ -265,6 +266,7 @@ export default function OrchestratorPage() {
   const { user } = useAuth()
   const { lang } = useLang()
   const [, navigate] = useLocation()
+  const { openUpgradeModal } = useUpgradeModal()
 
   useEffect(() => {
     if (!user) return
@@ -356,7 +358,7 @@ export default function OrchestratorPage() {
             </p>
             <div className="flex flex-col gap-3 items-center">
               <button
-                onClick={() => navigate("/pricing")}
+                onClick={openUpgradeModal}
                 className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-7 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow"
               >
                 <Rocket className="h-4 w-4" /> Upgrade Plan

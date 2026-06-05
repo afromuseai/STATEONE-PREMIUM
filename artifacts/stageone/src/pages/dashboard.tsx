@@ -9,6 +9,7 @@ import { WebsitePanel } from "@/components/dashboard/website-panel"
 import { CommandCenterOverview } from "@/components/dashboard/command-center-overview"
 import { useAuth } from "@/lib/auth-context"
 import { useBusinessContext } from "@/lib/business-context"
+import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { api, type Project } from "@/lib/api"
 import { recordRevenueSignal } from "@/lib/intelligence-state"
 import { saveGenerationContext, saveDashboardState, loadDashboardState, clearDashboardState, consumeCopilotAutorun } from "@/lib/generation-context"
@@ -145,6 +146,7 @@ export default function DashboardPage() {
   const wm = t.workspace.modals
   const { user } = useAuth()
   const { setBusinessData } = useBusinessContext()
+  const { openUpgradeModal } = useUpgradeModal()
   const [location] = useLocation()
   const search = useSearch()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -815,7 +817,7 @@ export default function DashboardPage() {
                   {wm.maybeLater}
                 </button>
                 <button
-                  onClick={() => { setLockedFeature(null); setLocation("/pricing") }}
+                  onClick={() => { setLockedFeature(null); openUpgradeModal() }}
                   className="flex-1 h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow flex items-center justify-center gap-2"
                 >
                   <Crown className="h-3.5 w-3.5" />
@@ -871,7 +873,7 @@ export default function DashboardPage() {
                   {wm.maybeLater}
                 </button>
                 <button
-                  onClick={() => { setShowUpgradeModal(false); setLocation("/pricing") }}
+                  onClick={() => { setShowUpgradeModal(false); openUpgradeModal() }}
                   className="flex-1 h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow flex items-center justify-center gap-2"
                 >
                   <Crown className="h-3.5 w-3.5" />
@@ -914,7 +916,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => setLocation("/pricing")}
+                  onClick={openUpgradeModal}
                   className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-400 hover:text-amber-300 transition-colors border border-amber-500/30 rounded-full px-3 py-1 bg-amber-500/6 hover:bg-amber-500/12 shrink-0"
                 >
                   <Crown className="h-2.5 w-2.5" />
