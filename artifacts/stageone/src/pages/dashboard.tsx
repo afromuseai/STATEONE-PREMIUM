@@ -187,6 +187,7 @@ export default function DashboardPage() {
   const [subscription, setSubscription] = useState<{ aiGenerationsUsed: number; aiGenerationsLimit: number; plan: string } | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [lockedFeature, setLockedFeature] = useState<{ name: string; icon: React.ReactNode; description: string } | null>(null)
+  const [autorunIdea, setAutorunIdea] = useState<string | null>(null)
 
   // Restore persisted generation state on mount so navigating away and back
   // doesn't wipe out the user's current workspace context.
@@ -200,14 +201,13 @@ export default function DashboardPage() {
       setBusinessData(saved.results as unknown as Record<string, unknown>)
     }
 
-    // Copilot autorun: if Copilot navigated here to run business intelligence,
-    // auto-trigger handleGenerate without any user interaction.
+    // Copilot autorun: navigate to "new" tab and pass idea to InputPanel
+    // so the user sees it typed live before generation fires.
     const autorun = consumeCopilotAutorun()
     if (autorun?.action === "generate_intelligence" && autorun.idea) {
-      // Switch to the "new" tab so the generation flow renders correctly,
-      // then fire after a short tick to ensure state is settled.
       setLocation("/dashboard?tab=new")
-      setTimeout(() => handleGenerate(autorun.idea!), 200)
+      // Small tick to ensure the tab renders before typewriter starts
+      setTimeout(() => setAutorunIdea(autorun.idea!), 150)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -623,7 +623,12 @@ export default function DashboardPage() {
   const renderNew = () => (
     <div className="flex flex-1 flex-col lg:flex-row min-h-0">
       <aside className="w-full border-b border-border/50 bg-secondary/20 p-6 lg:w-[400px] lg:border-b-0 lg:border-r xl:w-[450px] shrink-0">
-        <InputPanel onGenerate={handleGenerate} isLoading={isLoading} />
+        <InputPanel
+          onGenerate={handleGenerate}
+          isLoading={isLoading}
+          copilotAutorun={autorunIdea}
+          onAutorunConsumed={() => setAutorunIdea(null)}
+        />
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -5 }}

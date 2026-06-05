@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Sparkles, Loader2, Zap, ShoppingBag, HeartPulse, GraduationCap,
@@ -9,6 +9,8 @@ import { useLang } from "@/lib/i18n"
 interface InputPanelProps {
   onGenerate: (idea: string) => void
   isLoading: boolean
+  copilotAutorun?: string | null
+  onAutorunConsumed?: () => void
 }
 
 const INDUSTRY_TEMPLATE_IDEAS = [
@@ -28,7 +30,7 @@ const TEMPLATE_COLORS = [
   "text-yellow-400", "text-purple-400", "text-cyan-400", "text-pink-400",
 ]
 
-export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
+export function InputPanel({ onGenerate, isLoading, copilotAutorun, onAutorunConsumed }: InputPanelProps) {
   const { t, lang } = useLang()
   const wi = t.workspace.input
   const [idea, setIdea] = useState("")
@@ -36,7 +38,43 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
   const [showTemplates, setShowTemplates] = useState(false)
   const [enhancing, setEnhancing] = useState(false)
   const [enhancedFrom, setEnhancedFrom] = useState<string | null>(null)
+  const [isTyping, setIsTyping] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Typewriter autorun: type the idea live, then auto-submit
+  useEffect(() => {
+    if (!copilotAutorun || isLoading) return
+    onAutorunConsumed?.()
+
+    const text = copilotAutorun
+    setIdea("")
+    setIsTyping(true)
+    setEnhancedFrom(null)
+    textareaRef.current?.focus()
+
+    let i = 0
+    if (typewriterRef.current) clearInterval(typewriterRef.current)
+    typewriterRef.current = setInterval(() => {
+      i++
+      setIdea(text.slice(0, i))
+      // Scroll textarea to bottom as text grows
+      if (textareaRef.current) {
+        textareaRef.current.scrollTop = textareaRef.current.scrollHeight
+      }
+      if (i >= text.length) {
+        clearInterval(typewriterRef.current!)
+        typewriterRef.current = null
+        setIsTyping(false)
+        // Brief pause so user sees the completed prompt, then run
+        setTimeout(() => onGenerate(text), 500)
+      }
+    }, 18)
+
+    return () => {
+      if (typewriterRef.current) clearInterval(typewriterRef.current)
+    }
+  }, [copilotAutorun]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const templateLabels = [
     wi.templateLabels.saas,
@@ -121,12 +159,13 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
             <textarea
               ref={textareaRef}
               value={idea}
-              onChange={(e) => setIdea(e.target.value.slice(0, charLimit))}
+              onChange={(e) => { if (!isTyping) setIdea(e.target.value.slice(0, charLimit)) }}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
               placeholder={wi.placeholder}
               className="h-full min-h-[180px] w-full resize-none rounded-xl border-0 bg-secondary/30 p-4 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
               disabled={isLoading}
+              readOnly={isTyping}
             />
             <AnimatePresence>
               {focused && (
@@ -188,11 +227,13 @@ export function InputPanel({ onGenerate, isLoading }: InputPanelProps) {
 
           <button
             type="submit"
-            disabled={!idea.trim() || isLoading}
+            disabled={!idea.trim() || isLoading || isTyping}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 shadow-[0_0_20px_rgba(212,175,55,0.2)] hover:shadow-[0_0_28px_rgba(212,175,55,0.35)]"
           >
             {isLoading ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> {wi.generating}</>
+            ) : isTyping ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Copilot typing…</>
             ) : (
               <><Sparkles className="h-4 w-4" /> {wi.generateIntelligence}</>
             )}

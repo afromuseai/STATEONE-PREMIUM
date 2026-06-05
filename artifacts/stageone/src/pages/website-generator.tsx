@@ -107,9 +107,13 @@ export default function WebsiteGeneratorPage() {
   const [copied, setCopied] = useState(false)
   const [contextBanner, setContextBanner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+  const [autorunIdea, setAutorunIdea] = useState<string | null>(null)
+  const [isTyping, setIsTyping] = useState(false)
   const { openUpgradeModal } = useUpgradeModal()
   const exportRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const ideaTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Check subscription tier
   useEffect(() => {
@@ -124,9 +128,9 @@ export default function WebsiteGeneratorPage() {
     // Copilot autorun takes priority — it carries the idea directly
     const autorun = consumeCopilotAutorun()
     if (autorun?.action === "generate_website" && autorun.idea) {
-      setIdea(autorun.idea)
       setContextBanner(true)
-      setTimeout(() => generateWithIdea(autorun.idea!), 150)
+      // Let the component mount before starting typewriter
+      setTimeout(() => setAutorunIdea(autorun.idea!), 150)
       return
     }
 
@@ -136,7 +140,6 @@ export default function WebsiteGeneratorPage() {
     clearGenerationContext()
     const ideaText = ctx.idea || ctx.businessSnapshot || ""
     if (ideaText) {
-      setIdea(ideaText)
       setContextBanner(true)
       const industryStyleMap: Record<string, StyleOption> = {
         "SaaS": "SaaS",
@@ -153,9 +156,41 @@ export default function WebsiteGeneratorPage() {
       if (ctx.industry && industryStyleMap[ctx.industry]) {
         setStyle(industryStyleMap[ctx.industry])
       }
-      setTimeout(() => generateWithIdea(ideaText), 150)
+      setTimeout(() => setAutorunIdea(ideaText), 150)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Typewriter autorun: type the idea live, then auto-submit
+  useEffect(() => {
+    if (!autorunIdea) return
+    setAutorunIdea(null) // consume immediately so it doesn't re-fire
+
+    const text = autorunIdea
+    setIdea("")
+    setIsTyping(true)
+    ideaTextareaRef.current?.focus()
+
+    let i = 0
+    if (typewriterRef.current) clearInterval(typewriterRef.current)
+    typewriterRef.current = setInterval(() => {
+      i++
+      setIdea(text.slice(0, i))
+      if (ideaTextareaRef.current) {
+        ideaTextareaRef.current.scrollTop = ideaTextareaRef.current.scrollHeight
+      }
+      if (i >= text.length) {
+        clearInterval(typewriterRef.current!)
+        typewriterRef.current = null
+        setIsTyping(false)
+        // Brief pause so user sees the completed prompt, then run
+        setTimeout(() => generateWithIdea(text), 500)
+      }
+    }, 18)
+
+    return () => {
+      if (typewriterRef.current) clearInterval(typewriterRef.current)
+    }
+  }, [autorunIdea]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close export dropdown on outside click
   useEffect(() => {
@@ -463,8 +498,10 @@ export default function WebsiteGeneratorPage() {
                       Business Idea
                     </label>
                     <textarea
+                      ref={ideaTextareaRef}
                       value={idea}
-                      onChange={e => setIdea(e.target.value)}
+                      onChange={e => { if (!isTyping) setIdea(e.target.value) }}
+                      readOnly={isTyping}
                       placeholder="e.g. AI-powered project management tool for remote engineering teams..."
                       className="w-full h-28 px-3 py-3 rounded-xl bg-white/3 border border-white/8 text-sm text-foreground placeholder-muted-foreground/50 resize-none outline-none focus:border-primary/40 focus:bg-primary/3 transition-all"
                     />
