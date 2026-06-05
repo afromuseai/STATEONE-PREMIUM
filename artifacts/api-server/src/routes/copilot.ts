@@ -66,8 +66,9 @@ Respond with JSON array only. No explanation.`;
       signal: AbortSignal.timeout(15_000),
     });
 
-    const entries = JSON.parse(extractJson(raw) ?? "[]") as ExtractedMemory[];
-    if (!Array.isArray(entries) || entries.length === 0) return;
+    const parsed = extractJson(raw);
+    const entries = (Array.isArray(parsed) ? parsed : []) as ExtractedMemory[];
+    if (entries.length === 0) return;
 
     for (const entry of entries) {
       if (!entry.category || !entry.key || !entry.value) continue;

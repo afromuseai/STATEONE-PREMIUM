@@ -216,8 +216,15 @@ export function extractJson(raw: string): unknown {
   else if (clean.startsWith("```")) clean = clean.slice(3);
   if (clean.endsWith("```")) clean = clean.slice(0, -3);
   clean = clean.trim();
-  const first = clean.indexOf("{");
-  const last = clean.lastIndexOf("}");
-  if (first !== -1 && last !== -1) clean = clean.slice(first, last + 1);
+  const objStart = clean.indexOf("{");
+  const objEnd = clean.lastIndexOf("}");
+  const arrStart = clean.indexOf("[");
+  const arrEnd = clean.lastIndexOf("]");
+  // Prefer whichever delimiter appears first (array or object)
+  if (arrStart !== -1 && arrEnd !== -1 && (objStart === -1 || arrStart < objStart)) {
+    clean = clean.slice(arrStart, arrEnd + 1);
+  } else if (objStart !== -1 && objEnd !== -1) {
+    clean = clean.slice(objStart, objEnd + 1);
+  }
   return JSON.parse(clean);
 }
