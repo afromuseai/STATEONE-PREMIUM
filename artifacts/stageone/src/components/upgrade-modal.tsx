@@ -76,7 +76,7 @@ const PLANS = [
     icon: Building2,
     color: "#64748B",
     highlight: false,
-    cta: "Contact Sales",
+    cta: "Join Waitlist",
     ctaDisabled: false,
     features: [
       "Unlimited AI generations",
@@ -126,7 +126,7 @@ export function UpgradeModal() {
               <div>
                 <h2 className="text-lg font-bold text-foreground tracking-tight">Choose Your Plan</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Unlock the full AI Operating System — no redirects, no context lost.
+                  Unlock the full AI Operating System.
                 </p>
               </div>
               <div className="flex items-center gap-4">
