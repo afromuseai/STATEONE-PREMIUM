@@ -1,11 +1,105 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { db, projectsTable, agentsTable, aiMemoryTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 
 import { MODELS } from "../lib/models";
-import { streamNvidia, forwardStream } from "../lib/nvidia";
+import { streamNvidia, forwardStream, callNvidia, extractJson } from "../lib/nvidia";
+
+// ─── Memory category types ─────────────────────────────────────────────────
+type MemoryCategory = "Decision" | "Goal" | "Assumption" | "Experiment" | "Milestone" | "Learning" | "Risk" | "Preference";
+
+interface ExtractedMemory {
+  category: MemoryCategory;
+  key: string;
+  value: string;
+  importance: number;
+}
+
+// ─── Background memory extraction ─────────────────────────────────────────
+// Fires after every copilot response. Detects strategic statements in the
+// user's latest message and persists them to aiMemoryTable so they survive
+// across sessions and are injected into all future requests.
+async function extractProjectMemories(
+  userId: string,
+  userMessage: string,
+  projectTitle: string | null | undefined,
+  logger: { error: (obj: object, msg: string) => void },
+): Promise<void> {
+  const extractionPrompt = `You are a strategic memory extractor. Given a user message from a business planning conversation, extract any strategic statements worth remembering long-term.
+
+Categories to detect:
+- Decision: an explicit strategic choice (who to target, what to build, what to prioritize, what to reject)
+- Goal: a stated objective or target outcome
+- Assumption: a belief the user is operating on that hasn't been validated
+- Experiment: a test or validation activity the user plans or has done
+- Milestone: a completed or planned achievement
+- Learning: an insight or lesson from experience
+- Risk: a stated concern or threat
+- Preference: how the user prefers to work or make decisions
+
+Rules:
+- Only extract if the statement would matter weeks or months from now
+- Do not extract casual conversation, questions, greetings, or requests for help
+- Use short, clear keys like "target_market", "pricing_model", "first_goal"
+- Use concise values that capture the exact strategic content
+- Importance: Decision=5, Goal=4, Learning=4, Risk=3, Assumption=3, Experiment=3, Milestone=2, Preference=2
+
+Respond with ONLY a JSON array. If nothing strategic is found, respond with [].
+
+Example:
+User: "We're targeting mining companies first because they have the highest procurement budgets."
+Output: [{"category":"Decision","key":"target_market","value":"Mining companies chosen as initial market — highest procurement budgets","importance":5}]
+
+User message to analyze:
+"${userMessage.replace(/"/g, '\\"').slice(0, 800)}"
+
+Respond with JSON array only. No explanation.`;
+
+  try {
+    const raw = await callNvidia({
+      model: MODELS.MEMORY,
+      messages: [{ role: "user", content: extractionPrompt }],
+      temperature: 0.1,
+      maxTokens: 400,
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    const entries = JSON.parse(extractJson(raw) ?? "[]") as ExtractedMemory[];
+    if (!Array.isArray(entries) || entries.length === 0) return;
+
+    for (const entry of entries) {
+      if (!entry.category || !entry.key || !entry.value) continue;
+
+      // Upsert by userId + key: update if exists, insert if not
+      const [existing] = await db.select({ id: aiMemoryTable.id })
+        .from(aiMemoryTable)
+        .where(and(eq(aiMemoryTable.userId, userId), eq(aiMemoryTable.key, entry.key)))
+        .limit(1);
+
+      const contextPayload = { category: entry.category, project: projectTitle ?? undefined };
+
+      if (existing) {
+        await db.update(aiMemoryTable)
+          .set({ value: entry.value, importance: entry.importance, context: contextPayload })
+          .where(eq(aiMemoryTable.id, existing.id));
+      } else {
+        await db.insert(aiMemoryTable).values({
+          userId,
+          key: entry.key,
+          value: entry.value,
+          importance: entry.importance,
+          source: "copilot",
+          context: contextPayload,
+        });
+      }
+    }
+  } catch (err) {
+    // Fire-and-forget: never block the response, never surface errors to user
+    logger.error({ err }, "[memory-extraction] Failed to extract or store memories");
+  }
+}
 
 const router = Router();
 
@@ -138,18 +232,35 @@ ${lines.join("\n")}
 
   // ─── MEMORY block ─────────────────────────────────────────────────────────────
   // Recorded past events explicitly saved to workspace memory.
-  // These are real — reference confidently.
+  // Typed by category so the Memory Retrieval Gate can detect conflicts.
   let memoryBlock = "";
   if (memories.length > 0) {
-    const high = memories.filter(m => m.importance >= 4).map(m => `- ${m.key}: ${m.value}`);
-    const normal = memories.filter(m => m.importance < 4).map(m => `- ${m.key}: ${m.value}`);
-    const all = [...high, ...normal];
+    const formatEntry = (m: typeof memories[0]) => {
+      const ctx = m.context as Record<string, unknown> | null;
+      const category = (ctx?.category as string) ?? "Note";
+      return `[${category}] ${m.key}: ${m.value}`;
+    };
+    const decisions = memories.filter(m => (m.context as Record<string,unknown> | null)?.category === "Decision").map(formatEntry);
+    const goals     = memories.filter(m => (m.context as Record<string,unknown> | null)?.category === "Goal").map(formatEntry);
+    const rest      = memories.filter(m => !["Decision","Goal"].includes(String((m.context as Record<string,unknown> | null)?.category ?? ""))).map(formatEntry);
+    const ordered   = [...decisions, ...goals, ...rest];
+    memoryBlock = `
+
+=== WORKSPACE MEMORY (ACTIVE PROJECT HISTORY) ===
+CRITICAL: These are real recorded decisions and history. They MUST be checked before every response.
+The Memory Retrieval Gate REQUIRES you to compare the current message against these entries.
+If the user says something that contradicts a [Decision] or [Goal] entry below — acknowledge the conflict. Do not proceed without flagging it.
+
+${ordered.join("\n")}
+
+Decisions and Goals have the highest priority. They override BI output and analysis.
+=== END WORKSPACE MEMORY ===`;
+  } else {
     memoryBlock = `
 
 === WORKSPACE MEMORY ===
-These are things that were explicitly recorded. They happened or were stated.
-Reference naturally. Never list them back to the user.
-${all.join("\n")}
+No project decisions or history recorded yet.
+If the user states a target market, goal, strategy, or assumption — treat it as new information only, with no prior context to compare against.
 === END WORKSPACE MEMORY ===`;
   }
 
@@ -639,6 +750,15 @@ ${workspaceBlock}${businessBlock}${memoryBlock}
   }
 
   res.end();
+
+  // ─── Background memory extraction ─────────────────────────────────────────
+  // Fire-and-forget after response is sent. Never blocks the user.
+  // Detects strategic statements in the latest user message and persists
+  // them to aiMemoryTable so they are available in all future requests.
+  const latestUserMessage = trimmedMessages.filter(m => m.role === "user").at(-1)?.content;
+  if (latestUserMessage) {
+    extractProjectMemories(userId, latestUserMessage, wsProject?.title, req.log).catch(() => {});
+  }
 });
 
 export default router;
