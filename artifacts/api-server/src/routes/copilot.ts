@@ -154,51 +154,71 @@ ${all.join("\n")}
   }
 
   // ─── BUSINESS ANALYSIS block ──────────────────────────────────────────────────
-  // AI-generated hypotheses. NOT validated. NOT real-world evidence.
+  // AI-generated analysis and projections. NOT validated. NOT real-world evidence.
+  // Analysis = strategic intelligence (insights, risks, opportunities).
+  // Projections = modeled future estimates (metrics, rates, forecasts).
   // Must NEVER be blended with Workspace Reality above.
   let businessBlock = "";
   if (bi) {
-    const hypotheses: string[] = [];
+    const analysis: string[] = [];
+    const projections: string[] = [];
 
     if (bi.businessSnapshot && bi.industry) {
-      hypotheses.push(`- Industry: ${bi.industry}. Target: ${bi.targetMarket ?? "unspecified"}. Snapshot: ${bi.businessSnapshot}`);
+      analysis.push(`- Industry: ${bi.industry}. Target: ${bi.targetMarket ?? "unspecified"}. Snapshot: ${bi.businessSnapshot}`);
     }
 
     const si = bi.strategicInsights;
-    if (si?.growthBottleneck) hypotheses.push(`- Growth constraint may be: ${si.growthBottleneck}`);
-    if (si?.fastestChannel) hypotheses.push(`- Fastest channel may be: ${si.fastestChannel}`);
-    if (si?.operationalRisk) hypotheses.push(`- Operational risk may be: ${si.operationalRisk}`);
-    if (si?.highestLeverageAutomation) hypotheses.push(`- Highest-leverage automation may be: ${si.highestLeverageAutomation}`);
+    if (si?.growthBottleneck) analysis.push(`- The analysis suggests the growth constraint may be: ${si.growthBottleneck}`);
+    if (si?.fastestChannel) analysis.push(`- The analysis suggests the fastest channel may be: ${si.fastestChannel}`);
+    if (si?.operationalRisk) analysis.push(`- The analysis suggests an operational risk may be: ${si.operationalRisk}`);
+    if (si?.highestLeverageAutomation) analysis.push(`- The analysis suggests the highest-leverage automation may be: ${si.highestLeverageAutomation}`);
 
     const ca = bi.competitiveAdvantage;
-    if (ca?.differentiation) hypotheses.push(`- Differentiation may be: ${ca.differentiation}`);
-    if (ca?.scalabilityEdge) hypotheses.push(`- Scalability edge may be: ${ca.scalabilityEdge}`);
-
-    const m = bi.metrics;
-    if (m) {
-      if ((m.automationPotential ?? 100) < 50) hypotheses.push(`- Automation maturity may be low (scored ${m.automationPotential}%)`);
-      if ((m.revenueScalability ?? 10) < 6) hypotheses.push(`- Revenue scalability may be limited (scored ${m.revenueScalability}/10)`);
-      if ((m.marketDifficulty ?? 0) >= 7) hypotheses.push(`- Market may be highly competitive (scored ${m.marketDifficulty}/10)`);
-      if ((m.aiAdoptionOpportunity ?? 0) > 70) hypotheses.push(`- AI adoption opportunity may be high (scored ${m.aiAdoptionOpportunity}%)`);
-    }
+    if (ca?.differentiation) analysis.push(`- The analysis suggests differentiation may be: ${ca.differentiation}`);
+    if (ca?.scalabilityEdge) analysis.push(`- The analysis suggests a scalability edge may be: ${ca.scalabilityEdge}`);
 
     if (bi.growthPlan?.length) {
-      hypotheses.push(`- Suggested growth path may be: ${bi.growthPlan.slice(0, 3).join(" → ")}`);
+      analysis.push(`- The analysis suggests a growth path of: ${bi.growthPlan.slice(0, 3).join(" → ")}`);
     }
 
     if (bi.recommendedStack?.crm || bi.recommendedStack?.payments) {
-      hypotheses.push(`- Suggested stack may include: ${[bi.recommendedStack.crm, bi.recommendedStack.payments, ...(bi.recommendedStack.automation ?? [])].filter(Boolean).join(", ")}`);
+      analysis.push(`- The analysis suggests a stack that may include: ${[bi.recommendedStack.crm, bi.recommendedStack.payments, ...(bi.recommendedStack.automation ?? [])].filter(Boolean).join(", ")}`);
     }
 
-    if (hypotheses.length > 0) {
+    // Metrics are model projections — NOT validated outcomes
+    const m = bi.metrics;
+    if (m) {
+      if ((m.automationPotential ?? 100) < 50) projections.push(`- The model projects low automation maturity (scored ${m.automationPotential}% — unvalidated)`);
+      if ((m.revenueScalability ?? 10) < 6) projections.push(`- The model projects limited revenue scalability (scored ${m.revenueScalability}/10 — unvalidated)`);
+      if ((m.marketDifficulty ?? 0) >= 7) projections.push(`- The model projects a highly competitive market (scored ${m.marketDifficulty}/10 — unvalidated)`);
+      if ((m.aiAdoptionOpportunity ?? 0) > 70) projections.push(`- The model projects a high AI adoption opportunity (scored ${m.aiAdoptionOpportunity}% — unvalidated)`);
+    }
+
+    const parts: string[] = [];
+
+    if (analysis.length > 0) {
+      parts.push(`ANALYSIS (strategic intelligence — not validated, not historical):
+${analysis.join("\n")}`);
+    }
+
+    if (projections.length > 0) {
+      parts.push(`PROJECTIONS (modeled future estimates — not validated, not real outcomes):
+${projections.join("\n")}`);
+    }
+
+    if (parts.length > 0) {
       businessBlock = `
 
-=== BUSINESS ANALYSIS (UNVALIDATED HYPOTHESES) ===
-CRITICAL: These are AI-generated hypotheses. They have NOT been validated in the real world.
+=== BUSINESS ANALYSIS (UNVALIDATED) ===
+CRITICAL: These are AI-generated analysis and projections. They have NOT been validated in the real world.
 They are NOT facts. They are NOT things that happened.
-When referencing these, ALWAYS use: "the analysis suggests...", "may be...", "could be...", "appears to..."
-Do NOT mix these with Workspace Reality above. These two sections must stay separate.
-${hypotheses.join("\n")}
+ANALYSIS → always signal with: "the analysis suggests...", "may be...", "could be..."
+PROJECTIONS → always signal with: "the model projects...", "the projection estimates...", "if the assumptions hold..."
+NEVER convert analysis or projections into facts. NEVER present a projection as a real outcome.
+NEVER convert a roadmap item or growth plan into a historical event.
+Do NOT mix these with Workspace Reality above. These two sections must stay completely separate.
+
+${parts.join("\n\n")}
 === END BUSINESS ANALYSIS ===`;
     }
   }
@@ -224,29 +244,41 @@ When asked open-ended questions like "what am I missing?", "what should I focus 
 
 [Epistemic grounding — non-negotiable]
 Before every response, internally identify the source of what you're about to say:
-- WORKSPACE REALITY block → state confidently. These are facts.
-- WORKSPACE MEMORY block → reference confidently. These happened.
-- BUSINESS ANALYSIS block → always signal with "the analysis suggests...", "may be...", "could be...". Never state as fact.
+- WORKSPACE REALITY block → state confidently. These are verified facts.
+- WORKSPACE MEMORY block → reference confidently. These happened and were recorded.
+- BUSINESS ANALYSIS block (ANALYSIS entries) → always signal with "the analysis suggests...", "may be...", "could be...", "appears to...". Never state as fact.
+- BUSINESS ANALYSIS block (PROJECTION entries) → always signal with "the projection estimates...", "the model assumes...", "if the assumptions hold...". Never present as a real outcome or validated result.
 - Your own reasoning → signal with "I suspect...", "My concern is...", "My guess is...".
 - Pure speculation → signal with "I don't know yet", "We'd need to test that", "That's only a hypothesis."
 
-EVIDENCE CHECK — when the user asks "Why?", "How do you know?", "What evidence do you have?", "How confident are you?", or anything asking you to justify a claim:
+CRITICAL RULE — never convert:
+- ANALYSIS into FACT
+- PROJECTION into FACT
+- A roadmap or growth plan item into historical history ("we ran a pilot" when only a plan exists)
+- A hypothesis into evidence
+
+IDENTITY RULE — you are a strategic partner with access to workspace information.
+You are NOT a witness. You are NOT a participant. You are NOT a historical actor.
+Never claim: "we ran", "we tested", "we interviewed", "we discovered" — unless those exact events exist in WORKSPACE MEMORY.
+
+TRUST RULE — when uncertain, choose honesty over certainty.
+It is better to say "I don't know" than to create information that does not exist.
+
+EVIDENCE CHECK — when the user asks "Why?", "How do you know?", "What evidence do you have?", "Are you sure?", "How confident are you?", or anything asking you to justify a claim:
 
 Step 1: Search WORKSPACE REALITY block for hard facts.
 Step 2: Search WORKSPACE MEMORY block for recorded events.
-Step 3: Search BUSINESS ANALYSIS block for AI-generated hypotheses.
+Step 3: Search BUSINESS ANALYSIS block for AI-generated analysis or projections.
 
 If Step 1 or Step 2 finds something: state it clearly and stop.
-If only Step 3 finds something: say "I don't have evidence for that — that's a hypothesis from the business analysis." Then stop. No further reasoning. No storytelling. No speculation added after.
+If only Step 3 finds something: say "I don't have evidence for that — that's an inference from the business analysis." Then stop. No further reasoning. No storytelling. No speculation added after.
 If nothing is found anywhere: say "I don't have evidence for that." Then stop. Do not continue the response.
 
 The hard stop is mandatory. When evidence mode triggers and no real evidence exists, the response ends after the admission. Never fill the silence with inference or narrative.
 
-You have no personal memories. You only know what is in the three blocks above and what the user has said in this conversation. Never claim you attended meetings, ran pilots, interviewed customers, saw experiments, or witnessed events.
-
 FORBIDDEN — never invent or imply the existence of:
-customers · interviews · pilots · experiments · meetings · partnerships · revenue figures · user counts · conversion rates · historical events · previous conversations
-...unless they exist in WORKSPACE MEMORY.
+customers · interviews · pilots · experiments · meetings · partnerships · revenue figures · user counts · conversion rates · historical events · previous conversations · deployments
+...unless they exist in WORKSPACE MEMORY. Never claim personal memory of any event.
 [end]
 ${workspaceBlock}${businessBlock}${memoryBlock}
 [Reference platform capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a list]`;
