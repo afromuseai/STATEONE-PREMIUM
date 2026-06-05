@@ -28,6 +28,10 @@ interface DetectedAction {
 }
 
 const ACTION_TAG_RE = /\{\{ACTION:([^|]+)\|([^|]+)\|([^}]+)\}\}/
+const NAVIGATE_TAG_RE = /\{\{NAVIGATE:([^|}]+)(?:\|[^}]*)?\}\}/
+const EXECUTE_TAG_RE = /\{\{EXECUTE:([^|]+)\|([^|]+)(?:\|([^}]*))?\}\}/
+// Matches any complete event tag in the stream
+const ANY_TAG_RE = () => /\{\{(?:ACTION:[^|]+\|[^|]+\|[^}]+|NAVIGATE:[^|}]+(?:\|[^}]*)?|EXECUTE:[^|]+\|[^|]+(?:\|[^}]*)?)\}\}/g
 
 const ACTION_ROUTES: Record<string, string> = {
   generate_website: "/website-generator",
@@ -186,7 +190,9 @@ async function streamCopilot(
   payload: { messages: Message[]; businessContext: unknown; workspaceContext: WorkspaceContext },
   signal: AbortSignal,
   onChunk: (buffer: string) => void,
-  onAction?: (action: DetectedAction) => void
+  onAction?: (action: DetectedAction) => void,
+  onNavigate?: (path: string) => void,
+  onExecute?: (id: string, endpoint: string, params?: string) => void,
 ) {
   const res = await fetch("/api/copilot", {
     method: "POST",
@@ -202,6 +208,38 @@ async function streamCopilot(
   const dec = new TextDecoder()
   let carry = ""
   let buffer = ""
+  const firedTags = new Set<string>()
+
+  function fireAndStripTags() {
+    const re = ANY_TAG_RE()
+    let match: RegExpExecArray | null
+    while ((match = re.exec(buffer)) !== null) {
+      const tag = match[0]
+      if (firedTags.has(tag)) continue
+      firedTags.add(tag)
+
+      const actionMatch = tag.match(ACTION_TAG_RE)
+      const navMatch = tag.match(NAVIGATE_TAG_RE)
+      const execMatch = tag.match(EXECUTE_TAG_RE)
+
+      if (actionMatch) {
+        onAction?.({ id: actionMatch[1].trim(), label: actionMatch[2].trim(), detail: actionMatch[3].trim() })
+      } else if (navMatch) {
+        onNavigate?.(navMatch[1].trim())
+      } else if (execMatch) {
+        onExecute?.(execMatch[1].trim(), execMatch[2].trim(), execMatch[3]?.trim())
+      }
+    }
+  }
+
+  function buildDisplay(): string {
+    let display = buffer
+    for (const tag of firedTags) display = display.split(tag).join("")
+    // Suppress any partial (incomplete) tag at the tail
+    const partial = display.match(/\{\{[^}]*$/)
+    if (partial) display = display.slice(0, -partial[0].length)
+    return display.trimEnd()
+  }
 
   while (true) {
     const { done, value } = await reader.read()
@@ -215,24 +253,18 @@ async function streamCopilot(
         const msg = JSON.parse(line.slice(6))
         if (msg.content) {
           buffer += msg.content
-          // Stream clean content — suppress partial action tags at the tail
-          const partialTag = buffer.match(/\{\{ACTION:[^}]*$/)
-          const displayBuffer = partialTag
-            ? buffer.slice(0, buffer.length - partialTag[0].length)
-            : buffer
-          onChunk(displayBuffer.replace(ACTION_TAG_RE, "").trimEnd())
+          // Fire any newly-complete event tags immediately
+          fireAndStripTags()
+          // Push clean display tokens live to UI
+          onChunk(buildDisplay())
         }
       } catch { /* fragment */ }
     }
   }
 
-  // Post-stream: extract action tag from final buffer, emit clean content + action
-  const actionMatch = buffer.match(ACTION_TAG_RE)
-  if (actionMatch) {
-    const cleanBuffer = buffer.replace(ACTION_TAG_RE, "").trimEnd()
-    onChunk(cleanBuffer)
-    onAction?.({ id: actionMatch[1].trim(), label: actionMatch[2].trim(), detail: actionMatch[3].trim() })
-  }
+  // Final pass — catch any tags that completed at the very last chunk
+  fireAndStripTags()
+  onChunk(buildDisplay())
 }
 
 interface InsightBubble {
@@ -434,6 +466,26 @@ export function CopilotPanel() {
     return () => clearTimeout(timer)
   }, [open, projectsData, businessData, triggerGreeting])
 
+  // NAVIGATE — fires immediately on tag detection, switches tab without waiting for stream
+  const handleNavigate = useCallback((path: string) => {
+    navigate(path)
+  }, [navigate])
+
+  // EXECUTE — fires a fire-and-forget backend call on tag detection
+  const handleExecute = useCallback((id: string, endpoint: string, params?: string) => {
+    const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+    let body: Record<string, unknown> = { action: id }
+    if (params) {
+      try { body = { ...body, ...JSON.parse(params) } } catch { body.params = params }
+    }
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    }).catch(() => { /* fire-and-forget — failure is non-fatal */ })
+  }, [])
+
   // ─── Send message ─────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text?: string) => {
     const content = (text ?? input).trim()
@@ -468,8 +520,17 @@ export function CopilotPanel() {
           })
         },
         (action) => {
+          // ACTION — render card immediately, even while streaming
           setPendingAction(action)
-        }
+        },
+        (path) => {
+          // NAVIGATE — switch tab immediately, no waiting
+          handleNavigate(path)
+        },
+        (id, endpoint, params) => {
+          // EXECUTE — fire backend call instantly
+          handleExecute(id, endpoint, params)
+        },
       )
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
@@ -482,7 +543,7 @@ export function CopilotPanel() {
     } finally {
       setStreaming(false)
     }
-  }, [input, messages, streaming, businessData, workspaceContext])
+  }, [input, messages, streaming, businessData, workspaceContext, handleNavigate, handleExecute])
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage() }
@@ -858,9 +919,9 @@ export function CopilotPanel() {
                           </div>
                         </motion.div>
                       ))}
-                      {/* Pending action card — auto-executes after countdown */}
+                      {/* Pending action card — appears immediately on detection, executes after countdown */}
                       <AnimatePresence>
-                        {pendingAction && !streaming && (
+                        {pendingAction && (
                           <motion.div
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
