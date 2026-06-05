@@ -298,24 +298,31 @@ ${workspaceBlock}${businessBlock}${memoryBlock}
   };
 
   let streamBody: ReadableStream<Uint8Array>;
+  let activeModel: string = MODELS.COPILOT;
 
   try {
     streamBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(60_000) });
-  } catch (err) {
-    req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Stream failed`);
-    res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
-    res.end();
-    return;
+  } catch (primaryErr) {
+    req.log.warn({ err: primaryErr, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Primary failed — trying fallback`);
+    try {
+      activeModel = MODELS.COPILOT_FALLBACK;
+      streamBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT_FALLBACK, signal: AbortSignal.timeout(30_000) });
+    } catch (fallbackErr) {
+      req.log.error({ err: fallbackErr, model: MODELS.COPILOT_FALLBACK }, `[AI:${MODELS.COPILOT_FALLBACK}] Fallback also failed`);
+      res.write(`data: ${JSON.stringify({ error: String(fallbackErr) })}\n\n`);
+      res.end();
+      return;
+    }
   }
 
   try {
-    const result = await forwardStream(streamBody, res, MODELS.COPILOT);
+    const result = await forwardStream(streamBody, res, activeModel);
     if (!result) {
       res.write(`data: ${JSON.stringify({ content: "Something went wrong on my end. Try asking again." })}\n\n`);
     }
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {
-    req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Copilot stream error`);
+    req.log.error({ err, model: activeModel }, `[AI:${activeModel}] Copilot stream error`);
     res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
   }
 
