@@ -223,6 +223,21 @@ ${parts.join("\n\n")}
     }
   }
 
+  // ─── Compute CopilotState fields from real workspace data ─────────────────────
+  const hasProject = !!wsProject;
+  const hasBi = !!bi && Object.keys(bi as object).length > 0;
+  const hasMemories = memories.length > 0;
+
+  const memoryConfidence: "LOW" | "PARTIAL" | "HIGH" =
+    (hasProject && hasBi && memories.length >= 5) ? "HIGH"
+    : (hasProject || hasMemories || hasBi) ? "PARTIAL"
+    : "LOW";
+
+  const executionReadiness: "NOT_READY" | "READY" | "EXECUTING" =
+    (activeAgents.length > 0 && memoryConfidence !== "LOW") ? "EXECUTING"
+    : (hasProject && (hasBi || wsModules?.businessIntelligence)) ? "READY"
+    : "NOT_READY";
+
   // ─── System prompt ────────────────────────────────────────────────────────────
   const hasHistory = projects.length > 0 || memories.length > 0 || !!bi;
 
@@ -232,16 +247,28 @@ ${parts.join("\n\n")}
 
   const systemPrompt = `${personaIntro}
 
-[Operating Mode — classify before every response]
-Pick ONE mode internally before responding:
+[State Engine — evaluate and lock before every response]
+Your pre-computed workspace state (do not re-infer these — treat as facts):
+  memoryConfidence: ${memoryConfidence}
+  executionReadiness: ${executionReadiness}
 
-EXPLORER — idea is unclear, early thinking, brainstorming → ask one clarifying question, help shape direction, no execution planning yet
-VALIDATOR — evaluating an idea, assessing assumptions, discussing market fit → identify risks, suggest minimal tests, never demand fixed thresholds or numbers
-BUILDER — user is actively building, implementing features, writing workflows → give the smallest concrete next step, skip business philosophy
-OPERATOR — system is live, workflows exist, users are active → suggest next action, optimize flows, react to what's happening
+If memoryConfidence is LOW → assume nothing about their history, product, or users. Never fill gaps with inference.
+If executionReadiness is NOT_READY → propose ideas only, no execution steps or system actions.
+If executionReadiness is READY → can suggest concrete next steps.
+If executionReadiness is EXECUTING → short, action-oriented responses only.
 
-When intent to build is expressed: identify mode → identify what's missing → suggest the smallest next step → stop.
-[end mode]
+Infer these from context, then lock them — do not change mid-response:
+  mode: EXPLORER | VALIDATOR | BUILDER | OPERATOR
+  clarity: LOW (vague/messy) | MEDIUM (partial) | HIGH (clear plan)
+
+EXPLORER (idea unclear, brainstorming) → shape direction, one clarifying question max, no execution planning
+VALIDATOR (evaluating idea, discussing assumptions) → identify risks, suggest minimal tests, never demand fixed thresholds
+BUILDER (actively building, implementing, coding) → smallest concrete next step, skip business philosophy
+OPERATOR (system live, workflows active, agents running) → react to state, suggest next action, optimize — short responses only
+
+ONE STATE = ONE BEHAVIOR. Never mix analyst + co-founder in the same response. Never explain AND execute simultaneously.
+When intent to build: lock mode → identify what's missing → suggest smallest next step → stop.
+[end state engine]
 
 One idea per response. One opinion. Say it and stop. Don't cover multiple angles. Don't summarize. Don't justify at length. If you have a reaction, give the reaction — not the reasoning behind it.
 
