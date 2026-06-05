@@ -216,7 +216,17 @@ export function UpgradeModal() {
   const { user } = useAuth()
   const [yearly, setYearly] = useState(false)
   const [showWaitlist, setShowWaitlist] = useState(false)
+  const [currentPlan, setCurrentPlan] = useState<string>("free")
+  const [upgrading, setUpgrading] = useState<string | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open || !user) return
+    fetch("/api/subscriptions/me", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => setCurrentPlan(d.subscription?.plan ?? "free"))
+      .catch(() => setCurrentPlan("free"))
+  }, [open, user])
 
   useEffect(() => {
     if (!open) return
@@ -229,6 +239,27 @@ export function UpgradeModal() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [open, showWaitlist, closeUpgradeModal])
+
+  const handleSelectPlan = async (planId: string) => {
+    if (planId === "enterprise") { setShowWaitlist(true); return }
+    if (!user) { window.location.href = "/signup"; return }
+    if (planId === currentPlan || upgrading) return
+    setUpgrading(planId)
+    try {
+      const res = await fetch("/api/subscriptions/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ plan: planId }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setCurrentPlan(data.subscription?.plan ?? planId)
+        setTimeout(closeUpgradeModal, 800)
+      }
+    } catch (_) {}
+    setUpgrading(null)
+  }
 
   return (
     <>
@@ -294,7 +325,8 @@ export function UpgradeModal() {
                 {PLANS.map((plan) => {
                   const Icon = plan.icon
                   const price = yearly ? plan.yearlyPrice : plan.monthlyPrice
-                  const isCurrent = plan.id === "free"
+                  const isCurrent = user ? plan.id === currentPlan : plan.id === "free"
+                  const isUpgrading = upgrading === plan.id
 
                   return (
                     <div
@@ -370,25 +402,23 @@ export function UpgradeModal() {
                       </ul>
 
                       <button
-                        disabled={plan.ctaDisabled}
-                        onClick={() => {
-                          if (plan.ctaDisabled) return
-                          if (plan.id === "enterprise") {
-                            setShowWaitlist(true)
-                          } else {
-                            window.location.href = "/signup"
-                          }
-                        }}
+                        disabled={isCurrent || isUpgrading || !!upgrading}
+                        onClick={() => handleSelectPlan(plan.id)}
                         className={`w-full h-9 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                          plan.ctaDisabled
+                          isCurrent
                             ? "border border-white/8 text-muted-foreground/40 cursor-default bg-white/2"
                             : plan.highlight
-                            ? "bg-primary text-primary-foreground hover:bg-primary/90 gold-glow"
-                            : "border border-white/10 bg-white/5 text-foreground hover:bg-white/10"
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90 gold-glow disabled:opacity-60"
+                            : "border border-white/10 bg-white/5 text-foreground hover:bg-white/10 disabled:opacity-60"
                         }`}
                       >
-                        {!plan.ctaDisabled && plan.highlight && <Crown className="h-3 w-3" />}
-                        {plan.cta}
+                        {isUpgrading ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" /> Processing...</>
+                        ) : isCurrent ? (
+                          "Current Plan"
+                        ) : (
+                          <>{!isCurrent && plan.highlight && <Crown className="h-3 w-3" />}{plan.cta}</>
+                        )}
                       </button>
                     </div>
                   )
