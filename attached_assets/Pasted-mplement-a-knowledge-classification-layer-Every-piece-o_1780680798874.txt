@@ -1,0 +1,185 @@
+mplement a knowledge classification layer.
+
+Every piece of workspace context must be categorized before reaching Marcus.
+
+export type KnowledgeClass =
+  | "FACT"
+  | "MEMORY"
+  | "ANALYSIS"
+  | "HYPOTHESIS"
+  | "USER_INPUT"
+  | "TASK"
+  | "COMPLETED_ACTION";
+
+Examples:
+
+FACT
+
+User explicitly told system:
+
+{
+  "type": "FACT",
+  "content": "Interviewed 12 landlords"
+}
+MEMORY
+
+Recorded project history.
+
+{
+  "type": "MEMORY",
+  "content": "Website generated on May 20"
+}
+ANALYSIS
+
+Business Intelligence output.
+
+{
+  "type": "ANALYSIS",
+  "content": "Market queens may be an effective channel"
+}
+
+Notice:
+
+MAY.
+
+Not reality.
+
+HYPOTHESIS
+
+Marcus generated idea.
+
+{
+  "type": "HYPOTHESIS",
+  "content": "Lead quality may matter more than price"
+}
+Step 2 — Change How Context Is Sent
+
+This is likely where the bug lives.
+
+Current:
+
+Distribution:
+Market queens
+
+Risk:
+Regulation
+
+Target:
+Informal traders
+
+Marcus reads it like history.
+
+Instead:
+
+ANALYSIS
+
+Business Intelligence suggested:
+
+- Market queens may be a distribution channel
+- Regulation may be a risk
+
+These have NOT been validated.
+
+This one change prevents most fake memories.
+
+Step 3 — Add Truthfulness Rules
+
+Add this directly to Marcus.
+
+IMPORTANT
+
+You do not have personal memories.
+
+You only know:
+
+- user messages
+- workspace records
+- project history
+- completed actions
+- saved memory
+
+Never claim:
+
+- you attended meetings
+- you ran pilots
+- you interviewed customers
+- you saw experiments
+- you witnessed events
+
+unless those events exist in workspace records.
+Step 4 — Evidence Mode
+
+Critical.
+
+When user asks:
+
+Why?
+How do you know?
+What evidence?
+How confident are you?
+
+Marcus must perform a different reasoning path.
+
+Pseudo-flow:
+
+if (askingForEvidence) {
+   searchFacts();
+   searchCompletedActions();
+   searchProjectHistory();
+}
+
+If nothing found:
+
+Response:
+
+I don't actually have evidence for that.
+
+That's an inference based on the business analysis.
+
+Never invent evidence.
+
+Ever.
+
+Step 5 — Force Source Attribution Internally
+
+Not visible to users.
+
+Before every answer Marcus should identify:
+
+{
+  "source": "analysis",
+  "confidence": 0.63
+}
+
+or
+
+{
+  "source": "fact",
+  "confidence": 0.95
+}
+
+Then generate response.
+
+Step 6 — Add a Hard Constraint
+
+This specifically fixes:
+
+We sat with Abena at her stall...
+
+Add:
+
+FORBIDDEN
+
+Never create:
+
+- customers
+- interviews
+- pilots
+- experiments
+- meetings
+- conversations
+- partnerships
+- revenue figures
+- user counts
+
+unless they exist in workspace data.

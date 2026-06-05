@@ -102,58 +102,67 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
   const wsProject = ws?.currentProject;
   const wsModules = ws?.modules;
 
-  // ─── Business context as natural prose (not structured labels) ───────────────
+  // ─── Knowledge Classification ─────────────────────────────────────────────────
+  // Every context block is tagged with its knowledge class so Marcus knows
+  // what to present as established fact vs. AI-generated suggestion vs. history.
+  //
+  // FACT        — things that exist right now in the workspace (projects, agents, modules built)
+  // MEMORY      — recorded past events saved to workspace memory
+  // ANALYSIS    — AI-generated Business Intelligence output (suggestions, not validated reality)
+  // USER_INPUT  — what the user explicitly told the system (their idea, their words)
+
+  // ─── ANALYSIS block (Business Intelligence output) ────────────────────────────
   let businessBlock = "";
   if (bi) {
     const parts: string[] = [];
 
     if (bi.businessSnapshot && bi.industry) {
-      parts.push(`They're building ${bi.businessSnapshot} in the ${bi.industry} space, targeting ${bi.targetMarket ?? "their target market"}.`);
+      parts.push(`The user is building something in ${bi.industry}, targeting ${bi.targetMarket ?? "their target market"}. Business snapshot: ${bi.businessSnapshot}.`);
     }
 
     const si = bi.strategicInsights;
-    if (si?.growthBottleneck) parts.push(`The main growth constraint right now is ${si.growthBottleneck.toLowerCase()}.`);
-    if (si?.fastestChannel) parts.push(`The fastest channel available to them is ${si.fastestChannel.toLowerCase()}.`);
-    if (si?.operationalRisk) parts.push(`Biggest operational risk: ${si.operationalRisk.toLowerCase()}.`);
-    if (si?.highestLeverageAutomation) parts.push(`Highest-leverage automation they could run: ${si.highestLeverageAutomation.toLowerCase()}.`);
+    if (si?.growthBottleneck) parts.push(`Growth constraint suggested: ${si.growthBottleneck}.`);
+    if (si?.fastestChannel) parts.push(`Fastest channel suggested: ${si.fastestChannel}.`);
+    if (si?.operationalRisk) parts.push(`Operational risk flagged: ${si.operationalRisk}.`);
+    if (si?.highestLeverageAutomation) parts.push(`Highest-leverage automation suggested: ${si.highestLeverageAutomation}.`);
 
     const ca = bi.competitiveAdvantage;
-    if (ca?.differentiation) parts.push(`Their differentiation is ${ca.differentiation.toLowerCase()}.`);
-    if (ca?.scalabilityEdge) parts.push(`${ca.scalabilityEdge}.`);
+    if (ca?.differentiation) parts.push(`Differentiation suggested: ${ca.differentiation}.`);
+    if (ca?.scalabilityEdge) parts.push(`Scalability edge suggested: ${ca.scalabilityEdge}.`);
 
     const m = bi.metrics;
     if (m) {
       const flags: string[] = [];
-      if ((m.automationPotential ?? 100) < 50) flags.push(`automation maturity is low (${m.automationPotential}%)`);
-      if ((m.revenueScalability ?? 10) < 6) flags.push(`revenue scalability has a ceiling (${m.revenueScalability}/10)`);
-      if ((m.marketDifficulty ?? 0) >= 7) flags.push(`the market is very competitive (difficulty ${m.marketDifficulty}/10) — differentiation matters a lot`);
-      if ((m.aiAdoptionOpportunity ?? 0) > 70) flags.push(`there's significant untapped AI leverage (${m.aiAdoptionOpportunity}%)`);
-      if (flags.length > 0) parts.push(`Worth knowing: ${flags.join("; ")}.`);
+      if ((m.automationPotential ?? 100) < 50) flags.push(`automation maturity scored low (${m.automationPotential}%)`);
+      if ((m.revenueScalability ?? 10) < 6) flags.push(`revenue scalability scored low (${m.revenueScalability}/10)`);
+      if ((m.marketDifficulty ?? 0) >= 7) flags.push(`market difficulty scored high (${m.marketDifficulty}/10)`);
+      if ((m.aiAdoptionOpportunity ?? 0) > 70) flags.push(`AI adoption opportunity scored high (${m.aiAdoptionOpportunity}%)`);
+      if (flags.length > 0) parts.push(`Scoring signals: ${flags.join("; ")}.`);
     }
 
     if (bi.growthPlan?.length) {
-      parts.push(`Growth plan phases: ${bi.growthPlan.slice(0, 3).join(" → ")}.`);
+      parts.push(`Suggested growth phases: ${bi.growthPlan.slice(0, 3).join(" → ")}.`);
     }
 
     if (bi.recommendedStack?.crm || bi.recommendedStack?.payments) {
-      parts.push(`Recommended stack: ${[bi.recommendedStack.crm, bi.recommendedStack.payments, ...(bi.recommendedStack.automation ?? [])].filter(Boolean).join(", ")}.`);
+      parts.push(`Suggested stack: ${[bi.recommendedStack.crm, bi.recommendedStack.payments, ...(bi.recommendedStack.automation ?? [])].filter(Boolean).join(", ")}.`);
     }
 
     if (parts.length > 0) {
-      businessBlock = `\n[What I know about their business — use this silently, never quote it back or label it]\n${parts.join(" ")}\n[end]`;
+      businessBlock = `\n[ANALYSIS — knowledge class: ANALYSIS. Source: AI-generated Business Intelligence. These are model suggestions — they have NOT been validated in the real world. When referencing this, use language like "the analysis suggests...", "may be...", "appears to...". Never state these as established facts or claim them as things that happened.]\n${parts.join(" ")}\n[end analysis]`;
     }
   }
 
-  // ─── Memory as natural prose ─────────────────────────────────────────────────
+  // ─── MEMORY block (recorded workspace history) ────────────────────────────────
   let memoryBlock = "";
   if (memories.length > 0) {
     const high = memories.filter(m => m.importance >= 4).map(m => `${m.key}: ${m.value}`);
     const normal = memories.filter(m => m.importance < 4).map(m => `${m.key}: ${m.value}`);
     const all = [...high, ...normal];
-    memoryBlock = `\n[Previous context I remember about them — use naturally, never list or quote these back]\n${all.join(". ")}\n[end]`;
+    memoryBlock = `\n[MEMORY — knowledge class: MEMORY. Source: recorded workspace history. These are things that actually happened or were explicitly saved. You may reference these confidently. Use naturally, never list them back.]\n${all.join(". ")}\n[end memory]`;
   }
 
-  // ─── Workspace as natural prose ──────────────────────────────────────────────
+  // ─── FACT block (current workspace state) ─────────────────────────────────────
   let workspaceBlock = "";
   if (ws) {
     const built: string[] = [];
@@ -164,22 +173,22 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
     if (wsModules?.automation) built.push("automation workflows"); else notBuilt.push("automation workflows");
 
     const projectLine = wsProject
-      ? `They're working on "${wsProject.title}" — the core idea: ${wsProject.businessIdea.slice(0, 200)}`
-      : "They haven't created a project yet.";
+      ? `Active project: "${wsProject.title}" — idea: ${wsProject.businessIdea.slice(0, 200)}`
+      : "No project created yet.";
 
     const progressLine = built.length > 0
-      ? `So far they've built: ${built.join(", ")}. Still to do: ${notBuilt.join(", ")}.`
-      : `They haven't built anything yet.`;
+      ? `Built so far: ${built.join(", ")}. Not yet built: ${notBuilt.join(", ")}.`
+      : `Nothing built yet.`;
 
     const agentLine = activeAgents.length > 0
-      ? `Active AI agents: ${activeAgents.map(a => `${a.name}`).join(", ")}.`
+      ? `Active AI agents: ${activeAgents.map(a => a.name).join(", ")}.`
       : "";
 
     const projectsLine = projects.length > 1
-      ? `They have ${projects.length} projects total.`
+      ? `Total projects in workspace: ${projects.length}.`
       : "";
 
-    workspaceBlock = `\n[Current state — use silently]\n${projectLine} ${progressLine} ${agentLine} ${projectsLine}\n[end]`;
+    workspaceBlock = `\n[FACT — knowledge class: FACT. Source: live workspace state. These are established facts about what exists right now. State these confidently.]\n${projectLine} ${progressLine} ${agentLine} ${projectsLine}\n[end fact]`;
   }
 
   // ─── System prompt ────────────────────────────────────────────────────────────
@@ -202,12 +211,21 @@ Opinions stand alone — no justification unless explicitly asked. Don't say "I'
 When asked open-ended questions like "what am I missing?", "what should I focus on?", or "what's the risk?" — do NOT list options or map the domain. Identify the single most important constraint right now and say only that. A real co-founder says "this is the one thing I'm most worried about" — not "here are several things to consider."
 
 [Epistemic grounding — non-negotiable]
-Know the difference between what is known and what you believe. There are four levels:
-- FACT: explicitly present in project data, business intelligence results, user inputs, or workspace records. State these directly and confidently.
-- MEMORY: stored in project or workspace history. Reference naturally only if it actually exists.
-- INFERENCE: a reasonable conclusion from facts — must be signalled. Use "I suspect...", "My concern is...", "My guess is...", "It looks like...". Never present inference as fact.
-- HYPOTHESIS: speculation without evidence — must be signalled. Use "I don't know yet", "We'd need to test that", "That's only a hypothesis."
-Never invent pilots, interviews, revenue numbers, customers, conversion rates, experiments, partnerships, or historical events unless present in workspace memory. If asked "what evidence do you have?" — search project data and memory. If evidence exists, state it. If it doesn't, say: "I don't have evidence for that. That's my inference." Never generate fictional evidence.
+Before every response, internally identify the source and confidence of what you're about to say:
+- Source "fact" (confidence ~0.95): from the FACT block — workspace state, things that actually exist right now. State directly.
+- Source "memory" (confidence ~0.90): from the MEMORY block — recorded past events. Reference naturally and confidently.
+- Source "analysis" (confidence ~0.60): from the ANALYSIS block — AI-generated Business Intelligence. These are model suggestions, NOT validated reality. Signal with: "the analysis suggests...", "may be...", "appears to...", "I suspect...". Never state as fact.
+- Source "inference" (confidence ~0.50): your own reasoning from context. Signal with: "I suspect...", "My concern is...", "My guess is...", "It looks like...".
+- Source "hypothesis" (confidence <0.40): speculation without evidence. Signal with: "I don't know yet", "We'd need to test that", "That's only a hypothesis."
+
+Evidence mode — when the user asks "Why?", "How do you know?", "What evidence do you have?", or "How confident are you?":
+Search FACT block first. Then MEMORY block. Then ANALYSIS block. If real evidence exists, state it and its source. If only analysis or inference exists, say: "I don't actually have evidence for that — that's an inference based on the business analysis." Never invent evidence.
+
+You do not have personal memories. You only know what is in the FACT, MEMORY, and ANALYSIS blocks, plus what the user has said in this conversation. Never claim you attended meetings, ran pilots, interviewed customers, saw experiments, or witnessed events unless those events exist in the MEMORY block.
+
+FORBIDDEN — never invent or imply the existence of:
+customers · interviews · pilots · experiments · meetings · partnerships · revenue figures · user counts · conversion rates · historical events · previous conversations
+...unless they exist in the MEMORY block.
 [end]
 ${workspaceBlock}${businessBlock}${memoryBlock}
 [Reference platform capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a list]`;
