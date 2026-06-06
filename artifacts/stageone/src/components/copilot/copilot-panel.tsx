@@ -578,14 +578,20 @@ export function CopilotPanel() {
     } else if (command === "website") {
       navigate("/website-generator")
     } else if (command === "website_idea") {
+      console.log("[POPULATE TRACE 2] website_idea branch entered | raw payload:", JSON.stringify(payload))
       const idea = payload.trim()
-      if (!idea) return
+      console.log("[POPULATE TRACE 2] idea after trim:", JSON.stringify(idea), "| empty?", !idea)
+      if (!idea) { console.log("[POPULATE TRACE 2] EARLY RETURN — payload empty, setMarcusWorkspaceSignal will NOT be called"); return }
       // Write to sessionStorage for cross-navigation delivery
+      console.log("[POPULATE TRACE 3] calling setMarcusWorkspaceSignal")
       setMarcusWorkspaceSignal({ target: "website", type: "populate", payload: idea })
+      console.log("[POPULATE TRACE 3] sessionStorage written | value:", sessionStorage.getItem("marcus_workspace_signal"))
       // Navigate if not already on the website generator page
       if (location !== "/website-generator") navigate("/website-generator")
       // Also emit a live signal in case the page is already mounted
+      console.log("[POPULATE TRACE 5] calling emitWorkspaceSignal | payload:", idea)
       emitWorkspaceSignal({ target: "website", type: "populate", payload: idea })
+      console.log("[POPULATE TRACE 5] emitWorkspaceSignal returned")
     } else if (command === "generate_website") {
       console.log("[WEBSITE TRACE] dispatcher handling generate_website")
       console.log("[WEBSITE TRACE] emitted signal | target: website | type: generate | payload: (none)")

@@ -174,13 +174,22 @@ export default function WebsiteGeneratorPage() {
 
   // ─── Marcus workspace signal (on mount — cross-navigation delivery) ──────────
   useEffect(() => {
+    console.log("[POPULATE TRACE 7] mount effect running — calling consumeMarcusWorkspaceSignal")
+    console.log("[POPULATE TRACE 6] sessionStorage at mount:", sessionStorage.getItem("marcus_workspace_signal"))
     const signal = consumeMarcusWorkspaceSignal()
+    console.log("[POPULATE TRACE 8] consumeMarcusWorkspaceSignal returned:", JSON.stringify(signal))
     if (signal?.target === "website" && signal.type === "populate" && signal.payload) {
       const text = signal.payload
       marcusWebsiteIdeaRef.current = text
       ideaRef.current = text
       setContextBanner(true)
-      setTimeout(() => setMarcusPopulate(text), 150)
+      console.log("[POPULATE TRACE 9] scheduling setMarcusPopulate(text) via setTimeout 150ms | text:", text)
+      setTimeout(() => {
+        console.log("[POPULATE TRACE 9] setTimeout fired — calling setMarcusPopulate | text:", text)
+        setMarcusPopulate(text)
+      }, 150)
+    } else {
+      console.log("[POPULATE TRACE 8] signal failed condition check — target:", signal?.target, "| type:", signal?.type, "| payload:", signal?.payload ?? "(none)", "| signal null?", signal === null)
     }
     // Consume persisted generate intent — survives navigation race condition
     // (set by Marcus dispatcher before the page has mounted and subscribed)
@@ -211,6 +220,7 @@ export default function WebsiteGeneratorPage() {
         marcusWebsiteIdeaRef.current = text
         ideaRef.current = text
         setContextBanner(true)
+        console.log("[POPULATE TRACE 9-LIVE] live subscriber calling setMarcusPopulate | text:", text)
         setMarcusPopulate(text)
       } else if (signal.type === "generate") {
         console.log("[TRACE] WEBSITE generate handler entered | marcusRef:", marcusWebsiteIdeaRef.current || "(empty)", "| ideaRef:", ideaRef.current || "(empty)")
