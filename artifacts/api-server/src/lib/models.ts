@@ -36,5 +36,11 @@ export const MODELS = {
 export type ModelKey = keyof typeof MODELS;
 export type ModelId = (typeof MODELS)[ModelKey];
 
-// Chat template kwargs for models that require them (none currently needed)
-export const MODEL_KWARGS: Partial<Record<ModelId, Record<string, unknown>>> = {};
+// Chat template kwargs for models that require them.
+// qwen3.5-122b-a10b is a thinking model by default — disable thinking for the
+// COPILOT role so delta.content is always populated (thinking tokens go to
+// delta.reasoning_content, which forwardStream doesn't read, causing empty
+// responses when the model exhausts its token budget on hidden <think> blocks).
+export const MODEL_KWARGS: Partial<Record<ModelId, Record<string, unknown>>> = {
+  "qwen/qwen3.5-122b-a10b": { enable_thinking: false },
+};
