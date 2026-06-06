@@ -1,0 +1,141 @@
+PROJECT ASSET CONSISTENCY FIX
+
+IMPORTANT
+
+Before making changes, use Business Intelligence and Website assets as the reference implementation.
+
+These already behave correctly.
+
+==================================================
+EXPECTED STAGEONE BEHAVIOR
+==========================
+
+Every generated asset should behave the same way.
+
+Current desired structure:
+
+Project
+├── Business Intelligence
+├── Website
+├── Chatbot
+├── Automation
+└── Tasks
+
+==================================================
+REFERENCE IMPLEMENTATION
+========================
+
+Business Intelligence:
+
+User opens saved BI asset.
+
+Result:
+
+* opens inside project
+* loads saved content
+* does not regenerate
+* does not navigate to generation flow
+
+Website:
+
+User opens saved website.
+
+Result:
+
+* opens inside project
+* loads saved asset
+* does not regenerate
+
+These are the correct behaviors.
+
+==================================================
+CURRENT PROBLEM
+===============
+
+Chatbot and Automation do not follow the same asset model.
+
+They behave more like generators than saved assets.
+
+==================================================
+REQUIRED BEHAVIOR
+=================
+
+When a chatbot is generated:
+
+Generate
+→ Save
+→ Attach to Project
+
+Later:
+
+Project
+→ Chatbot
+→ Open & Test
+
+Should:
+
+* open inside the project asset workspace
+* load saved chatbot
+* restore tester
+* restore prompts
+* restore configuration
+* allow testing immediately
+
+NO regeneration.
+
+NO empty state.
+
+NO requirement to reopen generator flow.
+
+==================================================
+AUTOMATION
+==========
+
+Apply the exact same architecture.
+
+Generate
+→ Save
+→ Attach to Project
+
+Later:
+
+Project
+→ Automation
+→ Open
+
+Should:
+
+* load saved automation
+* load workflow
+* load configuration
+* allow editing/testing
+
+without regeneration.
+
+==================================================
+ARCHITECTURE RULE
+=================
+
+Generated assets become first-class project assets.
+
+Once saved:
+
+* they are opened from the project
+* they are restored from persistence
+* they are edited from the project
+
+NOT reopened through generation workflows.
+
+==================================================
+IMPORTANT
+=========
+
+Do NOT redesign Business Intelligence.
+
+Do NOT redesign Website.
+
+Instead:
+
+Make Chatbot and Automation follow the same asset lifecycle already used by Business Intelligence and Website.
+
+The user experience should be consistent across all asset types.

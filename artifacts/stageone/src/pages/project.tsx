@@ -4,12 +4,14 @@ import { motion, AnimatePresence } from "framer-motion"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/output-panel"
 import { WebsitePanel } from "@/components/dashboard/website-panel"
+import { ChatbotPanel, ChatbotEmptyPanel } from "@/components/dashboard/chatbot-panel"
+import { AutomationPanel, AutomationEmptyPanel } from "@/components/dashboard/automation-panel"
 import { api, type Project, type ProjectEvent } from "@/lib/api"
-import { saveProjectContext, saveGenerationContext, saveChatbotRestoreContext, saveAutomationRestoreContext } from "@/lib/generation-context"
+import { saveProjectContext, saveGenerationContext } from "@/lib/generation-context"
 import {
   ArrowLeft, RefreshCw, Globe, BarChart3, Loader2, Pencil, Check, X,
   Bot, Zap, CheckSquare, Clock, Plus, Trash2, CheckCircle2, Circle,
-  History, ExternalLink, Lightbulb, Workflow, ChevronRight, CheckCheck,
+  History, Lightbulb, Workflow, ChevronRight, CheckCheck,
 } from "lucide-react"
 import { useLang } from "@/lib/i18n"
 
@@ -290,275 +292,6 @@ function HistoryTab({ events, createdAt }: { events: ProjectEvent[]; createdAt: 
   )
 }
 
-// ─── Chatbot tab ──────────────────────────────────────────────────────────────
-
-function ChatbotTab({ biData, chatbotOutput, onNavigate, onRestore }: {
-  biData: BusinessIntelligence | null
-  chatbotOutput: Record<string, unknown> | null
-  onNavigate: () => void
-  onRestore?: () => void
-}) {
-  const identity = chatbotOutput?.identity as { name?: string; role?: string; objective?: string; personality?: string; greeting?: string } | undefined
-  const kpis = chatbotOutput?.kpis as { deflectionRate?: string; responseTime?: string; satisfactionScore?: string; leadConversion?: string } | undefined
-  const suggestedPrompts = chatbotOutput?.suggestedPrompts as string[] | undefined
-
-  return (
-    <div className="p-6 space-y-5">
-      {chatbotOutput ? (
-        <>
-          {/* Generated chatbot summary */}
-          <div className="glass-card rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCheck className="h-4 w-4 text-green-400" />
-              <h3 className="text-sm font-semibold text-foreground">Chatbot Generated</h3>
-              <span className="ml-auto text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/20">Saved</span>
-            </div>
-            {identity && (
-              <div className="space-y-2">
-                {identity.name && <p className="text-sm font-medium text-foreground">{identity.name}</p>}
-                {identity.role && <p className="text-xs text-muted-foreground">{identity.role}</p>}
-                {identity.greeting && (
-                  <div className="mt-3 rounded-lg bg-secondary/30 px-4 py-3 text-sm text-muted-foreground italic border border-border/30">
-                    "{identity.greeting}"
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {kpis && (
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Lightbulb className="h-4 w-4 text-yellow-400" />
-                <h3 className="text-sm font-semibold text-foreground">Performance Targets</h3>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  { label: "Deflection Rate", value: kpis.deflectionRate },
-                  { label: "Response Time", value: kpis.responseTime },
-                  { label: "Satisfaction", value: kpis.satisfactionScore },
-                  { label: "Lead Conversion", value: kpis.leadConversion },
-                ].filter(x => x.value).map(x => (
-                  <div key={x.label} className="rounded-lg bg-secondary/20 p-3">
-                    <p className="text-xs text-muted-foreground mb-1">{x.label}</p>
-                    <p className="text-sm font-medium text-foreground">{x.value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {suggestedPrompts && suggestedPrompts.length > 0 && (
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Bot className="h-4 w-4 text-purple-400" />
-                <h3 className="text-sm font-semibold text-foreground">Suggested Prompts</h3>
-              </div>
-              <div className="space-y-2">
-                {suggestedPrompts.slice(0, 4).map((p, i) => (
-                  <div key={i} className="flex items-start gap-2 rounded-lg bg-secondary/20 px-3 py-2 text-sm text-muted-foreground">
-                    <span className="text-purple-400 mt-0.5">→</span>
-                    <span>{p}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      ) : biData?.chatbotRole ? (
-        <div className="glass-card rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Bot className="h-4 w-4 text-purple-400" />
-            <h3 className="text-sm font-semibold text-foreground">AI Chatbot Role (from Analysis)</h3>
-          </div>
-          <p className="text-sm text-muted-foreground leading-relaxed">{biData.chatbotRole}</p>
-          <p className="text-xs text-muted-foreground mt-3">Open the Chatbot Generator to build and save a full chatbot for this project.</p>
-        </div>
-      ) : (
-        <div className="glass-card rounded-xl p-8 text-center">
-          <Bot className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground mb-1">No chatbot yet.</p>
-          <p className="text-xs text-muted-foreground">Generate a business analysis first, then build a chatbot from it.</p>
-        </div>
-      )}
-
-      {chatbotOutput && onRestore ? (
-        <div className="flex gap-2">
-          <button
-            onClick={onRestore}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-sm text-purple-300 hover:bg-purple-500/20 hover:border-purple-500/50 transition-all"
-          >
-            <Bot className="h-4 w-4" />
-            Open &amp; Test Chatbot
-            <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-          </button>
-          <button
-            onClick={onNavigate}
-            className="flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-muted-foreground hover:border-border hover:text-foreground transition-all"
-            title="Regenerate chatbot from scratch"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Regenerate
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={onNavigate}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all"
-        >
-          <Bot className="h-4 w-4 text-purple-400" />
-          Open Chatbot Generator
-          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
-      )}
-    </div>
-  )
-}
-
-// ─── Automation tab ───────────────────────────────────────────────────────────
-
-function AutomationTab({ biData, automationOutput, onNavigate, onRestore }: {
-  biData: BusinessIntelligence | null
-  automationOutput: Record<string, unknown> | null
-  onNavigate: () => void
-  onRestore?: () => void
-}) {
-  const overview = automationOutput?.overview as { purpose?: string; objective?: string; expectedOutcome?: string; complexityScore?: number; executionEstimate?: string } | undefined
-  const aiOpportunities = automationOutput?.aiOpportunities as Array<{ type: string; description: string; impact: string }> | undefined
-  const integrations = automationOutput?.integrations as Array<{ name: string; category: string; role: string; tier: string }> | undefined
-
-  return (
-    <div className="p-6 space-y-5">
-      {automationOutput ? (
-        <>
-          {/* Generated automation summary */}
-          <div className="glass-card rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCheck className="h-4 w-4 text-green-400" />
-              <h3 className="text-sm font-semibold text-foreground">Automation Workflow Generated</h3>
-              <span className="ml-auto text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/20">Saved</span>
-            </div>
-            {overview && (
-              <div className="space-y-3">
-                {overview.purpose && <p className="text-sm text-muted-foreground leading-relaxed">{overview.purpose}</p>}
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {overview.expectedOutcome && (
-                    <div className="rounded-lg bg-secondary/20 p-3">
-                      <p className="text-xs text-muted-foreground mb-1">Expected Outcome</p>
-                      <p className="text-sm text-foreground">{overview.expectedOutcome}</p>
-                    </div>
-                  )}
-                  {overview.executionEstimate && (
-                    <div className="rounded-lg bg-secondary/20 p-3">
-                      <p className="text-xs text-muted-foreground mb-1">Execution Estimate</p>
-                      <p className="text-sm text-foreground">{overview.executionEstimate}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {aiOpportunities && aiOpportunities.length > 0 && (
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Zap className="h-4 w-4 text-yellow-400" />
-                <h3 className="text-sm font-semibold text-foreground">AI Opportunities</h3>
-              </div>
-              <div className="space-y-2">
-                {aiOpportunities.slice(0, 4).map((opp, i) => (
-                  <div key={i} className="flex items-start gap-3 rounded-lg bg-secondary/20 px-4 py-3">
-                    <span className={`text-xs font-medium mt-0.5 ${opp.impact === "high" ? "text-green-400" : opp.impact === "medium" ? "text-yellow-400" : "text-blue-400"}`}>
-                      {opp.impact?.toUpperCase()}
-                    </span>
-                    <div>
-                      <p className="text-xs text-foreground font-medium">{opp.type}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{opp.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {integrations && integrations.filter(i => i.tier === "required").length > 0 && (
-            <div className="glass-card rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <ChevronRight className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold text-foreground">Required Integrations</h3>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {integrations.filter(i => i.tier === "required").map((intg, i) => (
-                  <span key={i} className="rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 px-3 py-1 text-xs">
-                    {intg.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      ) : biData?.automations?.length ? (
-        <div className="glass-card rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Workflow className="h-4 w-4 text-orange-400" />
-            <h3 className="text-sm font-semibold text-foreground">Recommended Automations (from Analysis)</h3>
-          </div>
-          <div className="space-y-2">
-            {biData.automations.map((auto, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="flex items-start gap-3 rounded-lg bg-secondary/20 px-4 py-3"
-              >
-                <Zap className="h-3.5 w-3.5 text-orange-400 mt-0.5 flex-shrink-0" />
-                <span className="text-sm text-muted-foreground">{auto}</span>
-              </motion.div>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-3">Open the Automation Builder to generate a full workflow and save it to this project.</p>
-        </div>
-      ) : (
-        <div className="glass-card rounded-xl p-8 text-center">
-          <Workflow className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground mb-1">No automation yet.</p>
-          <p className="text-xs text-muted-foreground">Generate a business analysis first to see recommended automations.</p>
-        </div>
-      )}
-
-      {automationOutput && onRestore ? (
-        <div className="flex gap-2">
-          <button
-            onClick={onRestore}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-orange-500/10 border border-orange-500/30 text-sm text-orange-300 hover:bg-orange-500/20 hover:border-orange-500/50 transition-all"
-          >
-            <Workflow className="h-4 w-4" />
-            Open &amp; View Automation
-            <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-          </button>
-          <button
-            onClick={onNavigate}
-            className="flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-muted-foreground hover:border-border hover:text-foreground transition-all"
-            title="Regenerate automation from scratch"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Regenerate
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={onNavigate}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all"
-        >
-          <Workflow className="h-4 w-4 text-orange-400" />
-          Open Automation Builder
-          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
-      )}
-    </div>
-  )
-}
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 
@@ -690,6 +423,9 @@ export default function ProjectPage({ id }: ProjectPageProps) {
   const biData = project.output as BusinessIntelligence | null
   const events = project.projectEvents ?? []
   const isWebsiteTab = tab === "website"
+  const isChatbotPanel = tab === "chatbot" && !!project.chatbotOutput
+  const isAutomationPanel = tab === "automation" && !!project.automationOutput
+  const isFullHeightTab = isWebsiteTab || isChatbotPanel || isAutomationPanel
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -777,7 +513,7 @@ export default function ProjectPage({ id }: ProjectPageProps) {
         </div>
 
         {/* ── Content ── */}
-        <div className={`flex-1 min-h-0 ${isWebsiteTab ? "overflow-hidden flex flex-col" : "overflow-y-auto"}`}>
+        <div className={`flex-1 min-h-0 ${isFullHeightTab ? "overflow-hidden flex flex-col" : "overflow-y-auto"}`}>
           <AnimatePresence mode="wait">
             {tab === "analysis" && (
               <motion.div key="analysis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -815,43 +551,52 @@ export default function ProjectPage({ id }: ProjectPageProps) {
             )}
 
             {tab === "chatbot" && (
-              <motion.div key="chatbot" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ChatbotTab
-                  biData={biData}
-                  chatbotOutput={project.chatbotOutput ?? null}
-                  onNavigate={() => {
-                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
-                    if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
-                    setLocation("/chatbot-generator")
-                  }}
-                  onRestore={project.chatbotOutput ? () => {
-                    console.log("[project] currentProject.id", id)
-                    console.log("[project] currentProject record", { id: project.id, title: project.title, hasChatbotOutput: !!project.chatbotOutput })
-                    console.log("[project] saving restore context — chatbotOutput keys", Object.keys(project.chatbotOutput as Record<string,unknown>))
-                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
-                    saveChatbotRestoreContext(project.chatbotOutput)
-                    setLocation("/chatbot-generator")
-                  } : undefined}
-                />
+              <motion.div key="chatbot" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className={isChatbotPanel ? "flex flex-col flex-1 min-h-0 overflow-hidden" : undefined}>
+                {project.chatbotOutput ? (
+                  <ChatbotPanel
+                    chatbotOutput={project.chatbotOutput as Record<string, unknown>}
+                    onRegenerate={() => {
+                      saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                      if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
+                      setLocation("/chatbot-generator")
+                    }}
+                  />
+                ) : (
+                  <ChatbotEmptyPanel
+                    biData={biData}
+                    onNavigate={() => {
+                      saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                      if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
+                      setLocation("/chatbot-generator")
+                    }}
+                  />
+                )}
               </motion.div>
             )}
 
             {tab === "automation" && (
-              <motion.div key="automation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <AutomationTab
-                  biData={biData}
-                  automationOutput={project.automationOutput ?? null}
-                  onNavigate={() => {
-                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
-                    if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
-                    setLocation("/automation-builder")
-                  }}
-                  onRestore={project.automationOutput ? () => {
-                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
-                    saveAutomationRestoreContext(project.automationOutput)
-                    setLocation("/automation-builder")
-                  } : undefined}
-                />
+              <motion.div key="automation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className={isAutomationPanel ? "flex flex-col flex-1 min-h-0 overflow-hidden" : undefined}>
+                {project.automationOutput ? (
+                  <AutomationPanel
+                    automationOutput={project.automationOutput as Record<string, unknown>}
+                    onRegenerate={() => {
+                      saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                      if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
+                      setLocation("/automation-builder")
+                    }}
+                  />
+                ) : (
+                  <AutomationEmptyPanel
+                    biData={biData}
+                    onNavigate={() => {
+                      saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                      if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
+                      setLocation("/automation-builder")
+                    }}
+                  />
+                )}
               </motion.div>
             )}
 
