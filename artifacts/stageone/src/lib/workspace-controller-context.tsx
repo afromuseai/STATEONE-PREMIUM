@@ -8,16 +8,10 @@ import {
   type ReactNode,
 } from "react"
 import { useAuth } from "./auth-context"
-import { setCopilotAutorun } from "./generation-context"
+import { setCopilotAutorun, type MarcusWorkspaceSignal } from "./generation-context"
 
-// ─── Marcus Chatbot Signal (live pub/sub) ─────────────────────────────────────
-// Used by Copilot to signal the chatbot generator page in real-time.
-// For cross-navigation delivery, use setMarcusChatbotSignal (sessionStorage) in generation-context.
-
-export interface MarcusChatbotSignal {
-  type: "populate" | "generate"
-  idea?: string
-}
+// MarcusWorkspaceSignal is defined in generation-context.ts and re-exported for convenience.
+export type { MarcusWorkspaceSignal }
 
 // ─── Event types ──────────────────────────────────────────────────────────────
 
@@ -63,8 +57,8 @@ interface WorkspaceControllerContextValue {
   refetchTasks: () => void
   openTab: (path: string, navigate: (path: string) => void) => void
   populateAndTrigger: (action: string, idea?: string) => void
-  emitChatbotSignal: (signal: MarcusChatbotSignal) => void
-  subscribeChatbotSignal: (cb: (signal: MarcusChatbotSignal) => void) => () => void
+  emitWorkspaceSignal: (signal: MarcusWorkspaceSignal) => void
+  subscribeWorkspaceSignal: (cb: (signal: MarcusWorkspaceSignal) => void) => () => void
 }
 
 const WorkspaceControllerContext = createContext<WorkspaceControllerContextValue | null>(null)
@@ -76,7 +70,7 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
   const [tasks, setTasks] = useState<WorkspaceTask[]>([])
   const [tasksLoading, setTasksLoading] = useState(false)
   const subscribersRef = useRef<Set<EventCallback>>(new Set())
-  const chatbotSubscribersRef = useRef<Set<(signal: MarcusChatbotSignal) => void>>(new Set())
+  const workspaceSubscribersRef = useRef<Set<(signal: MarcusWorkspaceSignal) => void>>(new Set())
 
   const fetchTasks = useCallback(async () => {
     if (!user) return
@@ -158,15 +152,15 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
     setCopilotAutorun({ action, idea, timestamp: Date.now() })
   }, [])
 
-  const emitChatbotSignal = useCallback((signal: MarcusChatbotSignal) => {
-    chatbotSubscribersRef.current.forEach(cb => {
+  const emitWorkspaceSignal = useCallback((signal: MarcusWorkspaceSignal) => {
+    workspaceSubscribersRef.current.forEach(cb => {
       try { cb(signal) } catch { /* non-fatal */ }
     })
   }, [])
 
-  const subscribeChatbotSignal = useCallback((cb: (signal: MarcusChatbotSignal) => void) => {
-    chatbotSubscribersRef.current.add(cb)
-    return () => { chatbotSubscribersRef.current.delete(cb) }
+  const subscribeWorkspaceSignal = useCallback((cb: (signal: MarcusWorkspaceSignal) => void) => {
+    workspaceSubscribersRef.current.add(cb)
+    return () => { workspaceSubscribersRef.current.delete(cb) }
   }, [])
 
   return (
@@ -181,8 +175,8 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
       refetchTasks: fetchTasks,
       openTab,
       populateAndTrigger,
-      emitChatbotSignal,
-      subscribeChatbotSignal,
+      emitWorkspaceSignal,
+      subscribeWorkspaceSignal,
     }}>
       {children}
     </WorkspaceControllerContext.Provider>

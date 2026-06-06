@@ -13,7 +13,7 @@ import {
 import { useBusinessContext } from "@/lib/business-context"
 import { useAuth } from "@/lib/auth-context"
 import { api, type Project } from "@/lib/api"
-import { setCopilotAutorun, setMarcusChatbotSignal } from "@/lib/generation-context"
+import { setCopilotAutorun, setMarcusWorkspaceSignal } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { ListChecks, Trash2 } from "lucide-react"
 
@@ -328,7 +328,7 @@ export function CopilotPanel() {
   const [location, navigate] = useLocation()
   const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
-  const { tasks, createTasks, toggleTask, deleteTask, subscribe, emitChatbotSignal } = useWorkspaceController()
+  const { tasks, createTasks, toggleTask, deleteTask, subscribe, emitWorkspaceSignal } = useWorkspaceController()
 
   const { data: projectsData } = useQuery({
     queryKey: ["copilot-projects"],
@@ -522,16 +522,16 @@ export function CopilotPanel() {
       const idea = payload.trim()
       if (!idea) return
       // Write to sessionStorage so the chatbot-generator page picks it up on mount (cross-navigation)
-      setMarcusChatbotSignal({ type: "populate", idea })
+      setMarcusWorkspaceSignal({ target: "chatbot", type: "populate", payload: idea })
       // Navigate if not already on the chatbot generator page
       if (location !== "/chatbot-generator") navigate("/chatbot-generator")
       // Also emit a live signal in case the page is already mounted
-      emitChatbotSignal({ type: "populate", idea })
+      emitWorkspaceSignal({ target: "chatbot", type: "populate", payload: idea })
     } else if (command === "generate_chatbot") {
       // Fire generation signal — chatbot-generator page will start streaming
-      emitChatbotSignal({ type: "generate" })
+      emitWorkspaceSignal({ target: "chatbot", type: "generate" })
     }
-  }, [navigate, location, emitChatbotSignal])
+  }, [navigate, location, emitWorkspaceSignal])
 
   // ─── Send message ─────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text?: string) => {

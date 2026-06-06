@@ -1,0 +1,136 @@
+MARCUS EXECUTION ENGINE REFACTOR
+
+IMPORTANT
+
+Do NOT add Business Intelligence support.
+
+Do NOT add Website support.
+
+Do NOT add Automation support.
+
+Do NOT duplicate the chatbot implementation.
+
+The goal is:
+
+generalize the execution engine before extending it.
+
+==================================================
+CURRENT STATE
+=============
+
+Parser:
+generic ✅
+
+Dispatcher:
+generic entry point ✅
+
+Signal system:
+chatbot-specific ❌
+
+Session bridge:
+chatbot-specific ❌
+
+Generator receiver:
+chatbot-specific ❌
+
+==================================================
+GOAL
+====
+
+Replace all chatbot-specific signaling with one unified workspace signal.
+
+==================================================
+CREATE
+======
+
+interface MarcusWorkspaceSignal {
+
+target:
+
+* intelligence
+* website
+* chatbot
+* automation
+
+type:
+
+* navigate
+* populate
+* generate
+* clear
+
+payload?: string
+
+}
+
+==================================================
+WORKSPACE CONTROLLER
+====================
+
+Replace:
+
+emitChatbotSignal()
+subscribeChatbotSignal()
+
+with:
+
+emitWorkspaceSignal()
+subscribeWorkspaceSignal()
+
+==================================================
+SESSION STORAGE
+===============
+
+Replace chatbot-specific storage keys.
+
+Use one generic workspace signal store.
+
+==================================================
+PAGE RECEIVERS
+==============
+
+Pages subscribe to the same signal channel.
+
+Example:
+
+Business Intelligence:
+
+if signal.target === "intelligence"
+
+Website:
+
+if signal.target === "website"
+
+Chatbot:
+
+if signal.target === "chatbot"
+
+Automation:
+
+if signal.target === "automation"
+
+==================================================
+IMPORTANT
+=========
+
+Do NOT implement BI.
+
+Do NOT implement Website.
+
+Do NOT implement Automation.
+
+Only refactor the execution engine so chatbot continues working exactly as it does today.
+
+SUCCESS CRITERIA
+
+Existing chatbot workflow still works.
+
+No visible UI changes.
+
+No behavior changes.
+
+After the refactor:
+
+adding BI, Website, and Automation should require only page-level receivers.
+
+No duplicate signal systems.

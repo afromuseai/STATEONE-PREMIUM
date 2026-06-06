@@ -13,7 +13,7 @@ import {
   loadProjectContext, clearProjectContext,
   loadChatbotRestoreContext, clearChatbotRestoreContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
-  consumeMarcusChatbotSignal,
+  consumeMarcusWorkspaceSignal,
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
@@ -137,7 +137,7 @@ export default function ChatbotGeneratorPage() {
   const industryRef = useRef(industry)
   const toneRef = useRef(tone)
 
-  const { subscribeChatbotSignal } = useWorkspaceController()
+  const { subscribeWorkspaceSignal } = useWorkspaceController()
 
   // Keep refs in sync with state so signal callbacks always see current values
   useEffect(() => { businessDescRef.current = businessDesc }, [businessDesc])
@@ -166,9 +166,10 @@ export default function ChatbotGeneratorPage() {
 
   // ─── Marcus signal subscription (live — for when page is already mounted) ──
   useEffect(() => {
-    return subscribeChatbotSignal((signal) => {
-      if (signal.type === "populate" && signal.idea) {
-        typewriterPopulate(signal.idea)
+    return subscribeWorkspaceSignal((signal) => {
+      if (signal.target !== "chatbot") return
+      if (signal.type === "populate" && signal.payload) {
+        typewriterPopulate(signal.payload)
       } else if (signal.type === "generate") {
         const desc = businessDescRef.current
         if (desc.trim()) {
@@ -176,13 +177,13 @@ export default function ChatbotGeneratorPage() {
         }
       }
     })
-  }, [subscribeChatbotSignal, typewriterPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [subscribeWorkspaceSignal, typewriterPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Marcus signal on mount (sessionStorage — for cross-navigation delivery) ─
   useEffect(() => {
-    const signal = consumeMarcusChatbotSignal()
-    if (signal?.type === "populate" && signal.idea) {
-      typewriterPopulate(signal.idea)
+    const signal = consumeMarcusWorkspaceSignal()
+    if (signal?.target === "chatbot" && signal.type === "populate" && signal.payload) {
+      typewriterPopulate(signal.payload)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

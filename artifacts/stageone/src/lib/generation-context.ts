@@ -207,30 +207,32 @@ export function consumeCopilotAutorun(): CopilotAutorun | null {
   }
 }
 
-// ─── Marcus Chatbot Signal ────────────────────────────────────────────────────
-// Written by the Copilot before opening the chatbot generator.
-// The chatbot generator page reads this on mount to start the typewriter effect.
-// Live signals (post-mount) go through WorkspaceControllerContext.emitChatbotSignal.
+// ─── Marcus Workspace Signal ──────────────────────────────────────────────────
+// Unified signal for all Marcus execution commands across all generator pages.
+// Live signals (post-mount) go through WorkspaceControllerContext.emitWorkspaceSignal.
+// Cross-navigation delivery uses sessionStorage (setMarcusWorkspaceSignal).
+// Each page filters by signal.target to handle only its own signals.
 
-export interface MarcusChatbotSignal {
-  type: "populate" | "generate"
-  idea?: string
-  timestamp: number
+export interface MarcusWorkspaceSignal {
+  target: "intelligence" | "website" | "chatbot" | "automation"
+  type: "navigate" | "populate" | "generate" | "clear"
+  payload?: string
 }
 
-const MARCUS_CHATBOT_KEY = "marcus_chatbot_signal"
+const MARCUS_WORKSPACE_KEY = "marcus_workspace_signal"
 
-export function setMarcusChatbotSignal(signal: Omit<MarcusChatbotSignal, "timestamp">): void {
-  try { sessionStorage.setItem(MARCUS_CHATBOT_KEY, JSON.stringify({ ...signal, timestamp: Date.now() })) } catch { /* ignore */ }
+export function setMarcusWorkspaceSignal(signal: MarcusWorkspaceSignal): void {
+  try { sessionStorage.setItem(MARCUS_WORKSPACE_KEY, JSON.stringify({ ...signal, timestamp: Date.now() })) } catch { /* ignore */ }
 }
 
-export function consumeMarcusChatbotSignal(): MarcusChatbotSignal | null {
+export function consumeMarcusWorkspaceSignal(): MarcusWorkspaceSignal | null {
   try {
-    const raw = sessionStorage.getItem(MARCUS_CHATBOT_KEY)
+    const raw = sessionStorage.getItem(MARCUS_WORKSPACE_KEY)
     if (!raw) return null
-    sessionStorage.removeItem(MARCUS_CHATBOT_KEY)
-    const signal = JSON.parse(raw) as MarcusChatbotSignal
-    if (Date.now() - signal.timestamp > 30_000) return null
+    sessionStorage.removeItem(MARCUS_WORKSPACE_KEY)
+    const stored = JSON.parse(raw) as MarcusWorkspaceSignal & { timestamp: number }
+    if (Date.now() - stored.timestamp > 30_000) return null
+    const { timestamp: _, ...signal } = stored
     return signal
   } catch { return null }
 }
