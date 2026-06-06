@@ -204,13 +204,22 @@ export default function ChatbotGeneratorPage() {
   }
 
   const initChat = useCallback((d: ChatbotOutput) => {
-    const greet: ChatMessage = { role: "bot", text: d.conversationFlows.welcome.botMessage || d.identity.greeting, id: ++msgId }
+    const greetText =
+      d.conversationFlows?.welcome?.botMessage ||
+      d.identity?.greeting ||
+      "Hello! How can I help you today?"
+    const greet: ChatMessage = { role: "bot", text: greetText, id: ++msgId }
     setMessages([greet])
-    setQuickReplies(d.conversationFlows.welcome.quickReplies?.slice(0, 4) ?? d.suggestedPrompts?.slice(0, 4) ?? [])
+    setQuickReplies(
+      d.conversationFlows?.welcome?.quickReplies?.slice(0, 4) ??
+      d.suggestedPrompts?.slice(0, 4) ??
+      []
+    )
   }, [])
 
-  // Phase 0 — Restore previously-saved chatbot (declared after initChat so it can call it)
-  // If a restore context exists, hydrate all state and block auto-generation entirely.
+  // Phase 0 — Restore previously-saved chatbot.
+  // ONLY sets data/step state — does NOT call initChat directly.
+  // The separate "chat init" effect below fires reactively once state commits.
   useEffect(() => {
     const saved = loadChatbotRestoreContext()
     if (!saved) return
@@ -222,9 +231,20 @@ export default function ChatbotGeneratorPage() {
     setStep("done")
     setEditedPrompt(output.systemPrompt?.main ?? "")
     setContextBanner(false)
-    initChat(output)
     setRightTab("preview")
-  }, [initChat]) // eslint-disable-line react-hooks/exhaustive-deps
+    // initChat is intentionally NOT called here — it runs in the effect below
+    // after React has committed these state updates, preventing any throw from
+    // blocking the step/data commit.
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Chat init effect — fires whenever step transitions to "done" with data present
+  // and no messages yet (restore path). Generation path already calls initChat
+  // directly inside generateWith/generate, so messages.length > 0 by the time
+  // this effect runs after a normal generation.
+  useEffect(() => {
+    if (step !== "done" || !data || messages.length > 0) return
+    initChat(data)
+  }, [step, data]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendMessage = useCallback(async (text: string) => {
     if (!data || isTyping) return
