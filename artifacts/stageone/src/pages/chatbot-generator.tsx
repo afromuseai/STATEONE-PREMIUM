@@ -10,7 +10,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import {
   loadGenerationContext, clearGenerationContext,
-  loadProjectContext,
+  loadProjectContext, clearProjectContext,
   loadChatbotRestoreContext, clearChatbotRestoreContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
 } from "@/lib/generation-context"
@@ -133,16 +133,26 @@ export default function ChatbotGeneratorPage() {
 
   const saveToProject = useCallback(async (output: ChatbotOutput) => {
     const ctx = projectCtxRef.current
+    console.log("[chatbot] projectId", ctx?.projectId ?? "(none — no project context in sessionStorage)")
     if (!ctx?.projectId) return
+    const endpoint = `/api/projects/${ctx.projectId}`
+    console.log("[chatbot] save endpoint", endpoint)
     try {
-      const res = await fetch(`/api/projects/${ctx.projectId}`, {
+      const res = await fetch(endpoint, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chatbotOutput: output as unknown as Record<string, unknown> }),
       })
+      const responseBody = await res.json().catch(() => "(unparseable body)")
+      console.log("[chatbot] response", { status: res.status, ok: res.ok, body: responseBody })
       if (!res.ok) {
-        console.error(`[chatbot] saveToProject failed: HTTP ${res.status} for project ${ctx.projectId}`)
+        console.error(`[chatbot] saveToProject failed: HTTP ${res.status} for project ${ctx.projectId}`, responseBody)
+        if (res.status === 404) {
+          console.warn("[chatbot] project not found in DB — clearing stale sessionStorage project context")
+          clearProjectContext()
+          projectCtxRef.current = null
+        }
       }
     } catch (err) {
       console.error("[chatbot] saveToProject network error:", err)

@@ -12,7 +12,7 @@ import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import {
   loadGenerationContext, clearGenerationContext,
-  loadProjectContext,
+  loadProjectContext, clearProjectContext,
   loadAutomationRestoreContext, clearAutomationRestoreContext,
 } from "@/lib/generation-context"
 import { deriveWorkflowType, buildAutomationDesc } from "@/lib/generation-context"
@@ -329,16 +329,26 @@ export default function AutomationBuilderPage() {
 
   const saveToProject = useCallback(async (output: AutomationData) => {
     const ctx = projectCtxRef.current
+    console.log("[automation] projectId", ctx?.projectId ?? "(none — no project context in sessionStorage)")
     if (!ctx?.projectId) return
+    const endpoint = `/api/projects/${ctx.projectId}`
+    console.log("[automation] save endpoint", endpoint)
     try {
-      const res = await fetch(`/api/projects/${ctx.projectId}`, {
+      const res = await fetch(endpoint, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ automationOutput: output as unknown as Record<string, unknown> }),
       })
+      const responseBody = await res.json().catch(() => "(unparseable body)")
+      console.log("[automation] response", { status: res.status, ok: res.ok, body: responseBody })
       if (!res.ok) {
-        console.error(`[automation] saveToProject failed: HTTP ${res.status} for project ${ctx.projectId}`)
+        console.error(`[automation] saveToProject failed: HTTP ${res.status} for project ${ctx.projectId}`, responseBody)
+        if (res.status === 404) {
+          console.warn("[automation] project not found in DB — clearing stale sessionStorage project context")
+          clearProjectContext()
+          projectCtxRef.current = null
+        }
       }
     } catch (err) {
       console.error("[automation] saveToProject network error:", err)
