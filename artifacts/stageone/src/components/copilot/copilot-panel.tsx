@@ -13,7 +13,7 @@ import {
 import { useBusinessContext } from "@/lib/business-context"
 import { useAuth } from "@/lib/auth-context"
 import { api, type Project } from "@/lib/api"
-import { setCopilotAutorun } from "@/lib/generation-context"
+import { setCopilotAutorun, setMarcusChatbotSignal } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { ListChecks, Trash2 } from "lucide-react"
 
@@ -33,8 +33,10 @@ const ACTION_TAG_RE = /\{\{ACTION:([^|]+)\|([^|]+)\|([^}]+)\}\}/
 const NAVIGATE_TAG_RE = /\{\{NAVIGATE:([^|}]+)(?:\|[^}]*)?\}\}/
 const EXECUTE_TAG_RE = /\{\{EXECUTE:([^|]+)\|([^|]+)(?:\|([^}]*))?\}\}/
 const WORKSPACE_TAG_RE = /\{\{WORKSPACE:([^|]+)\|(\[[\s\S]*?\])\}\}/
+// Matches {{WORKSPACE|command}} or {{WORKSPACE|command|text payload}} (Marcus execution commands)
+const WORKSPACE_CMD_RE = /\{\{WORKSPACE\|([^|}\n]+?)(?:\|([^}]*))?\}\}/
 // Matches any complete event tag in the stream
-const ANY_TAG_RE = () => /\{\{(?:ACTION:[^|]+\|[^|]+\|[^}]+|NAVIGATE:[^|}]+(?:\|[^}]*)?|EXECUTE:[^|]+\|[^|]+(?:\|[^}]*)?|WORKSPACE:[^|]+\|\[[\s\S]*?\])\}\}/g
+const ANY_TAG_RE = () => /\{\{(?:ACTION:[^|]+\|[^|]+\|[^}]+|NAVIGATE:[^|}]+(?:\|[^}]*)?|EXECUTE:[^|]+\|[^|]+(?:\|[^}]*)?|WORKSPACE:[^|]+\|\[[\s\S]*?\]|WORKSPACE\|[^|}\n]+?(?:\|[^}]*)?)\}\}/g
 
 const ACTION_ROUTES: Record<string, string> = {
   generate_website: "/website-generator",
@@ -197,6 +199,7 @@ async function streamCopilot(
   onNavigate?: (path: string) => void,
   onExecute?: (id: string, endpoint: string, params?: string) => void,
   onWorkspace?: (command: string, payload: string) => void,
+  onWorkspaceCmd?: (command: string, payload: string) => void,
 ) {
   const res = await fetch("/api/copilot", {
     method: "POST",
@@ -235,6 +238,9 @@ async function streamCopilot(
         onExecute?.(execMatch[1].trim(), execMatch[2].trim(), execMatch[3]?.trim())
       } else if (wsMatch) {
         onWorkspace?.(wsMatch[1].trim(), wsMatch[2].trim())
+      } else {
+        const wsCmdMatch = tag.match(WORKSPACE_CMD_RE)
+        if (wsCmdMatch) onWorkspaceCmd?.(wsCmdMatch[1].trim(), wsCmdMatch[2]?.trim() ?? "")
       }
     }
   }
@@ -322,7 +328,7 @@ export function CopilotPanel() {
   const [location, navigate] = useLocation()
   const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
-  const { tasks, createTasks, toggleTask, deleteTask, subscribe } = useWorkspaceController()
+  const { tasks, createTasks, toggleTask, deleteTask, subscribe, emitChatbotSignal } = useWorkspaceController()
 
   const { data: projectsData } = useQuery({
     queryKey: ["copilot-projects"],
@@ -508,6 +514,25 @@ export function CopilotPanel() {
     }).catch(() => { /* fire-and-forget — failure is non-fatal */ })
   }, [])
 
+  // WORKSPACE CMD — Marcus execution commands: open tabs, populate forms, trigger generation
+  const handleWorkspaceCmdAction = useCallback((command: string, payload: string) => {
+    if (command === "chatbot") {
+      navigate("/chatbot-generator")
+    } else if (command === "idea") {
+      const idea = payload.trim()
+      if (!idea) return
+      // Write to sessionStorage so the chatbot-generator page picks it up on mount (cross-navigation)
+      setMarcusChatbotSignal({ type: "populate", idea })
+      // Navigate if not already on the chatbot generator page
+      if (location !== "/chatbot-generator") navigate("/chatbot-generator")
+      // Also emit a live signal in case the page is already mounted
+      emitChatbotSignal({ type: "populate", idea })
+    } else if (command === "generate_chatbot") {
+      // Fire generation signal — chatbot-generator page will start streaming
+      emitChatbotSignal({ type: "generate" })
+    }
+  }, [navigate, location, emitChatbotSignal])
+
   // ─── Send message ─────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text?: string) => {
     const content = (text ?? input).trim()
@@ -557,6 +582,10 @@ export function CopilotPanel() {
           // WORKSPACE — create tasks etc.
           handleWorkspaceAction(command, payload)
         },
+        (command, payload) => {
+          // WORKSPACE CMD — Marcus execution: open tabs, populate forms, trigger generation
+          handleWorkspaceCmdAction(command, payload)
+        },
       )
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
@@ -569,7 +598,7 @@ export function CopilotPanel() {
     } finally {
       setStreaming(false)
     }
-  }, [input, messages, streaming, businessData, workspaceContext, handleNavigate, handleExecute])
+  }, [input, messages, streaming, businessData, workspaceContext, handleNavigate, handleExecute, handleWorkspaceAction, handleWorkspaceCmdAction])
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage() }

@@ -10,6 +10,15 @@ import {
 import { useAuth } from "./auth-context"
 import { setCopilotAutorun } from "./generation-context"
 
+// ─── Marcus Chatbot Signal (live pub/sub) ─────────────────────────────────────
+// Used by Copilot to signal the chatbot generator page in real-time.
+// For cross-navigation delivery, use setMarcusChatbotSignal (sessionStorage) in generation-context.
+
+export interface MarcusChatbotSignal {
+  type: "populate" | "generate"
+  idea?: string
+}
+
 // ─── Event types ──────────────────────────────────────────────────────────────
 
 export type WorkspaceEventType =
@@ -54,6 +63,8 @@ interface WorkspaceControllerContextValue {
   refetchTasks: () => void
   openTab: (path: string, navigate: (path: string) => void) => void
   populateAndTrigger: (action: string, idea?: string) => void
+  emitChatbotSignal: (signal: MarcusChatbotSignal) => void
+  subscribeChatbotSignal: (cb: (signal: MarcusChatbotSignal) => void) => () => void
 }
 
 const WorkspaceControllerContext = createContext<WorkspaceControllerContextValue | null>(null)
@@ -65,6 +76,7 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
   const [tasks, setTasks] = useState<WorkspaceTask[]>([])
   const [tasksLoading, setTasksLoading] = useState(false)
   const subscribersRef = useRef<Set<EventCallback>>(new Set())
+  const chatbotSubscribersRef = useRef<Set<(signal: MarcusChatbotSignal) => void>>(new Set())
 
   const fetchTasks = useCallback(async () => {
     if (!user) return
@@ -146,6 +158,17 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
     setCopilotAutorun({ action, idea, timestamp: Date.now() })
   }, [])
 
+  const emitChatbotSignal = useCallback((signal: MarcusChatbotSignal) => {
+    chatbotSubscribersRef.current.forEach(cb => {
+      try { cb(signal) } catch { /* non-fatal */ }
+    })
+  }, [])
+
+  const subscribeChatbotSignal = useCallback((cb: (signal: MarcusChatbotSignal) => void) => {
+    chatbotSubscribersRef.current.add(cb)
+    return () => { chatbotSubscribersRef.current.delete(cb) }
+  }, [])
+
   return (
     <WorkspaceControllerContext.Provider value={{
       emit,
@@ -158,6 +181,8 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
       refetchTasks: fetchTasks,
       openTab,
       populateAndTrigger,
+      emitChatbotSignal,
+      subscribeChatbotSignal,
     }}>
       {children}
     </WorkspaceControllerContext.Provider>

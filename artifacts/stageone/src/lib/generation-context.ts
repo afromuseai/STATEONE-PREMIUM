@@ -207,6 +207,34 @@ export function consumeCopilotAutorun(): CopilotAutorun | null {
   }
 }
 
+// ─── Marcus Chatbot Signal ────────────────────────────────────────────────────
+// Written by the Copilot before opening the chatbot generator.
+// The chatbot generator page reads this on mount to start the typewriter effect.
+// Live signals (post-mount) go through WorkspaceControllerContext.emitChatbotSignal.
+
+export interface MarcusChatbotSignal {
+  type: "populate" | "generate"
+  idea?: string
+  timestamp: number
+}
+
+const MARCUS_CHATBOT_KEY = "marcus_chatbot_signal"
+
+export function setMarcusChatbotSignal(signal: Omit<MarcusChatbotSignal, "timestamp">): void {
+  try { sessionStorage.setItem(MARCUS_CHATBOT_KEY, JSON.stringify({ ...signal, timestamp: Date.now() })) } catch { /* ignore */ }
+}
+
+export function consumeMarcusChatbotSignal(): MarcusChatbotSignal | null {
+  try {
+    const raw = sessionStorage.getItem(MARCUS_CHATBOT_KEY)
+    if (!raw) return null
+    sessionStorage.removeItem(MARCUS_CHATBOT_KEY)
+    const signal = JSON.parse(raw) as MarcusChatbotSignal
+    if (Date.now() - signal.timestamp > 30_000) return null
+    return signal
+  } catch { return null }
+}
+
 // ─── Derivation helpers ───────────────────────────────────────────────────────
 
 export function deriveChatbotType(chatbotRole: string): string {

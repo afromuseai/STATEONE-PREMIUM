@@ -13,7 +13,9 @@ import {
   loadProjectContext, clearProjectContext,
   loadChatbotRestoreContext, clearChatbotRestoreContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
+  consumeMarcusChatbotSignal,
 } from "@/lib/generation-context"
+import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -126,6 +128,63 @@ export default function ChatbotGeneratorPage() {
   const autoGenFired = useRef(false)
   // Project linkage — loaded once on mount, used to save output back to originating project
   const projectCtxRef = useRef<{ projectId: string; projectTitle: string } | null>(null)
+  // Marcus execution engine refs
+  const descTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Keep current state values accessible inside signal callbacks without re-subscribing
+  const businessDescRef = useRef(businessDesc)
+  const chatbotTypeRef = useRef(chatbotType)
+  const industryRef = useRef(industry)
+  const toneRef = useRef(tone)
+
+  const { subscribeChatbotSignal } = useWorkspaceController()
+
+  // Keep refs in sync with state so signal callbacks always see current values
+  useEffect(() => { businessDescRef.current = businessDesc }, [businessDesc])
+  useEffect(() => { chatbotTypeRef.current = chatbotType }, [chatbotType])
+  useEffect(() => { industryRef.current = industry }, [industry])
+  useEffect(() => { toneRef.current = tone }, [tone])
+
+  // ─── Marcus typewriter populate ────────────────────────────────────────────
+  const typewriterPopulate = useCallback((text: string) => {
+    if (typewriterRef.current) clearInterval(typewriterRef.current)
+    setContextBanner(true)
+    setStep("input")
+    setBusinessDesc("")
+    setGenError("")
+    let i = 0
+    typewriterRef.current = setInterval(() => {
+      i++
+      setBusinessDesc(text.slice(0, i))
+      if (i >= text.length) {
+        clearInterval(typewriterRef.current!)
+        typewriterRef.current = null
+        setTimeout(() => descTextareaRef.current?.focus(), 50)
+      }
+    }, 20)
+  }, [])
+
+  // ─── Marcus signal subscription (live — for when page is already mounted) ──
+  useEffect(() => {
+    return subscribeChatbotSignal((signal) => {
+      if (signal.type === "populate" && signal.idea) {
+        typewriterPopulate(signal.idea)
+      } else if (signal.type === "generate") {
+        const desc = businessDescRef.current
+        if (desc.trim()) {
+          generateWith(desc, chatbotTypeRef.current, industryRef.current, toneRef.current)
+        }
+      }
+    })
+  }, [subscribeChatbotSignal, typewriterPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Marcus signal on mount (sessionStorage — for cross-navigation delivery) ─
+  useEffect(() => {
+    const signal = consumeMarcusChatbotSignal()
+    if (signal?.type === "populate" && signal.idea) {
+      typewriterPopulate(signal.idea)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const ctx = loadProjectContext()
@@ -518,6 +577,7 @@ export default function ChatbotGeneratorPage() {
                   <div>
                     <label className="block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Business Description</label>
                     <textarea
+                      ref={descTextareaRef}
                       value={businessDesc}
                       onChange={e => setBusinessDesc(e.target.value)}
                       placeholder="e.g. B2B SaaS platform for project management — 500+ enterprise customers, 15-person support team, common questions about integrations, billing, and API usage..."
