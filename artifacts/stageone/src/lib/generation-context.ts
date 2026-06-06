@@ -81,6 +81,47 @@ export function clearGenerationContext(): void {
   } catch { /* ignore */ }
 }
 
+// ─── Asset Restore Context ────────────────────────────────────────────────────
+// Carries a previously-generated and persisted asset back into the generator
+// page so the full experience is immediately restorable without re-generation.
+// Keys start with "stageone_" so they are swept by clearWorkspaceSessionData.
+
+const CHATBOT_RESTORE_KEY = "stageone_chatbot_restore"
+
+export function saveChatbotRestoreContext(output: unknown): void {
+  try { sessionStorage.setItem(CHATBOT_RESTORE_KEY, JSON.stringify(output)) } catch { /* ignore */ }
+}
+
+export function loadChatbotRestoreContext(): unknown | null {
+  try {
+    const raw = sessionStorage.getItem(CHATBOT_RESTORE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch { return null }
+}
+
+export function clearChatbotRestoreContext(): void {
+  try { sessionStorage.removeItem(CHATBOT_RESTORE_KEY) } catch { /* ignore */ }
+}
+
+const AUTOMATION_RESTORE_KEY = "stageone_automation_restore"
+
+export function saveAutomationRestoreContext(output: unknown): void {
+  try { sessionStorage.setItem(AUTOMATION_RESTORE_KEY, JSON.stringify(output)) } catch { /* ignore */ }
+}
+
+export function loadAutomationRestoreContext(): unknown | null {
+  try {
+    const raw = sessionStorage.getItem(AUTOMATION_RESTORE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch { return null }
+}
+
+export function clearAutomationRestoreContext(): void {
+  try { sessionStorage.removeItem(AUTOMATION_RESTORE_KEY) } catch { /* ignore */ }
+}
+
 // ─── Dashboard State Persistence ─────────────────────────────────────────────
 // Persists generation results across sidebar navigation so users never lose
 // their workspace context by switching tabs. Only cleared on explicit new

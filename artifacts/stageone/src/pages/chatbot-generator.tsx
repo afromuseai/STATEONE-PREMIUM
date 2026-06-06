@@ -11,6 +11,7 @@ import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import {
   loadGenerationContext, clearGenerationContext,
   loadProjectContext,
+  loadChatbotRestoreContext, clearChatbotRestoreContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
 } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
@@ -207,6 +208,23 @@ export default function ChatbotGeneratorPage() {
     setMessages([greet])
     setQuickReplies(d.conversationFlows.welcome.quickReplies?.slice(0, 4) ?? d.suggestedPrompts?.slice(0, 4) ?? [])
   }, [])
+
+  // Phase 0 — Restore previously-saved chatbot (declared after initChat so it can call it)
+  // If a restore context exists, hydrate all state and block auto-generation entirely.
+  useEffect(() => {
+    const saved = loadChatbotRestoreContext()
+    if (!saved) return
+    clearChatbotRestoreContext()
+    clearGenerationContext()      // prevent Phase 1 from auto-generating
+    autoGenFired.current = true  // block Phase 2 even if businessDesc state update fires
+    const output = saved as ChatbotOutput
+    setData(output)
+    setStep("done")
+    setEditedPrompt(output.systemPrompt?.main ?? "")
+    setContextBanner(false)
+    initChat(output)
+    setRightTab("preview")
+  }, [initChat]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendMessage = useCallback(async (text: string) => {
     if (!data || isTyping) return

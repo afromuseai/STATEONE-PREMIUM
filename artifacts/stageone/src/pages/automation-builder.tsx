@@ -13,8 +13,9 @@ import stageoneIcon from "@/assets/stageone-icon.png"
 import {
   loadGenerationContext, clearGenerationContext,
   loadProjectContext,
-  deriveWorkflowType, buildAutomationDesc,
+  loadAutomationRestoreContext, clearAutomationRestoreContext,
 } from "@/lib/generation-context"
+import { deriveWorkflowType, buildAutomationDesc } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
 
 /* ── Types ─────────────────────────────────────────────── */
@@ -351,6 +352,20 @@ export default function AutomationBuilderPage() {
       .then(d => { if (d.subscription?.plan === "free") setIsLocked(true) })
       .catch(() => {})
   }, [])
+
+  // Phase 0 — Restore previously-saved automation (no re-generation needed)
+  // Must run before Phase 2 can fire; autoGenFired blocks any pending auto-gen.
+  useEffect(() => {
+    const saved = loadAutomationRestoreContext()
+    if (!saved) return
+    clearAutomationRestoreContext()
+    clearGenerationContext()      // prevent Phase 1 from auto-generating
+    autoGenFired.current = true  // block Phase 2 even if businessDesc state update fires
+    const output = saved as AutomationData
+    setData(output)
+    setStep("done")
+    setContextBanner(false)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Phase 1 — Load context and hydrate state fields
   useEffect(() => {

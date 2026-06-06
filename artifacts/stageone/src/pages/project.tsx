@@ -5,7 +5,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/output-panel"
 import { WebsitePanel } from "@/components/dashboard/website-panel"
 import { api, type Project, type ProjectEvent } from "@/lib/api"
-import { saveProjectContext, saveGenerationContext } from "@/lib/generation-context"
+import { saveProjectContext, saveGenerationContext, saveChatbotRestoreContext, saveAutomationRestoreContext } from "@/lib/generation-context"
 import {
   ArrowLeft, RefreshCw, Globe, BarChart3, Loader2, Pencil, Check, X,
   Bot, Zap, CheckSquare, Clock, Plus, Trash2, CheckCircle2, Circle,
@@ -292,10 +292,11 @@ function HistoryTab({ events, createdAt }: { events: ProjectEvent[]; createdAt: 
 
 // ─── Chatbot tab ──────────────────────────────────────────────────────────────
 
-function ChatbotTab({ biData, chatbotOutput, onNavigate }: {
+function ChatbotTab({ biData, chatbotOutput, onNavigate, onRestore }: {
   biData: BusinessIntelligence | null
   chatbotOutput: Record<string, unknown> | null
   onNavigate: () => void
+  onRestore?: () => void
 }) {
   const identity = chatbotOutput?.identity as { name?: string; role?: string; objective?: string; personality?: string; greeting?: string } | undefined
   const kpis = chatbotOutput?.kpis as { deflectionRate?: string; responseTime?: string; satisfactionScore?: string; leadConversion?: string } | undefined
@@ -381,24 +382,46 @@ function ChatbotTab({ biData, chatbotOutput, onNavigate }: {
         </div>
       )}
 
-      <button
-        onClick={onNavigate}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all"
-      >
-        <Bot className="h-4 w-4 text-purple-400" />
-        {chatbotOutput ? "Regenerate Chatbot" : "Open Chatbot Generator"}
-        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-      </button>
+      {chatbotOutput && onRestore ? (
+        <div className="flex gap-2">
+          <button
+            onClick={onRestore}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-sm text-purple-300 hover:bg-purple-500/20 hover:border-purple-500/50 transition-all"
+          >
+            <Bot className="h-4 w-4" />
+            Open &amp; Test Chatbot
+            <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+          </button>
+          <button
+            onClick={onNavigate}
+            className="flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-muted-foreground hover:border-border hover:text-foreground transition-all"
+            title="Regenerate chatbot from scratch"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Regenerate
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onNavigate}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all"
+        >
+          <Bot className="h-4 w-4 text-purple-400" />
+          Open Chatbot Generator
+          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      )}
     </div>
   )
 }
 
 // ─── Automation tab ───────────────────────────────────────────────────────────
 
-function AutomationTab({ biData, automationOutput, onNavigate }: {
+function AutomationTab({ biData, automationOutput, onNavigate, onRestore }: {
   biData: BusinessIntelligence | null
   automationOutput: Record<string, unknown> | null
   onNavigate: () => void
+  onRestore?: () => void
 }) {
   const overview = automationOutput?.overview as { purpose?: string; objective?: string; expectedOutcome?: string; complexityScore?: number; executionEstimate?: string } | undefined
   const aiOpportunities = automationOutput?.aiOpportunities as Array<{ type: string; description: string; impact: string }> | undefined
@@ -504,14 +527,35 @@ function AutomationTab({ biData, automationOutput, onNavigate }: {
         </div>
       )}
 
-      <button
-        onClick={onNavigate}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all"
-      >
-        <Workflow className="h-4 w-4 text-orange-400" />
-        {automationOutput ? "Regenerate Automation" : "Open Automation Builder"}
-        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-      </button>
+      {automationOutput && onRestore ? (
+        <div className="flex gap-2">
+          <button
+            onClick={onRestore}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-orange-500/10 border border-orange-500/30 text-sm text-orange-300 hover:bg-orange-500/20 hover:border-orange-500/50 transition-all"
+          >
+            <Workflow className="h-4 w-4" />
+            Open &amp; View Automation
+            <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+          </button>
+          <button
+            onClick={onNavigate}
+            className="flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-muted-foreground hover:border-border hover:text-foreground transition-all"
+            title="Regenerate automation from scratch"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Regenerate
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onNavigate}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all"
+        >
+          <Workflow className="h-4 w-4 text-orange-400" />
+          Open Automation Builder
+          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      )}
     </div>
   )
 }
@@ -780,6 +824,11 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                     if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                     setLocation("/chatbot-generator")
                   }}
+                  onRestore={project.chatbotOutput ? () => {
+                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                    saveChatbotRestoreContext(project.chatbotOutput)
+                    setLocation("/chatbot-generator")
+                  } : undefined}
                 />
               </motion.div>
             )}
@@ -794,6 +843,11 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                     if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                     setLocation("/automation-builder")
                   }}
+                  onRestore={project.automationOutput ? () => {
+                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                    saveAutomationRestoreContext(project.automationOutput)
+                    setLocation("/automation-builder")
+                  } : undefined}
                 />
               </motion.div>
             )}
