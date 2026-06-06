@@ -218,10 +218,12 @@ async function streamCopilot(
   const firedTags = new Set<string>()
 
   function fireAndStripTags() {
+    console.log("[TRACE] INPUT TO fireAndStripTags | buffer length:", buffer.length, "| content:", buffer)
     const re = ANY_TAG_RE()
     let match: RegExpExecArray | null
     while ((match = re.exec(buffer)) !== null) {
       const tag = match[0]
+      console.log("[TRACE] EVERY TAG DETECTED | tag:", tag, "| already fired:", firedTags.has(tag))
       if (firedTags.has(tag)) continue
       firedTags.add(tag)
 
@@ -279,8 +281,11 @@ async function streamCopilot(
   }
 
   // Final pass — catch any tags that completed at the very last chunk
+  console.log("[TRACE] RAW ASSISTANT RESPONSE | length:", buffer.length, "| content:", buffer)
   fireAndStripTags()
-  onChunk(buildDisplay())
+  const _finalDisplay = buildDisplay()
+  console.log("[TRACE] OUTPUT AFTER fireAndStripTags | display:", _finalDisplay)
+  onChunk(_finalDisplay)
 }
 
 interface InsightBubble {
@@ -595,6 +600,7 @@ export function CopilotPanel() {
         },
         abortRef.current.signal,
         (buffer) => {
+          console.log("[TRACE] FINAL MESSAGE SENT TO CHAT UI | content:", buffer)
           setMessages(prev => {
             const updated = [...prev]
             updated[updated.length - 1] = { role: "assistant", content: buffer }

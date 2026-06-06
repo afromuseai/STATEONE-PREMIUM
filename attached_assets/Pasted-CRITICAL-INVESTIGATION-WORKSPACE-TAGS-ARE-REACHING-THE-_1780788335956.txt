@@ -1,0 +1,131 @@
+CRITICAL INVESTIGATION — WORKSPACE TAGS ARE REACHING THE CHAT UI
+
+IMPORTANT
+
+Do NOT implement fixes yet.
+
+Add evidence only.
+
+====================================================
+
+OBSERVED BEHAVIOR
+
+The user can visibly see:
+
+{{WORKSPACE:website}}
+
+{{WORKSPACE:website_idea|...}}
+
+inside the Copilot conversation.
+
+This should never happen.
+
+Workspace tags are internal execution commands.
+
+Users should never see raw workspace tags.
+
+====================================================
+
+EXPECTED FLOW
+
+Model emits tag
+
+→ fireAndStripTags()
+
+→ parser detects tag
+
+→ tag removed from assistant message
+
+→ action executed
+
+→ user never sees raw tag
+
+====================================================
+
+ACTUAL FLOW
+
+Model emits tag
+
+→ raw tag appears in conversation
+
+→ navigation never happens
+
+→ population never happens
+
+====================================================
+
+TRACE REQUIRED
+
+Add logs only.
+
+Do not fix yet.
+
+====================================================
+
+1.
+
+Immediately after model stream completes.
+
+Log:
+
+RAW ASSISTANT RESPONSE
+
+Before any stripping occurs.
+
+====================================================
+
+2.
+
+Inside fireAndStripTags()
+
+Log:
+
+INPUT TO fireAndStripTags
+
+====================================================
+
+3.
+
+Inside tag scanner.
+
+Log:
+
+EVERY TAG DETECTED
+
+====================================================
+
+4.
+
+After stripping.
+
+Log:
+
+OUTPUT AFTER fireAndStripTags
+
+====================================================
+
+5.
+
+Immediately before message is added to chat history.
+
+Log:
+
+FINAL MESSAGE SENT TO CHAT UI
+
+====================================================
+
+GOAL
+
+Determine whether:
+
+A. fireAndStripTags() is never being called
+
+B. fireAndStripTags() is called but detects nothing
+
+C. tags are detected but not removed
+
+D. stripped content is ignored and raw content is rendered instead
+
+Do not implement a fix.
+
+Identify the first stage where raw tags survive.
