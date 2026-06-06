@@ -43,11 +43,17 @@ export function InputPanel({ onGenerate, isLoading, copilotAutorun, onAutorunCon
   const [isTyping, setIsTyping] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Keep a stable ref to the consumed callback so the interval closure never goes stale
+  const onMarcusPopulateConsumedRef = useRef(onMarcusPopulateConsumed)
+  onMarcusPopulateConsumedRef.current = onMarcusPopulateConsumed
 
-  // Marcus populate: typewriter without auto-submit — waits for explicit generate signal
+  // Marcus populate: typewriter without auto-submit — waits for explicit generate signal.
+  // IMPORTANT: onMarcusPopulateConsumed must be called AFTER the interval finishes, not at
+  // the start. Calling it at the start triggers setMarcusPopulate(null) in the parent, which
+  // changes the dep, which runs effect cleanup, which clearInterval kills the typewriter before
+  // any characters are typed and leaves isTyping=true forever.
   useEffect(() => {
     if (!marcusPopulate || isLoading) return
-    onMarcusPopulateConsumed?.()
 
     const text = marcusPopulate
     setIdea("")
@@ -67,6 +73,9 @@ export function InputPanel({ onGenerate, isLoading, copilotAutorun, onAutorunCon
         clearInterval(typewriterRef.current!)
         typewriterRef.current = null
         setIsTyping(false)
+        // Fire consumed AFTER the interval is cleared and ref is null, so the re-render
+        // triggered by setMarcusPopulate(null) runs cleanup against a null ref (no-op).
+        onMarcusPopulateConsumedRef.current?.()
         setTimeout(() => textareaRef.current?.focus(), 50)
       }
     }, 18)
