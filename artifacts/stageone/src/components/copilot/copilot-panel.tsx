@@ -546,6 +546,20 @@ export function CopilotPanel() {
     } else if (command === "generate_intelligence") {
       // Fire generation signal — dashboard will start the BI stream
       emitWorkspaceSignal({ target: "intelligence", type: "generate" })
+    } else if (command === "website") {
+      navigate("/website-generator")
+    } else if (command === "website_idea") {
+      const idea = payload.trim()
+      if (!idea) return
+      // Write to sessionStorage for cross-navigation delivery
+      setMarcusWorkspaceSignal({ target: "website", type: "populate", payload: idea })
+      // Navigate if not already on the website generator page
+      if (location !== "/website-generator") navigate("/website-generator")
+      // Also emit a live signal in case the page is already mounted
+      emitWorkspaceSignal({ target: "website", type: "populate", payload: idea })
+    } else if (command === "generate_website") {
+      // Fire generation signal — website-generator page will start streaming
+      emitWorkspaceSignal({ target: "website", type: "generate" })
     }
   }, [navigate, location, emitWorkspaceSignal])
 

@@ -8,7 +8,8 @@ import {
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumeMarcusWorkspaceSignal, setMarcusWorkspaceSignal } from "@/lib/generation-context"
+import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -108,12 +109,15 @@ export default function WebsiteGeneratorPage() {
   const [contextBanner, setContextBanner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [autorunIdea, setAutorunIdea] = useState<string | null>(null)
+  const [marcusPopulate, setMarcusPopulate] = useState<string | null>(null)
   const [isTyping, setIsTyping] = useState(false)
   const { openUpgradeModal } = useUpgradeModal()
+  const { subscribeWorkspaceSignal } = useWorkspaceController()
   const exportRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const ideaTextareaRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const marcusWebsiteIdeaRef = useRef<string>("")
 
   // Check subscription tier
   useEffect(() => {
@@ -159,6 +163,68 @@ export default function WebsiteGeneratorPage() {
       setTimeout(() => setAutorunIdea(ideaText), 150)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Marcus workspace signal (on mount — cross-navigation delivery) ──────────
+  useEffect(() => {
+    const signal = consumeMarcusWorkspaceSignal()
+    if (signal?.target === "website" && signal.type === "populate" && signal.payload) {
+      const text = signal.payload
+      marcusWebsiteIdeaRef.current = text
+      setContextBanner(true)
+      setTimeout(() => setMarcusPopulate(text), 150)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Marcus workspace signal (live — for when page is already mounted) ────────
+  useEffect(() => {
+    return subscribeWorkspaceSignal((signal) => {
+      if (signal.target !== "website") return
+      if (signal.type === "populate" && signal.payload) {
+        const text = signal.payload
+        marcusWebsiteIdeaRef.current = text
+        setContextBanner(true)
+        setMarcusPopulate(text)
+      } else if (signal.type === "generate") {
+        const text = marcusWebsiteIdeaRef.current
+        if (text.trim()) {
+          generateWithIdea(text)
+        }
+      }
+    })
+  }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Marcus populate typewriter: types live but does NOT auto-generate ────────
+  // (generation is triggered separately by the explicit "generate" signal)
+  useEffect(() => {
+    if (!marcusPopulate) return
+    setMarcusPopulate(null) // consume immediately
+
+    const text = marcusPopulate
+    setIdea("")
+    setIsTyping(true)
+    ideaTextareaRef.current?.focus()
+
+    let i = 0
+    if (typewriterRef.current) clearInterval(typewriterRef.current)
+    typewriterRef.current = setInterval(() => {
+      i++
+      setIdea(text.slice(0, i))
+      if (ideaTextareaRef.current) {
+        ideaTextareaRef.current.scrollTop = ideaTextareaRef.current.scrollHeight
+      }
+      if (i >= text.length) {
+        clearInterval(typewriterRef.current!)
+        typewriterRef.current = null
+        setIsTyping(false)
+        // Do NOT auto-generate — Marcus will send a separate "generate" signal
+        // after the user explicitly confirms
+      }
+    }, 18)
+
+    return () => {
+      if (typewriterRef.current) clearInterval(typewriterRef.current)
+    }
+  }, [marcusPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Typewriter autorun: type the idea live, then auto-submit
   useEffect(() => {
