@@ -1,0 +1,109 @@
+MARCUS GENERATION COMPLETION AWARENESS
+
+IMPORTANT
+
+Do NOT modify:
+
+* execution engine
+* signal architecture
+* BI receiver
+* chatbot receiver
+* project architecture
+
+The goal is:
+
+Marcus must become aware when workspace operations complete.
+
+==================================================
+CURRENT
+=======
+
+User executes generation.
+
+Generation completes.
+
+Asset saves.
+
+Marcus becomes silent.
+
+==================================================
+REQUIRED
+========
+
+When a generation completes successfully:
+
+Marcus automatically posts a contextual message.
+
+==================================================
+RULES
+=====
+
+Marcus must:
+
+1. Acknowledge completion
+2. Confirm asset was saved
+3. Demonstrate awareness of what was generated
+4. Offer discussion
+
+Marcus must NOT:
+
+* suggest another generator
+* push workflows
+* recommend website/chatbot/automation generation
+* make the next decision for the user
+
+==================================================
+EXAMPLES
+========
+
+Business Intelligence:
+
+"Business Intelligence generation completed successfully.
+
+I've attached the report to this project and reviewed the analysis.
+
+If you'd like to discuss assumptions, risks, growth strategy, or any part of the report, I'm here."
+
+Website:
+
+"Website generation completed successfully.
+
+The draft has been attached to this project.
+
+If you'd like feedback on positioning, messaging, structure, or conversion flow, we can review it together."
+
+Automation:
+
+"Automation workflow generated successfully.
+
+The workflow is now attached to this project.
+
+If you'd like to evaluate implementation complexity, efficiency, or operational impact, I can help."
+
+Chatbot:
+
+"Chatbot generation completed successfully.
+
+The chatbot has been attached to this project.
+
+If you'd like to review conversation design, onboarding flow, or support strategy, we can examine it together."
+
+==================================================
+IMPLEMENTATION
+==============
+
+Use generation_completed events.
+
+Marcus should receive the event automatically.
+
+No user prompt required.
+
+==================================================
+SUCCESS
+=======
+
+Every completed generation results in a contextual Marcus message.
+
+Marcus feels aware of the workspace.
+
+Marcus behaves like a co-founder, not a generator launcher.

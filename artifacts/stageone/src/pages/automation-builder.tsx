@@ -17,6 +17,7 @@ import {
 } from "@/lib/generation-context"
 import { deriveWorkflowType, buildAutomationDesc } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
+import { useWorkspaceController } from "@/lib/workspace-controller-context"
 
 /* ── Types ─────────────────────────────────────────────── */
 type NodeType = "trigger" | "action" | "ai_agent" | "notification" | "crm" | "database" | "webhook"
@@ -302,6 +303,7 @@ function NodeDetailPanel({ node, logic }: { node: WorkflowNode; logic: LogicStep
 /* ── Main Page ──────────────────────────────────────────── */
 export default function AutomationBuilderPage() {
   const { lang } = useLang()
+  const { emit } = useWorkspaceController()
   const [collapsed, setCollapsed] = useState(false)
   const [businessDesc, setBusinessDesc] = useState("")
   const [workflowType, setWorkflowType] = useState("Lead Capture")
@@ -434,6 +436,7 @@ export default function AutomationBuilderPage() {
               setData(msg.data)
               setStep("done")
               saveToProject(msg.data as AutomationData).catch(() => {})
+              emit({ type: "automation.generated" })
             }
           } catch { /* fragment */ }
         }
@@ -479,6 +482,7 @@ export default function AutomationBuilderPage() {
               setData(msg.data)
               setStep("done")
               saveToProject(msg.data as AutomationData).catch(() => {})
+              emit({ type: "automation.generated" })
             }
           } catch { /* fragment */ }
         }

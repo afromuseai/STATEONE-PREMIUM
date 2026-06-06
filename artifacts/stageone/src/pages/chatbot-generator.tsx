@@ -137,7 +137,7 @@ export default function ChatbotGeneratorPage() {
   const industryRef = useRef(industry)
   const toneRef = useRef(tone)
 
-  const { subscribeWorkspaceSignal } = useWorkspaceController()
+  const { subscribeWorkspaceSignal, emit } = useWorkspaceController()
 
   // Keep refs in sync with state so signal callbacks always see current values
   useEffect(() => { businessDescRef.current = businessDesc }, [businessDesc])
@@ -428,6 +428,7 @@ export default function ChatbotGeneratorPage() {
               setStep("done")
               setRightTab("preview")
               saveToProject(out).catch(() => {})
+              emit({ type: "chatbot.generated" })
               return
             }
           } catch { /* fragment */ }
@@ -480,6 +481,7 @@ export default function ChatbotGeneratorPage() {
               setStep("done")
               setRightTab("preview")
               saveToProject(out).catch(() => {})
+              emit({ type: "chatbot.generated" })
               return
             }
           } catch { /* fragment */ }

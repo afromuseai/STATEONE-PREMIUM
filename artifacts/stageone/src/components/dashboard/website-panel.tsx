@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
 import { motion, AnimatePresence } from "framer-motion"
 import {
@@ -378,6 +379,7 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
 
 export function WebsitePanel({ businessIdea, businessIntelligence, projectId, existingOutput, onSaved, autoGenerate }: WebsitePanelProps) {
   const { lang } = useLang()
+  const { emit } = useWorkspaceController()
   const [data, setData] = useState<WebsiteOutput | null>(existingOutput as unknown as WebsiteOutput | null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamingText, setStreamingText] = useState("")
@@ -510,6 +512,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
             setSavedStatus("saved")
             setTimeout(() => setSavedStatus("idle"), 3000)
             onSaved?.(finalData as unknown as Record<string, unknown>)
+            emit({ type: "website.generated" })
           } catch { setSavedStatus("idle") }
         }
       } else {

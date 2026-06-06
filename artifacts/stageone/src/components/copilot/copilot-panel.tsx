@@ -325,6 +325,7 @@ export function CopilotPanel() {
   const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevCrossSystemRef = useRef<typeof crossSystem | null>(null)
   const prevProjectCountRef = useRef<number | null>(null)
+  const streamingRef = useRef(false)
   const [location, navigate] = useLocation()
   const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
@@ -418,6 +419,7 @@ export function CopilotPanel() {
   workspaceContextRef.current = workspaceContext
   const businessDataRef = useRef(businessData)
   businessDataRef.current = businessData
+  streamingRef.current = streaming
 
   const triggerGreeting = useCallback(async () => {
     if (greeted.current) return
@@ -705,19 +707,41 @@ export function CopilotPanel() {
     prevCrossSystemRef.current = crossSystem
   }, [crossSystem]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Workspace Controller event subscriptions — proactive follow-ups
+  // Workspace Controller event subscriptions — proactive follow-ups + completion awareness
   useEffect(() => {
+    const COMPLETION_MESSAGES: Partial<Record<string, { open: string; bubble: string }>> = {
+      "generation.complete": {
+        open: "Business Intelligence generation completed successfully.\n\nI've attached the report to this project and reviewed the analysis.\n\nIf you'd like to discuss assumptions, risks, growth strategy, or any part of the report, I'm here.",
+        bubble: "Analysis done. The biggest unknown isn't strategy — it's whether customers agree.",
+      },
+      "website.generated": {
+        open: "Website generation completed successfully.\n\nThe draft has been attached to this project.\n\nIf you'd like feedback on positioning, messaging, structure, or conversion flow, we can review it together.",
+        bubble: "Website ready. Does the copy match what you'd say to a real customer?",
+      },
+      "automation.generated": {
+        open: "Automation workflow generated successfully.\n\nThe workflow is now attached to this project.\n\nIf you'd like to evaluate implementation complexity, efficiency, or operational impact, I can help.",
+        bubble: "Automation built. Let's verify the triggers match your actual workflow.",
+      },
+      "chatbot.generated": {
+        open: "Chatbot generation completed successfully.\n\nThe chatbot has been attached to this project.\n\nIf you'd like to review conversation design, onboarding flow, or support strategy, we can examine it together.",
+        bubble: "Chatbot ready. What's the first real conversation you want it to handle?",
+      },
+    }
+
     const unsub = subscribe((event) => {
+      const entry = COMPLETION_MESSAGES[event.type]
+      if (entry) {
+        if (open && !streamingRef.current) {
+          // Panel is open and idle — post Marcus message directly into the chat
+          setMessages(prev => [...prev, { role: "assistant", content: entry.open }])
+        } else if (!open) {
+          showBubble(entry.bubble)
+        }
+        return
+      }
+      // Non-completion events — bubble only when panel is closed
       if (open) return
-      if (event.type === "generation.complete") {
-        showBubble("Analysis done. The biggest unknown isn't strategy — it's whether customers agree.")
-      } else if (event.type === "website.generated") {
-        showBubble("Website ready. Does the copy match what you'd say to a real customer?")
-      } else if (event.type === "automation.generated") {
-        showBubble("Automation built. Let's verify the triggers match your actual workflow.")
-      } else if (event.type === "chatbot.generated") {
-        showBubble("Chatbot ready. What's the first real conversation you want it to handle?")
-      } else if (event.type === "task.completed") {
+      if (event.type === "task.completed") {
         showBubble("Task done. What's the next highest-leverage step?")
       }
     })

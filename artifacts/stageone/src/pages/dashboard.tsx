@@ -148,7 +148,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { setBusinessData } = useBusinessContext()
   const { openUpgradeModal } = useUpgradeModal()
-  const { subscribeWorkspaceSignal } = useWorkspaceController()
+  const { subscribeWorkspaceSignal, emit } = useWorkspaceController()
   const [location] = useLocation()
   const search = useSearch()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -407,6 +407,7 @@ export default function DashboardPage() {
       setResults(finalData)
       setGenerationStage(6)
       setBusinessData(finalData as unknown as Record<string, unknown>)
+      emit({ type: "generation.complete" })
       // Update memory count after auto-save (memories are saved async server-side)
       setTimeout(() => {
         fetch("/api/memory", { credentials: "include" })
