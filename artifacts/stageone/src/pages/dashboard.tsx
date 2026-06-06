@@ -12,7 +12,7 @@ import { useBusinessContext } from "@/lib/business-context"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { api, type Project } from "@/lib/api"
 import { recordRevenueSignal } from "@/lib/intelligence-state"
-import { saveGenerationContext, saveDashboardState, loadDashboardState, clearDashboardState, consumeCopilotAutorun } from "@/lib/generation-context"
+import { saveGenerationContext, saveProjectContext, saveDashboardState, loadDashboardState, clearDashboardState, consumeCopilotAutorun } from "@/lib/generation-context"
 import { useLang, useFormatters } from "@/lib/i18n"
 import {
   FolderOpen,
@@ -707,6 +707,10 @@ export default function DashboardPage() {
                     recommendedStack: results.recommendedStack,
                     competitiveAdvantage: results.competitiveAdvantage,
                   })
+                  if (activeProjectId) {
+                    const activeProject = projects.find(p => p.id === activeProjectId)
+                    saveProjectContext({ projectId: activeProjectId, projectTitle: activeProject?.title ?? currentIdea.slice(0, 60), originatingBusinessIntelligenceId: activeProjectId })
+                  }
                   setLocation("/chatbot-generator")
                 } : undefined}
                 onBuildAutomation={results ? () => {
@@ -726,6 +730,10 @@ export default function DashboardPage() {
                     recommendedStack: results.recommendedStack,
                     competitiveAdvantage: results.competitiveAdvantage,
                   })
+                  if (activeProjectId) {
+                    const activeProject = projects.find(p => p.id === activeProjectId)
+                    saveProjectContext({ projectId: activeProjectId, projectTitle: activeProject?.title ?? currentIdea.slice(0, 60), originatingBusinessIntelligenceId: activeProjectId })
+                  }
                   setLocation("/automation-builder")
                 } : undefined}
                 projectId={activeProjectId ?? undefined}

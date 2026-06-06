@@ -330,13 +330,18 @@ export default function AutomationBuilderPage() {
     const ctx = projectCtxRef.current
     if (!ctx?.projectId) return
     try {
-      await fetch(`/api/projects/${ctx.projectId}`, {
+      const res = await fetch(`/api/projects/${ctx.projectId}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ automationOutput: output as unknown as Record<string, unknown> }),
       })
-    } catch { /* non-fatal — save is best-effort */ }
+      if (!res.ok) {
+        console.error(`[automation] saveToProject failed: HTTP ${res.status} for project ${ctx.projectId}`)
+      }
+    } catch (err) {
+      console.error("[automation] saveToProject network error:", err)
+    }
   }, [])
 
   // Check subscription tier

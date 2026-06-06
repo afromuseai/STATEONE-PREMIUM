@@ -4,6 +4,7 @@
 export interface ProjectContext {
   projectId: string
   projectTitle: string
+  originatingBusinessIntelligenceId: string
 }
 
 const PROJECT_KEY = "stageone_project_ctx"

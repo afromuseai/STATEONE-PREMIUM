@@ -5,7 +5,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/output-panel"
 import { WebsitePanel } from "@/components/dashboard/website-panel"
 import { api, type Project, type ProjectEvent } from "@/lib/api"
-import { saveProjectContext } from "@/lib/generation-context"
+import { saveProjectContext, saveGenerationContext } from "@/lib/generation-context"
 import {
   ArrowLeft, RefreshCw, Globe, BarChart3, Loader2, Pencil, Check, X,
   Bot, Zap, CheckSquare, Clock, Plus, Trash2, CheckCircle2, Circle,
@@ -745,11 +745,13 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   generationStage={0}
                   onGenerateWebsite={biData ? () => setTab("website") : undefined}
                   onGenerateChatbot={biData ? () => {
-                    saveProjectContext({ projectId: id, projectTitle: project.title })
+                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                    saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                     setLocation("/chatbot-generator")
                   } : undefined}
                   onBuildAutomation={biData ? () => {
-                    saveProjectContext({ projectId: id, projectTitle: project.title })
+                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                    saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                     setLocation("/automation-builder")
                   } : undefined}
                 />
@@ -774,7 +776,8 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   biData={biData}
                   chatbotOutput={project.chatbotOutput ?? null}
                   onNavigate={() => {
-                    saveProjectContext({ projectId: id, projectTitle: project.title })
+                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                    if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                     setLocation("/chatbot-generator")
                   }}
                 />
@@ -787,7 +790,8 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   biData={biData}
                   automationOutput={project.automationOutput ?? null}
                   onNavigate={() => {
-                    saveProjectContext({ projectId: id, projectTitle: project.title })
+                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
+                    if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                     setLocation("/automation-builder")
                   }}
                 />
