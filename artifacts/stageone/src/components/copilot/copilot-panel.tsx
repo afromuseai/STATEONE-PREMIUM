@@ -33,10 +33,13 @@ const ACTION_TAG_RE = /\{\{ACTION:([^|]+)\|([^|]+)\|([^}]+)\}\}/
 const NAVIGATE_TAG_RE = /\{\{NAVIGATE:([^|}]+)(?:\|[^}]*)?\}\}/
 const EXECUTE_TAG_RE = /\{\{EXECUTE:([^|]+)\|([^|]+)(?:\|([^}]*))?\}\}/
 const WORKSPACE_TAG_RE = /\{\{WORKSPACE:([^|]+)\|(\[[\s\S]*?\])\}\}/
-// Matches {{WORKSPACE|command}} or {{WORKSPACE|command|text payload}} (Marcus execution commands)
+// Matches {{WORKSPACE|command}} or {{WORKSPACE|command|text payload}} (Marcus execution commands — pipe variant)
 const WORKSPACE_CMD_RE = /\{\{WORKSPACE\|([^|}\n]+?)(?:\|([^}]*))?\}\}/
+// Matches {{WORKSPACE:command}} or {{WORKSPACE:command|text payload}} where payload is NOT a JSON array
+// Handles model hallucination: model sometimes emits colon-variant instead of pipe-variant for execution commands
+const WORKSPACE_CMD_COLON_RE = /\{\{WORKSPACE:([^|}\n]+?)(?:\|(?!\[)([^}]*))?\}\}/
 // Matches any complete event tag in the stream
-const ANY_TAG_RE = () => /\{\{(?:ACTION:[^|]+\|[^|]+\|[^}]+|NAVIGATE:[^|}]+(?:\|[^}]*)?|EXECUTE:[^|]+\|[^|]+(?:\|[^}]*)?|WORKSPACE:[^|]+\|\[[\s\S]*?\]|WORKSPACE\|[^|}\n]+?(?:\|[^}]*)?)\}\}/g
+const ANY_TAG_RE = () => /\{\{(?:ACTION:[^|]+\|[^|]+\|[^}]+|NAVIGATE:[^|}]+(?:\|[^}]*)?|EXECUTE:[^|]+\|[^|]+(?:\|[^}]*)?|WORKSPACE:[^|]+\|\[[\s\S]*?\]|WORKSPACE:[^|}\n]+?(?:\|(?!\[)[^}]*)?|WORKSPACE\|[^|}\n]+?(?:\|[^}]*)?)\}\}/g
 
 const ACTION_ROUTES: Record<string, string> = {
   generate_website: "/website-generator",
@@ -245,6 +248,13 @@ async function streamCopilot(
         if (wsCmdMatch) {
           console.log("[WEBSITE TRACE] parser detected", wsCmdMatch[1].trim(), "| tag:", tag)
           onWorkspaceCmd?.(wsCmdMatch[1].trim(), wsCmdMatch[2]?.trim() ?? "")
+        } else {
+          // Colon-variant execution command: model emitted {{WORKSPACE:command}} instead of {{WORKSPACE|command}}
+          const wsCmdColonMatch = tag.match(WORKSPACE_CMD_COLON_RE)
+          if (wsCmdColonMatch) {
+            console.log("[WEBSITE TRACE] parser detected (colon-variant)", wsCmdColonMatch[1].trim(), "| tag:", tag)
+            onWorkspaceCmd?.(wsCmdColonMatch[1].trim(), wsCmdColonMatch[2]?.trim() ?? "")
+          }
         }
       }
     }
@@ -297,17 +307,28 @@ interface InsightBubble {
 function storageKey(userId: string) { return `copilot:msgs:${userId}` }
 function greetedKey(userId: string) { return `copilot:greeted:${userId}` }
 
+// Strip any raw WORKSPACE tags that survived the parser (e.g. from previous sessions or model hallucination)
+function stripRawWorkspaceTags(content: string): string {
+  return content.replace(/\{\{WORKSPACE[^}]*\}\}/g, "").replace(/\s{2,}/g, " ").trim()
+}
+
 function loadMessages(userId: string): Message[] {
   try {
     const raw = sessionStorage.getItem(storageKey(userId))
     if (!raw) return []
-    return JSON.parse(raw) as Message[]
+    const msgs = JSON.parse(raw) as Message[]
+    // Strip any raw workspace tags that were persisted by a previous session
+    return msgs.map(m => m.role === "assistant" ? { ...m, content: stripRawWorkspaceTags(m.content) } : m)
   } catch { return [] }
 }
 
 function saveMessages(msgs: Message[], userId: string) {
   try {
-    sessionStorage.setItem(storageKey(userId), JSON.stringify(msgs.filter(m => !m.hidden)))
+    // Strip raw workspace tags before persisting to prevent them from surviving across reloads
+    const clean = msgs.filter(m => !m.hidden).map(m =>
+      m.role === "assistant" ? { ...m, content: stripRawWorkspaceTags(m.content) } : m
+    )
+    sessionStorage.setItem(storageKey(userId), JSON.stringify(clean))
   } catch { /* quota exceeded — ignore */ }
 }
 
