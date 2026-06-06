@@ -825,6 +825,9 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                     setLocation("/chatbot-generator")
                   }}
                   onRestore={project.chatbotOutput ? () => {
+                    console.log("[project] currentProject.id", id)
+                    console.log("[project] currentProject record", { id: project.id, title: project.title, hasChatbotOutput: !!project.chatbotOutput })
+                    console.log("[project] saving restore context — chatbotOutput keys", Object.keys(project.chatbotOutput as Record<string,unknown>))
                     saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id })
                     saveChatbotRestoreContext(project.chatbotOutput)
                     setLocation("/chatbot-generator")

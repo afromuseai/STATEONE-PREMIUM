@@ -128,12 +128,19 @@ export default function ChatbotGeneratorPage() {
   const projectCtxRef = useRef<{ projectId: string; projectTitle: string } | null>(null)
 
   useEffect(() => {
-    projectCtxRef.current = loadProjectContext()
+    const ctx = loadProjectContext()
+    projectCtxRef.current = ctx
+    // Proof logs — four IDs must all match for save to succeed
+    console.log("currentProject.id", ctx?.projectId ?? "(none — no project context in sessionStorage)")
+    console.log("projectCtx.id", ctx?.projectId ?? "(none)")
+    console.log("sessionStorage project", ctx)
   }, [])
 
   const saveToProject = useCallback(async (output: ChatbotOutput) => {
     const ctx = projectCtxRef.current
-    console.log("[chatbot] projectId", ctx?.projectId ?? "(none — no project context in sessionStorage)")
+    const projectId = ctx?.projectId ?? null
+    console.log("save target project", projectId)
+    console.log("[chatbot] projectId", projectId ?? "(none — no project context in sessionStorage)")
     if (!ctx?.projectId) return
     const endpoint = `/api/projects/${ctx.projectId}`
     console.log("[chatbot] save endpoint", endpoint)
