@@ -22,11 +22,11 @@ args = "artifacts/mockup-sandbox: Component Preview Server"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Start application"
+args = "API Server"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "API Server"
+args = "Start application"
 
 [[workflows.workflow]]
 name = "artifacts/mockup-sandbox: Component Preview Server"
@@ -42,18 +42,6 @@ args = "cd artifacts/mockup-sandbox && PORT=8080 BASE_PATH=/__mockup/ ./node_mod
 waitForPort = 8080
 
 [[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/stageone && pnpm run dev"
-waitForPort = 5000
-
-[[workflows.workflow]]
 name = "API Server"
 author = "agent"
 
@@ -64,6 +52,18 @@ outputType = "console"
 task = "shell.exec"
 args = "cd artifacts/api-server && API_PORT=3001 pnpm run dev"
 waitForPort = 3001
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/stageone && pnpm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -83,13 +83,6 @@ externalPort = 3001
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
-localPort = 8082
 
 [[ports]]
 localPort = 8083
