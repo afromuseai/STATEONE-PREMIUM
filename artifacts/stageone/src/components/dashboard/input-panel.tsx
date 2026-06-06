@@ -11,6 +11,8 @@ interface InputPanelProps {
   isLoading: boolean
   copilotAutorun?: string | null
   onAutorunConsumed?: () => void
+  marcusPopulate?: string | null
+  onMarcusPopulateConsumed?: () => void
 }
 
 const INDUSTRY_TEMPLATE_IDEAS = [
@@ -30,7 +32,7 @@ const TEMPLATE_COLORS = [
   "text-yellow-400", "text-purple-400", "text-cyan-400", "text-pink-400",
 ]
 
-export function InputPanel({ onGenerate, isLoading, copilotAutorun, onAutorunConsumed }: InputPanelProps) {
+export function InputPanel({ onGenerate, isLoading, copilotAutorun, onAutorunConsumed, marcusPopulate, onMarcusPopulateConsumed }: InputPanelProps) {
   const { t, lang } = useLang()
   const wi = t.workspace.input
   const [idea, setIdea] = useState("")
@@ -41,6 +43,38 @@ export function InputPanel({ onGenerate, isLoading, copilotAutorun, onAutorunCon
   const [isTyping, setIsTyping] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Marcus populate: typewriter without auto-submit — waits for explicit generate signal
+  useEffect(() => {
+    if (!marcusPopulate || isLoading) return
+    onMarcusPopulateConsumed?.()
+
+    const text = marcusPopulate
+    setIdea("")
+    setIsTyping(true)
+    setEnhancedFrom(null)
+    textareaRef.current?.focus()
+
+    let i = 0
+    if (typewriterRef.current) clearInterval(typewriterRef.current)
+    typewriterRef.current = setInterval(() => {
+      i++
+      setIdea(text.slice(0, i))
+      if (textareaRef.current) {
+        textareaRef.current.scrollTop = textareaRef.current.scrollHeight
+      }
+      if (i >= text.length) {
+        clearInterval(typewriterRef.current!)
+        typewriterRef.current = null
+        setIsTyping(false)
+        setTimeout(() => textareaRef.current?.focus(), 50)
+      }
+    }, 18)
+
+    return () => {
+      if (typewriterRef.current) clearInterval(typewriterRef.current)
+    }
+  }, [marcusPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Typewriter autorun: type the idea live, then auto-submit
   useEffect(() => {

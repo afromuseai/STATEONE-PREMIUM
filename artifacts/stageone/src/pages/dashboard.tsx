@@ -12,7 +12,8 @@ import { useBusinessContext } from "@/lib/business-context"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { api, type Project } from "@/lib/api"
 import { recordRevenueSignal } from "@/lib/intelligence-state"
-import { saveGenerationContext, saveProjectContext, saveDashboardState, loadDashboardState, clearDashboardState, consumeCopilotAutorun } from "@/lib/generation-context"
+import { saveGenerationContext, saveProjectContext, saveDashboardState, loadDashboardState, clearDashboardState, consumeCopilotAutorun, consumeMarcusWorkspaceSignal } from "@/lib/generation-context"
+import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang, useFormatters } from "@/lib/i18n"
 import {
   FolderOpen,
@@ -147,6 +148,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { setBusinessData } = useBusinessContext()
   const { openUpgradeModal } = useUpgradeModal()
+  const { subscribeWorkspaceSignal } = useWorkspaceController()
   const [location] = useLocation()
   const search = useSearch()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -188,6 +190,9 @@ export default function DashboardPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [lockedFeature, setLockedFeature] = useState<{ name: string; icon: React.ReactNode; description: string } | null>(null)
   const [autorunIdea, setAutorunIdea] = useState<string | null>(null)
+  const [marcusPopulate, setMarcusPopulate] = useState<string | null>(null)
+  // Tracks the idea Marcus typed into the textarea so the generate signal can trigger it
+  const marcusBiIdeaRef = useRef<string>("")
 
   // Restore persisted generation state on mount so navigating away and back
   // doesn't wipe out the user's current workspace context.
@@ -209,7 +214,34 @@ export default function DashboardPage() {
       // Small tick to ensure the tab renders before typewriter starts
       setTimeout(() => setAutorunIdea(autorun.idea!), 150)
     }
+
+    // Marcus workspace signal: cross-navigation delivery (sessionStorage)
+    const signal = consumeMarcusWorkspaceSignal()
+    if (signal?.target === "intelligence" && signal.type === "populate" && signal.payload) {
+      setLocation("/dashboard?tab=new")
+      const idea = signal.payload
+      marcusBiIdeaRef.current = idea
+      setTimeout(() => setMarcusPopulate(idea), 150)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Marcus signal subscription (live — for when dashboard is already mounted)
+  useEffect(() => {
+    return subscribeWorkspaceSignal((signal) => {
+      if (signal.target !== "intelligence") return
+      if (signal.type === "populate" && signal.payload) {
+        const idea = signal.payload
+        marcusBiIdeaRef.current = idea
+        setLocation("/dashboard?tab=new")
+        setTimeout(() => setMarcusPopulate(idea), 50)
+      } else if (signal.type === "generate") {
+        const idea = marcusBiIdeaRef.current
+        if (idea.trim()) {
+          handleGenerate(idea)
+        }
+      }
+    })
+  }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist generation results whenever they change (non-null only)
   useEffect(() => {
@@ -628,6 +660,8 @@ export default function DashboardPage() {
           isLoading={isLoading}
           copilotAutorun={autorunIdea}
           onAutorunConsumed={() => setAutorunIdea(null)}
+          marcusPopulate={marcusPopulate}
+          onMarcusPopulateConsumed={() => setMarcusPopulate(null)}
         />
         {error && (
           <motion.div
