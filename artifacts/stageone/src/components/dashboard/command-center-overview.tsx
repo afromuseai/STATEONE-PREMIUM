@@ -4,12 +4,13 @@ import {
   BarChart3, Globe, Bot, Workflow,
   Plus, ChevronRight, Clock,
   Sparkles, Lock, Crown, Trash2,
-  TrendingUp, ArrowRight,
+  TrendingUp, ArrowRight, ListChecks, CheckCircle2, Circle,
 } from "lucide-react"
 import type { Project } from "@/lib/api"
 import type { BusinessIntelligence } from "./output-panel"
 import { useLang, useFormatters } from "@/lib/i18n"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
+import { useWorkspaceController } from "@/lib/workspace-controller-context"
 
 interface CommandCenterOverviewProps {
   user: { name: string; email: string } | null
@@ -44,6 +45,8 @@ export function CommandCenterOverview({
   const { openUpgradeModal } = useUpgradeModal()
 
   const go = (path: string) => { onNavigate(path); navigate(path) }
+
+  const { tasks, toggleTask, deleteTask } = useWorkspaceController()
 
   const firstName = user?.name?.split(" ")[0] ?? "there"
   const isPro = plan === "pro" || plan === "startup" || plan === "enterprise"
@@ -314,6 +317,96 @@ export function CommandCenterOverview({
           </div>
         </div>
       )}
+
+      {/* ── Active Tasks ────────────────────────────────────────────── */}
+      {tasks.length > 0 && (() => {
+        const pending = tasks.filter(t => t.status === "pending")
+        const done = tasks.filter(t => t.status === "done")
+        const progress = tasks.length > 0 ? Math.round((done.length / tasks.length) * 100) : 0
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ListChecks className="h-3.5 w-3.5 text-primary/60" />
+                <p className="text-[10px] font-black text-muted-foreground/35 uppercase tracking-[0.15em]">
+                  Active Tasks
+                </p>
+              </div>
+              <span className="text-[10px] text-muted-foreground/40 font-semibold">
+                {done.length}/{tasks.length} done
+              </span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-1 w-full bg-white/5 rounded-full mb-3 overflow-hidden">
+              <motion.div
+                className="h-full bg-primary/60 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              {/* Pending first */}
+              {pending.slice(0, 5).map(task => (
+                <div
+                  key={task.id}
+                  className="glass-card rounded-xl px-4 py-3 flex items-center gap-3 group hover:border-primary/20 transition-all"
+                >
+                  <button
+                    onClick={() => toggleTask(task.id, "done")}
+                    className="shrink-0 text-muted-foreground/30 hover:text-primary transition-colors"
+                  >
+                    <Circle className="h-4 w-4" />
+                  </button>
+                  <span className="flex-1 text-sm text-foreground/80 leading-snug">{task.title}</span>
+                  <button
+                    onClick={() => deleteTask(task.id)}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/20 hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+
+              {/* Completed (collapsed, max 2) */}
+              {done.slice(0, 2).map(task => (
+                <div
+                  key={task.id}
+                  className="px-4 py-2.5 flex items-center gap-3 group opacity-50 hover:opacity-70 transition-opacity"
+                >
+                  <button
+                    onClick={() => toggleTask(task.id, "pending")}
+                    className="shrink-0 text-emerald-400"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                  </button>
+                  <span className="flex-1 text-sm text-muted-foreground/60 line-through leading-snug">{task.title}</span>
+                  <button
+                    onClick={() => deleteTask(task.id)}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/20 hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+
+              {(pending.length > 5 || done.length > 2) && (
+                <p className="text-[10px] text-muted-foreground/30 text-center pt-1">
+                  {pending.length > 5 ? `+${pending.length - 5} more pending` : ``}
+                  {pending.length > 5 && done.length > 2 ? " · " : ""}
+                  {done.length > 2 ? `${done.length - 2} more completed` : ""}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )
+      })()}
 
       {/* ── Simple Stats ────────────────────────────────────────────── */}
       {projects.length > 0 && (

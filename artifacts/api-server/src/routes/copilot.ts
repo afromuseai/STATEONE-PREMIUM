@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
-import { db, projectsTable, agentsTable, aiMemoryTable } from "@workspace/db";
+import { db, projectsTable, agentsTable, aiMemoryTable, workspaceTasksTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -145,7 +145,10 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
   const { messages, businessContext, workspaceContext } = parsed.data;
 
-  const [projects, agents, memories] = await Promise.all([
+  // Determine active project id from workspace context (sent by frontend)
+  const activeProjectId = (workspaceContext as { currentProject?: { id?: string } } | null | undefined)?.currentProject?.id ?? null;
+
+  const [projects, agents, memories, projectTasksRaw, activeProjectRaw] = await Promise.all([
     db.select({
       id: projectsTable.id,
       title: projectsTable.title,
@@ -162,6 +165,31 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
     }).from(agentsTable).where(eq(agentsTable.userId, userId)).limit(10),
     db.select().from(aiMemoryTable).where(eq(aiMemoryTable.userId, userId))
       .orderBy(desc(aiMemoryTable.importance), desc(aiMemoryTable.updatedAt)).limit(15),
+    // Workspace tasks for active project (or all user tasks if no project)
+    activeProjectId
+      ? db.select({
+          id: workspaceTasksTable.id,
+          title: workspaceTasksTable.title,
+          status: workspaceTasksTable.status,
+          completedAt: workspaceTasksTable.completedAt,
+        }).from(workspaceTasksTable)
+          .where(and(eq(workspaceTasksTable.userId, userId), eq(workspaceTasksTable.projectId, activeProjectId)))
+          .limit(30)
+      : db.select({
+          id: workspaceTasksTable.id,
+          title: workspaceTasksTable.title,
+          status: workspaceTasksTable.status,
+          completedAt: workspaceTasksTable.completedAt,
+        }).from(workspaceTasksTable)
+          .where(eq(workspaceTasksTable.userId, userId))
+          .limit(20),
+    // Active project's event history
+    activeProjectId
+      ? db.select({ projectEvents: projectsTable.projectEvents })
+          .from(projectsTable)
+          .where(and(eq(projectsTable.id, activeProjectId), eq(projectsTable.userId, userId)))
+          .limit(1)
+      : Promise.resolve([]),
   ]);
 
   const bi = businessContext as {
@@ -196,6 +224,54 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
   const ws = workspaceContext;
   const wsProject = ws?.currentProject;
   const wsModules = ws?.modules;
+
+  // ─── Parse project tasks + events for history block ───────────────────────────
+  interface ProjectEventEntry { type: string; label: string; timestamp: string; }
+  const projectEvents: ProjectEventEntry[] = (() => {
+    const raw = (activeProjectRaw as { projectEvents?: unknown }[])[0]?.projectEvents;
+    if (!raw || !Array.isArray(raw)) return [];
+    return (raw as ProjectEventEntry[]).slice(0, 20);
+  })();
+
+  const pendingTasks = (projectTasksRaw as { title: string; status: string; completedAt: string | null }[]).filter(t => t.status === "pending");
+  const doneTasks = (projectTasksRaw as { title: string; status: string; completedAt: string | null }[]).filter(t => t.status === "done");
+
+  // ─── PROJECT HISTORY block ────────────────────────────────────────────────────
+  let historyBlock = "";
+  if (projectEvents.length > 0 || projectTasksRaw.length > 0) {
+    const lines: string[] = [];
+
+    if (projectEvents.length > 0) {
+      lines.push("Build history (chronological, most recent first):");
+      for (const ev of projectEvents.slice(0, 10)) {
+        const date = new Date(ev.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        lines.push(`  ✓ ${ev.label} [${date}]`);
+      }
+    }
+
+    if (projectTasksRaw.length > 0) {
+      lines.push(`\nWorkspace tasks — ${doneTasks.length} completed, ${pendingTasks.length} pending:`);
+      if (doneTasks.length > 0) {
+        lines.push("  Completed:");
+        doneTasks.slice(0, 5).forEach(t => lines.push(`    ✓ ${t.title}`));
+      }
+      if (pendingTasks.length > 0) {
+        lines.push("  Pending (priority order):");
+        pendingTasks.slice(0, 7).forEach(t => lines.push(`    • ${t.title}`));
+      }
+    }
+
+    if (lines.length > 0) {
+      historyBlock = `
+
+=== PROJECT HISTORY ===
+What has actually been built and committed to — not analysis, not projections. Real actions taken.
+${lines.join("\n")}
+
+Use this to avoid recommending things already done and to reference what's next in the user's own priority list.
+=== END PROJECT HISTORY ===`;
+    }
+  }
 
   // ─── WORKSPACE REALITY block ──────────────────────────────────────────────────
   // Hard facts only: what exists in the workspace right now.
@@ -1093,7 +1169,7 @@ This system is in production stabilization mode. The goal is to make STAGEONE sh
 - Do NOT introduce new systems, frameworks, or abstraction layers into recommendations
 - Keep all outputs consistent and deterministic
 [end ship mode]
-${workspaceBlock}${businessBlock}${memoryBlock}
+${workspaceBlock}${historyBlock}${businessBlock}${memoryBlock}
 [Reference platform capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a list]`;
 
   res.setHeader("Content-Type", "text/event-stream");

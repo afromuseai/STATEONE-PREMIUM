@@ -3,6 +3,7 @@ import { requireAuth } from "../middleware/auth";
 import { db, workspaceTasksTable, projectsTable } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
+import { appendProjectEvent } from "../lib/project-events";
 
 const router = Router();
 
@@ -85,6 +86,14 @@ router.patch("/workspace/tasks/:id", requireAuth, async (req, res): Promise<void
   if (!task) {
     res.status(404).json({ error: "Task not found" });
     return;
+  }
+
+  // Record task completion in project history (best-effort)
+  if (parsed.data.status === "done" && task.projectId) {
+    appendProjectEvent(task.projectId, userId, {
+      type: "task.completed",
+      label: `Task completed: "${task.title.slice(0, 80)}"`,
+    }).catch(() => {});
   }
 
   res.json({ task });

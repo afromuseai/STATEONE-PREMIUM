@@ -14,6 +14,7 @@ export const projectsTable = pgTable("projects", {
   output: jsonb("output"),
   websiteOutput: jsonb("website_output"),
   websiteVersionHistory: jsonb("website_version_history"),
+  projectEvents: jsonb("project_events"),
   shareToken: text("share_token").unique(),
   isPublic: boolean("is_public").notNull().default(false),
   isFeatured: boolean("is_featured").notNull().default(false),

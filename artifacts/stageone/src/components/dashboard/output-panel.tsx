@@ -756,6 +756,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
           </motion.div>
 
           {/* Metrics */}
+          {data.metrics && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
             className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-5">
             <MetricGauge icon={Gauge} label={ot.metrics.marketDifficulty} value={data.metrics.marketDifficulty} max={10} index={0} />
@@ -764,6 +765,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
             <MetricGauge icon={Layers} label={ot.metrics.complexity} value={data.metrics.operationalComplexity} max={10} index={3} />
             <MetricGauge icon={Sparkles} label={ot.metrics.aiOpportunity} value={data.metrics.aiAdoptionOpportunity} max={100} index={4} />
           </motion.div>
+          )}
 
           <BusinessHealthScore metrics={data.metrics} />
 

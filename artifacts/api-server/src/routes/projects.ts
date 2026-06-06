@@ -3,6 +3,7 @@ import { db, projectsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { z } from "zod";
+import { appendProjectEvent } from "../lib/project-events";
 
 const router = Router();
 
@@ -126,6 +127,16 @@ router.patch("/projects/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Project not found" });
     return;
   }
+
+  // Auto-record project history events on significant saves (best-effort, non-blocking)
+  if (parsed.data.output !== undefined && parsed.data.output !== null) {
+    appendProjectEvent(id, userId, { type: "intelligence.generated", label: "Business Intelligence generated" }).catch(() => {});
+  }
+  if (parsed.data.websiteOutput !== undefined && parsed.data.websiteOutput !== null) {
+    const label = existingWebsiteOutput ? "Website updated" : "Website generated";
+    appendProjectEvent(id, userId, { type: "website.generated", label }).catch(() => {});
+  }
+
   res.json({ project });
 });
 
