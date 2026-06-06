@@ -176,11 +176,25 @@ export async function forwardStream(
 
         try {
           const parsed = JSON.parse(data);
-          const content = parsed.choices?.[0]?.delta?.content;
+          const delta = parsed.choices?.[0]?.delta;
+          const content = delta?.content;
+          const reasoning = delta?.reasoning_content;
+          // [TRACE] Log first 5 raw chunks so we can see exactly what the model returns
+          if (tokenCount === 0 && !buffer) {
+            logger.info(
+              { layer: "nvidia_trace", model, hasContent: !!content, hasReasoning: !!reasoning, contentSnippet: String(content ?? "").slice(0, 80), reasoningSnippet: String(reasoning ?? "").slice(0, 80), rawData: data.slice(0, 200) },
+              `[AI:${model}] [TRACE] First chunk`
+            );
+          }
           if (content) {
             buffer += content;
             tokenCount++;
             res.write(`data: ${JSON.stringify({ content })}\n\n`);
+          } else if (reasoning && tokenCount === 0) {
+            logger.info(
+              { layer: "nvidia_trace", model, reasoningSnippet: String(reasoning).slice(0, 120) },
+              `[AI:${model}] [TRACE] Model is thinking (reasoning_content present, no content)`
+            );
           }
         } catch {
           // Incomplete SSE fragment — skip

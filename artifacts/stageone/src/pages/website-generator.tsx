@@ -118,6 +118,8 @@ export default function WebsiteGeneratorPage() {
   const ideaTextareaRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const marcusWebsiteIdeaRef = useRef<string>("")
+  // Always-current mirror of the textarea `idea` state — safe to read in stale closures
+  const ideaRef = useRef<string>("")
 
   // Check subscription tier
   useEffect(() => {
@@ -164,12 +166,18 @@ export default function WebsiteGeneratorPage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── Keep ideaRef in sync with textarea state ────────────────────────────────
+  // (allows the subscriber closure to read the current textarea value without
+  //  stale-closure issues — refs are always current even in old closures)
+  useEffect(() => { ideaRef.current = idea }, [idea])
+
   // ─── Marcus workspace signal (on mount — cross-navigation delivery) ──────────
   useEffect(() => {
     const signal = consumeMarcusWorkspaceSignal()
     if (signal?.target === "website" && signal.type === "populate" && signal.payload) {
       const text = signal.payload
       marcusWebsiteIdeaRef.current = text
+      ideaRef.current = text
       setContextBanner(true)
       setTimeout(() => setMarcusPopulate(text), 150)
     }
@@ -183,11 +191,14 @@ export default function WebsiteGeneratorPage() {
       if (signal.type === "populate" && signal.payload) {
         const text = signal.payload
         marcusWebsiteIdeaRef.current = text
+        ideaRef.current = text
         setContextBanner(true)
         setMarcusPopulate(text)
       } else if (signal.type === "generate") {
-        const text = marcusWebsiteIdeaRef.current
-        console.log("[WEBSITE TRACE] calling generateWithIdea | idea:", text || "(empty)")
+        // Use marcusWebsiteIdeaRef first; fall back to ideaRef (always-current textarea value)
+        // so generation still works even if the page remounted and cleared marcusWebsiteIdeaRef
+        const text = marcusWebsiteIdeaRef.current || ideaRef.current
+        console.log("[WEBSITE TRACE] generate signal | marcusRef:", marcusWebsiteIdeaRef.current || "(empty)", "| ideaRef:", ideaRef.current || "(empty)", "| using:", text || "(empty)")
         if (text.trim()) {
           generateWithIdea(text)
         }

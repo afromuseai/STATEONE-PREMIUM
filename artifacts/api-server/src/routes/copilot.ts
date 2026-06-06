@@ -1390,7 +1390,17 @@ ${workspaceBlock}${historyBlock}${businessBlock}${memoryBlock}
   }
 
   try {
-    const result = await forwardStream(streamBody, res, MODELS.COPILOT);
+    let result = await forwardStream(streamBody, res, MODELS.COPILOT);
+    if (!result) {
+      // Empty response — retry once with a fresh NVIDIA call (model occasionally returns nothing)
+      req.log.warn({ model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Empty response — retrying`);
+      try {
+        const retryBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(90_000) });
+        result = await forwardStream(retryBody, res, MODELS.COPILOT);
+      } catch (retryErr) {
+        req.log.error({ err: retryErr, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Retry also failed`);
+      }
+    }
     if (!result) {
       res.write(`data: ${JSON.stringify({ content: "Something went wrong on my end. Try asking again." })}\n\n`);
     }
