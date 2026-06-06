@@ -1,0 +1,136 @@
+CURRENT BUG INVESTIGATION — WEBSITE GENERATOR COPILOT FLOW
+
+IMPORTANT:
+
+Do NOT redesign anything.
+
+Do NOT refactor architecture.
+
+Do NOT propose alternative systems.
+
+Only investigate the existing implementation.
+
+====================================
+
+ARCHITECTURE
+
+Marcus Copilot executes actions through Workspace Signals.
+
+Business Intelligence already works correctly.
+
+Working BI flow:
+
+1. Marcus navigates to BI page
+2. Marcus populates input field
+3. User confirms
+4. Marcus emits generate signal
+5. Generation starts automatically
+
+This workflow is confirmed working.
+
+====================================
+
+WEBSITE GENERATOR SHOULD WORK IDENTICALLY
+
+Expected flow:
+
+1. Marcus navigates to Website Generator
+2. Marcus populates website idea
+3. User confirms
+4. Marcus emits generate signal
+5. Website generation starts automatically
+
+====================================
+
+CURRENT SYMPTOM
+
+Marcus successfully emits:
+
+generate_website
+
+Signal is received.
+
+Website page opens.
+
+BUT generation never starts.
+
+No API request is triggered.
+
+====================================
+
+IMPORTANT FINDINGS ALREADY VERIFIED
+
+The following stages are confirmed working:
+
+✓ website command parsed
+
+✓ navigation to /website-generator
+
+✓ website_idea command parsed
+
+✓ populate signal emitted
+
+✓ generate_website command parsed
+
+✓ generate signal emitted
+
+✓ website page subscriber receives signal
+
+The first suspected failure point is:
+
+website-generator.tsx
+
+Generate handler:
+
+const text =
+marcusWebsiteIdeaRef.current ||
+ideaRef.current
+
+if (text.trim()) {
+generateWithIdea(text)
+}
+
+If both refs are empty:
+
+generation silently does nothing.
+
+====================================
+
+YOUR TASK
+
+Do NOT implement fixes yet.
+
+Trace the exact runtime execution path.
+
+Prove with code evidence:
+
+1. Is generate signal reaching website-generator?
+
+2. What are the values of:
+
+* marcusWebsiteIdeaRef.current
+* ideaRef.current
+
+at the moment generate signal arrives?
+
+3. Is generateWithIdea() actually called?
+
+4. If not:
+
+WHY not?
+
+5. If yes:
+
+What is the first statement after entering generateWithIdea that fails?
+
+====================================
+
+RULE
+
+Do NOT speculate.
+
+Do NOT redesign.
+
+Do NOT suggest architecture changes.
+
+Trace actual execution and identify the exact failing line of code.
