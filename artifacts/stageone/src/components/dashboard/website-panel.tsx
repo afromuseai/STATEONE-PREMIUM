@@ -425,6 +425,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
       const timer = setTimeout(() => { generate() }, 400)
       return () => clearTimeout(timer)
     }
+    return undefined
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGenerate])
 
