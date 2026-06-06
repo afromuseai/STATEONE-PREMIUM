@@ -109,7 +109,7 @@ export default function WebsiteGeneratorPage() {
   const [contextBanner, setContextBanner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [autorunIdea, setAutorunIdea] = useState<string | null>(null)
-  const [marcusPopulate, setMarcusPopulate] = useState<string | null>(null)
+  const [marcusPopulateTick, setMarcusPopulateTick] = useState(0)
   const [marcusTriggerGenerate, setMarcusTriggerGenerate] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const { openUpgradeModal } = useUpgradeModal()
@@ -119,6 +119,10 @@ export default function WebsiteGeneratorPage() {
   const ideaTextareaRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const marcusWebsiteIdeaRef = useRef<string>("")
+  // Holds the text to type — written before incrementing marcusPopulateTick.
+  // A ref (not state) so clearing it inside the typewriter effect does NOT
+  // cause a re-render → effect cleanup never runs → interval is never killed.
+  const marcusPopulateRef = useRef<string>("")
   // Always-current mirror of the textarea `idea` state — safe to read in stale closures
   const ideaRef = useRef<string>("")
 
@@ -183,10 +187,9 @@ export default function WebsiteGeneratorPage() {
       marcusWebsiteIdeaRef.current = text
       ideaRef.current = text
       setContextBanner(true)
-      console.log("[POPULATE TRACE 9] scheduling setMarcusPopulate(text) via setTimeout 150ms | text:", text)
       setTimeout(() => {
-        console.log("[POPULATE TRACE 9] setTimeout fired — calling setMarcusPopulate | text:", text)
-        setMarcusPopulate(text)
+        marcusPopulateRef.current = text
+        setMarcusPopulateTick(t => t + 1)
       }, 150)
     } else {
       console.log("[POPULATE TRACE 8] signal failed condition check — target:", signal?.target, "| type:", signal?.type, "| payload:", signal?.payload ?? "(none)", "| signal null?", signal === null)
@@ -220,8 +223,8 @@ export default function WebsiteGeneratorPage() {
         marcusWebsiteIdeaRef.current = text
         ideaRef.current = text
         setContextBanner(true)
-        console.log("[POPULATE TRACE 9-LIVE] live subscriber calling setMarcusPopulate | text:", text)
-        setMarcusPopulate(text)
+        marcusPopulateRef.current = text
+        setMarcusPopulateTick(t => t + 1)
       } else if (signal.type === "generate") {
         console.log("[TRACE] WEBSITE generate handler entered | marcusRef:", marcusWebsiteIdeaRef.current || "(empty)", "| ideaRef:", ideaRef.current || "(empty)")
         // Use marcusWebsiteIdeaRef first; fall back to ideaRef (always-current textarea value)
@@ -242,11 +245,21 @@ export default function WebsiteGeneratorPage() {
 
   // ─── Marcus populate typewriter: types live but does NOT auto-generate ────────
   // (generation is triggered separately by the explicit "generate" signal)
+  // ─── Marcus populate typewriter ───────────────────────────────────────────────
+  // Uses a counter (marcusPopulateTick) as the dep, not the text string.
+  // The text lives in marcusPopulateRef — clearing a ref does NOT cause a
+  // re-render, so the effect's cleanup (clearInterval) never fires prematurely.
+  //
+  // Previous bug: dep was `marcusPopulate` (string state). Calling
+  // `setMarcusPopulate(null)` inside the effect changed the dep, which caused
+  // React to run cleanup (clearInterval) ~1–2ms after the interval was created
+  // via MessageChannel — long before the first 18ms tick. The typewriter was
+  // killed before typing a single character.
   useEffect(() => {
-    if (!marcusPopulate) return
-    setMarcusPopulate(null) // consume immediately
+    const text = marcusPopulateRef.current
+    if (!text) return
+    marcusPopulateRef.current = "" // clear ref — no re-render, no cleanup triggered
 
-    const text = marcusPopulate
     setIdea("")
     setIsTyping(true)
     ideaTextareaRef.current?.focus()
@@ -263,15 +276,13 @@ export default function WebsiteGeneratorPage() {
         clearInterval(typewriterRef.current!)
         typewriterRef.current = null
         setIsTyping(false)
-        // Do NOT auto-generate — Marcus will send a separate "generate" signal
-        // after the user explicitly confirms
       }
     }, 18)
 
     return () => {
       if (typewriterRef.current) clearInterval(typewriterRef.current)
     }
-  }, [marcusPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [marcusPopulateTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Typewriter autorun: type the idea live, then auto-submit
   useEffect(() => {
