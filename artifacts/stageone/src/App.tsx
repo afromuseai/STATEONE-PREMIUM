@@ -7,7 +7,8 @@ import { BusinessContextProvider } from "@/lib/business-context";
 import { OSProvider } from "@/lib/os-context";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { CopilotPanel } from "@/components/copilot/copilot-panel";
-import { CopilotProvider } from "@/lib/copilot-context";
+import { CopilotProvider } from "@/lib/copilot-context"
+import { WorkspaceControllerProvider } from "@/lib/workspace-controller-context";
 import { UpgradeModalProvider } from "@/lib/upgrade-modal-context";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { ThemeProvider } from "@/lib/theme-context";
@@ -155,6 +156,7 @@ export default function App() {
               <OSProvider>
                 <NotificationsProvider>
                   <CopilotProvider>
+                    <WorkspaceControllerProvider>
                     <UpgradeModalProvider>
                       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                         <AnimatedRoutes />
@@ -163,6 +165,7 @@ export default function App() {
                       <UpgradeModal />
                       <Toaster position="bottom-right" richColors theme="dark" />
                     </UpgradeModalProvider>
+                    </WorkspaceControllerProvider>
                   </CopilotProvider>
                 </NotificationsProvider>
               </OSProvider>

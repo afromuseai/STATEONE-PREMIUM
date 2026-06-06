@@ -14,6 +14,8 @@ import { useBusinessContext } from "@/lib/business-context"
 import { useAuth } from "@/lib/auth-context"
 import { api, type Project } from "@/lib/api"
 import { setCopilotAutorun } from "@/lib/generation-context"
+import { useWorkspaceController } from "@/lib/workspace-controller-context"
+import { ListChecks, Trash2 } from "lucide-react"
 
 interface Message {
   role: "user" | "assistant"
@@ -30,8 +32,9 @@ interface DetectedAction {
 const ACTION_TAG_RE = /\{\{ACTION:([^|]+)\|([^|]+)\|([^}]+)\}\}/
 const NAVIGATE_TAG_RE = /\{\{NAVIGATE:([^|}]+)(?:\|[^}]*)?\}\}/
 const EXECUTE_TAG_RE = /\{\{EXECUTE:([^|]+)\|([^|]+)(?:\|([^}]*))?\}\}/
+const WORKSPACE_TAG_RE = /\{\{WORKSPACE:([^|]+)\|(\[[\s\S]*?\])\}\}/
 // Matches any complete event tag in the stream
-const ANY_TAG_RE = () => /\{\{(?:ACTION:[^|]+\|[^|]+\|[^}]+|NAVIGATE:[^|}]+(?:\|[^}]*)?|EXECUTE:[^|]+\|[^|]+(?:\|[^}]*)?)\}\}/g
+const ANY_TAG_RE = () => /\{\{(?:ACTION:[^|]+\|[^|]+\|[^}]+|NAVIGATE:[^|}]+(?:\|[^}]*)?|EXECUTE:[^|]+\|[^|]+(?:\|[^}]*)?|WORKSPACE:[^|]+\|\[[\s\S]*?\])\}\}/g
 
 const ACTION_ROUTES: Record<string, string> = {
   generate_website: "/website-generator",
@@ -193,6 +196,7 @@ async function streamCopilot(
   onAction?: (action: DetectedAction) => void,
   onNavigate?: (path: string) => void,
   onExecute?: (id: string, endpoint: string, params?: string) => void,
+  onWorkspace?: (command: string, payload: string) => void,
 ) {
   const res = await fetch("/api/copilot", {
     method: "POST",
@@ -222,12 +226,15 @@ async function streamCopilot(
       const navMatch = tag.match(NAVIGATE_TAG_RE)
       const execMatch = tag.match(EXECUTE_TAG_RE)
 
+      const wsMatch = tag.match(WORKSPACE_TAG_RE)
       if (actionMatch) {
         onAction?.({ id: actionMatch[1].trim(), label: actionMatch[2].trim(), detail: actionMatch[3].trim() })
       } else if (navMatch) {
         onNavigate?.(navMatch[1].trim())
       } else if (execMatch) {
         onExecute?.(execMatch[1].trim(), execMatch[2].trim(), execMatch[3]?.trim())
+      } else if (wsMatch) {
+        onWorkspace?.(wsMatch[1].trim(), wsMatch[2].trim())
       }
     }
   }
@@ -315,6 +322,7 @@ export function CopilotPanel() {
   const [location, navigate] = useLocation()
   const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
+  const { tasks, createTasks, toggleTask, deleteTask, subscribe } = useWorkspaceController()
 
   const { data: projectsData } = useQuery({
     queryKey: ["copilot-projects"],
@@ -466,6 +474,20 @@ export function CopilotPanel() {
     return () => clearTimeout(timer)
   }, [open, projectsData, businessData, triggerGreeting])
 
+  // WORKSPACE — create tasks from AI recommendations
+  const handleWorkspaceAction = useCallback(async (command: string, rawPayload: string) => {
+    if (command !== "create_tasks") return
+    try {
+      const titles = JSON.parse(rawPayload) as unknown
+      if (!Array.isArray(titles) || titles.length === 0) return
+      const validTitles = (titles as unknown[]).filter((t): t is string => typeof t === "string" && t.trim().length > 0).slice(0, 10)
+      if (validTitles.length === 0) return
+      const projectId = currentProject?.id ?? null
+      await createTasks(validTitles, projectId)
+      showBubble(`${validTitles.length} task${validTitles.length > 1 ? "s" : ""} added to your workspace.`)
+    } catch { /* malformed JSON — ignore */ }
+  }, [createTasks, currentProject?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // NAVIGATE — fires immediately on tag detection, switches tab without waiting for stream
   const handleNavigate = useCallback((path: string) => {
     navigate(path)
@@ -530,6 +552,10 @@ export function CopilotPanel() {
         (id, endpoint, params) => {
           // EXECUTE — fire backend call instantly
           handleExecute(id, endpoint, params)
+        },
+        (command, payload) => {
+          // WORKSPACE — create tasks etc.
+          handleWorkspaceAction(command, payload)
         },
       )
     } catch (e: unknown) {
@@ -635,6 +661,25 @@ export function CopilotPanel() {
 
     prevCrossSystemRef.current = crossSystem
   }, [crossSystem]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Workspace Controller event subscriptions — proactive follow-ups
+  useEffect(() => {
+    const unsub = subscribe((event) => {
+      if (open) return
+      if (event.type === "generation.complete") {
+        showBubble("Analysis done. The biggest unknown isn't strategy — it's whether customers agree.")
+      } else if (event.type === "website.generated") {
+        showBubble("Website ready. Does the copy match what you'd say to a real customer?")
+      } else if (event.type === "automation.generated") {
+        showBubble("Automation built. Let's verify the triggers match your actual workflow.")
+      } else if (event.type === "chatbot.generated") {
+        showBubble("Chatbot ready. What's the first real conversation you want it to handle?")
+      } else if (event.type === "task.completed") {
+        showBubble("Task done. What's the next highest-leverage step?")
+      }
+    })
+    return unsub
+  }, [subscribe, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (prevProjectCountRef.current === null) {
@@ -815,6 +860,53 @@ export function CopilotPanel() {
                             )
                           })}
                         </div>
+
+                        {/* Workspace Tasks */}
+                        {tasks.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <ListChecks className="h-2.5 w-2.5 text-muted-foreground/40" />
+                                <p className="text-[8px] font-black text-muted-foreground/35 uppercase tracking-[0.18em]">
+                                  Tasks
+                                </p>
+                              </div>
+                              <span className="text-[8px] text-muted-foreground/30">
+                                {tasks.filter(t => t.status === "done").length}/{tasks.length}
+                              </span>
+                            </div>
+                            <div className="space-y-1 max-h-[120px] overflow-y-auto">
+                              {tasks.slice(0, 8).map(task => (
+                                <div key={task.id} className="flex items-start gap-1.5 group">
+                                  <button
+                                    onClick={() => toggleTask(task.id, task.status === "done" ? "pending" : "done")}
+                                    className="mt-0.5 shrink-0"
+                                  >
+                                    {task.status === "done" ? (
+                                      <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                                    ) : (
+                                      <div className="h-3 w-3 rounded-full border border-white/20 hover:border-primary/50 transition-colors" />
+                                    )}
+                                  </button>
+                                  <span className={`flex-1 text-[10px] leading-tight ${task.status === "done" ? "line-through text-muted-foreground/30" : "text-muted-foreground/70"}`}>
+                                    {task.title}
+                                  </span>
+                                  <button
+                                    onClick={() => deleteTask(task.id)}
+                                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <Trash2 className="h-2.5 w-2.5 text-muted-foreground/30 hover:text-red-400 transition-colors" />
+                                  </button>
+                                </div>
+                              ))}
+                              {tasks.length > 8 && (
+                                <p className="text-[9px] text-muted-foreground/30 pl-4">
+                                  +{tasks.length - 8} more tasks
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   )}

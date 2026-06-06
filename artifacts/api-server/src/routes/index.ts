@@ -33,6 +33,7 @@ import autonomousRouter from "./autonomous";
 import integrationsRouter from "./integrations";
 import adminRouter from "./admin";
 import waitlistRouter from "./waitlist";
+import workspaceControllerRouter from "./workspace-controller";
 
 const router: IRouter = Router();
 
@@ -70,5 +71,6 @@ router.use(autonomousRouter);
 router.use(integrationsRouter);
 router.use(adminRouter);
 router.use(waitlistRouter);
+router.use(workspaceControllerRouter);
 
 export default router;
