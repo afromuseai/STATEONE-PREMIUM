@@ -656,6 +656,8 @@ export function CopilotPanel() {
     if (autorunTimerRef.current) clearTimeout(autorunTimerRef.current)
     if (autorunIntervalRef.current) clearInterval(autorunIntervalRef.current)
 
+    const capturedAction = pendingAction
+
     setAutorunCountdown(2)
     autorunIntervalRef.current = setInterval(() => {
       setAutorunCountdown(prev => {
@@ -667,10 +669,8 @@ export function CopilotPanel() {
       if (autorunIntervalRef.current) clearInterval(autorunIntervalRef.current)
       autorunIntervalRef.current = null
       setAutorunCountdown(null)
-      setPendingAction(prev => {
-        if (prev) executeAction(prev)
-        return null
-      })
+      setPendingAction(null)
+      executeAction(capturedAction)
     }, 2000)
 
     return () => {
