@@ -18,39 +18,11 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "API Server"
+args = "artifacts/mockup-sandbox: Component Preview Server"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Start application"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "artifacts/mockup-sandbox: Component Preview Server"
-
-[[workflows.workflow]]
-name = "API Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/api-server && pnpm run dev"
-waitForPort = 8000
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/stageone && pnpm run dev"
-waitForPort = 5000
 
 [[workflows.workflow]]
 name = "artifacts/mockup-sandbox: Component Preview Server"
@@ -65,6 +37,18 @@ task = "shell.exec"
 args = "cd artifacts/mockup-sandbox && PORT=8080 BASE_PATH=/__mockup/ ./node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0"
 waitForPort = 8080
 
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/stageone && pnpm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
@@ -78,11 +62,11 @@ localPort = 3000
 
 [[ports]]
 localPort = 5000
-externalPort = 3002
+externalPort = 80
 
 [[ports]]
-localPort = 8000
-externalPort = 8000
+localPort = 8080
+externalPort = 8080
 
 [[ports]]
 localPort = 8082
@@ -102,7 +86,7 @@ localPort = 22923
 BASE_PATH = "/"
 PORT = "5000"
 JWT_SECRET = "f2c1ed852bdab566170634d0afaf470c331ccb7cfb4657cdb72e4c1980f6b7e5751155c65cee569535e3060ba2c3a4b2d2d1cceca190318cbdf6b79178f9ef37"
-API_PORT = "8000"
+API_PORT = "8080"
 
 [nix]
 channel = "stable-25_05"
