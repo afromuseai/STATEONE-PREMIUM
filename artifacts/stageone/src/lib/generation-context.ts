@@ -158,6 +158,28 @@ export function clearDashboardState(): void {
   } catch { /* ignore */ }
 }
 
+// ─── Marcus Website Generate Intent ───────────────────────────────────────────
+// Persists the generate intent across navigation so it survives the race
+// condition where the generate signal is emitted before the page mounts.
+// Pattern mirrors setMarcusWorkspaceSignal / consumeMarcusWorkspaceSignal.
+
+const MARCUS_WEBSITE_GENERATE_KEY = "marcus_website_generate_intent"
+
+export function setMarcusWebsiteGenerateIntent(): void {
+  try { sessionStorage.setItem(MARCUS_WEBSITE_GENERATE_KEY, JSON.stringify({ timestamp: Date.now() })) } catch { /* ignore */ }
+}
+
+export function consumeMarcusWebsiteGenerateIntent(): boolean {
+  try {
+    const raw = sessionStorage.getItem(MARCUS_WEBSITE_GENERATE_KEY)
+    if (!raw) return false
+    sessionStorage.removeItem(MARCUS_WEBSITE_GENERATE_KEY)
+    const stored = JSON.parse(raw) as { timestamp: number }
+    if (Date.now() - stored.timestamp > 30_000) return false
+    return true
+  } catch { return false }
+}
+
 // ─── Workspace session isolation ──────────────────────────────────────────────
 // Call this on every login, signup, and logout to prevent one user's
 // sessionStorage data from leaking into a different user's session.
@@ -165,7 +187,7 @@ export function clearDashboardState(): void {
 // user-scoped (copilot:msgs:<userId>) so they survive this sweep safely.
 export function clearWorkspaceSessionData(): void {
   try {
-    const STAGEONE_KEYS = [KEY, DASHBOARD_KEY, AUTORUN_KEY, PROJECT_KEY]
+    const STAGEONE_KEYS = [KEY, DASHBOARD_KEY, AUTORUN_KEY, PROJECT_KEY, MARCUS_WEBSITE_GENERATE_KEY]
     for (const k of STAGEONE_KEYS) sessionStorage.removeItem(k)
     // Also sweep any dynamically created keys with the stageone_ prefix
     const allKeys = Object.keys(sessionStorage)

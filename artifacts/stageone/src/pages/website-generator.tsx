@@ -8,7 +8,7 @@ import {
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumeMarcusWorkspaceSignal, setMarcusWorkspaceSignal } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumeMarcusWorkspaceSignal, setMarcusWorkspaceSignal, consumeMarcusWebsiteGenerateIntent } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
 
@@ -110,6 +110,7 @@ export default function WebsiteGeneratorPage() {
   const [isLocked, setIsLocked] = useState(false)
   const [autorunIdea, setAutorunIdea] = useState<string | null>(null)
   const [marcusPopulate, setMarcusPopulate] = useState<string | null>(null)
+  const [marcusTriggerGenerate, setMarcusTriggerGenerate] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const { openUpgradeModal } = useUpgradeModal()
   const { subscribeWorkspaceSignal } = useWorkspaceController()
@@ -181,7 +182,22 @@ export default function WebsiteGeneratorPage() {
       setContextBanner(true)
       setTimeout(() => setMarcusPopulate(text), 150)
     }
+    // Consume persisted generate intent — survives navigation race condition
+    // (set by Marcus dispatcher before the page has mounted and subscribed)
+    if (consumeMarcusWebsiteGenerateIntent()) {
+      setMarcusTriggerGenerate(true)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Marcus generate trigger (cross-navigation) ───────────────────────────────
+  // Fires generation when a persisted generate intent is consumed on mount.
+  // Uses a state flag so generateWithIdea captures current style/tone values.
+  useEffect(() => {
+    if (!marcusTriggerGenerate) return
+    setMarcusTriggerGenerate(false)
+    const text = marcusWebsiteIdeaRef.current || ideaRef.current
+    if (text.trim()) generateWithIdea(text)
+  }, [marcusTriggerGenerate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Marcus workspace signal (live — for when page is already mounted) ────────
   useEffect(() => {

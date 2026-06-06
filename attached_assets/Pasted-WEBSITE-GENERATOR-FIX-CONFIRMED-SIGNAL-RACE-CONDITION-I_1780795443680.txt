@@ -1,0 +1,120 @@
+WEBSITE GENERATOR — FIX CONFIRMED SIGNAL RACE CONDITION
+
+IMPORTANT:
+
+Do NOT investigate regexes.
+Do NOT investigate models.
+Do NOT investigate NVIDIA responses.
+Do NOT investigate tag parsing.
+Do NOT add more traces.
+
+The root cause has already been identified.
+
+====================================
+CONFIRMED FAILURE
+=================
+
+Current flow:
+
+1. Marcus emits website
+2. Marcus emits website_idea
+3. Marcus emits generate_website
+4. Website page is still mounting
+5. Subscriber has not registered yet
+6. generate signal is emitted into an empty subscriber set
+7. Signal is permanently lost
+8. Website page finishes mounting
+9. Populate works
+10. Generate never happens
+
+This is a navigation → subscriber registration race condition.
+
+====================================
+GOAL
+====
+
+Make Website generation behave exactly like Business Intelligence.
+
+Business Intelligence works.
+
+Copy the same architectural pattern.
+
+Do NOT invent a new architecture.
+
+====================================
+REQUIREMENTS
+============
+
+The Website workflow must support:
+
+* navigation
+* populate
+* confirmation
+* generation
+
+even if the page has not mounted yet.
+
+The generate intent must survive navigation.
+
+The signal must not be lost simply because the subscriber is not yet registered.
+
+====================================
+IMPLEMENTATION RULE
+===================
+
+Do NOT emit a fire-and-forget generate signal.
+
+Persist generation intent the same way populate survives.
+
+When Website Generator mounts:
+
+1. consume persisted intent
+2. restore idea
+3. restore pending generate action
+4. automatically execute generation
+
+if a generate intent exists.
+
+====================================
+IMPORTANT
+=========
+
+Use the same working pattern already used by Business Intelligence.
+
+Do NOT create a new signalling system.
+
+Do NOT refactor unrelated systems.
+
+Do NOT touch chatbot or automation.
+
+Only fix Website Generator.
+
+====================================
+DELIVERABLE
+===========
+
+After the fix:
+
+Marcus:
+
+* opens Website Generator
+* populates idea
+* asks for confirmation
+
+User:
+
+* says Yes
+
+Marcus:
+
+* triggers generate_website
+
+Website Generator:
+
+* always starts generation
+
+even if navigation occurred immediately before the signal was emitted.
+
+No signal loss.
+No timing dependency.
+No race condition.

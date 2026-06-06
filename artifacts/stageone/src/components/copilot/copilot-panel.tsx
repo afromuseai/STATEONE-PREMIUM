@@ -13,7 +13,7 @@ import {
 import { useBusinessContext } from "@/lib/business-context"
 import { useAuth } from "@/lib/auth-context"
 import { api, type Project } from "@/lib/api"
-import { setCopilotAutorun, setMarcusWorkspaceSignal } from "@/lib/generation-context"
+import { setCopilotAutorun, setMarcusWorkspaceSignal, setMarcusWebsiteGenerateIntent } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { ListChecks, Trash2 } from "lucide-react"
 
@@ -589,7 +589,10 @@ export function CopilotPanel() {
     } else if (command === "generate_website") {
       console.log("[WEBSITE TRACE] dispatcher handling generate_website")
       console.log("[WEBSITE TRACE] emitted signal | target: website | type: generate | payload: (none)")
-      // Fire generation signal — website-generator page will start streaming
+      // Persist intent to sessionStorage so it survives if the page hasn't mounted yet
+      // (same pattern as setMarcusWorkspaceSignal used for populate)
+      setMarcusWebsiteGenerateIntent()
+      // Also emit live signal in case the page is already mounted and subscribed
       emitWorkspaceSignal({ target: "website", type: "generate" })
     }
   }, [navigate, location, emitWorkspaceSignal])
