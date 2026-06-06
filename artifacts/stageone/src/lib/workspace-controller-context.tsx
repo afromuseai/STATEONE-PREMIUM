@@ -153,6 +153,7 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
   }, [])
 
   const emitWorkspaceSignal = useCallback((signal: MarcusWorkspaceSignal) => {
+    console.log("[WEBSITE TRACE] emitWorkspaceSignal called | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)", "| subscribers:", workspaceSubscribersRef.current.size)
     workspaceSubscribersRef.current.forEach(cb => {
       try { cb(signal) } catch { /* non-fatal */ }
     })

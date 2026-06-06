@@ -178,6 +178,7 @@ export default function WebsiteGeneratorPage() {
   // ─── Marcus workspace signal (live — for when page is already mounted) ────────
   useEffect(() => {
     return subscribeWorkspaceSignal((signal) => {
+      console.log("[WEBSITE TRACE] receiver got signal | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)")
       if (signal.target !== "website") return
       if (signal.type === "populate" && signal.payload) {
         const text = signal.payload
@@ -186,6 +187,7 @@ export default function WebsiteGeneratorPage() {
         setMarcusPopulate(text)
       } else if (signal.type === "generate") {
         const text = marcusWebsiteIdeaRef.current
+        console.log("[WEBSITE TRACE] calling generateWithIdea | idea:", text || "(empty)")
         if (text.trim()) {
           generateWithIdea(text)
         }
@@ -284,6 +286,7 @@ export default function WebsiteGeneratorPage() {
   }, [])
 
   const generateWithIdea = async (ideaOverride: string) => {
+    console.log("[WEBSITE TRACE] generateWithIdea entered | idea:", ideaOverride || "(empty)")
     if (!ideaOverride.trim()) return
     setGenError("")
     setStep("generating")

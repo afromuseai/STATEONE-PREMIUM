@@ -240,7 +240,10 @@ async function streamCopilot(
         onWorkspace?.(wsMatch[1].trim(), wsMatch[2].trim())
       } else {
         const wsCmdMatch = tag.match(WORKSPACE_CMD_RE)
-        if (wsCmdMatch) onWorkspaceCmd?.(wsCmdMatch[1].trim(), wsCmdMatch[2]?.trim() ?? "")
+        if (wsCmdMatch) {
+          console.log("[WEBSITE TRACE] parser detected", wsCmdMatch[1].trim(), "| tag:", tag)
+          onWorkspaceCmd?.(wsCmdMatch[1].trim(), wsCmdMatch[2]?.trim() ?? "")
+        }
       }
     }
   }
@@ -558,6 +561,8 @@ export function CopilotPanel() {
       // Also emit a live signal in case the page is already mounted
       emitWorkspaceSignal({ target: "website", type: "populate", payload: idea })
     } else if (command === "generate_website") {
+      console.log("[WEBSITE TRACE] dispatcher handling generate_website")
+      console.log("[WEBSITE TRACE] emitted signal | target: website | type: generate | payload: (none)")
       // Fire generation signal — website-generator page will start streaming
       emitWorkspaceSignal({ target: "website", type: "generate" })
     }
