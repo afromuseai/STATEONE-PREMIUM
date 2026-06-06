@@ -286,6 +286,7 @@ Use this to avoid recommending things already done and to reference what's next 
     if (wsModules?.automation) completed.push("Automation"); else notCompleted.push("Automation");
 
     const lines: string[] = [];
+    if (ws.activePage) lines.push(`Current page: ${ws.activePage} (path: ${ws.activePagePath ?? "unknown"})`);
     if (wsProject) {
       lines.push(`Project: "${wsProject.title}"`);
       lines.push(`User's idea (their exact words): "${wsProject.businessIdea.slice(0, 200)}"`);
