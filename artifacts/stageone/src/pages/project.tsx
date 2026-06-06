@@ -1,29 +1,440 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useLocation } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/output-panel"
 import { WebsitePanel } from "@/components/dashboard/website-panel"
-import { api, type Project } from "@/lib/api"
-import { ArrowLeft, RefreshCw, Globe, BarChart3, Loader2, Pencil, Check, X } from "lucide-react"
+import { api, type Project, type ProjectEvent } from "@/lib/api"
+import {
+  ArrowLeft, RefreshCw, Globe, BarChart3, Loader2, Pencil, Check, X,
+  Bot, Zap, CheckSquare, Clock, Plus, Trash2, CheckCircle2, Circle,
+  History, ExternalLink, Lightbulb, Workflow, ChevronRight,
+} from "lucide-react"
 import { useLang } from "@/lib/i18n"
 
 interface ProjectPageProps {
   id: string
 }
 
+type Tab = "analysis" | "website" | "chatbot" | "automation" | "tasks" | "history"
+
+interface ProjectTask {
+  id: string
+  title: string
+  status: "pending" | "done"
+  category: string
+  createdAt: string
+  completedAt: string | null
+  projectId: string | null
+}
+
+// ─── History event icon/colour mapping ───────────────────────────────────────
+
+const EVENT_META: Record<string, { icon: React.ElementType; colour: string; label: string }> = {
+  "intelligence.generated": { icon: BarChart3,  colour: "text-blue-400",   label: "Business Intelligence Generated" },
+  "website.generated":      { icon: Globe,       colour: "text-green-400",  label: "Website Generated" },
+  "chatbot.generated":      { icon: Bot,         colour: "text-purple-400", label: "Chatbot Generated" },
+  "automation.generated":   { icon: Workflow,    colour: "text-orange-400", label: "Automation Generated" },
+  "task.completed":         { icon: CheckCircle2,colour: "text-primary",    label: "Task Completed" },
+}
+
+function eventMeta(type: string) {
+  return EVENT_META[type] ?? { icon: Clock, colour: "text-muted-foreground", label: type }
+}
+
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const min  = Math.floor(diff / 60_000)
+  const hr   = Math.floor(diff / 3_600_000)
+  const day  = Math.floor(diff / 86_400_000)
+  if (min < 2)  return "just now"
+  if (min < 60) return `${min}m ago`
+  if (hr  < 24) return `${hr}h ago`
+  return `${day}d ago`
+}
+
+// ─── Tasks tab ────────────────────────────────────────────────────────────────
+
+function TasksTab({ projectId }: { projectId: string }) {
+  const [tasks, setTasks]       = useState<ProjectTask[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [newTitle, setNewTitle] = useState("")
+  const [adding, setAdding]     = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/workspace/tasks?projectId=${projectId}`, { credentials: "include" })
+      if (!res.ok) return
+      const data = await res.json() as { tasks: ProjectTask[] }
+      setTasks(data.tasks)
+    } catch { /* non-fatal */ } finally {
+      setLoading(false)
+    }
+  }, [projectId])
+
+  useEffect(() => { fetchTasks() }, [fetchTasks])
+
+  const handleToggle = useCallback(async (task: ProjectTask) => {
+    const next = task.status === "pending" ? "done" : "pending"
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: next, completedAt: next === "done" ? new Date().toISOString() : null } : t))
+    await fetch(`/api/workspace/tasks/${task.id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    }).catch(() => fetchTasks())
+  }, [fetchTasks])
+
+  const handleDelete = useCallback(async (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id))
+    await fetch(`/api/workspace/tasks/${id}`, { method: "DELETE", credentials: "include" }).catch(() => fetchTasks())
+  }, [fetchTasks])
+
+  const handleAdd = useCallback(async () => {
+    const title = newTitle.trim()
+    if (!title) return
+    setAdding(true)
+    try {
+      const res = await fetch("/api/workspace/tasks", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tasks: [{ title }], projectId }),
+      })
+      if (res.ok) {
+        const data = await res.json() as { tasks: ProjectTask[] }
+        setTasks(prev => [...prev, ...data.tasks])
+        setNewTitle("")
+      }
+    } catch { /* non-fatal */ } finally {
+      setAdding(false)
+    }
+  }, [newTitle, projectId])
+
+  const pending   = tasks.filter(t => t.status === "pending")
+  const completed = tasks.filter(t => t.status === "done")
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      {/* Add task */}
+      <div className="glass-card rounded-xl p-4">
+        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+          <Plus className="h-4 w-4 text-primary" />
+          Add Task
+        </h3>
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            value={newTitle}
+            onChange={e => setNewTitle(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleAdd() }}
+            placeholder="Task title…"
+            className="flex-1 rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={adding || !newTitle.trim()}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Add
+          </button>
+        </div>
+      </div>
+
+      {/* Progress */}
+      {tasks.length > 0 && (
+        <div className="glass-card rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-foreground">Progress</span>
+            <span className="text-xs text-muted-foreground">{completed.length} / {tasks.length} complete</span>
+          </div>
+          <div className="h-2 rounded-full bg-secondary/40 overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-primary"
+              initial={{ width: 0 }}
+              animate={{ width: `${tasks.length ? (completed.length / tasks.length) * 100 : 0}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Pending tasks */}
+      {pending.length > 0 && (
+        <div className="glass-card rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Circle className="h-4 w-4 text-yellow-400" />
+            Active ({pending.length})
+          </h3>
+          <div className="space-y-2">
+            {pending.map(task => (
+              <motion.div key={task.id} layout className="flex items-center gap-3 group">
+                <button onClick={() => handleToggle(task)} className="flex-shrink-0 text-muted-foreground hover:text-primary transition-colors">
+                  <Circle className="h-4 w-4" />
+                </button>
+                <span className="flex-1 text-sm text-foreground">{task.title}</span>
+                {task.category !== "general" && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-secondary/40 text-muted-foreground">{task.category}</span>
+                )}
+                <button onClick={() => handleDelete(task.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed tasks */}
+      {completed.length > 0 && (
+        <div className="glass-card rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            Completed ({completed.length})
+          </h3>
+          <div className="space-y-2">
+            {completed.map(task => (
+              <motion.div key={task.id} layout className="flex items-center gap-3 group opacity-60">
+                <button onClick={() => handleToggle(task)} className="flex-shrink-0 text-primary hover:text-muted-foreground transition-colors">
+                  <CheckCircle2 className="h-4 w-4" />
+                </button>
+                <span className="flex-1 text-sm text-muted-foreground line-through">{task.title}</span>
+                <button onClick={() => handleDelete(task.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tasks.length === 0 && (
+        <div className="glass-card rounded-xl p-8 text-center">
+          <CheckSquare className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">No tasks yet. Add your first task above.</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── History tab ──────────────────────────────────────────────────────────────
+
+function HistoryTab({ events, createdAt }: { events: ProjectEvent[]; createdAt: string }) {
+  const allEvents: (ProjectEvent & { isOrigin?: boolean })[] = [
+    ...events,
+    { type: "project.created", label: "Project Created", timestamp: createdAt, isOrigin: true },
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+  return (
+    <div className="p-6 space-y-4">
+      {allEvents.length === 0 ? (
+        <div className="glass-card rounded-xl p-8 text-center">
+          <History className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">No history yet.</p>
+        </div>
+      ) : (
+        <div className="relative pl-6 space-y-0">
+          {/* Vertical line */}
+          <div className="absolute left-2.5 top-3 bottom-3 w-px bg-border/40" />
+
+          {allEvents.map((evt, i) => {
+            const meta = evt.isOrigin
+              ? { icon: Plus, colour: "text-primary", label: "Project Created" }
+              : eventMeta(evt.type)
+            const Icon = meta.icon
+
+            return (
+              <motion.div
+                key={`${evt.type}-${i}`}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className="relative flex items-start gap-4 pb-6"
+              >
+                {/* Dot */}
+                <div className={`absolute -left-[3px] flex h-5 w-5 items-center justify-center rounded-full bg-background border border-border/60 ${meta.colour}`}>
+                  <Icon className="h-3 w-3" />
+                </div>
+
+                <div className="glass-card rounded-xl p-4 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className={`text-sm font-semibold ${meta.colour}`}>{meta.label}</p>
+                      {evt.label && evt.label !== meta.label && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{evt.label}</p>
+                      )}
+                    </div>
+                    <time className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                      {timeAgo(evt.timestamp)}
+                    </time>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Chatbot tab ──────────────────────────────────────────────────────────────
+
+function ChatbotTab({ biData, onNavigate }: { biData: BusinessIntelligence | null; onNavigate: () => void }) {
+  return (
+    <div className="p-6 space-y-5">
+      {biData?.chatbotRole ? (
+        <>
+          <div className="glass-card rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Bot className="h-4 w-4 text-purple-400" />
+              <h3 className="text-sm font-semibold text-foreground">AI Chatbot Role</h3>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">{biData.chatbotRole}</p>
+          </div>
+
+          {biData.strategicInsights && (
+            <div className="glass-card rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Lightbulb className="h-4 w-4 text-yellow-400" />
+                <h3 className="text-sm font-semibold text-foreground">Strategic Context</h3>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[
+                  { label: "Fastest Channel", value: biData.strategicInsights.fastestChannel },
+                  { label: "Highest Leverage", value: biData.strategicInsights.highestLeverageAutomation },
+                ].filter(x => x.value).map(x => (
+                  <div key={x.label} className="rounded-lg bg-secondary/20 p-3">
+                    <p className="text-xs text-muted-foreground mb-1">{x.label}</p>
+                    <p className="text-sm text-foreground">{x.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="glass-card rounded-xl p-8 text-center">
+          <Bot className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground mb-1">No chatbot data yet.</p>
+          <p className="text-xs text-muted-foreground">Generate a business analysis first, then build a chatbot from it.</p>
+        </div>
+      )}
+
+      <button
+        onClick={onNavigate}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all"
+      >
+        <Bot className="h-4 w-4 text-purple-400" />
+        Open Chatbot Generator
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
+    </div>
+  )
+}
+
+// ─── Automation tab ───────────────────────────────────────────────────────────
+
+function AutomationTab({ biData, onNavigate }: { biData: BusinessIntelligence | null; onNavigate: () => void }) {
+  return (
+    <div className="p-6 space-y-5">
+      {biData?.automations?.length ? (
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Workflow className="h-4 w-4 text-orange-400" />
+            <h3 className="text-sm font-semibold text-foreground">Recommended Automations</h3>
+          </div>
+          <div className="space-y-2">
+            {biData.automations.map((auto, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="flex items-start gap-3 rounded-lg bg-secondary/20 px-4 py-3"
+              >
+                <Zap className="h-3.5 w-3.5 text-orange-400 mt-0.5 flex-shrink-0" />
+                <span className="text-sm text-muted-foreground">{auto}</span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="glass-card rounded-xl p-8 text-center">
+          <Workflow className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground mb-1">No automation data yet.</p>
+          <p className="text-xs text-muted-foreground">Generate a business analysis first to see recommended automations.</p>
+        </div>
+      )}
+
+      {biData?.recommendedStack && (
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <ChevronRight className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Automation Stack</h3>
+          </div>
+          {biData.recommendedStack.automation?.length ? (
+            <div className="flex flex-wrap gap-2">
+              {biData.recommendedStack.automation.map((item, i) => (
+                <span key={i} className="rounded-full bg-secondary/40 px-3 py-1 text-xs text-muted-foreground">
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No automation stack defined yet.</p>
+          )}
+        </div>
+      )}
+
+      <button
+        onClick={onNavigate}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border/50 bg-secondary/20 text-sm text-foreground hover:border-primary/50 hover:bg-primary/5 transition-all"
+      >
+        <Workflow className="h-4 w-4 text-orange-400" />
+        Open Automation Builder
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
+    </div>
+  )
+}
+
+// ─── Tab config ───────────────────────────────────────────────────────────────
+
+const TABS: { id: Tab; label: string; icon: React.ElementType; indicator?: (p: Project) => boolean }[] = [
+  { id: "analysis",   label: "Business Intelligence", icon: BarChart3  },
+  { id: "website",    label: "Website",               icon: Globe,    indicator: p => !!p.websiteOutput },
+  { id: "chatbot",    label: "Chatbot",               icon: Bot       },
+  { id: "automation", label: "Automation",            icon: Workflow  },
+  { id: "tasks",      label: "Tasks",                 icon: CheckSquare },
+  { id: "history",    label: "History",               icon: History   },
+]
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function ProjectPage({ id }: ProjectPageProps) {
   const { lang } = useLang()
   const [, setLocation] = useLocation()
-  const [project, setProject] = useState<Project | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<"analysis" | "website">("analysis")
+  const [project, setProject]       = useState<Project | null>(null)
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+  const [tab, setTab]               = useState<Tab>("analysis")
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [streamingText, setStreamingText] = useState("")
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [titleInput, setTitleInput] = useState("")
+  const [editingTitle, setEditingTitle]   = useState(false)
+  const [titleInput, setTitleInput]       = useState("")
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
 
   useEffect(() => {
@@ -40,6 +451,7 @@ export default function ProjectPage({ id }: ProjectPageProps) {
     if (!project) return
     setRegenerating(true)
     setStreamingText("")
+    setTab("analysis")
 
     try {
       const response = await fetch("/api/generate", {
@@ -48,7 +460,6 @@ export default function ProjectPage({ id }: ProjectPageProps) {
         credentials: "include",
         body: JSON.stringify({ idea: project.businessIdea, language: lang }),
       })
-
       if (!response.ok) throw new Error("Generation failed")
 
       const reader = response.body?.getReader()
@@ -86,7 +497,7 @@ export default function ProjectPage({ id }: ProjectPageProps) {
       setRegenerating(false)
       setStreamingText("")
     }
-  }, [project, id])
+  }, [project, id, lang])
 
   const handleSaveTitle = useCallback(async () => {
     if (!titleInput.trim() || !project) return
@@ -127,13 +538,15 @@ export default function ProjectPage({ id }: ProjectPageProps) {
   }
 
   const biData = project.output as BusinessIntelligence | null
+  const events = project.projectEvents ?? []
+  const isWebsiteTab = tab === "website"
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
 
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        {/* Header */}
+        {/* ── Header ── */}
         <header className="flex h-14 items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-6 shrink-0">
           <button
             onClick={() => setLocation("/dashboard?tab=projects")}
@@ -143,6 +556,8 @@ export default function ProjectPage({ id }: ProjectPageProps) {
             Projects
           </button>
           <div className="h-4 w-px bg-border" />
+
+          {/* Editable title */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {editingTitle ? (
               <div className="flex items-center gap-2">
@@ -167,6 +582,17 @@ export default function ProjectPage({ id }: ProjectPageProps) {
               </button>
             )}
           </div>
+
+          {/* Status badge */}
+          <span className={`hidden sm:flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+            project.status === "active"    ? "border-green-500/30 bg-green-500/10 text-green-400" :
+            project.status === "draft"     ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400" :
+            project.status === "completed" ? "border-blue-500/30 bg-blue-500/10 text-blue-400" :
+            "border-border/50 bg-secondary/20 text-muted-foreground"
+          }`}>
+            {project.status}
+          </span>
+
           <button
             onClick={handleRegenerate}
             disabled={regenerating}
@@ -177,32 +603,33 @@ export default function ProjectPage({ id }: ProjectPageProps) {
           </button>
         </header>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-border/50 px-6 shrink-0">
-          <button
-            onClick={() => setTab("analysis")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              tab === "analysis" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <BarChart3 className="h-3.5 w-3.5" />
-            Business Analysis
-          </button>
-          <button
-            onClick={() => setTab("website")}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              tab === "website" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Globe className="h-3.5 w-3.5" />
-            Website{project.websiteOutput ? " ✓" : ""}
-          </button>
+        {/* ── Tabs ── */}
+        <div className="flex items-center gap-0.5 border-b border-border/50 px-4 shrink-0 overflow-x-auto scrollbar-none">
+          {TABS.map(({ id: tid, label, icon: Icon, indicator }) => {
+            const active = tab === tid
+            const hasData = indicator?.(project)
+            return (
+              <button
+                key={tid}
+                onClick={() => setTab(tid)}
+                className={`relative flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                  active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+                {hasData && !active && (
+                  <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-green-400" />
+                )}
+              </button>
+            )
+          })}
         </div>
 
-        {/* Content */}
-        <div className={`flex-1 min-h-0 ${tab === "website" ? "overflow-hidden flex flex-col" : "overflow-y-auto p-6"}`}>
+        {/* ── Content ── */}
+        <div className={`flex-1 min-h-0 ${isWebsiteTab ? "overflow-hidden flex flex-col" : "overflow-y-auto"}`}>
           <AnimatePresence mode="wait">
-            {tab === "analysis" ? (
+            {tab === "analysis" && (
               <motion.div key="analysis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <OutputPanel
                   data={biData}
@@ -215,7 +642,9 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   onBuildAutomation={biData ? () => setLocation("/automation-builder") : undefined}
                 />
               </motion.div>
-            ) : (
+            )}
+
+            {tab === "website" && (
               <motion.div key="website" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col flex-1 min-h-0">
                 <WebsitePanel
                   businessIdea={project.businessIdea}
@@ -224,6 +653,30 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   existingOutput={project.websiteOutput as Record<string, unknown> | null}
                   onSaved={handleWebsiteSaved}
                 />
+              </motion.div>
+            )}
+
+            {tab === "chatbot" && (
+              <motion.div key="chatbot" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <ChatbotTab biData={biData} onNavigate={() => setLocation("/chatbot-generator")} />
+              </motion.div>
+            )}
+
+            {tab === "automation" && (
+              <motion.div key="automation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <AutomationTab biData={biData} onNavigate={() => setLocation("/automation-builder")} />
+              </motion.div>
+            )}
+
+            {tab === "tasks" && (
+              <motion.div key="tasks" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <TasksTab projectId={id} />
+              </motion.div>
+            )}
+
+            {tab === "history" && (
+              <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <HistoryTab events={events} createdAt={project.createdAt} />
               </motion.div>
             )}
           </AnimatePresence>

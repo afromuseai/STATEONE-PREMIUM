@@ -21,6 +21,12 @@ export interface UserInfo {
   createdAt: string;
 }
 
+export interface ProjectEvent {
+  type: string;
+  label: string;
+  timestamp: string;
+}
+
 export interface Project {
   id: string;
   userId: string;
@@ -29,6 +35,7 @@ export interface Project {
   status: string;
   output: Record<string, unknown> | null;
   websiteOutput: Record<string, unknown> | null;
+  projectEvents: ProjectEvent[] | null;
   createdAt: string;
   updatedAt: string;
 }
