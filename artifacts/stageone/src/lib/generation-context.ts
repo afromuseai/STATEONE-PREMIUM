@@ -1,3 +1,29 @@
+// ─── Project Context (carries projectId into generator pages) ────────────────
+// Stored separately from GenerationContext so it survives independent of BI data.
+
+export interface ProjectContext {
+  projectId: string
+  projectTitle: string
+}
+
+const PROJECT_KEY = "stageone_project_ctx"
+
+export function saveProjectContext(ctx: ProjectContext): void {
+  try { sessionStorage.setItem(PROJECT_KEY, JSON.stringify(ctx)) } catch { /* ignore */ }
+}
+
+export function loadProjectContext(): ProjectContext | null {
+  try {
+    const raw = sessionStorage.getItem(PROJECT_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as ProjectContext
+  } catch { return null }
+}
+
+export function clearProjectContext(): void {
+  try { sessionStorage.removeItem(PROJECT_KEY) } catch { /* ignore */ }
+}
+
 // ─── Cross-Generator Context Passing ─────────────────────────────────────────
 // Stores business intelligence in sessionStorage so generator pages can
 // auto-fill and immediately trigger generation without re-entry.
@@ -97,7 +123,7 @@ export function clearDashboardState(): void {
 // user-scoped (copilot:msgs:<userId>) so they survive this sweep safely.
 export function clearWorkspaceSessionData(): void {
   try {
-    const STAGEONE_KEYS = [KEY, DASHBOARD_KEY, AUTORUN_KEY]
+    const STAGEONE_KEYS = [KEY, DASHBOARD_KEY, AUTORUN_KEY, PROJECT_KEY]
     for (const k of STAGEONE_KEYS) sessionStorage.removeItem(k)
     // Also sweep any dynamically created keys with the stageone_ prefix
     const allKeys = Object.keys(sessionStorage)

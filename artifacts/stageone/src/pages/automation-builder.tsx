@@ -12,6 +12,7 @@ import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import {
   loadGenerationContext, clearGenerationContext,
+  loadProjectContext,
   deriveWorkflowType, buildAutomationDesc,
 } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
@@ -318,6 +319,25 @@ export default function AutomationBuilderPage() {
   // Holds the auto-generation payload until businessDesc state has propagated
   const autoGenPending = useRef<{ wt: string; cplx: string } | null>(null)
   const autoGenFired = useRef(false)
+  // Project linkage — loaded once on mount, used to save output back to originating project
+  const projectCtxRef = useRef<{ projectId: string; projectTitle: string } | null>(null)
+
+  useEffect(() => {
+    projectCtxRef.current = loadProjectContext()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveToProject = useCallback(async (output: AutomationData) => {
+    const ctx = projectCtxRef.current
+    if (!ctx?.projectId) return
+    try {
+      await fetch(`/api/projects/${ctx.projectId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ automationOutput: output as unknown as Record<string, unknown> }),
+      })
+    } catch { /* non-fatal — save is best-effort */ }
+  }, [])
 
   // Check subscription tier
   useEffect(() => {
@@ -380,7 +400,11 @@ export default function AutomationBuilderPage() {
             const msg = JSON.parse(line.slice(6))
             if (msg.error) { setGenError(msg.error); setStep("idle"); return }
             if (msg.content) { buffer += msg.content; setStreamText(buffer) }
-            if (msg.done && msg.data) { setData(msg.data); setStep("done") }
+            if (msg.done && msg.data) {
+              setData(msg.data)
+              setStep("done")
+              saveToProject(msg.data as AutomationData).catch(() => {})
+            }
           } catch { /* fragment */ }
         }
       }
@@ -421,7 +445,11 @@ export default function AutomationBuilderPage() {
             const msg = JSON.parse(line.slice(6))
             if (msg.error) { setGenError(msg.error); setStep("idle"); return }
             if (msg.content) { buffer += msg.content; setStreamText(buffer) }
-            if (msg.done && msg.data) { setData(msg.data); setStep("done") }
+            if (msg.done && msg.data) {
+              setData(msg.data)
+              setStep("done")
+              saveToProject(msg.data as AutomationData).catch(() => {})
+            }
           } catch { /* fragment */ }
         }
       }

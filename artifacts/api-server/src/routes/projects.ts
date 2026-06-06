@@ -22,6 +22,8 @@ const UpdateProjectBody = z.object({
   status: ProjectStatus.optional(),
   output: z.record(z.unknown()).optional().nullable(),
   websiteOutput: z.record(z.unknown()).optional().nullable(),
+  chatbotOutput: z.record(z.unknown()).optional().nullable(),
+  automationOutput: z.record(z.unknown()).optional().nullable(),
 });
 
 interface WebsiteVersion {
@@ -117,6 +119,8 @@ router.patch("/projects/:id", requireAuth, async (req, res): Promise<void> => {
     updates.websiteOutput = parsed.data.websiteOutput;
     if (existingWebsiteOutput) updates.websiteVersionHistory = currentVersionHistory;
   }
+  if (parsed.data.chatbotOutput !== undefined) updates.chatbotOutput = parsed.data.chatbotOutput;
+  if (parsed.data.automationOutput !== undefined) updates.automationOutput = parsed.data.automationOutput;
 
   const [project] = await db
     .update(projectsTable)
@@ -135,6 +139,12 @@ router.patch("/projects/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.websiteOutput !== undefined && parsed.data.websiteOutput !== null) {
     const label = existingWebsiteOutput ? "Website updated" : "Website generated";
     appendProjectEvent(id, userId, { type: "website.generated", label }).catch(() => {});
+  }
+  if (parsed.data.chatbotOutput !== undefined && parsed.data.chatbotOutput !== null) {
+    appendProjectEvent(id, userId, { type: "chatbot.generated", label: "Chatbot generated" }).catch(() => {});
+  }
+  if (parsed.data.automationOutput !== undefined && parsed.data.automationOutput !== null) {
+    appendProjectEvent(id, userId, { type: "automation.generated", label: "Automation workflow generated" }).catch(() => {});
   }
 
   res.json({ project });

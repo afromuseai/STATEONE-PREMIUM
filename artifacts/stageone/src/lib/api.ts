@@ -35,6 +35,8 @@ export interface Project {
   status: string;
   output: Record<string, unknown> | null;
   websiteOutput: Record<string, unknown> | null;
+  chatbotOutput: Record<string, unknown> | null;
+  automationOutput: Record<string, unknown> | null;
   projectEvents: ProjectEvent[] | null;
   createdAt: string;
   updatedAt: string;

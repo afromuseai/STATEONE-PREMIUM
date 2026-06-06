@@ -10,6 +10,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import {
   loadGenerationContext, clearGenerationContext,
+  loadProjectContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
 } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
@@ -122,6 +123,25 @@ export default function ChatbotGeneratorPage() {
   // Holds the auto-generation payload until businessDesc state has propagated
   const autoGenPending = useRef<{ type: ChatbotType; ind: Industry; tn: Tone } | null>(null)
   const autoGenFired = useRef(false)
+  // Project linkage — loaded once on mount, used to save output back to originating project
+  const projectCtxRef = useRef<{ projectId: string; projectTitle: string } | null>(null)
+
+  useEffect(() => {
+    projectCtxRef.current = loadProjectContext()
+  }, [])
+
+  const saveToProject = useCallback(async (output: ChatbotOutput) => {
+    const ctx = projectCtxRef.current
+    if (!ctx?.projectId) return
+    try {
+      await fetch(`/api/projects/${ctx.projectId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatbotOutput: output as unknown as Record<string, unknown> }),
+      })
+    } catch { /* non-fatal — save is best-effort */ }
+  }, [])
 
   // Check subscription tier
   useEffect(() => {
@@ -287,6 +307,7 @@ export default function ChatbotGeneratorPage() {
               initChat(out)
               setStep("done")
               setRightTab("preview")
+              saveToProject(out).catch(() => {})
               return
             }
           } catch { /* fragment */ }
@@ -338,6 +359,7 @@ export default function ChatbotGeneratorPage() {
               initChat(out)
               setStep("done")
               setRightTab("preview")
+              saveToProject(out).catch(() => {})
               return
             }
           } catch { /* fragment */ }
