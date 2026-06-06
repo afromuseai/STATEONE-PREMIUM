@@ -767,7 +767,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
           </motion.div>
           )}
 
-          <BusinessHealthScore metrics={data.metrics} />
+          {data.metrics && <BusinessHealthScore metrics={data.metrics} />}
 
           {/* Content Grid */}
           <div className="grid gap-4 lg:grid-cols-2">
@@ -778,6 +778,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
               <p className="text-sm leading-relaxed text-muted-foreground">{data.targetMarket}</p>
             </SectionCard>
 
+            {data.strategicInsights && (
             <SectionCard icon={Lightbulb} title={ot.sections.strategicInsights} index={2} fullWidth highlight>
               <div className="grid gap-3 sm:grid-cols-2">
                 <InsightItem icon={AlertTriangle} label={ot.insights.growthBottleneck} value={data.strategicInsights.growthBottleneck} />
@@ -786,7 +787,9 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 <InsightItem icon={Shield} label={ot.insights.operationalRisk} value={data.strategicInsights.operationalRisk} />
               </div>
             </SectionCard>
+            )}
 
+            {data.competitiveAdvantage && (
             <SectionCard icon={Shield} title={ot.sections.competitiveAdvantage} index={3} fullWidth>
               <div className="grid gap-3 sm:grid-cols-3">
                 <InsightItem icon={Crosshair} label={ot.insights.differentiation} value={data.competitiveAdvantage.differentiation} />
@@ -794,7 +797,9 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 <InsightItem icon={TrendingUp} label={ot.insights.scalabilityEdge} value={data.competitiveAdvantage.scalabilityEdge} />
               </div>
             </SectionCard>
+            )}
 
+            {data.growthPlan?.length > 0 && (
             <SectionCard icon={Rocket} title={ot.sections.growthPlan} index={4}>
               <ul className="space-y-2">
                 {data.growthPlan.map((item, i) => (
@@ -807,7 +812,9 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
               </ul>
               <GrowthTrajectory phases={data.growthPlan} />
             </SectionCard>
+            )}
 
+            {data.websitePages?.length > 0 && (
             <SectionCard icon={Globe} title={ot.sections.websitePages} index={5}>
               <ul className="space-y-2">
                 {data.websitePages.map((page, i) => (
@@ -819,11 +826,15 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 ))}
               </ul>
             </SectionCard>
+            )}
 
+            {data.chatbotRole && (
             <SectionCard icon={Bot} title={ot.sections.aiChatbotRole} index={6}>
               <p className="text-sm leading-relaxed text-muted-foreground">{data.chatbotRole}</p>
             </SectionCard>
+            )}
 
+            {data.automations?.length > 0 && (
             <SectionCard icon={Workflow} title={ot.sections.automations} index={7}>
               <ul className="space-y-2">
                 {data.automations.map((auto, i) => (
@@ -835,7 +846,9 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 ))}
               </ul>
             </SectionCard>
+            )}
 
+            {data.recommendedStack && (
             <SectionCard icon={Code} title={ot.sections.infraRecommendations} index={8} fullWidth>
               <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
                 <StackSection title={ot.stack.frontend} items={data.recommendedStack.frontend} />
@@ -845,12 +858,14 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 <StackSection title={ot.stack.payments} items={data.recommendedStack.payments} />
               </div>
             </SectionCard>
+            )}
           </div>
 
           {/* Proactive Intelligence Panel */}
           <IntelligencePanel businessIntelligence={data} userPlan={userPlan} autoRun={userPlan !== "free"} />
 
           {/* Impact Feedback Loop */}
+          {data.metrics && (
           <FeedbackWidget
             outputType="business_intelligence"
             projectId={projectId}
@@ -858,6 +873,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
             confidenceScore={Math.round((data.metrics.automationPotential + data.metrics.aiAdoptionOpportunity) / 2)}
             optimizationGoal={data.metrics.revenueScalability >= 7 ? "growth" : data.metrics.automationPotential >= 60 ? "efficiency" : "conversion"}
           />
+          )}
         </motion.div>
     </div>
   )
