@@ -63,8 +63,8 @@ All AI model assignments are centralized — routes import from `MODELS.*`, neve
 | `EXECUTION` | `nvidia/llama-3.3-nemotron-super-49b-v1` | Website modification, analysis, generation |
 | `AGENT_PLANNING` | `nvidia/llama-3.3-nemotron-super-49b-v1` | Memory-aware agent decomposition |
 | `MEMORY` | `nvidia/llama-3.3-nemotron-super-49b-v1` | Context compression, semantic linking |
-| `WEBSITE_PLANNING` | `meta/llama-4-maverick-17b-128e-instruct` | Website section planning (streaming JSON) |
-| `COMPONENT_GENERATION` | `qwen/qwen3.5-122b-a10b` | React/Tailwind code (thinking disabled) |
+| `WEBSITE_PLANNING` | `stepfun-ai/step-3.7-flash` | Website section planning (streaming JSON) |
+| `COMPONENT_GENERATION` | `stepfun-ai/step-3.7-flash` | React/Tailwind component code generation |
 | `COPILOT` | `nvidia/llama-3.3-nemotron-super-49b-v1` | Cross-system intelligence assistant |
 | `CHATBOT` | `qwen/qwen3.5-397b-a17b` | Chatbot design and message replies |
 | `AUTOMATION` | `qwen/qwen3.5-397b-a17b` | Workflow & automation planning |
