@@ -71,7 +71,6 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
   const [tasksLoading, setTasksLoading] = useState(false)
   const subscribersRef = useRef<Set<EventCallback>>(new Set())
   const workspaceSubscribersRef = useRef<Set<(signal: MarcusWorkspaceSignal) => void>>(new Set())
-  const lastSignalRef = useRef<MarcusWorkspaceSignal | null>(null)
 
   const fetchTasks = useCallback(async () => {
     if (!user) return
@@ -155,10 +154,6 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
 
   const emitWorkspaceSignal = useCallback((signal: MarcusWorkspaceSignal) => {
     console.log("[WEBSITE TRACE] emitWorkspaceSignal called | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)", "| subscribers:", workspaceSubscribersRef.current.size)
-    if (workspaceSubscribersRef.current.size === 0) {
-      lastSignalRef.current = signal
-      return
-    }
     workspaceSubscribersRef.current.forEach(cb => {
       try { cb(signal) } catch { /* non-fatal */ }
     })
@@ -166,11 +161,6 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
 
   const subscribeWorkspaceSignal = useCallback((cb: (signal: MarcusWorkspaceSignal) => void) => {
     workspaceSubscribersRef.current.add(cb)
-    if (lastSignalRef.current) {
-      const buffered = lastSignalRef.current
-      lastSignalRef.current = null
-      try { cb(buffered) } catch { /* non-fatal */ }
-    }
     return () => { workspaceSubscribersRef.current.delete(cb) }
   }, [])
 
