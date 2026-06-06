@@ -185,7 +185,9 @@ export default function WebsiteGeneratorPage() {
 
   // ─── Marcus workspace signal (live — for when page is already mounted) ────────
   useEffect(() => {
-    return subscribeWorkspaceSignal((signal) => {
+    console.log("[TRACE] WEBSITE subscriber registered")
+    const unsub = subscribeWorkspaceSignal((signal) => {
+      console.log("[TRACE] WEBSITE receiver got signal | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)")
       console.log("[WEBSITE TRACE] receiver got signal | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)")
       if (signal.target !== "website") return
       if (signal.type === "populate" && signal.payload) {
@@ -195,15 +197,21 @@ export default function WebsiteGeneratorPage() {
         setContextBanner(true)
         setMarcusPopulate(text)
       } else if (signal.type === "generate") {
+        console.log("[TRACE] WEBSITE generate handler entered | marcusRef:", marcusWebsiteIdeaRef.current || "(empty)", "| ideaRef:", ideaRef.current || "(empty)")
         // Use marcusWebsiteIdeaRef first; fall back to ideaRef (always-current textarea value)
         // so generation still works even if the page remounted and cleared marcusWebsiteIdeaRef
         const text = marcusWebsiteIdeaRef.current || ideaRef.current
         console.log("[WEBSITE TRACE] generate signal | marcusRef:", marcusWebsiteIdeaRef.current || "(empty)", "| ideaRef:", ideaRef.current || "(empty)", "| using:", text || "(empty)")
         if (text.trim()) {
+          console.log("[TRACE] WEBSITE calling generateWithIdea | text:", text)
           generateWithIdea(text)
         }
       }
     })
+    return () => {
+      console.log("[TRACE] WEBSITE subscriber removed")
+      unsub()
+    }
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Marcus populate typewriter: types live but does NOT auto-generate ────────
@@ -297,6 +305,7 @@ export default function WebsiteGeneratorPage() {
   }, [])
 
   const generateWithIdea = async (ideaOverride: string) => {
+    console.log("[TRACE] generateWithIdea entered | idea:", ideaOverride || "(empty)")
     console.log("[WEBSITE TRACE] generateWithIdea entered | idea:", ideaOverride || "(empty)")
     if (!ideaOverride.trim()) return
     setGenError("")

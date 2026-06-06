@@ -1,0 +1,177 @@
+WEBSITE AGENTIC EXECUTION DEBUG — CONTINUE FROM CURRENT STATE
+
+IMPORTANT:
+
+Do NOT redesign the system.
+
+Do NOT refactor architecture.
+
+Do NOT introduce new signal systems.
+
+Do NOT add delays, retries, requestAnimationFrame, setTimeout, or new buffering mechanisms.
+
+We already have a working workspace signal architecture.
+
+====================================================
+
+CURRENT ARCHITECTURE
+
+Copilot emits:
+
+{{WORKSPACE|website}}
+{{WORKSPACE|website_idea|...}}
+{{WORKSPACE|generate_website}}
+
+Flow:
+
+Copilot
+→ Parser
+→ Dispatcher
+→ emitWorkspaceSignal()
+→ Website Generator subscriber
+→ generateWithIdea()
+→ Website generation
+
+====================================================
+
+ALREADY PROVEN WORKING
+
+Logs confirm:
+
+parser detected generate_website
+
+dispatcher handling generate_website
+
+emitWorkspaceSignal called
+
+subscribers: 1
+
+Example:
+
+[WEBSITE TRACE] parser detected generate_website
+
+[WEBSITE TRACE] dispatcher handling generate_website
+
+[WEBSITE TRACE] emitted signal | target: website | type: generate
+
+[WEBSITE TRACE] emitWorkspaceSignal called | target: website | type: generate | subscribers: 1
+
+Therefore:
+
+* parser works
+* dispatcher works
+* signal emission works
+
+The failure is AFTER emission.
+
+====================================================
+
+PROBLEM
+
+User says:
+
+Generate a website for an AI scheduling assistant for healthcare clinics.
+
+Copilot:
+
+* opens Website Generator
+* types idea
+* asks for confirmation
+
+User:
+
+Yes
+
+Copilot emits:
+
+{{WORKSPACE|generate_website}}
+
+Logs show emission succeeds.
+
+BUT:
+
+Website generation never starts.
+
+====================================================
+
+TASK
+
+Trace the execution chain AFTER emitWorkspaceSignal.
+
+Add logs only.
+
+Do NOT implement fixes yet.
+
+Determine exactly where execution stops.
+
+====================================================
+
+TRACE REQUIRED
+
+1.
+
+Log subscriber registration.
+
+Example:
+
+[TRACE] WEBSITE subscriber registered
+
+and
+
+[TRACE] WEBSITE subscriber removed
+
+====================================================
+
+2.
+
+FIRST LINE inside website subscriber callback:
+
+[TRACE] WEBSITE receiver got signal
+
+Include:
+
+* target
+* type
+* payload
+
+====================================================
+
+3.
+
+Immediately before any generate guards:
+
+[TRACE] WEBSITE generate handler entered
+
+Include:
+
+* current idea
+* idea length
+* refs used
+
+====================================================
+
+4.
+
+Immediately before generateWithIdea():
+
+[TRACE] WEBSITE calling generateWithIdea
+
+====================================================
+
+5.
+
+FIRST LINE inside generateWithIdea():
+
+[TRACE] generateWithIdea entered
+
+====================================================
+
+GOAL
+
+Identify the FIRST missing trace.
+
+Do not fix.
+
+Do not redesign.
+
+Find the exact stage where execution disappears.
