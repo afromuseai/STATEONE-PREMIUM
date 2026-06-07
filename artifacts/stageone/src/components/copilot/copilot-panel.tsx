@@ -450,6 +450,8 @@ export function CopilotPanel() {
   workspaceContextRef.current = workspaceContext
   const businessDataRef = useRef(businessData)
   businessDataRef.current = businessData
+  const langRef = useRef(lang)
+  langRef.current = lang
   streamingRef.current = streaming
 
   const triggerGreeting = useCallback(async () => {
@@ -476,7 +478,7 @@ export function CopilotPanel() {
           messages: [greetingTrigger],
           businessContext: businessDataRef.current,
           workspaceContext: workspaceContextRef.current,
-          language: lang,
+          language: langRef.current,
         },
         abortRef.current.signal,
         (buffer) => {
