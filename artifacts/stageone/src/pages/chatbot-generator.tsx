@@ -13,7 +13,7 @@ import {
   loadProjectContext, clearProjectContext,
   loadChatbotRestoreContext, clearChatbotRestoreContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
-  consumeMarcusWorkspaceSignal, consumePendingIntent,
+  consumePendingIntent,
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
@@ -164,17 +164,14 @@ export default function ChatbotGeneratorPage() {
     }, 20)
   }, [])
 
-  // ─── Marcus signal subscription (live — for when page is already mounted) ──
+  // ─── Live workspace signal — UI sync only (populate textarea, show banner) ────
+  // Generation is NOT triggered here. It is handled exclusively by
+  // consumePendingIntent on mount. Workspace signals = UI state only.
   useEffect(() => {
     return subscribeWorkspaceSignal((signal) => {
       if (signal.target !== "chatbot") return
       if (signal.type === "populate" && signal.payload) {
         typewriterPopulate(signal.payload)
-      } else if (signal.type === "generate") {
-        const desc = businessDescRef.current
-        if (desc.trim()) {
-          generateWith(desc, chatbotTypeRef.current, industryRef.current, toneRef.current)
-        }
       }
     })
   }, [subscribeWorkspaceSignal, typewriterPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -203,11 +200,6 @@ export default function ChatbotGeneratorPage() {
         }, 300)
       }
       return
-    }
-    // Fallback: legacy workspace signal (backward compat)
-    const signal = consumeMarcusWorkspaceSignal()
-    if (signal?.target === "chatbot" && signal.type === "populate" && signal.payload) {
-      typewriterPopulate(signal.payload)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

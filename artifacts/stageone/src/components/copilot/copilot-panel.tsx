@@ -13,7 +13,7 @@ import {
 import { useBusinessContext } from "@/lib/business-context"
 import { useAuth } from "@/lib/auth-context"
 import { api, type Project } from "@/lib/api"
-import { setCopilotAutorun, setMarcusWorkspaceSignal, setMarcusWebsiteGenerateIntent, setPendingIntent, markPendingIntentAutoGenerate } from "@/lib/generation-context"
+import { setCopilotAutorun, setMarcusWorkspaceSignal, setPendingIntent, markPendingIntentAutoGenerate } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { ListChecks, Trash2 } from "lucide-react"
 
@@ -554,16 +554,11 @@ export function CopilotPanel() {
     } else if (command === "idea") {
       const idea = payload.trim()
       if (!idea) return
-      // Durable intent queue — primary cross-navigation mechanism
       setPendingIntent({ type: "chatbot", idea, autoGenerate: false })
-      // Legacy workspace signal — fallback for already-mounted page
-      setMarcusWorkspaceSignal({ target: "chatbot", type: "populate", payload: idea })
       if (location !== "/chatbot-generator") navigate("/chatbot-generator")
-      emitWorkspaceSignal({ target: "chatbot", type: "populate", payload: idea })
     } else if (command === "generate_chatbot") {
-      // Mark existing chatbot intent as autoGenerate, or create bare generate intent
       markPendingIntentAutoGenerate("chatbot")
-      emitWorkspaceSignal({ target: "chatbot", type: "generate" })
+      navigate("/chatbot-generator")
     } else if (command === "intelligence") {
       navigate("/dashboard?tab=new")
     } else if (command === "bi_idea") {
@@ -581,18 +576,11 @@ export function CopilotPanel() {
     } else if (command === "website_idea") {
       const idea = payload.trim()
       if (!idea) return
-      // Durable intent queue — primary cross-navigation mechanism
       setPendingIntent({ type: "website", idea, autoGenerate: false })
-      // Legacy workspace signal — fallback for already-mounted page
-      setMarcusWorkspaceSignal({ target: "website", type: "populate", payload: idea })
       if (location !== "/website-generator") navigate("/website-generator")
-      emitWorkspaceSignal({ target: "website", type: "populate", payload: idea })
     } else if (command === "generate_website") {
-      // Mark existing website intent as autoGenerate, or create bare generate intent
       markPendingIntentAutoGenerate("website")
-      // Legacy mechanisms — fallback for already-mounted page
-      setMarcusWebsiteGenerateIntent()
-      emitWorkspaceSignal({ target: "website", type: "generate" })
+      navigate("/website-generator")
     }
   }, [navigate, location, emitWorkspaceSignal])
 

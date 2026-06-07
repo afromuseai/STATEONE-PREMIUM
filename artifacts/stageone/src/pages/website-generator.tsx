@@ -8,7 +8,7 @@ import {
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumeMarcusWorkspaceSignal, setMarcusWorkspaceSignal, consumeMarcusWebsiteGenerateIntent, consumePendingIntent } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumePendingIntent } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
 
@@ -110,7 +110,6 @@ export default function WebsiteGeneratorPage() {
   const [isLocked, setIsLocked] = useState(false)
   const [autorunIdea, setAutorunIdea] = useState<string | null>(null)
   const [marcusPopulateTick, setMarcusPopulateTick] = useState(0)
-  const [marcusTriggerGenerate, setMarcusTriggerGenerate] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const { openUpgradeModal } = useUpgradeModal()
   const { subscribeWorkspaceSignal } = useWorkspaceController()
@@ -203,37 +202,13 @@ export default function WebsiteGeneratorPage() {
       }
       return
     }
-    // Fallback: legacy workspace signal (backward compat — written by older dispatcher path)
-    const signal = consumeMarcusWorkspaceSignal()
-    if (signal?.target === "website" && signal.type === "populate" && signal.payload) {
-      const text = signal.payload
-      marcusWebsiteIdeaRef.current = text
-      ideaRef.current = text
-      setContextBanner(true)
-      marcusPopulateRef.current = text
-      setMarcusPopulateTick(t => t + 1)
-    }
-    if (consumeMarcusWebsiteGenerateIntent()) {
-      setMarcusTriggerGenerate(true)
-    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Marcus generate trigger (cross-navigation) ───────────────────────────────
-  // Fires generation when a persisted generate intent is consumed on mount.
-  // Uses a state flag so generateWithIdea captures current style/tone values.
+  // ─── Live workspace signal — UI sync only (populate textarea, show banner) ────
+  // Generation is NOT triggered here. It is handled exclusively by
+  // consumePendingIntent on mount. Workspace signals = UI state only.
   useEffect(() => {
-    if (!marcusTriggerGenerate) return
-    setMarcusTriggerGenerate(false)
-    const text = marcusWebsiteIdeaRef.current || ideaRef.current
-    if (text.trim()) generateWithIdea(text)
-  }, [marcusTriggerGenerate]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Marcus workspace signal (live — for when page is already mounted) ────────
-  useEffect(() => {
-    console.log("[TRACE] WEBSITE subscriber registered")
-    const unsub = subscribeWorkspaceSignal((signal) => {
-      console.log("[TRACE] WEBSITE receiver got signal | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)")
-      console.log("[WEBSITE TRACE] receiver got signal | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)")
+    return subscribeWorkspaceSignal((signal) => {
       if (signal.target !== "website") return
       if (signal.type === "populate" && signal.payload) {
         const text = signal.payload
@@ -242,22 +217,8 @@ export default function WebsiteGeneratorPage() {
         setContextBanner(true)
         marcusPopulateRef.current = text
         setMarcusPopulateTick(t => t + 1)
-      } else if (signal.type === "generate") {
-        console.log("[TRACE] WEBSITE generate handler entered | marcusRef:", marcusWebsiteIdeaRef.current || "(empty)", "| ideaRef:", ideaRef.current || "(empty)")
-        // Use marcusWebsiteIdeaRef first; fall back to ideaRef (always-current textarea value)
-        // so generation still works even if the page remounted and cleared marcusWebsiteIdeaRef
-        const text = marcusWebsiteIdeaRef.current || ideaRef.current
-        console.log("[WEBSITE TRACE] generate signal | marcusRef:", marcusWebsiteIdeaRef.current || "(empty)", "| ideaRef:", ideaRef.current || "(empty)", "| using:", text || "(empty)")
-        if (text.trim()) {
-          console.log("[TRACE] WEBSITE calling generateWithIdea | text:", text)
-          generateWithIdea(text)
-        }
       }
     })
-    return () => {
-      console.log("[TRACE] WEBSITE subscriber removed")
-      unsub()
-    }
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Marcus populate typewriter: types live but does NOT auto-generate ────────
