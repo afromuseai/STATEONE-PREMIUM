@@ -1,0 +1,104 @@
+CURRENT STATUS
+
+Website Generator:
+✅ Working
+
+Do NOT modify Website Generator.
+
+Do NOT modify PendingIntent architecture.
+
+Do NOT modify navigation.
+
+Do NOT reintroduce workspace signals.
+
+========================================
+ISSUE 1 — CHATBOT
+=================
+
+Root cause already identified.
+
+Flow:
+
+1. chatbot_idea writes PendingIntent
+2. Chatbot page mounts
+3. consumePendingIntent("chatbot") succeeds
+4. PendingIntent is removed
+5. User confirms execution
+6. Marcus emits generate_chatbot
+7. markPendingIntentAutoGenerate("chatbot") finds no existing intent
+8. Fallback writes:
+
+{
+type: "chatbot",
+idea: "",
+autoGenerate: true
+}
+
+The original idea is lost.
+
+TASK:
+
+Trace where the chatbot idea should persist after mount.
+
+Find the smallest possible fix that allows:
+
+chatbot_idea
+→ page open
+→ idea populate
+→ generate_chatbot
+→ generation starts
+
+without depending on the original PendingIntent still existing.
+
+Do NOT redesign the architecture.
+
+Do NOT add new transport layers.
+
+========================================
+ISSUE 2 — AUTOMATION
+====================
+
+Evidence suggests Marcus does not have an Automation Execution Engine.
+
+Verify inside the Marcus system prompt whether all three commands exist:
+
+{{WORKSPACE|automation}}
+
+{{WORKSPACE|automation_idea|...}}
+
+{{WORKSPACE|generate_automation}}
+
+If they do not exist:
+
+Add a dedicated Automation Execution Engine matching the same structure used by:
+
+* Chatbot Execution Engine
+* Website Execution Engine
+
+Requirements:
+
+Automation flow must support:
+
+automation
+→ open page
+
+automation_idea
+→ populate idea
+
+generate_automation
+→ execute generation
+
+========================================
+IMPORTANT
+=========
+
+Before making any changes:
+
+Report:
+
+1. Whether Automation Execution Engine exists
+2. Where chatbot idea is available after consumePendingIntent
+3. Smallest possible fix
+
+Do not perform broad refactors.
+Do not touch Website flow.
