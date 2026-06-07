@@ -1,0 +1,76 @@
+The idea disappears somewhere between Marcus generating the tag and the dispatcher receiving it. I need to see the system prompt Marcus uses (what tags it's told to emit) and the tag parser.
+
+
+3 actions
+The regex patterns use {{WORKSPACE|command|payload}} format. Now I need to see exactly what Marcus is instructed to emit — the system prompt command list.
+
+
+3 actions
+The chatbot section was at line 1039. The output cut off at line 1111 mid-website section. I need to see what Marcus is actually told to emit for automation.
+
+
+3 actions
+I have everything. The complete trace is done. Here is the exact finding.
+
+Where the idea disappears
+CHATBOT — First failure point
+The system prompt tells Marcus to emit (copilot.ts lines 1044–1080):
+
+Step 3: {{WORKSPACE|chatbot}}  then  {{WORKSPACE|idea|<description>}}
+Step 5: {{WORKSPACE|generate_chatbot}}  (after user confirms)
+
+Parser (copilot-panel.tsx line 37) extracts these correctly:
+
+{{WORKSPACE|chatbot}} → command "chatbot", payload ""
+{{WORKSPACE|idea|desc}} → command "idea", payload "desc"
+{{WORKSPACE|generate_chatbot}} → command "generate_chatbot", payload ""
+Steps 3–4 work correctly. On the populate turn:
+
+chatbot → setPendingIntent({type:"chatbot", idea:"", autoGenerate:false})
+idea → setPendingIntent({type:"chatbot", idea:"desc", autoGenerate:false}) ← overwrites with text ✓
+Page mounts → consumePendingIntent("chatbot") → returns {idea:"desc", autoGenerate:false} → typewriterPopulate runs ✓
+The idea disappears on the generate turn (Step 5). User says "yes" → Marcus emits {{WORKSPACE|generate_chatbot}}.
+
+At that moment, stageone_pending_intent in sessionStorage is empty — it was consumed on mount.
+
+File: generation-context.ts, markPendingIntentAutoGenerate, line 184
+
+const raw = sessionStorage.getItem(PENDING_INTENT_KEY)  // ← returns null
+if (raw) {
+  // ← BRANCH NOT ENTERED — no existing intent
+}
+// Falls through to:
+sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify({
+  type, idea: "", autoGenerate: true, timestamp: Date.now()  // ← line 193
+}))
+
+Value
+Before line 184	sessionStorage["stageone_pending_intent"] = null (was consumed at mount)
+After line 193	{ type:"chatbot", idea:"", autoGenerate:true }
+The idea text "desc" existed in the consumed intent but was never re-stored. markPendingIntentAutoGenerate writes a bare intent with idea: "". Then navigate("/chatbot-generator") is a no-op (page is already mounted). Mount effect never re-fires. The bare intent sits unconsumed.
+
+AUTOMATION — First failure point
+There is no Automation Execution Engine in the system prompt.
+
+The copilot.ts system prompt defines execution engines for:
+
+Chatbot (lines 1039–1088)
+Website (lines 1090–1140)
+Business Intelligence (lines 1142–1192)
+There is no equivalent section for automation.
+
+Marcus has never been told that {{WORKSPACE|automation}}, {{WORKSPACE|automation_idea|...}}, or {{WORKSPACE|generate_automation}} exist.
+
+The dispatcher commands added at copilot-panel.tsx lines 587–598 are dead code — Marcus will never emit tags that trigger them because it has no script for automation workspace commands.
+
+First failure point: artifacts/api-server/src/routes/copilot.ts — no automation execution engine section exists between line 1039 and end of file.
+
+Value
+Before	Dispatcher has automation, automation_idea, generate_automation branches
+Actual	Marcus emits no matching tags → handleWorkspaceCmdAction is never called for any automation command → setPendingIntent is never called → stageone_pending_intent is never written
+The idea disappears before it even enters the sessionStorage transport layer. It was never put there.
+
+Summary
+System	File	Line	Failure	Value before → after
+Chatbot	generation-context.ts	193	markPendingIntentAutoGenerate fallback branch fires because sessionStorage is empty (intent was consumed at mount)	idea: "desc" (in consumed intent) → idea: "" (in new bare intent)
+Automation	copilot.ts	(no section)	No automation execution engine → Marcus never emits automation workspace tags → setPendingIntent never called	idea never enters sessionStorage at all
