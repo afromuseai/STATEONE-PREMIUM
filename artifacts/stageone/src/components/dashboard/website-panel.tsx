@@ -431,7 +431,13 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGenerate])
 
-  const previewHtml = useMemo(() => data ? buildPreviewHtml(data) : "", [data])
+  const previewHtml = useMemo(() => {
+    if (!data) return ""
+    if (data.htmlCode && data.htmlCode.length > 500 && data.htmlCode.includes("</html>")) {
+      return data.htmlCode
+    }
+    return buildPreviewHtml(data)
+  }, [data])
 
   // ─── Main generation ────────────────────────────────────────────────────────
   const generate = useCallback(async () => {

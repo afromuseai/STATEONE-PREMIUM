@@ -623,67 +623,120 @@ function buildImagePrompt(idea: string, industry: string, designVariant: string)
   return `${base}, ${style}. 4K ultra-detailed, award-winning photography, cinematic composition, agency-quality production value. No text, no logos, no watermarks.`;
 }
 
-// ─── Implementation Layer System Prompt (Mistral — React/Tailwind code gen) ───
-const IMPLEMENTATION_SYSTEM_PROMPT = `You are STAGEONE's Frontend Implementation Specialist — an expert React and Tailwind CSS engineer who generates production-quality component code.
+// ─── Phase 2: AI HTML Generation System ───────────────────────────────────────
+// The model generates a complete, self-contained HTML/CSS website from scratch.
+// No templates. Full creative control. Results in unique, polished designs.
+const HTML_GENERATION_SYSTEM = `You are a world-class UI/UX designer and senior frontend engineer at a top design agency. You create visually stunning, production-ready B2B marketing websites as complete, self-contained HTML files.
 
-You receive a complete website specification (brand, colors, typography, copy) and generate ONLY the componentCode object containing 6 React component exports.
+Every site you produce rivals work from agencies charging $50,000+. Each design is unique: creative layout choices, sophisticated typography, polished hover effects, thoughtful color use. Never generic templates.
 
-Rules:
-- Each component must be a complete, self-contained React functional component
-- Use Tailwind CSS classes exclusively (no inline styles)
-- Components must visually match the design variant style (colors, border-radius, typography)
-- Copy text must come from the specification provided — ZERO placeholder text
-- All 6 components required: hero, features, testimonials, pricing, cta, footer
-- Each must be a syntactically valid JavaScript/JSX string
+STRICT OUTPUT RULES:
+- Output ONLY raw HTML. Start with <!DOCTYPE html>. End with </html>.
+- NO markdown fences, NO explanation, NO code blocks, NO commentary.
+- ONE <style> block with ALL CSS (no Bootstrap, no Tailwind, no external CSS).
+- @import Google Fonts at the top of the <style> block.
+- Vanilla JavaScript only: IntersectionObserver for animations, details/summary for FAQ.
 
-Return ONLY valid JSON starting with { and ending with }. No markdown, no explanation.
+DESIGN PRINCIPLES:
+- CSS custom properties: --primary, --accent, --bg, --surface, --tx, --tm, --br
+- Sticky nav: backdrop-filter blur(16px), subtle border-bottom, logo left, links center, CTA right
+- Hero: SPLIT layout — headline+subheadline+2 CTAs+stats on left; image in a rounded card with floating badge on right
+- Section backgrounds MUST ALTERNATE for visual rhythm: bg → surface → bg → surface → etc.
+- Features: 3×2 card grid, each card has icon-background-circle + bold title + description
+- Testimonials: 3 cards, each has ★★★★★ stars + quote + metric badge + circular avatar + name/role
+- Pricing: 3 columns; "Most Popular" gets primary-color border + glow shadow + badge above it
+- CTA: high-contrast section — gradient or primary fill, centered content, large headline, primary button
+- FAQ: <details>/<summary> accordion, max-width 720px centered, styled open/close indicator
+- Footer: 4-column grid: logo+tagline left, then 3 link columns
+- IntersectionObserver: cards and sections fade up (opacity 0→1, translateY 24px→0) on scroll
+- Every <img>: loading="lazy" onerror="this.style.display='none'"
+- Responsive: grid collapses to 1 column at max-width 768px using grid-template-columns
+- Section padding: clamp(80px, 10vw, 130px) top and bottom`;
 
-Schema:
-{
-  "hero": "export function Hero() { return (<section>...</section>) }",
-  "features": "export function Features() { return (<section>...</section>) }",
-  "testimonials": "export function Testimonials() { return (<section>...</section>) }",
-  "pricing": "export function Pricing() { return (<section>...</section>) }",
-  "cta": "export function CTA() { return (<section>...</section>) }",
-  "footer": "export function Footer() { return (<footer>...</footer>) }"
-}`;
+// Extract valid HTML from model output (strips markdown fences if present)
+function extractHtml(raw: string): string | null {
+  if (!raw || raw.length < 300) return null;
+  let html = raw.trim();
+  if (html.startsWith("```html")) html = html.slice(7);
+  else if (html.startsWith("```")) html = html.slice(3);
+  if (html.endsWith("```")) html = html.slice(0, -3);
+  html = html.trim();
+  const lower = html.toLowerCase();
+  const docIdx = lower.indexOf("<!doctype");
+  const htmlIdx = lower.indexOf("<html");
+  const start = docIdx !== -1 ? docIdx : (htmlIdx !== -1 ? htmlIdx : -1);
+  if (start === -1) return null;
+  html = html.slice(start);
+  if (!html.toLowerCase().includes("</html>")) return null;
+  return html;
+}
 
-function buildImplementationPrompt(spec: Record<string, unknown>, designVariant: string): string {
+function buildHtmlPrompt(spec: Record<string, unknown>, designVariant: string, idea: string): string {
   const c = spec.colorPalette as Record<string, string> | undefined;
   const t = spec.typography as Record<string, string> | undefined;
   const brand = spec.brand as Record<string, string> | undefined;
-  const s = spec.sections as Record<string, Record<string, unknown>> | undefined;
+  const s = spec.sections as Record<string, unknown> | undefined;
+  const seo = spec.seoMeta as Record<string, string> | undefined;
   const variant = DESIGN_VARIANTS[designVariant] ?? DESIGN_VARIANTS["Premium SaaS"];
 
-  return `Generate componentCode for this website specification:
+  return `Build a complete, beautiful marketing website for this business:
+
+BUSINESS: ${idea}
+BRAND NAME: ${brand?.name ?? ""}
+TAGLINE: ${brand?.tagline ?? ""}
+BRAND VOICE: ${brand?.voice ?? "professional"}
+PAGE TITLE: ${seo?.title ?? brand?.name ?? ""}
+META DESCRIPTION: ${seo?.description ?? ""}
 
 DESIGN VARIANT: ${designVariant}
-COMPONENT STYLE RULES: ${variant.componentStyle}
-HERO LAYOUT: ${variant.heroLayout}
+DESIGN STYLE: ${variant.description}
+DESIGN DIRECTION: ${variant.promptInstructions}
 
-COLOR PALETTE:
-- Background: ${c?.background ?? "#0a0a0a"}
-- Surface: ${c?.surface ?? "#111111"}
-- Primary accent: ${c?.primary ?? "#7c3aed"}
-- Text: ${c?.text ?? "#ffffff"}
-- Text muted: ${c?.textMuted ?? "#888888"}
-- Border: ${c?.border ?? "#1f1f1f"}
+COLOR SYSTEM — use these EXACT hex values:
+:root {
+  --primary: ${c?.primary ?? "#6366f1"};
+  --accent: ${c?.accent ?? c?.primary ?? "#6366f1"};
+  --bg: ${c?.background ?? "#ffffff"};
+  --surface: ${c?.surface ?? "#f8fafc"};
+  --tx: ${c?.text ?? "#0f172a"};
+  --tm: ${c?.textMuted ?? "#64748b"};
+  --br: ${c?.border ?? "rgba(0,0,0,0.08)"};
+}
 
-TYPOGRAPHY:
-- Heading font: ${t?.headingFont ?? "Inter"} (weight: ${t?.headingWeight ?? "800"})
-- Body font: ${t?.bodyFont ?? "Inter"}
+TYPOGRAPHY — import from Google Fonts and use ONLY these:
+Heading: "${t?.headingFont ?? "Inter"}" weight ${t?.headingWeight ?? "800"}
+Body: "${t?.bodyFont ?? "Inter"}" weight 400-500
+${variant.typographyConstraints}
 
-BRAND: "${brand?.name ?? "Brand"}" — ${brand?.tagline ?? ""}
-BRAND VOICE: ${brand?.voice ?? "professional"}
+SECTION CONTENT — use this data EXACTLY (do not invent or substitute any copy):
 
-SECTIONS CONTENT:
-Hero: headline="${(s?.hero as Record<string, string>)?.headline ?? ""}" cta="${(s?.hero as Record<string, string>)?.ctaPrimary ?? ""}"
-Features title: "${(s?.features as Record<string, string>)?.title ?? ""}"
-Testimonials title: "${(s?.testimonials as Record<string, string>)?.title ?? ""}"
-Pricing title: "${(s?.pricing as Record<string, string>)?.title ?? ""}"
-CTA headline: "${(s?.cta as Record<string, string>)?.headline ?? ""}"
+NAV: ${JSON.stringify(s?.nav)}
 
-Generate all 6 React components. Each must use the exact colors from the palette above. Match the ${designVariant} component style exactly.`;
+HERO: ${JSON.stringify(s?.hero)}
+
+HOW IT WORKS: ${JSON.stringify(s?.howItWorks)}
+
+FEATURES: ${JSON.stringify(s?.features)}
+
+TESTIMONIALS: ${JSON.stringify(s?.testimonials)}
+
+PRICING: ${JSON.stringify(s?.pricing)}
+
+CTA: ${JSON.stringify(s?.cta)}
+
+FAQ: ${JSON.stringify(s?.faq)}
+
+FOOTER: ${JSON.stringify(s?.footer)}
+
+IMAGES:
+- Hero image column: use a relevant Unsplash photo. Pick one that matches the business (dashboard, professional team, product, etc.). Format: https://images.unsplash.com/photo-[ID]?w=1200&q=80
+- Testimonial avatars (use these in order):
+  https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&q=80
+  https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&q=80
+  https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&q=80
+
+COMPONENT STYLE: ${variant.componentStyle}
+COLOR CONSTRAINTS: ${variant.colorConstraints}`;
 }
 
 // ─── Multi-Model Pipeline Reasoning Stages ───────────────────────────────────
@@ -770,37 +823,39 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
     qwenData._industry = industry;
     qwenData._variantSeed = seedOffset;
 
-    // ─── Phase 2: Parallel — React code gen + FLUX (hero image) ─────────────
-    // Both run concurrently after orchestration completes — total time ≈ max(code, image)
-    res.write(`data: ${JSON.stringify({ phase: "implementing", label: "Building React components..." })}\n\n`);
-    res.write(`data: ${JSON.stringify({ phase: "imaging", label: "Generating hero imagery with FLUX..." })}\n\n`);
+    // ─── Phase 2: Parallel — AI HTML generation + FLUX (hero image) ──────────
+    // AI generates a complete custom HTML/CSS website from scratch (no templates).
+    // Runs concurrently with FLUX image generation.
+    res.write(`data: ${JSON.stringify({ phase: "implementing", label: "Designing your website with AI..." })}\n\n`);
+    res.write(`data: ${JSON.stringify({ phase: "imaging", label: "Generating hero imagery..." })}\n\n`);
 
     const imagePrompt = buildImagePrompt(idea, industry, designVariant);
-    const [componentCode, heroImage] = await Promise.all([
+    const [aiHtml, heroImage] = await Promise.all([
       callModelJson(
         IMPLEMENTATION_MODEL,
-        IMPLEMENTATION_SYSTEM_PROMPT,
-        buildImplementationPrompt(qwenData, designVariant),
-        5000, 0.65
+        HTML_GENERATION_SYSTEM,
+        buildHtmlPrompt(qwenData, designVariant, idea.trim()),
+        9000, 0.72
       ).then(raw => {
-        try {
-          return extractJson(raw) as Record<string, string>;
-        } catch (e) {
-          req.log.warn({ rawLen: raw.length, err: String(e) }, "Component code parse failed");
-          return null;
+        const html = extractHtml(raw);
+        if (html) {
+          req.log.info({ htmlLen: html.length }, "AI HTML generation complete");
+        } else {
+          req.log.warn({ rawLen: raw.length, snippet: raw.slice(0, 120) }, "AI HTML extraction failed — template fallback will be used");
         }
+        return html;
       }).catch(e => {
-        req.log.warn({ err: String(e) }, "Component code generation failed");
+        req.log.warn({ err: String(e) }, "AI HTML generation failed — template fallback will be used");
         return null;
       }),
       generateHeroImage(imagePrompt),
     ]);
 
     // Merge Phase 1 + Phase 2 outputs into final data
-    if (componentCode) qwenData.componentCode = componentCode;
+    if (aiHtml) qwenData.htmlCode = aiHtml;
     if (heroImage) qwenData._heroImage = heroImage;
 
-    res.write(`data: ${JSON.stringify({ done: true, data: qwenData, pipeline: { orchestration: ORCHESTRATION_MODEL, implementation: IMPLEMENTATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage, componentCodeGenerated: !!componentCode } })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true, data: qwenData, pipeline: { orchestration: ORCHESTRATION_MODEL, implementation: IMPLEMENTATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage, htmlGenerated: !!aiHtml } })}\n\n`);
     res.end();
   } catch (error) {
     req.log.error({ error }, "Generate website error");

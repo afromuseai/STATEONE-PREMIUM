@@ -27,7 +27,8 @@ export interface WebsiteOutput {
     footer: { tagline: string; columns: Array<{ title: string; links: string[] }>; legal: string }
   }
   seoMeta: { title: string; description: string; keywords: string[] }
-  componentCode: Record<string, string>
+  componentCode?: Record<string, string>
+  htmlCode?: string
   websiteStrategy?: {
     conversionApproach: string
     sectionOrderRationale: string
