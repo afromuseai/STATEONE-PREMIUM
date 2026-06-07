@@ -625,49 +625,146 @@ function buildImagePrompt(idea: string, industry: string, designVariant: string)
 
 // ─── Phase 2: AI HTML Generation System ───────────────────────────────────────
 // The model generates a complete, self-contained HTML/CSS website from scratch.
-// No templates. Full creative control. Results in unique, polished designs.
-const HTML_GENERATION_SYSTEM = `You are a world-class UI/UX designer and senior frontend engineer at a top design agency. You create visually stunning, production-ready B2B marketing websites as complete, self-contained HTML files.
+// Full creative autonomy — no template constraints. The model chooses all layouts.
+const HTML_GENERATION_SYSTEM = `You are the lead creative engineer at a world-class digital agency. Your work is indistinguishable from the best sites on awwwards.com, Stripe's marketing pages, Linear's landing page, and Vercel's homepage. You build marketing websites as single, complete, self-contained HTML files that clients pay $80,000+ for.
 
-Every site you produce rivals work from agencies charging $50,000+. Each design is unique: creative layout choices, sophisticated typography, polished hover effects, thoughtful color use. Never generic templates.
+You receive a detailed creative brief — business context, brand strategy, conversion goals, design variant, color palette, typography, and full copy. You make EVERY layout and design decision yourself. No templates. No formulaic structures. Each site you create is genuinely unique.
 
-STRICT OUTPUT RULES:
+═══ ABSOLUTE OUTPUT RULES ═══
 - Output ONLY raw HTML. Start with <!DOCTYPE html>. End with </html>.
-- NO markdown fences, NO explanation, NO code blocks, NO commentary.
-- ONE <style> block with ALL CSS (no Bootstrap, no Tailwind, no external CSS).
-- @import Google Fonts at the top of the <style> block.
-- Vanilla JavaScript only: IntersectionObserver for animations, details/summary for FAQ.
+- Zero markdown, zero explanation, zero code fences, zero commentary before or after.
+- ONE <style> block inside <head> with ALL CSS. Use @import for Google Fonts at the very top of that block.
+- NO external CSS frameworks (no Bootstrap, no Tailwind, no UIkit).
+- JavaScript: vanilla only. Use IntersectionObserver for scroll animations. Use <details>/<summary> for FAQ accordions.
+- Every <img> must have loading="lazy" and onerror="this.style.display='none'".
+- The HTML must be complete — every section present, every link working (href="#"), fully responsive.
 
-DESIGN PRINCIPLES:
-- CSS custom properties: --primary, --accent, --bg, --surface, --tx, --tm, --br
-- Sticky nav: backdrop-filter blur(16px), subtle border-bottom, logo left, links center, CTA right
-- Hero: SPLIT layout — headline+subheadline+2 CTAs+stats on left; image in a rounded card with floating badge on right
-- Section backgrounds MUST ALTERNATE for visual rhythm: bg → surface → bg → surface → etc.
-- Features: 3×2 card grid, each card has icon-background-circle + bold title + description
-- Testimonials: 3 cards, each has ★★★★★ stars + quote + metric badge + circular avatar + name/role
-- Pricing: 3 columns; "Most Popular" gets primary-color border + glow shadow + badge above it
-- CTA: high-contrast section — gradient or primary fill, centered content, large headline, primary button
-- FAQ: <details>/<summary> accordion, max-width 720px centered, styled open/close indicator
-- Footer: 4-column grid: logo+tagline left, then 3 link columns
-- IntersectionObserver: cards and sections fade up (opacity 0→1, translateY 24px→0) on scroll
-- Every <img>: loading="lazy" onerror="this.style.display='none'"
-- Responsive: grid collapses to 1 column at max-width 768px using grid-template-columns
-- Section padding: clamp(80px, 10vw, 130px) top and bottom`;
+═══ TECHNICAL EXCELLENCE STANDARDS ═══
+CSS architecture:
+- Define ALL design tokens as CSS custom properties in :root — colors, font stacks, spacing scale, radius, shadows
+- Use clamp() everywhere for fluid typography and spacing — no fixed px for font-size or section padding
+- CSS Grid for complex layouts, Flexbox for alignment. Use subgrid where it adds precision.
+- Smooth transitions on all interactive elements (hover, focus). Timing: 200-300ms ease.
+- backdrop-filter: blur() on the sticky nav with a semi-transparent background
+- will-change: transform on animated elements for GPU acceleration
 
-// Extract valid HTML from model output (strips markdown fences if present)
+Scroll animations (IntersectionObserver):
+- Stagger children using CSS animation-delay (0.1s increments)
+- Fade + translate: opacity 0→1, translateY 32px→0 over 0.6s with cubic-bezier(0.16,1,0.3,1)
+- Trigger at rootMargin: "0px 0px -80px 0px"
+
+Responsive breakpoints:
+- Mobile-first. Break at 640px (sm), 768px (md), 1024px (lg), 1280px (xl)
+- Grid collapses gracefully. Typography scales fluidly with clamp().
+- Touch targets minimum 44px. Adequate padding on mobile.
+
+═══ DESIGN AUTONOMY — YOU DECIDE EVERYTHING ═══
+You receive a design variant (Futuristic / Premium SaaS / Luxury Editorial / Enterprise Minimal / Startup Modern / Bold Brutalist / Glassmorphism / Cinematic Dark / Clean Pro). This tells you the AESTHETIC WORLD. Within that world, you have complete autonomy over:
+
+NAVIGATION: You choose — minimal wordmark only, full links centered, mega-menu, transparent-to-solid on scroll, pill-shaped, underline-only, split left/right. Whatever best serves the design variant.
+
+HERO SECTION: You choose the layout. Options include (but are not limited to):
+  • Asymmetric split: oversized headline left (60%), visual right (40%)
+  • Full-bleed centered: massive typography dominating the viewport, minimal decoration
+  • Bento grid hero: headline + stats in a grid of cards
+  • Diagonal split: color break at an angle across the viewport
+  • Stacked editorial: large small-large typography rhythm
+  • Floating glass card over gradient mesh background
+  • Offset composition: headline top-left, visual bottom-right, stats scattered
+  Pick the layout that makes this specific business look most impressive. Use the stats, badge, social proof, and CTAs from the brief — arrange them in whatever composition feels most premium.
+
+FEATURES: You choose the layout. Options include (but are not limited to):
+  • Asymmetric 2-column: large visual or description left, stacked features right
+  • Bento grid: varying card sizes (1×1, 2×1, 1×2) for visual hierarchy
+  • Horizontal scroll carousel (CSS only, no JS libraries)
+  • Full-width alternating rows: icon+title+description alternating left/right
+  • Numbered list with large ordinals as decorative elements
+  • Tabbed interface with details/summary
+  Never default to a plain 3×2 card grid unless the design variant specifically calls for structured grids.
+
+TESTIMONIALS: You choose the layout. Options:
+  • Large featured quote (full width) + 2 smaller cards below
+  • Stacked left with large quotation mark as decoration
+  • Masonry-style varying card heights
+  • Horizontal scrollable strip
+  • One quote per "slide" revealed by details/summary
+  Include ★★★★★ stars, author name, role, company. Add metric badges if provided.
+
+PRICING: 3 tiers. You choose the visual treatment — column cards, horizontal rows, highlighted center with scale transform, frosted glass cards, brutalist bordered boxes, etc. The "Most Popular" tier must stand out clearly.
+
+CTA SECTION: Full creative freedom. Could be a full-screen takeover, an elegant editorial close, a split with visual, a floating card, a bold typographic statement, a gradient panel. Match the design variant's energy.
+
+FAQ: Use <details>/<summary> for native accordion. Style it to match the overall aesthetic — minimal hairline borders, brutalist thick borders, glass cards, whatever fits.
+
+FOOTER: Your call — minimal single-row, editorial multi-column, full brand statement, dark contrast band.
+
+═══ MODERN DESIGN TECHNIQUES — USE THEM ═══
+- CSS Grid template areas for complex named layouts
+- clip-path for diagonal section dividers or angular hero shapes
+- background: conic-gradient() or radial-gradient() for texture
+- mix-blend-mode for layered text effects on images
+- CSS @keyframes for continuous ambient animations (slow float, pulse glow, gradient shift)
+- SVG inline for icons and decorative shapes — never use emoji as icons
+- Frosted glass: background: rgba(255,255,255,0.07); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+- Noise texture overlay using SVG filter or CSS: background-image: url("data:image/svg+xml,...")
+- Large decorative numerals (font-size: 10vw, opacity: 0.04) as background elements
+- Horizontal rule with gradient: border: none; height: 1px; background: linear-gradient(90deg, transparent, var(--primary), transparent);
+
+═══ TYPOGRAPHY SYSTEM ═══
+- Import the exact fonts specified. Use font-feature-settings: "ss01", "cv01" for OpenType features where available.
+- Heading scale: use a major third or perfect fourth ratio. clamp() for every size.
+- Letter-spacing: tight on large headings (-0.02em to -0.05em), normal on body, wide on labels/eyebrows (0.08em to 0.15em)
+- Line-height: 1.05–1.1 for display text, 1.6–1.75 for body copy
+- Text-wrap: balance on headings (where supported)
+- Use font-weight variations throughout — don't just use bold everywhere
+
+═══ IMAGES ═══
+Use Unsplash photos that genuinely match the business context. Pick IDs that make sense — don't use random photos.
+Format: https://images.unsplash.com/photo-[REAL-PHOTO-ID]?w=1200&q=85&fit=crop&auto=format
+For testimonial avatars, use diverse, professional portrait photos from Unsplash.
+Always set loading="lazy". Always set onerror="this.style.display='none'".
+
+═══ WHAT MAKES THIS DIFFERENT FROM TEMPLATES ═══
+A template fills data into fixed slots. Your sites INTERPRET the business and make creative decisions:
+- The hero composition reflects the brand's personality
+- The feature layout serves the content's nature (some content is best in a grid, some in a flow, some in a single-focus layout)
+- The color system has depth (not just primary everywhere — use the full palette with intentional restraint)
+- Typography has hierarchy and rhythm — different weights, sizes, spacing creating a reading experience
+- Whitespace is used deliberately — breathing room is a design choice, not an afterthought
+- Every hover state, every transition, every animation serves a purpose`;
+
+
+
+// Extract valid HTML from model output (strips markdown fences, think tags, etc.)
 function extractHtml(raw: string): string | null {
-  if (!raw || raw.length < 300) return null;
+  if (!raw || raw.length < 500) return null;
   let html = raw.trim();
+
+  // Strip <think>...</think> reasoning blocks (some models output these)
+  html = html.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  // Strip markdown code fences
   if (html.startsWith("```html")) html = html.slice(7);
   else if (html.startsWith("```")) html = html.slice(3);
   if (html.endsWith("```")) html = html.slice(0, -3);
   html = html.trim();
+
+  // Find the start of the HTML document
   const lower = html.toLowerCase();
   const docIdx = lower.indexOf("<!doctype");
   const htmlIdx = lower.indexOf("<html");
   const start = docIdx !== -1 ? docIdx : (htmlIdx !== -1 ? htmlIdx : -1);
   if (start === -1) return null;
   html = html.slice(start);
-  if (!html.toLowerCase().includes("</html>")) return null;
+
+  // If the model ran out of tokens and didn't close </html>, try to close it gracefully
+  if (!html.toLowerCase().includes("</html>")) {
+    // Must have at least a <body> and meaningful content
+    if (!html.toLowerCase().includes("<body") || html.length < 2000) return null;
+    // Close any open tags as best we can
+    html = html + "\n</body>\n</html>";
+  }
+
   return html;
 }
 
@@ -677,24 +774,55 @@ function buildHtmlPrompt(spec: Record<string, unknown>, designVariant: string, i
   const brand = spec.brand as Record<string, string> | undefined;
   const s = spec.sections as Record<string, unknown> | undefined;
   const seo = spec.seoMeta as Record<string, string> | undefined;
+  const strategy = spec.websiteStrategy as Record<string, unknown> | undefined;
+  const design = spec.design as Record<string, unknown> | undefined;
   const variant = DESIGN_VARIANTS[designVariant] ?? DESIGN_VARIANTS["Premium SaaS"];
+  const industry = (spec._industry as string) ?? "SaaS";
+  const industryDesign = INDUSTRY_DESIGN_SYSTEMS[industry] ?? INDUSTRY_DESIGN_SYSTEMS["SaaS"];
 
-  return `Build a complete, beautiful marketing website for this business:
+  return `You are building a marketing website for this business. Read everything carefully — use the strategy and context to make intelligent design decisions.
 
-BUSINESS: ${idea}
-BRAND NAME: ${brand?.name ?? ""}
-TAGLINE: ${brand?.tagline ?? ""}
-BRAND VOICE: ${brand?.voice ?? "professional"}
-PAGE TITLE: ${seo?.title ?? brand?.name ?? ""}
-META DESCRIPTION: ${seo?.description ?? ""}
+═══════════════════════════════════════════════
+BUSINESS BRIEF
+═══════════════════════════════════════════════
+Business: ${idea}
+Industry: ${industry}
+Brand name: ${brand?.name ?? ""}
+Tagline: ${brand?.tagline ?? ""}
+Brand voice: ${brand?.voice ?? "professional"}
+Page title (use in <title>): ${seo?.title ?? brand?.name ?? ""}
+Meta description: ${seo?.description ?? ""}
 
-DESIGN VARIANT: ${designVariant}
-DESIGN STYLE: ${variant.description}
-DESIGN DIRECTION: ${variant.promptInstructions}
+═══════════════════════════════════════════════
+DESIGN VARIANT: ${designVariant.toUpperCase()}
+═══════════════════════════════════════════════
+Aesthetic world: ${variant.description}
+Creative direction: ${variant.promptInstructions}
+Typography rules: ${variant.typographyConstraints}
+Component style: ${variant.componentStyle}
+Color constraints (hard rules): ${variant.colorConstraints}
+Hero layout suggestion: ${variant.heroLayout}
 
-COLOR SYSTEM — use these EXACT hex values:
+═══════════════════════════════════════════════
+CONVERSION STRATEGY (from Phase 1 AI analysis — use to inform design decisions)
+═══════════════════════════════════════════════
+Conversion approach: ${strategy?.conversionApproach ?? ""}
+Section order rationale: ${strategy?.sectionOrderRationale ?? ""}
+CTA strategy: ${strategy?.ctaStrategy ?? ""}
+Audience psychology: ${strategy?.audiencePsychology ?? ""}
+Trust signals required: ${JSON.stringify(strategy?.trustSignals ?? [])}
+Industry optimizations: ${JSON.stringify(strategy?.industryOptimizations ?? [])}
+Conversion funnel: ${strategy?.conversionFunnel ?? ""}
+Industry primary conversion goal: ${industryDesign.primaryConversion}
+UI direction from planner: ${design?.uiDirection ?? ""}
+Animations planned: ${JSON.stringify(design?.animations ?? [])}
+
+═══════════════════════════════════════════════
+COLOR SYSTEM — use these EXACT hex values, no substitutions
+═══════════════════════════════════════════════
 :root {
   --primary: ${c?.primary ?? "#6366f1"};
+  --secondary: ${c?.secondary ?? "#4f46e5"};
   --accent: ${c?.accent ?? c?.primary ?? "#6366f1"};
   --bg: ${c?.background ?? "#ffffff"};
   --surface: ${c?.surface ?? "#f8fafc"};
@@ -703,12 +831,18 @@ COLOR SYSTEM — use these EXACT hex values:
   --br: ${c?.border ?? "rgba(0,0,0,0.08)"};
 }
 
-TYPOGRAPHY — import from Google Fonts and use ONLY these:
-Heading: "${t?.headingFont ?? "Inter"}" weight ${t?.headingWeight ?? "800"}
-Body: "${t?.bodyFont ?? "Inter"}" weight 400-500
-${variant.typographyConstraints}
+═══════════════════════════════════════════════
+TYPOGRAPHY — @import these exact fonts from Google Fonts
+═══════════════════════════════════════════════
+Heading font: "${t?.headingFont ?? "Inter"}"
+Heading weight: ${t?.headingWeight ?? "800"}
+Heading style: ${t?.headingStyle ?? "tight"} (tight = letter-spacing -0.03em, ultra-tight = -0.05em)
+Body font: "${t?.bodyFont ?? "Inter"}"
 
-SECTION CONTENT — use this data EXACTLY (do not invent or substitute any copy):
+═══════════════════════════════════════════════
+SECTION COPY — use this content VERBATIM. Do not invent, rephrase, or substitute any copy.
+You choose how to ARRANGE and PRESENT it — that's the design decision.
+═══════════════════════════════════════════════
 
 NAV: ${JSON.stringify(s?.nav)}
 
@@ -728,15 +862,26 @@ FAQ: ${JSON.stringify(s?.faq)}
 
 FOOTER: ${JSON.stringify(s?.footer)}
 
-IMAGES:
-- Hero image column: use a relevant Unsplash photo. Pick one that matches the business (dashboard, professional team, product, etc.). Format: https://images.unsplash.com/photo-[ID]?w=1200&q=80
-- Testimonial avatars (use these in order):
-  https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&q=80
-  https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=80&q=80
-  https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&q=80
+═══════════════════════════════════════════════
+IMAGES
+═══════════════════════════════════════════════
+For the hero (if your chosen layout uses a visual): pick a real Unsplash photo that genuinely matches "${idea}" in the ${industry} industry. Use a high-quality photo ID. Format: https://images.unsplash.com/photo-[REAL-ID]?w=1400&q=85&fit=crop&auto=format
+For testimonial avatars, use professional portrait photos from Unsplash (diverse, realistic).
+Always: loading="lazy" onerror="this.style.display='none'"
 
-COMPONENT STYLE: ${variant.componentStyle}
-COLOR CONSTRAINTS: ${variant.colorConstraints}`;
+═══════════════════════════════════════════════
+YOUR DESIGN MISSION
+═══════════════════════════════════════════════
+The person reviewing this site should immediately think: "This looks like it costs $80,000 to build." That means:
+
+1. The hero must be arresting — the layout, typography scale, and visual composition must stop the user from scrolling past
+2. Every section must have a clear purpose and a distinct visual character — not just "the next section"
+3. The color system must be used with intention — primary color for emphasis, not everywhere
+4. Typography must have real hierarchy — headline sizes, subheading sizes, body sizes, label sizes, all different
+5. Animations must feel native, not bolted on — they reveal content naturally as the user scrolls
+6. The site must render beautifully on both desktop and mobile — no broken layouts
+
+Now build the complete HTML file. Make every creative decision with confidence. Output nothing but the HTML.`;
 }
 
 // ─── Multi-Model Pipeline Reasoning Stages ───────────────────────────────────
@@ -835,7 +980,7 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
         IMPLEMENTATION_MODEL,
         HTML_GENERATION_SYSTEM,
         buildHtmlPrompt(qwenData, designVariant, idea.trim()),
-        9000, 0.72
+        16000, 0.78
       ).then(raw => {
         const html = extractHtml(raw);
         if (html) {
