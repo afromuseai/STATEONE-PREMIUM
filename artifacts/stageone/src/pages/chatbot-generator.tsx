@@ -14,6 +14,7 @@ import {
   loadChatbotRestoreContext, clearChatbotRestoreContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
   consumePendingIntent,
+  cacheConsumedIdea,
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
@@ -170,6 +171,9 @@ export default function ChatbotGeneratorPage() {
     // Does NOT depend on subscriber timing, React effect order, or live signals.
     const intent = consumePendingIntent("chatbot")
     if (intent) {
+      // Cache the idea so markPendingIntentAutoGenerate can recover it if generate_chatbot
+      // fires after this intent has already been consumed (page already mounted).
+      cacheConsumedIdea("chatbot", intent.idea)
       if (intent.idea) {
         if (intent.autoGenerate) {
           // Direct set — no typewriter needed when we're about to generate
@@ -189,6 +193,30 @@ export default function ChatbotGeneratorPage() {
       }
       return
     }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Already-mounted: react to generate_chatbot fired after page open ─────────
+  // markPendingIntentAutoGenerate dispatches this event + writes a fresh PendingIntent
+  // (with the recovered idea). Consume it and trigger generation directly.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { type } = (e as CustomEvent<{ type: string }>).detail
+      if (type !== "chatbot") return
+      const intent = consumePendingIntent("chatbot")
+      if (!intent) return
+      const desc = intent.idea || businessDescRef.current
+      if (desc.trim()) {
+        if (!businessDescRef.current.trim()) {
+          setBusinessDesc(desc)
+          setContextBanner(true)
+        }
+        setTimeout(() => {
+          generateWith(desc, chatbotTypeRef.current, industryRef.current, toneRef.current)
+        }, 100)
+      }
+    }
+    window.addEventListener("stageone:autoGenerate", handler)
+    return () => window.removeEventListener("stageone:autoGenerate", handler)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

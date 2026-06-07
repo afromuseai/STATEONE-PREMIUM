@@ -179,6 +179,21 @@ export function setPendingIntent(intent: Omit<PendingIntent, "timestamp">): void
   } catch { /* quota */ }
 }
 
+// ─── Consumed Idea Cache ───────────────────────────────────────────────────────
+// When a generator page consumes a PendingIntent it saves the idea here so that
+// markPendingIntentAutoGenerate can recover it even after the intent is gone.
+const INTENT_IDEA_CACHE_KEY = "stageone_intent_idea_cache"
+
+export function cacheConsumedIdea(type: PendingIntent["type"], idea: string): void {
+  try {
+    sessionStorage.setItem(`${INTENT_IDEA_CACHE_KEY}_${type}`, idea)
+  } catch { /* quota */ }
+}
+
+function getCachedIdea(type: PendingIntent["type"]): string {
+  try { return sessionStorage.getItem(`${INTENT_IDEA_CACHE_KEY}_${type}`) ?? "" } catch { return "" }
+}
+
 export function markPendingIntentAutoGenerate(type: PendingIntent["type"]): void {
   try {
     const raw = sessionStorage.getItem(PENDING_INTENT_KEY)
@@ -186,11 +201,14 @@ export function markPendingIntentAutoGenerate(type: PendingIntent["type"]): void
       const intent = JSON.parse(raw) as PendingIntent
       if (intent.type === type) {
         sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify({ ...intent, autoGenerate: true }))
+        window.dispatchEvent(new CustomEvent("stageone:autoGenerate", { detail: { type } }))
         return
       }
     }
-    // No existing matching intent — write a bare generate-only intent
-    sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify({ type, idea: "", autoGenerate: true, timestamp: Date.now() }))
+    // No existing matching intent — recover idea from cache so it is not lost
+    const cachedIdea = getCachedIdea(type)
+    sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify({ type, idea: cachedIdea, autoGenerate: true, timestamp: Date.now() }))
+    window.dispatchEvent(new CustomEvent("stageone:autoGenerate", { detail: { type } }))
   } catch { /* */ }
 }
 

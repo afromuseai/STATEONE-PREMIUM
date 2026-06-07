@@ -14,7 +14,7 @@ import {
   loadGenerationContext, clearGenerationContext,
   loadProjectContext, clearProjectContext,
   loadAutomationRestoreContext, clearAutomationRestoreContext,
-  deriveWorkflowType, buildAutomationDesc, consumePendingIntent,
+  deriveWorkflowType, buildAutomationDesc, consumePendingIntent, cacheConsumedIdea,
 } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
@@ -384,6 +384,9 @@ export default function AutomationBuilderPage() {
     // Primary: durable pending intent — written by Copilot before navigating.
     const intent = consumePendingIntent("automation")
     if (intent && intent.idea) {
+      // Cache the idea so markPendingIntentAutoGenerate can recover it if generate_automation
+      // fires after this intent has already been consumed (page already mounted).
+      cacheConsumedIdea("automation", intent.idea)
       setBusinessDesc(intent.idea)
       setContextBanner(true)
       if (intent.autoGenerate) {
@@ -411,6 +414,27 @@ export default function AutomationBuilderPage() {
     autoGenPending.current = null
     generateWith(businessDesc, wt, cplx)
   }, [businessDesc]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Already-mounted: react to generate_automation fired after page open ──────
+  // markPendingIntentAutoGenerate dispatches this event + writes a fresh PendingIntent
+  // (with the recovered idea). Consume it and trigger generation directly.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { type } = (e as CustomEvent<{ type: string }>).detail
+      if (type !== "automation") return
+      const intent = consumePendingIntent("automation")
+      if (!intent) return
+      const desc = intent.idea || businessDesc
+      if (!desc.trim()) return
+      if (!businessDesc.trim()) {
+        setBusinessDesc(desc)
+        setContextBanner(true)
+      }
+      setTimeout(() => generateWith(desc, workflowType, complexity), 100)
+    }
+    window.addEventListener("stageone:autoGenerate", handler)
+    return () => window.removeEventListener("stageone:autoGenerate", handler)
+  }, [businessDesc, workflowType, complexity]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateWith = async (desc: string, wt: string, cplx: string) => {
     if (!desc.trim()) return
