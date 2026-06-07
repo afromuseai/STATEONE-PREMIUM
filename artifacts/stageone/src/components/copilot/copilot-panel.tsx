@@ -13,7 +13,7 @@ import {
 import { useBusinessContext } from "@/lib/business-context"
 import { useAuth } from "@/lib/auth-context"
 import { api, type Project } from "@/lib/api"
-import { setCopilotAutorun, setMarcusWorkspaceSignal, setMarcusWebsiteGenerateIntent } from "@/lib/generation-context"
+import { setCopilotAutorun, setMarcusWorkspaceSignal, setMarcusWebsiteGenerateIntent, setPendingIntent, markPendingIntentAutoGenerate } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { ListChecks, Trash2 } from "lucide-react"
 
@@ -548,57 +548,50 @@ export function CopilotPanel() {
   // WORKSPACE CMD — Marcus execution commands: open tabs, populate forms, trigger generation
   const handleWorkspaceCmdAction = useCallback((command: string, payload: string) => {
     if (command === "chatbot") {
+      // Durable intent: page reads this on mount — no dependency on signal timing
+      setPendingIntent({ type: "chatbot", idea: "", autoGenerate: false })
       navigate("/chatbot-generator")
     } else if (command === "idea") {
       const idea = payload.trim()
       if (!idea) return
-      // Write to sessionStorage so the chatbot-generator page picks it up on mount (cross-navigation)
+      // Durable intent queue — primary cross-navigation mechanism
+      setPendingIntent({ type: "chatbot", idea, autoGenerate: false })
+      // Legacy workspace signal — fallback for already-mounted page
       setMarcusWorkspaceSignal({ target: "chatbot", type: "populate", payload: idea })
-      // Navigate if not already on the chatbot generator page
       if (location !== "/chatbot-generator") navigate("/chatbot-generator")
-      // Also emit a live signal in case the page is already mounted
       emitWorkspaceSignal({ target: "chatbot", type: "populate", payload: idea })
     } else if (command === "generate_chatbot") {
-      // Fire generation signal — chatbot-generator page will start streaming
+      // Mark existing chatbot intent as autoGenerate, or create bare generate intent
+      markPendingIntentAutoGenerate("chatbot")
       emitWorkspaceSignal({ target: "chatbot", type: "generate" })
     } else if (command === "intelligence") {
       navigate("/dashboard?tab=new")
     } else if (command === "bi_idea") {
       const idea = payload.trim()
       if (!idea) return
-      // Write to sessionStorage for cross-navigation delivery
       setMarcusWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea })
-      // Navigate to the BI generator tab if not already there
       if (!location.startsWith("/dashboard")) navigate("/dashboard?tab=new")
-      // Also emit a live signal in case the dashboard is already mounted
       emitWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea })
     } else if (command === "generate_intelligence") {
-      // Fire generation signal — dashboard will start the BI stream
       emitWorkspaceSignal({ target: "intelligence", type: "generate" })
     } else if (command === "website") {
+      // Durable intent: just a navigate — no idea, no autoGenerate
+      setPendingIntent({ type: "website", idea: "", autoGenerate: false })
       navigate("/website-generator")
     } else if (command === "website_idea") {
-      console.log("[POPULATE TRACE 2] website_idea branch entered | raw payload:", JSON.stringify(payload))
       const idea = payload.trim()
-      console.log("[POPULATE TRACE 2] idea after trim:", JSON.stringify(idea), "| empty?", !idea)
-      if (!idea) { console.log("[POPULATE TRACE 2] EARLY RETURN — payload empty, setMarcusWorkspaceSignal will NOT be called"); return }
-      // Write to sessionStorage for cross-navigation delivery
-      console.log("[POPULATE TRACE 3] calling setMarcusWorkspaceSignal")
+      if (!idea) return
+      // Durable intent queue — primary cross-navigation mechanism
+      setPendingIntent({ type: "website", idea, autoGenerate: false })
+      // Legacy workspace signal — fallback for already-mounted page
       setMarcusWorkspaceSignal({ target: "website", type: "populate", payload: idea })
-      console.log("[POPULATE TRACE 3] sessionStorage written | value:", sessionStorage.getItem("marcus_workspace_signal"))
-      // Navigate if not already on the website generator page
       if (location !== "/website-generator") navigate("/website-generator")
-      // Also emit a live signal in case the page is already mounted
-      console.log("[POPULATE TRACE 5] calling emitWorkspaceSignal | payload:", idea)
       emitWorkspaceSignal({ target: "website", type: "populate", payload: idea })
-      console.log("[POPULATE TRACE 5] emitWorkspaceSignal returned")
     } else if (command === "generate_website") {
-      console.log("[WEBSITE TRACE] dispatcher handling generate_website")
-      console.log("[WEBSITE TRACE] emitted signal | target: website | type: generate | payload: (none)")
-      // Persist intent to sessionStorage so it survives if the page hasn't mounted yet
-      // (same pattern as setMarcusWorkspaceSignal used for populate)
+      // Mark existing website intent as autoGenerate, or create bare generate intent
+      markPendingIntentAutoGenerate("website")
+      // Legacy mechanisms — fallback for already-mounted page
       setMarcusWebsiteGenerateIntent()
-      // Also emit live signal in case the page is already mounted and subscribed
       emitWorkspaceSignal({ target: "website", type: "generate" })
     }
   }, [navigate, location, emitWorkspaceSignal])

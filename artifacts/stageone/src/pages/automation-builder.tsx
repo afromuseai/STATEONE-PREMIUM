@@ -14,8 +14,8 @@ import {
   loadGenerationContext, clearGenerationContext,
   loadProjectContext, clearProjectContext,
   loadAutomationRestoreContext, clearAutomationRestoreContext,
+  deriveWorkflowType, buildAutomationDesc, consumePendingIntent,
 } from "@/lib/generation-context"
-import { deriveWorkflowType, buildAutomationDesc } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 
@@ -381,16 +381,25 @@ export default function AutomationBuilderPage() {
 
   // Phase 1 — Load context and hydrate state fields
   useEffect(() => {
+    // Primary: durable pending intent — written by Copilot before navigating.
+    const intent = consumePendingIntent("automation")
+    if (intent && intent.idea) {
+      setBusinessDesc(intent.idea)
+      setContextBanner(true)
+      if (intent.autoGenerate) {
+        autoGenPending.current = { wt: "Lead Capture", cplx: "Intermediate" }
+      }
+      return
+    }
+    // Fallback: generation context written by Business Intelligence page
     const ctx = loadGenerationContext()
     if (!ctx) return
     clearGenerationContext()
     const desc = buildAutomationDesc(ctx)
     const wt = deriveWorkflowType(ctx.automations)
-    // Hydrate all fields into React state
     setBusinessDesc(desc)
     setWorkflowType(wt)
     setContextBanner(true)
-    // Store payload — generation fires in Phase 2 once businessDesc state has propagated
     autoGenPending.current = { wt, cplx: "Intermediate" }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

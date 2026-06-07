@@ -8,7 +8,7 @@ import {
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumeMarcusWorkspaceSignal, setMarcusWorkspaceSignal, consumeMarcusWebsiteGenerateIntent } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumeMarcusWorkspaceSignal, setMarcusWorkspaceSignal, consumeMarcusWebsiteGenerateIntent, consumePendingIntent } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
 
@@ -176,26 +176,43 @@ export default function WebsiteGeneratorPage() {
   //  stale-closure issues — refs are always current even in old closures)
   useEffect(() => { ideaRef.current = idea }, [idea])
 
-  // ─── Marcus workspace signal (on mount — cross-navigation delivery) ──────────
+  // ─── Mount: consume durable intent queue (primary) or legacy signal (fallback) ─
   useEffect(() => {
-    console.log("[POPULATE TRACE 7] mount effect running — calling consumeMarcusWorkspaceSignal")
-    console.log("[POPULATE TRACE 6] sessionStorage at mount:", sessionStorage.getItem("marcus_workspace_signal"))
+    // Primary: durable pending intent — written by Copilot before navigating.
+    // Does NOT depend on subscriber timing, React effect order, or live signals.
+    const intent = consumePendingIntent("website")
+    if (intent) {
+      if (intent.idea) {
+        marcusWebsiteIdeaRef.current = intent.idea
+        ideaRef.current = intent.idea
+        setContextBanner(true)
+        if (intent.autoGenerate) {
+          // Direct set — no typewriter animation needed when we're about to generate
+          setIdea(intent.idea)
+        } else {
+          // Typewriter animation for populate-only
+          marcusPopulateRef.current = intent.idea
+          setMarcusPopulateTick(t => t + 1)
+        }
+      }
+      if (intent.autoGenerate) {
+        setTimeout(() => {
+          const text = intent.idea || marcusWebsiteIdeaRef.current || ideaRef.current
+          if (text.trim()) generateWithIdea(text)
+        }, 300)
+      }
+      return
+    }
+    // Fallback: legacy workspace signal (backward compat — written by older dispatcher path)
     const signal = consumeMarcusWorkspaceSignal()
-    console.log("[POPULATE TRACE 8] consumeMarcusWorkspaceSignal returned:", JSON.stringify(signal))
     if (signal?.target === "website" && signal.type === "populate" && signal.payload) {
       const text = signal.payload
       marcusWebsiteIdeaRef.current = text
       ideaRef.current = text
       setContextBanner(true)
-      setTimeout(() => {
-        marcusPopulateRef.current = text
-        setMarcusPopulateTick(t => t + 1)
-      }, 150)
-    } else {
-      console.log("[POPULATE TRACE 8] signal failed condition check — target:", signal?.target, "| type:", signal?.type, "| payload:", signal?.payload ?? "(none)", "| signal null?", signal === null)
+      marcusPopulateRef.current = text
+      setMarcusPopulateTick(t => t + 1)
     }
-    // Consume persisted generate intent — survives navigation race condition
-    // (set by Marcus dispatcher before the page has mounted and subscribed)
     if (consumeMarcusWebsiteGenerateIntent()) {
       setMarcusTriggerGenerate(true)
     }

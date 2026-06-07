@@ -158,6 +158,54 @@ export function clearDashboardState(): void {
   } catch { /* ignore */ }
 }
 
+// ─── Pending Intent Queue ─────────────────────────────────────────────────────
+// Copilot writes this before navigating. Generator pages consume it on mount.
+// This is the primary reliability mechanism — survives navigation races because
+// it is read once on mount, not dependent on subscriber timing or React effects.
+// Do NOT rely on emitWorkspaceSignal for cross-page execution; use this instead.
+
+const PENDING_INTENT_KEY = "stageone_pending_intent"
+
+export interface PendingIntent {
+  type: "website" | "chatbot" | "automation"
+  idea: string
+  autoGenerate: boolean
+  timestamp: number
+}
+
+export function setPendingIntent(intent: Omit<PendingIntent, "timestamp">): void {
+  try {
+    sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify({ ...intent, timestamp: Date.now() }))
+  } catch { /* quota */ }
+}
+
+export function markPendingIntentAutoGenerate(type: PendingIntent["type"]): void {
+  try {
+    const raw = sessionStorage.getItem(PENDING_INTENT_KEY)
+    if (raw) {
+      const intent = JSON.parse(raw) as PendingIntent
+      if (intent.type === type) {
+        sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify({ ...intent, autoGenerate: true }))
+        return
+      }
+    }
+    // No existing matching intent — write a bare generate-only intent
+    sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify({ type, idea: "", autoGenerate: true, timestamp: Date.now() }))
+  } catch { /* */ }
+}
+
+export function consumePendingIntent(forType: PendingIntent["type"]): PendingIntent | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_INTENT_KEY)
+    if (!raw) return null
+    const intent = JSON.parse(raw) as PendingIntent
+    if (intent.type !== forType) return null
+    sessionStorage.removeItem(PENDING_INTENT_KEY)
+    if (Date.now() - intent.timestamp > 30_000) return null
+    return intent
+  } catch { return null }
+}
+
 // ─── Marcus Website Generate Intent ───────────────────────────────────────────
 // Persists the generate intent across navigation so it survives the race
 // condition where the generate signal is emitted before the page mounts.
@@ -187,7 +235,7 @@ export function consumeMarcusWebsiteGenerateIntent(): boolean {
 // user-scoped (copilot:msgs:<userId>) so they survive this sweep safely.
 export function clearWorkspaceSessionData(): void {
   try {
-    const STAGEONE_KEYS = [KEY, DASHBOARD_KEY, AUTORUN_KEY, PROJECT_KEY, MARCUS_WEBSITE_GENERATE_KEY]
+    const STAGEONE_KEYS = [KEY, DASHBOARD_KEY, AUTORUN_KEY, PROJECT_KEY, MARCUS_WEBSITE_GENERATE_KEY, PENDING_INTENT_KEY]
     for (const k of STAGEONE_KEYS) sessionStorage.removeItem(k)
     // Also sweep any dynamically created keys with the stageone_ prefix
     const allKeys = Object.keys(sessionStorage)

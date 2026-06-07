@@ -1,0 +1,84 @@
+FIX COPILOT → WEBSITE GENERATION LOSS OF SIGNALS
+
+There is a race condition causing Website Generator, Chatbot Generator, and Automation Builder to sometimes NOT execute when Copilot sends commands during navigation.
+
+❌ Current problem
+Copilot emits WORKSPACE signals during route change
+React page is not mounted yet
+signals are lost
+generate does not run
+populate sometimes works, generate often fails
+typewriter works but execution does not trigger
+✅ REQUIRED FIX (DO NOT REFACTOR ARCHITECTURE)
+
+Implement a durable intent queue using sessionStorage only.
+
+1. When Copilot emits ANY of these:
+website
+website_idea
+generate_website
+chatbot
+automation
+
+DO THIS:
+
+sessionStorage.setItem("stageone_pending_intent", JSON.stringify({
+  type: "website" | "chatbot" | "automation",
+  idea: string,
+  autoGenerate: true,
+  timestamp: Date.now()
+}))
+2. REMOVE dependency on live workspace signals for cross-page navigation execution
+
+Do NOT rely on:
+
+emitWorkspaceSignal
+subscribeWorkspaceSignal
+React timing
+context buses
+
+They are NOT reliable during navigation.
+
+3. On EACH generator page (website/chatbot/automation)
+
+On mount:
+
+const intent = JSON.parse(sessionStorage.getItem("stageone_pending_intent") || "null")
+
+if (intent) {
+  sessionStorage.removeItem("stageone_pending_intent")
+
+  // Step 1: populate UI with intent.idea
+  setIdea(intent.idea)
+
+  // Step 2: if autoGenerate is true → trigger generation AFTER UI is ready
+  setTimeout(() => {
+    generateWithIdea(intent.idea)
+  }, 300)
+}
+4. RULE
+
+If sessionStorage intent exists → it MUST execute exactly once.
+
+No exceptions.
+
+🚫 REMOVE RELIANCE ON:
+workspaceSubscribersRef timing
+emitWorkspaceSignal for navigation triggers
+cross-route React effects for execution
+typewriter-triggered generate coupling
+🎯 RESULT
+
+After this fix:
+
+Copilot command ALWAYS opens correct tab
+idea ALWAYS appears
+generation ALWAYS runs
+no race conditions
+no missing signals
+no dependency on mount timing
+⚠️ IMPORTANT
+
+This is NOT a UI change.
+
+This is a state persistence fix for navigation reliability.

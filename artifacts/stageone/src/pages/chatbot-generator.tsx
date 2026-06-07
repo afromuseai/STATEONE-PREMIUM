@@ -13,7 +13,7 @@ import {
   loadProjectContext, clearProjectContext,
   loadChatbotRestoreContext, clearChatbotRestoreContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
-  consumeMarcusWorkspaceSignal,
+  consumeMarcusWorkspaceSignal, consumePendingIntent,
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
@@ -179,8 +179,32 @@ export default function ChatbotGeneratorPage() {
     })
   }, [subscribeWorkspaceSignal, typewriterPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Marcus signal on mount (sessionStorage — for cross-navigation delivery) ─
+  // ─── Mount: consume durable intent queue (primary) or legacy signal (fallback) ─
   useEffect(() => {
+    // Primary: durable pending intent — written by Copilot before navigating.
+    // Does NOT depend on subscriber timing, React effect order, or live signals.
+    const intent = consumePendingIntent("chatbot")
+    if (intent) {
+      if (intent.idea) {
+        if (intent.autoGenerate) {
+          // Direct set — no typewriter needed when we're about to generate
+          setBusinessDesc(intent.idea)
+          setContextBanner(true)
+        } else {
+          typewriterPopulate(intent.idea)
+        }
+      }
+      if (intent.autoGenerate) {
+        setTimeout(() => {
+          const desc = intent.idea || businessDescRef.current
+          if (desc.trim()) {
+            generateWith(desc, chatbotTypeRef.current, industryRef.current, toneRef.current)
+          }
+        }, 300)
+      }
+      return
+    }
+    // Fallback: legacy workspace signal (backward compat)
     const signal = consumeMarcusWorkspaceSignal()
     if (signal?.target === "chatbot" && signal.type === "populate" && signal.payload) {
       typewriterPopulate(signal.payload)
