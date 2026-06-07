@@ -511,6 +511,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
       if (finalData) {
         setData(finalData)
         setTab("design")
+        setShowAnalysisBanner(true)
         if (projectId) {
           setSavedStatus("saving")
           try {
@@ -753,9 +754,17 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
   }, [data])
 
   const allCode = useMemo(() => {
-    if (!data?.componentCode) return ""
-    return Object.entries(data.componentCode).map(([name, code]) => `// === ${name.toUpperCase()} ===\n${code}`).join("\n\n")
-  }, [data])
+    if (!data) return ""
+    if (data.componentCode && Object.keys(data.componentCode).length > 0) {
+      return Object.entries(data.componentCode).map(([name, code]) => `// === ${name.toUpperCase()} ===\n${code}`).join("\n\n")
+    }
+    // Fall back to previewHtml when componentCode isn't available
+    return previewHtml
+  }, [data, previewHtml])
+
+  // ─── Analysis auto-trigger signal ───────────────────────────────────────────
+  const [analysisSignal, setAnalysisSignal] = useState(0)
+  const [showAnalysisBanner, setShowAnalysisBanner] = useState(false)
 
   // ─── Version history ────────────────────────────────────────────────────────
   const fetchVersions = useCallback(async () => {
@@ -843,12 +852,21 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
         </div>
         <div className="flex items-center gap-2">
           {data && (
-            <button onClick={runOptimize} disabled={isOptimizing}
-              className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 border border-primary/20 hover:border-primary/40 rounded-lg px-2.5 py-1.5 bg-primary/5 hover:bg-primary/10 transition-all disabled:opacity-50"
+            <motion.button
+              onClick={() => { setTab("intelligence"); setAnalysisSignal(s => s + 1); setShowAnalysisBanner(false) }}
+              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 border border-primary/30 hover:border-primary/50 rounded-lg px-3 py-1.5 bg-primary/10 hover:bg-primary/15 transition-all relative"
             >
-              {isOptimizing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Gauge className="h-3 w-3" />}
-              Analyze
-            </button>
+              <Brain className="h-3.5 w-3.5" />
+              AI Analysis
+              {showAnalysisBanner && (
+                <motion.span
+                  className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green-400 border border-background"
+                  animate={{ scale: [1, 1.4, 1] }}
+                  transition={{ duration: 1.2, repeat: Infinity }}
+                />
+              )}
+            </motion.button>
           )}
           <button onClick={generate}
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors border border-border/50 rounded-lg px-2.5 py-1.5 hover:border-primary/50"
@@ -885,6 +903,56 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
             {/* DESIGN TAB */}
             {tab === "design" && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+
+                {/* Post-generation AI Analysis banner */}
+                <AnimatePresence>
+                  {showAnalysisBanner && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                      transition={{ duration: 0.3 }}
+                      className="relative rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent overflow-hidden"
+                    >
+                      <div className="absolute inset-0 pointer-events-none">
+                        <motion.div
+                          className="absolute -top-4 -right-4 h-16 w-16 rounded-full bg-primary/15 blur-xl"
+                          animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0.8, 0.5] }}
+                          transition={{ duration: 2.5, repeat: Infinity }}
+                        />
+                      </div>
+                      <div className="relative px-3 py-2.5">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <motion.div
+                              animate={{ rotate: [0, 10, -10, 0] }}
+                              transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                            >
+                              <Sparkles className="h-3.5 w-3.5 text-primary" />
+                            </motion.div>
+                            <span className="text-xs font-bold text-foreground">Website Generated!</span>
+                          </div>
+                          <button onClick={() => setShowAnalysisBanner(false)} className="text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed mb-2">
+                          Run AI Intelligence Analysis to get conversion scores, SEO health, UX recommendations, and specific fixes.
+                        </p>
+                        <motion.button
+                          onClick={() => { setTab("intelligence"); setAnalysisSignal(s => s + 1); setShowAnalysisBanner(false) }}
+                          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                        >
+                          <Brain className="h-3.5 w-3.5" />
+                          Run AI Intelligence Analysis
+                          <Sparkles className="h-3 w-3 opacity-70" />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <SectionBlock title="Brand" icon={Star}>
                   <Label>Name</Label>
                   <EditableField value={data.brand?.name ?? ""} onChange={v => setData(p => p ? { ...p, brand: { ...p.brand, name: v } } : p)} />
@@ -1136,33 +1204,135 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
                   data={data}
                   businessIdea={businessIdea || businessIntelligence?.businessSnapshot || ""}
                   businessIntelligence={businessIntelligence}
+                  autoRunSignal={analysisSignal}
                 />
               </motion.div>
             )}
 
             {/* CODE TAB */}
-            {tab === "code" && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">React + Tailwind components</p>
-                  <CopyBtn text={allCode} label="Copy All" />
-                </div>
-                {Object.entries(data.componentCode ?? {}).map(([name, code]) => (
-                  <div key={name} className="border border-border/40 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-3 py-2 bg-secondary/20">
-                      <div className="flex items-center gap-2">
-                        <FileCode className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs font-semibold capitalize text-foreground">{name}.tsx</span>
-                      </div>
-                      <CopyBtn text={code} />
+            {tab === "code" && (() => {
+              const hasComponents = data.componentCode && Object.keys(data.componentCode).length > 0
+              const nextjsFiles = buildNextjsProject(data)
+              const componentFiles = Object.entries(nextjsFiles).filter(([path]) => path.startsWith("components/") || path.startsWith("app/"))
+              const configFiles = Object.entries(nextjsFiles).filter(([path]) => !path.startsWith("components/") && !path.startsWith("app/"))
+              return (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                  {/* Header */}
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FileCode className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-semibold text-foreground">Next.js 14 + Tailwind Project</span>
                     </div>
-                    <pre className="p-3 text-[10px] font-mono text-green-300/80 bg-black/60 overflow-x-auto max-h-48 overflow-y-auto leading-relaxed whitespace-pre-wrap break-all">
-                      {code}
-                    </pre>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Download the full project or copy individual files to continue building in your local dev environment.
+                    </p>
+                    <button onClick={handleDownloadZip} disabled={exportStatus === "downloading"}
+                      className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-xs hover:bg-primary/90 transition-colors disabled:opacity-60"
+                    >
+                      {exportStatus === "downloading" ? <><Loader2 className="h-3 w-3 animate-spin" />Creating…</> : <><Download className="h-3 w-3" />Download Next.js Project ZIP</>}
+                    </button>
                   </div>
-                ))}
-              </motion.div>
-            )}
+
+                  {/* If AI generated real components, show them */}
+                  {hasComponents && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">AI-Generated Components</p>
+                        <CopyBtn text={allCode} label="Copy All" />
+                      </div>
+                      {Object.entries(data.componentCode!).map(([name, code]) => (
+                        <div key={name} className="border border-border/40 rounded-xl overflow-hidden">
+                          <div className="flex items-center justify-between px-3 py-2 bg-secondary/20">
+                            <div className="flex items-center gap-2">
+                              <FileCode className="h-3.5 w-3.5 text-primary" />
+                              <span className="text-xs font-semibold capitalize text-foreground">{name}.tsx</span>
+                            </div>
+                            <CopyBtn text={code} />
+                          </div>
+                          <pre className="p-3 text-[10px] font-mono text-green-300/80 bg-black/60 overflow-x-auto max-h-48 overflow-y-auto leading-relaxed whitespace-pre-wrap break-all">{code}</pre>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Component files from buildNextjsProject */}
+                  <div className="space-y-2">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Component Files</p>
+                    {componentFiles.map(([path, code]) => (
+                      <div key={path} className="border border-border/40 rounded-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 bg-secondary/20">
+                          <div className="flex items-center gap-2">
+                            <FileCode className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-[11px] font-semibold text-foreground font-mono">{path}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CopyBtn text={code} />
+                            <button onClick={() => {
+                              const blob = new Blob([code], { type: "text/plain" })
+                              const url = URL.createObjectURL(blob)
+                              const a = document.createElement("a")
+                              a.href = url
+                              a.download = path.split("/").pop() ?? path
+                              a.click()
+                              URL.revokeObjectURL(url)
+                            }} className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded border border-border/50 hover:border-primary/50">
+                              <Download className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <pre className="p-3 text-[10px] font-mono text-blue-300/80 bg-black/60 overflow-x-auto max-h-40 overflow-y-auto leading-relaxed whitespace-pre-wrap break-all">{code}</pre>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Config files */}
+                  <div className="space-y-2">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Config & Setup Files</p>
+                    {configFiles.map(([path, code]) => (
+                      <div key={path} className="border border-border/40 rounded-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 bg-secondary/20">
+                          <div className="flex items-center gap-2">
+                            <FileCode className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-[11px] font-semibold text-muted-foreground font-mono">{path}</span>
+                          </div>
+                          <CopyBtn text={code} />
+                        </div>
+                        <pre className="p-3 text-[10px] font-mono text-muted-foreground/60 bg-black/40 overflow-x-auto max-h-28 overflow-y-auto leading-relaxed whitespace-pre-wrap break-all">{code}</pre>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* HTML implementation */}
+                  <div className="space-y-2">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">Full HTML Implementation</p>
+                    <div className="border border-border/40 rounded-xl overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 bg-secondary/20">
+                        <div className="flex items-center gap-2">
+                          <FileCode className="h-3.5 w-3.5 text-yellow-400/70" />
+                          <span className="text-[11px] font-semibold text-foreground font-mono">index.html</span>
+                          <span className="text-[9px] text-muted-foreground">AI-generated · self-contained</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <CopyBtn text={previewHtml} label="Copy" />
+                          <button onClick={() => {
+                            const blob = new Blob([previewHtml], { type: "text/html" })
+                            const url = URL.createObjectURL(blob)
+                            const a = document.createElement("a")
+                            a.href = url
+                            a.download = `${data.brand?.name?.toLowerCase().replace(/\s+/g, "-") ?? "website"}.html`
+                            a.click()
+                            URL.revokeObjectURL(url)
+                          }} className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded border border-border/50 hover:border-primary/50">
+                            <Download className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <pre className="p-3 text-[10px] font-mono text-yellow-300/60 bg-black/60 overflow-x-auto max-h-64 overflow-y-auto leading-relaxed whitespace-pre-wrap break-all">{previewHtml.slice(0, 4000)}{previewHtml.length > 4000 ? "\n\n… (truncated for display — use Download button for full file)" : ""}</pre>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })()}
 
             {/* EXPORT TAB */}
             {tab === "export" && (

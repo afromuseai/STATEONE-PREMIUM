@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Target, TrendingUp, Layers, Star, Smartphone, Zap, MessageSquare,
@@ -38,6 +38,7 @@ interface Props {
   data: WebsiteOutput
   businessIdea: string
   businessIntelligence: BusinessIntelligence | null
+  autoRunSignal?: number
 }
 
 // ─── Category metadata ─────────────────────────────────────────────────────────
@@ -175,13 +176,14 @@ function computeBaseline(data: WebsiteOutput): Record<CategoryId, number> {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export function WebsiteIntelligence({ data, businessIdea, businessIntelligence }: Props) {
+export function WebsiteIntelligence({ data, businessIdea, businessIntelligence, autoRunSignal }: Props) {
   const baselineScores = useMemo(() => computeBaseline(data), [data])
   const [report, setReport] = useState<Report | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [streamText, setStreamText] = useState("")
   const [expandedCat, setExpandedCat] = useState<CategoryId | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const prevSignalRef = useRef(0)
 
   const scores: Record<CategoryId, number> = report
     ? Object.fromEntries(CATS.map(c => [c.id, report.categories[c.id]?.score ?? baselineScores[c.id]])) as Record<CategoryId, number>
@@ -240,6 +242,14 @@ export function WebsiteIntelligence({ data, businessIdea, businessIntelligence }
       setStreamText("")
     }
   }, [data, businessIdea, businessIntelligence, isAnalyzing])
+
+  // Auto-run when signal increments (triggered from toolbar or post-generation banner)
+  useEffect(() => {
+    if (!autoRunSignal || autoRunSignal === prevSignalRef.current) return
+    prevSignalRef.current = autoRunSignal
+    if (!isAnalyzing) runAnalysis()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRunSignal])
 
   return (
     <div className="space-y-3">

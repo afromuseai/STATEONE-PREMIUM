@@ -1162,6 +1162,122 @@ Identify the most impactful conversion gaps for a ${industry} website targeting 
   }
 });
 
+// POST /api/generate/website/analyze — full 7-category AI intelligence analysis
+router.post("/generate/website/analyze", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const { websiteData, businessIdea, businessIntelligence, language: anlLanguage } = req.body;
+    if (!websiteData) { res.status(400).json({ error: "websiteData required" }); return; }
+    if (!NVIDIA_API_KEY) { res.status(500).json({ error: "API key not configured" }); return; }
+    const { getLanguageInstruction: getLangInstrAnl } = await import("../lib/language");
+    const langInstrAnl = getLangInstrAnl(anlLanguage);
+
+    const bi = businessIntelligence as { industry?: string; targetMarket?: string; metrics?: Record<string, number> } | null;
+    const wd = websiteData as {
+      brand?: { name?: string; tagline?: string };
+      sections?: {
+        hero?: { badge?: string; headline?: string; subheadline?: string; ctaPrimary?: string; socialProof?: string; stats?: unknown[] };
+        features?: { items?: Array<{ title: string; description?: string }> };
+        testimonials?: { items?: Array<{ quote: string; author: string; metric?: string }> };
+        pricing?: { tiers?: Array<{ name: string; price: string; highlighted?: boolean }> };
+        faq?: { items?: Array<{ question: string }> };
+      };
+      colorPalette?: { primary?: string; background?: string };
+      typography?: { headingFont?: string; bodyFont?: string };
+      websiteStrategy?: { conversionApproach?: string; trustSignals?: string[]; audiencePsychology?: string };
+      seoMeta?: { title?: string; description?: string; keywords?: string[] };
+    };
+
+    const industry = bi?.industry ?? "SaaS";
+    const designSystem = INDUSTRY_DESIGN_SYSTEMS[industry] ?? INDUSTRY_DESIGN_SYSTEMS["SaaS"];
+
+    const systemPrompt = `You are STAGEONE Website Intelligence — a senior conversion strategist, SEO specialist, and UX researcher combined. You analyze websites across 7 dimensions and provide specific, actionable recommendations grounded in the actual content.${langInstrAnl}
+
+Return ONLY valid JSON matching this EXACT schema. No markdown, no extra text:
+{
+  "overallScore": <integer 0-100>,
+  "overallGrade": "<A+|A|A-|B+|B|B-|C+|C|C-|D|F>",
+  "overallSummary": "<2-3 sentences: honest, specific assessment referencing the actual brand and content>",
+  "topPriorities": ["<top actionable priority 1>", "<top actionable priority 2>", "<top actionable priority 3>"],
+  "categories": {
+    "conversion": {
+      "score": <integer 0-100>,
+      "grade": "<letter grade>",
+      "summary": "<1 sentence specific to this website>",
+      "recommendations": [
+        { "priority": "<critical|high|medium|low>", "title": "<concise title>", "description": "<what is the specific issue on this site>", "action": "<exact actionable step to fix it>" }
+      ]
+    },
+    "seo": { "score": <int>, "grade": "<>", "summary": "<>", "recommendations": [...] },
+    "ux": { "score": <int>, "grade": "<>", "summary": "<>", "recommendations": [...] },
+    "brand": { "score": <int>, "grade": "<>", "summary": "<>", "recommendations": [...] },
+    "mobile": { "score": <int>, "grade": "<>", "summary": "<>", "recommendations": [...] },
+    "performance": { "score": <int>, "grade": "<>", "summary": "<>", "recommendations": [...] },
+    "content": { "score": <int>, "grade": "<>", "summary": "<>", "recommendations": [...] }
+  }
+}
+
+HARD RULES:
+- Each category must have 2-4 recommendations
+- Scores must be grounded in observable evidence from the website data
+- Reference actual content (quote the headline, mention the pricing tier names, etc.)
+- DO NOT give generic advice — every recommendation must be specific to this website
+- The overallScore is the weighted average: conversion(30%) + seo(15%) + ux(20%) + brand(10%) + mobile(10%) + performance(10%) + content(5%)`;
+
+    const userMsg = `Analyze this ${industry} website:
+
+BUSINESS: ${businessIdea ?? wd.brand?.name}
+TARGET MARKET: ${bi?.targetMarket ?? "Not specified"}
+INDUSTRY TRUST SIGNALS NEEDED: ${designSystem.trustSignals}
+PRIMARY CONVERSION GOAL: ${designSystem.primaryConversion}
+
+WEBSITE CONTENT:
+- Brand: ${wd.brand?.name ?? "?"} — "${wd.brand?.tagline ?? ""}"
+- Hero badge: "${wd.sections?.hero?.badge ?? "none"}"
+- Hero headline: "${wd.sections?.hero?.headline ?? "none"}"
+- Hero subheadline: "${wd.sections?.hero?.subheadline ?? "none"}"
+- Primary CTA: "${wd.sections?.hero?.ctaPrimary ?? "none"}"
+- Social proof: "${wd.sections?.hero?.socialProof ?? "none"}"
+- Stats count: ${(wd.sections?.hero?.stats ?? []).length}
+- Features count: ${(wd.sections?.features?.items ?? []).length} — titles: ${(wd.sections?.features?.items ?? []).slice(0,4).map(f => f.title).join(", ")}
+- Testimonials: ${(wd.sections?.testimonials?.items ?? []).length} (with metrics: ${(wd.sections?.testimonials?.items ?? []).filter(t => t.metric).length})
+- Pricing tiers: ${(wd.sections?.pricing?.tiers ?? []).map(t => `${t.name}@${t.price}`).join(", ")}
+- FAQ items: ${(wd.sections?.faq?.items ?? []).length}
+- SEO title: "${wd.seoMeta?.title ?? "none"}" (${(wd.seoMeta?.title ?? "").length} chars)
+- SEO description: "${wd.seoMeta?.description ?? "none"}" (${(wd.seoMeta?.description ?? "").length} chars)
+- Keywords: ${(wd.seoMeta?.keywords ?? []).join(", ")}
+- Colors: primary=${wd.colorPalette?.primary ?? "?"}, bg=${wd.colorPalette?.background ?? "?"}
+- Fonts: ${wd.typography?.headingFont ?? "?"} / ${wd.typography?.bodyFont ?? "?"}
+- Conversion approach: "${wd.websiteStrategy?.conversionApproach ?? "none"}"
+- Trust signals present: ${JSON.stringify(wd.websiteStrategy?.trustSignals ?? [])}
+
+AI METRICS: opportunity=${bi?.metrics?.aiAdoptionOpportunity ?? "?"}% | automation=${bi?.metrics?.automationPotential ?? "?"}% | difficulty=${bi?.metrics?.marketDifficulty ?? "?"}/10
+
+Give an honest, detailed analysis with specific, actionable recommendations for each of the 7 categories.`;
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    let buffer = "";
+    try {
+      buffer = await streamNvidiaRequest(ORCHESTRATION_MODEL, systemPrompt, userMsg, res, req, 3200, 0.75);
+    } catch (err) {
+      res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`); res.end(); return;
+    }
+
+    try {
+      const report = extractJson(buffer);
+      res.write(`data: ${JSON.stringify({ done: true, report })}\n\n`);
+    } catch {
+      res.write(`data: ${JSON.stringify({ error: "Parse failed — try again" })}\n\n`);
+    }
+    res.end();
+  } catch (err) {
+    req.log.error({ err }, "Analyze error");
+    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // POST /api/generate/website/strategy — switch conversion strategy
 router.post("/generate/website/strategy", requireAuth, async (req, res): Promise<void> => {
   try {
