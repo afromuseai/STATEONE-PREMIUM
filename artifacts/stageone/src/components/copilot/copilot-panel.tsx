@@ -548,18 +548,16 @@ export function CopilotPanel() {
   // WORKSPACE CMD — Marcus execution commands: open tabs, populate forms, trigger generation
   const handleWorkspaceCmdAction = useCallback((command: string, payload: string) => {
     if (command === "chatbot") {
-      // Navigation is deferred entirely to the idea command.
-      // If chatbot navigates here, the page mounts before the idea tag completes
-      // (it is a long tag that spans many streaming chunks). consumePendingIntent
-      // then returns null on mount and the idea is lost — same-route navigation
-      // from idea does not remount the component or re-run the mount effect.
+      console.log("[PIPELINE:3] chatbot command received | payload:", JSON.stringify(payload))
       // Intentional no-op: idea always follows and will navigate.
     } else if (command === "idea") {
+      console.log("[PIPELINE:4] idea command received | raw payload:", JSON.stringify(payload))
       const idea = payload.trim()
-      if (!idea) return
+      if (!idea) { console.log("[PIPELINE:4] idea payload is EMPTY — early return, no setPendingIntent, no navigate"); return }
+      console.log("[PIPELINE:5] calling setPendingIntent | idea:", JSON.stringify(idea))
       setPendingIntent({ type: "chatbot", idea, autoGenerate: false })
-      // Always navigate: if chatbot already opened the page it will be a no-op
-      // history push, but if not yet open this triggers the mount with a real intent.
+      const raw = sessionStorage.getItem("stageone_pending_intent")
+      console.log("[PIPELINE:6] sessionStorage after setPendingIntent:", raw)
       navigate("/chatbot-generator")
     } else if (command === "generate_chatbot") {
       markPendingIntentAutoGenerate("chatbot")

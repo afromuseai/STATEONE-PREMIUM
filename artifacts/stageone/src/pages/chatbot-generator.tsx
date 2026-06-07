@@ -169,7 +169,10 @@ export default function ChatbotGeneratorPage() {
   useEffect(() => {
     // Primary: durable pending intent — written by Copilot before navigating.
     // Does NOT depend on subscriber timing, React effect order, or live signals.
+    const rawSS = sessionStorage.getItem("stageone_pending_intent")
+    console.log("[PIPELINE:7a] chatbot-generator mounted | raw sessionStorage:", rawSS)
     const intent = consumePendingIntent("chatbot")
+    console.log("[PIPELINE:7] consumePendingIntent return value:", JSON.stringify(intent))
     if (intent) {
       // Cache the idea so markPendingIntentAutoGenerate can recover it if generate_chatbot
       // fires after this intent has already been consumed (page already mounted).
@@ -177,11 +180,15 @@ export default function ChatbotGeneratorPage() {
       if (intent.idea) {
         if (intent.autoGenerate) {
           // Direct set — no typewriter needed when we're about to generate
+          console.log("[PIPELINE:8] calling setBusinessDesc (autoGenerate) | value:", JSON.stringify(intent.idea))
           setBusinessDesc(intent.idea)
           setContextBanner(true)
         } else {
+          console.log("[PIPELINE:8] calling typewriterPopulate | value:", JSON.stringify(intent.idea))
           typewriterPopulate(intent.idea)
         }
+      } else {
+        console.log("[PIPELINE:8] intent.idea is EMPTY — no setBusinessDesc call")
       }
       if (intent.autoGenerate) {
         setTimeout(() => {
@@ -193,6 +200,7 @@ export default function ChatbotGeneratorPage() {
       }
       return
     }
+    console.log("[PIPELINE:7] intent is NULL — no populate")
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Already-mounted: react to generate_chatbot fired after page open ─────────
