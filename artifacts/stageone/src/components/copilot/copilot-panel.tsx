@@ -548,14 +548,18 @@ export function CopilotPanel() {
   // WORKSPACE CMD — Marcus execution commands: open tabs, populate forms, trigger generation
   const handleWorkspaceCmdAction = useCallback((command: string, payload: string) => {
     if (command === "chatbot") {
-      // Durable intent: page reads this on mount — no dependency on signal timing
-      setPendingIntent({ type: "chatbot", idea: "", autoGenerate: false })
-      navigate("/chatbot-generator")
+      // Do NOT write an empty PendingIntent here — the empty write gets consumed
+      // by the page's mount effect before the idea tag arrives in the next chunk.
+      // Navigation is deferred to the idea command so the page only mounts once
+      // the real intent is already in sessionStorage.
+      if (location !== "/chatbot-generator") navigate("/chatbot-generator")
     } else if (command === "idea") {
       const idea = payload.trim()
       if (!idea) return
       setPendingIntent({ type: "chatbot", idea, autoGenerate: false })
-      if (location !== "/chatbot-generator") navigate("/chatbot-generator")
+      // Always navigate: if chatbot already opened the page it will be a no-op
+      // history push, but if not yet open this triggers the mount with a real intent.
+      navigate("/chatbot-generator")
     } else if (command === "generate_chatbot") {
       markPendingIntentAutoGenerate("chatbot")
       navigate("/chatbot-generator")
@@ -582,13 +586,14 @@ export function CopilotPanel() {
       markPendingIntentAutoGenerate("website")
       navigate("/website-generator")
     } else if (command === "automation") {
-      setPendingIntent({ type: "automation", idea: "", autoGenerate: false })
-      navigate("/automation-builder")
+      // Same as chatbot: do NOT write an empty PendingIntent — it gets consumed
+      // before automation_idea can write the real one. Just open the tab.
+      if (location !== "/automation-builder") navigate("/automation-builder")
     } else if (command === "automation_idea") {
       const idea = payload.trim()
       if (!idea) return
       setPendingIntent({ type: "automation", idea, autoGenerate: false })
-      if (location !== "/automation-builder") navigate("/automation-builder")
+      navigate("/automation-builder")
     } else if (command === "generate_automation") {
       markPendingIntentAutoGenerate("automation")
       navigate("/automation-builder")
