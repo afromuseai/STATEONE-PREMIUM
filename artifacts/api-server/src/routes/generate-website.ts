@@ -466,8 +466,10 @@ async function streamNvidiaRequest(
       stream: true,
     };
     // Thinking models output to delta.reasoning_content by default — disable thinking
-    // so structured JSON goes to delta.content where the parser expects it
-    if (modelId.includes("qwen") || modelId.includes("step") || modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: false };
+    // so structured JSON goes to delta.content where the parser expects it.
+    // Note: DeepSeek uses {"thinking": false}, others use {"enable_thinking": false}
+    if (modelId.includes("deepseek")) body.chat_template_kwargs = { thinking: false };
+    else if (modelId.includes("qwen") || modelId.includes("step") || modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: false };
     return JSON.stringify(body);
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };
@@ -546,7 +548,8 @@ async function callModelJson(
       max_tokens: maxTokens,
       stream: false,
     };
-    if (modelId.includes("qwen") || modelId.includes("step") || modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: false };
+    if (modelId.includes("deepseek")) body.chat_template_kwargs = { thinking: false };
+    else if (modelId.includes("qwen") || modelId.includes("step") || modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: false };
     return JSON.stringify(body);
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };

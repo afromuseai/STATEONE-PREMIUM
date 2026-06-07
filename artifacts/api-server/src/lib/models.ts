@@ -9,7 +9,7 @@
 //   AGENT_PLANNING         — Nemotron 49B: memory-aware agent decomposition
 //   MEMORY                 — Nemotron 49B: context compression & semantic linking
 //   WEBSITE_PLANNING       — Llama-4 Maverick: fast streaming JSON section planning
-//   COMPONENT_GENERATION   — Nemotron-Ultra 550B: powerful React/Tailwind code generation
+//   COMPONENT_GENERATION   — DeepSeek V4 Flash: fast 284B MoE coding model
 //   COPILOT                — Qwen 3.5 397B: cross-system coordination assistant
 //   CHATBOT                — Qwen 3.5 397B: structured reasoning for chatbot design
 //   AUTOMATION             — Qwen 3.5 397B: multi-step workflow & automation planning
@@ -24,7 +24,7 @@ export const MODELS = {
   AGENT_PLANNING:        "nvidia/llama-3.3-nemotron-super-49b-v1",
   MEMORY:                "nvidia/llama-3.3-nemotron-super-49b-v1",
   WEBSITE_PLANNING:      "meta/llama-4-maverick-17b-128e-instruct",
-  COMPONENT_GENERATION:  "nvidia/nemotron-3-ultra-550b-a55b",
+  COMPONENT_GENERATION:  "deepseek-ai/deepseek-v4-flash",
   COPILOT:               "qwen/qwen3.5-122b-a10b",
   CHATBOT:               "qwen/qwen3.5-397b-a17b",
   AUTOMATION:            "qwen/qwen3.5-397b-a17b",
