@@ -19,6 +19,14 @@ import {
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
 
+// ─── Module-level intent cache ────────────────────────────────────────────────
+// AnimatedRoutes uses key={location}, so navigation causes an unmount+remount
+// of the entire route tree.  On the FIRST mount consumePendingIntent removes the
+// entry from sessionStorage; on the immediate SECOND mount it would return null.
+// This module variable bridges that gap: the first mount saves the intent here,
+// the second mount reads it and then clears it so subsequent visits start fresh.
+let _mountIntentCache: { idea: string; autoGenerate: boolean } | null = null
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Step = "input" | "generating" | "done"
 type ChatbotType = "Customer Support" | "Sales Assistant" | "Onboarding Assistant" | "Booking Assistant" | "FAQ Assistant" | "Internal Team Assistant"
@@ -173,26 +181,38 @@ export default function ChatbotGeneratorPage() {
     console.log("[PIPELINE:7a] chatbot-generator mounted | raw sessionStorage:", rawSS)
     const intent = consumePendingIntent("chatbot")
     console.log("[PIPELINE:7] consumePendingIntent return value:", JSON.stringify(intent))
+
+    // Resolve: prefer fresh intent from sessionStorage; fall back to module cache
+    // (handles AnimatePresence double-mount where second mount sees null sessionStorage)
+    const effective = intent ?? _mountIntentCache
+
     if (intent) {
-      // Cache the idea so markPendingIntentAutoGenerate can recover it if generate_chatbot
-      // fires after this intent has already been consumed (page already mounted).
+      // First mount: save to module cache in case of an immediate remount
+      _mountIntentCache = { idea: intent.idea, autoGenerate: intent.autoGenerate }
+      // Also cache so markPendingIntentAutoGenerate can recover it after generate_chatbot fires
       cacheConsumedIdea("chatbot", intent.idea)
-      if (intent.idea) {
-        if (intent.autoGenerate) {
+    } else if (_mountIntentCache) {
+      // Second mount: consumed from cache — clear so the next deliberate visit starts fresh
+      _mountIntentCache = null
+    }
+
+    if (effective) {
+      if (effective.idea) {
+        if (effective.autoGenerate) {
           // Direct set — no typewriter needed when we're about to generate
-          console.log("[PIPELINE:8] calling setBusinessDesc (autoGenerate) | value:", JSON.stringify(intent.idea))
-          setBusinessDesc(intent.idea)
+          console.log("[PIPELINE:8] calling setBusinessDesc (autoGenerate) | value:", JSON.stringify(effective.idea))
+          setBusinessDesc(effective.idea)
           setContextBanner(true)
         } else {
-          console.log("[PIPELINE:8] calling typewriterPopulate | value:", JSON.stringify(intent.idea))
-          typewriterPopulate(intent.idea)
+          console.log("[PIPELINE:8] calling typewriterPopulate | value:", JSON.stringify(effective.idea))
+          typewriterPopulate(effective.idea)
         }
       } else {
         console.log("[PIPELINE:8] intent.idea is EMPTY — no setBusinessDesc call")
       }
-      if (intent.autoGenerate) {
+      if (effective.autoGenerate) {
         setTimeout(() => {
-          const desc = intent.idea || businessDescRef.current
+          const desc = effective.idea || businessDescRef.current
           if (desc.trim()) {
             generateWith(desc, chatbotTypeRef.current, industryRef.current, toneRef.current)
           }
