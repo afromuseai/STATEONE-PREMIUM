@@ -403,9 +403,69 @@ function renderHero(
 
   const socialProofLine = hero?.socialProof ? `<p class="reveal delay-5" style="font-size:13px;color:var(--tm);font-weight:500;margin-top:16px;">✦ ${esc(hero.socialProof)}</p>` : ""
 
-  // ── SPLIT LAYOUT (Premium SaaS, Enterprise Minimal, Clean Pro) ──────────────
+  // ── SPLIT LAYOUT ─────────────────────────────────────────────────────────────
+  // Premium SaaS: gradient bg + image right + floating status card
+  // Enterprise Minimal: white/dark bg + image right + no card, corporate clean
+  // Clean Pro: reverse split — image LEFT, text right, angle divider
   if (layout === "split") {
-    const heroBg = isLight(c.background)
+    // ─ Enterprise Minimal ─────────────────────────────────────────────────────
+    if (variant === "Enterprise Minimal") {
+      return `
+<section style="background:var(--bg);padding:clamp(80px,9vw,110px) clamp(20px,4vw,48px) clamp(60px,7vw,80px);border-bottom:1px solid ${lightBg ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.06)"};">
+  <div style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:55% 45%;gap:clamp(40px,5vw,72px);align-items:center;" class="hero-grid">
+    <div>
+      ${badge}
+      ${headline}
+      ${sub}
+      ${ctas}
+      ${statsRow}
+      ${trustedRow}
+    </div>
+    <div class="reveal delay-2 hero-img-col" style="position:relative;">
+      <div style="border-radius:4px;overflow:hidden;border:1px solid ${lightBg ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.08)"};">
+        <img src="${imgUrl}" alt="${esc(brand.name)}" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:auto;display:block;aspect-ratio:4/3;object-fit:cover;filter:${lightBg ? "none" : "brightness(0.85)"};">
+      </div>
+      ${stats.length > 0 ? `
+      <div style="position:absolute;bottom:-1px;left:0;right:0;display:flex;justify-content:space-around;background:${lightBg ? "#fff" : c.background};border-top:1px solid ${lightBg ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)"};padding:18px 20px;">
+        ${stats.slice(0, 3).map((s, i) => `
+          <div style="text-align:center;${i > 0 ? `border-left:1px solid ${lightBg ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)"};padding-left:20px;` : ""}flex:1;">
+            <div style="font-family:var(--hf);font-size:clamp(18px,2.2vw,26px);font-weight:900;color:var(--p);line-height:1;">${esc(s.value)}</div>
+            <div style="font-size:11px;color:var(--tm);margin-top:3px;">${esc(s.label)}</div>
+          </div>`).join("")}
+      </div>` : ""}
+    </div>
+  </div>
+</section>`
+    }
+
+    // ─ Clean Pro: image LEFT, text RIGHT, diagonal accent ────────────────────
+    if (variant === "Clean Pro") {
+      const heroBg = lightBg ? "#fff" : "var(--bg)"
+      return `
+<section style="background:${heroBg};padding:clamp(72px,8vw,100px) clamp(20px,4vw,48px) clamp(60px,7vw,80px);overflow:hidden;position:relative;">
+  <div style="position:absolute;top:0;right:0;width:45%;height:100%;background:${c.primary}07;clip-path:polygon(8% 0,100% 0,100% 100%,0% 100%);pointer-events:none;"></div>
+  <div style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,5vw,80px);align-items:center;" class="hero-grid">
+    <div class="reveal hero-img-col" style="position:relative;order:-1;">
+      <div style="position:relative;border-radius:var(--radius-lg);overflow:hidden;box-shadow:${lightBg ? "var(--shadow-lg)" : "0 24px 80px rgba(0,0,0,0.5)"};transform:perspective(1000px) rotateY(3deg);">
+        <img src="${imgUrl}" alt="${esc(brand.name)}" loading="lazy" onerror="this.style.display='none'" style="width:100%;height:auto;display:block;aspect-ratio:4/3;object-fit:cover;">
+        <div style="position:absolute;inset:0;background:linear-gradient(135deg,${c.primary}20,transparent 50%);"></div>
+      </div>
+    </div>
+    <div>
+      ${badge}
+      ${headline}
+      ${sub}
+      ${ctas}
+      ${statsRow}
+      ${trustedRow}
+      ${socialProofLine}
+    </div>
+  </div>
+</section>`
+    }
+
+    // ─ Premium SaaS (default split): gradient bg + floating card ─────────────
+    const heroBg = lightBg
       ? `linear-gradient(160deg, ${c.primary}08 0%, ${c.secondary}05 50%, #f8fafc 100%)`
       : `radial-gradient(ellipse 80% 60% at 30% 30%, ${c.primary}15, transparent 70%)`
 
@@ -437,7 +497,7 @@ function renderHero(
           </div>
         </div>
       </div>
-      <div style="position:absolute;top:-16px;right:-16px;width:80px;height:80px;border-radius:50%;background:${c.primary}25;blur:blur(24px);pointer-events:none;"></div>
+      <div style="position:absolute;top:-16px;right:-16px;width:80px;height:80px;border-radius:50%;background:${c.primary}25;pointer-events:none;"></div>
     </div>
   </div>
 </section>`

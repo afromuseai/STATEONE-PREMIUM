@@ -267,12 +267,18 @@ const VARIANT_INDUSTRY_POOLS: Record<string, string[]> = {
 
 function selectDesignVariant(industry: string, idea: string, seedOffset = 0): string {
   const pool = VARIANT_INDUSTRY_POOLS[industry] ?? Object.keys(DESIGN_VARIANTS);
+  // idea hash — consistent base for a given business
   let hash = 5381;
   for (let i = 0; i < idea.length; i++) {
     hash = ((hash << 5) + hash + idea.charCodeAt(i)) & 0x7fffffff;
   }
-  // seedOffset forces a different variant each time the user regenerates
-  return pool[(hash + seedOffset) % pool.length];
+  // Add real time-based entropy so repeated generations cycle through all variants,
+  // even when the client sends seedOffset=0 (e.g. after page refresh / component remount).
+  // Dividing by 8000ms means the slot changes every 8 seconds — different enough that
+  // rapid back-to-back regenerations still get a fresh variant.
+  const timeSlot = Math.floor(Date.now() / 8000);
+  const idx = (hash + seedOffset + timeSlot) % pool.length;
+  return pool[idx];
 }
 
 // ─── Orchestration Layer System Prompt (Qwen — strategy + creative direction) ─

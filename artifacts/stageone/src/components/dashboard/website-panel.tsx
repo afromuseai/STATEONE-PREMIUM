@@ -375,6 +375,9 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
   )
 }
 
+// ─── Global variant seed (persists across component remounts / project switches) ─
+let _globalVariantSeed = 0
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export function WebsitePanel({ businessIdea, businessIntelligence, projectId, existingOutput, onSaved, autoGenerate }: WebsitePanelProps) {
@@ -395,8 +398,9 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
   const [phase, setPhase] = useState<"architect" | "generating" | "streaming">("architect")
   const [detectedIndustry, setDetectedIndustry] = useState<string>("")
 
-  // Variant seed: increments on each full regeneration to force a different hero type
-  const variantSeedRef = useRef(0)
+  // Variant seed: module-level so it persists across component remounts / project switches
+  // Each generation gets a unique seed regardless of how many times the component mounts
+  const variantSeedRef = useRef(_globalVariantSeed)
 
   // Section regen
   const [regenningSection, setRegenningSection] = useState<string | null>(null)
@@ -449,7 +453,8 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
     const ideaToUse = businessIdea || businessIntelligence?.businessSnapshot || "innovative tech startup"
 
     try {
-      const currentVariantSeed = variantSeedRef.current++
+      const currentVariantSeed = _globalVariantSeed++
+      variantSeedRef.current = _globalVariantSeed
       const response = await fetch("/api/generate/website", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
