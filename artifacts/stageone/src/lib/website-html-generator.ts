@@ -39,6 +39,16 @@ export interface WebsiteOutput {
   }
 }
 
+// ─── Light background detection ────────────────────────────────────────────────
+function isLightBg(hex: string): boolean {
+  const clean = (hex ?? "#000").replace("#", "").toLowerCase()
+  if (clean.length < 6) return false
+  const r = parseInt(clean.slice(0, 2), 16)
+  const g = parseInt(clean.slice(2, 4), 16)
+  const b = parseInt(clean.slice(4, 6), 16)
+  return (r * 0.299 + g * 0.587 + b * 0.114) > 180
+}
+
 // ─── Variant Configuration ─────────────────────────────────────────────────────
 interface VariantConfig {
   heroLayout: "split" | "centered" | "fullscreen" | "editorial" | "cinematic" | "glass"
@@ -262,6 +272,34 @@ body{background:linear-gradient(135deg,#0f0c29,#302b63,#24243e)!important;backgr
 .var-section-title{letter-spacing:.1em!important;text-transform:uppercase!important;font-weight:900!important}
 section+section{border-top:1px solid rgba(255,255,255,0.06)!important}
 nav{border-bottom:1px solid rgba(255,255,255,0.06)!important}
+`,
+  },
+  "Clean Pro": {
+    heroLayout: "split",
+    cardStyle: "solid",
+    cornerRadius: "16px",
+    sectionPadding: "clamp(80px,10vw,130px)",
+    showHeroImage: true,
+    showHeroBadge: true,
+    showHeroStats: true,
+    gridOverlay: false,
+    glassCards: false,
+    seriffHeadings: false,
+    brutalistBorders: false,
+    cinematicSpacing: false,
+    navMinimal: false,
+    ctaStyle: "glow",
+    extraCss: `
+body{background:#fff!important;color:#0f172a!important}
+.var-nav{background:#fff!important;border-bottom:1px solid rgba(0,0,0,0.07)!important;box-shadow:0 1px 4px rgba(0,0,0,0.04)!important}
+.var-hero-bg{background:linear-gradient(160deg,#f5f3ff 0%,#eff6ff 60%,#f0fdf4 100%)!important}
+.var-card{background:#fff!important;border:1px solid rgba(0,0,0,0.07)!important;border-radius:16px!important;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 4px 16px rgba(0,0,0,0.06)!important}
+.var-card:hover{border-color:var(--p)30!important;box-shadow:0 4px 16px rgba(0,0,0,0.08),0 16px 48px rgba(0,0,0,0.1),0 0 0 1px var(--p)12!important;transform:translateY(-4px)!important}
+.var-cta-btn{background:var(--p)!important;color:#fff!important;border-radius:10px!important;box-shadow:0 4px 20px var(--p)40,0 1px 3px rgba(0,0,0,0.15)!important}
+.var-cta-btn:hover{box-shadow:0 8px 32px var(--p)55!important;transform:translateY(-2px)!important;opacity:1!important}
+.var-badge{background:var(--p)10!important;border:1px solid var(--p)30!important;color:var(--p)!important;border-radius:100px!important}
+.var-stat-val{color:var(--p)!important}
+.var-section-title{color:#0f172a!important}
 `,
   },
 }
@@ -537,7 +575,7 @@ function navHtml(
   const links = (nav?.links ?? []).slice(0, 5).map(l =>
     `<a href="#" style="color:var(--tm);font-size:14px;font-weight:500;transition:color .2s;white-space:nowrap" onmouseover="this.style.color='var(--tx)'" onmouseout="this.style.color='var(--tm)'">${e(l)}</a>`
   ).join("")
-  const isLight = c.background === "#ffffff" || c.background === "#fafafa" || c.background === "#f8f9fa"
+  const isLight = isLightBg(c.background)
 
   if (vc.navMinimal) {
     return `
@@ -575,7 +613,7 @@ function heroHtml(
   variantSeed = 0,
   aiHeroImage: string | null = null
 ): string {
-  const isLight = c.background === "#ffffff" || c.background === "#fafafa" || c.background === "#f8f9fa"
+  const isLight = isLightBg(c.background)
   const stats = vc.showHeroStats ? (hero?.stats ?? []) : []
   const trustedBy = hero?.trustedBy ?? []
 
@@ -806,7 +844,7 @@ ${trustedBy.length > 0 && stats.length > 0 ? `
 // ─── How It Works ──────────────────────────────────────────────────────────────
 function howItWorksHtml(hiw: WebsiteOutput["sections"]["howItWorks"], c: WebsiteOutput["colorPalette"]): string {
   if (!hiw?.steps?.length) return ""
-  const isLight = c.background === "#ffffff" || c.background === "#fafafa" || c.background === "#f8f9fa"
+  const isLight = isLightBg(c.background)
   const altBg = isLight ? "#f8f9fa" : c.surface
   const steps = hiw.steps.map((s, i) => `
   <div class="animate-fadeUp d${Math.min(i + 2, 6)}" style="position:relative;flex:1;min-width:220px;text-align:center;padding:0 16px">
@@ -839,7 +877,7 @@ function featuresHtml(
   c: WebsiteOutput["colorPalette"],
   vc: VariantConfig
 ): string {
-  const isLight = c.background === "#ffffff" || c.background === "#fafafa" || c.background === "#f8f9fa"
+  const isLight = isLightBg(c.background)
 
   const items = (features?.items ?? []).map((f, i) => {
     if (vc.glassCards) {
@@ -887,7 +925,7 @@ function testimonialsHtml(
   c: WebsiteOutput["colorPalette"],
   vc: VariantConfig
 ): string {
-  const isLight = c.background === "#ffffff" || c.background === "#fafafa" || c.background === "#f8f9fa"
+  const isLight = isLightBg(c.background)
   const altBg = isLight ? "#f1f3f5" : (vc.glassCards ? "transparent" : "#050505")
   const stars = Array(5).fill(`${icon("Star", c.primary)}`).join("")
 
@@ -949,7 +987,7 @@ function testimonialsHtml(
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 function pricingHtml(pricing: WebsiteOutput["sections"]["pricing"], c: WebsiteOutput["colorPalette"], vc: VariantConfig): string {
-  const isLight = c.background === "#ffffff" || c.background === "#fafafa" || c.background === "#f8f9fa"
+  const isLight = isLightBg(c.background)
   const tiers = (pricing?.tiers ?? []).map((t, i) => {
     const cardBg = vc.glassCards
       ? (t.highlighted ? `rgba(255,255,255,0.12)` : `rgba(255,255,255,0.06)`)
@@ -997,7 +1035,7 @@ function pricingHtml(pricing: WebsiteOutput["sections"]["pricing"], c: WebsiteOu
 
 // ─── CTA ──────────────────────────────────────────────────────────────────────
 function ctaHtml(cta: WebsiteOutput["sections"]["cta"], c: WebsiteOutput["colorPalette"], vc: VariantConfig): string {
-  const isLight = c.background === "#ffffff" || c.background === "#fafafa" || c.background === "#f8f9fa"
+  const isLight = isLightBg(c.background)
 
   if (vc.ctaStyle === "brutalist") {
     return `
@@ -1068,7 +1106,7 @@ function ctaHtml(cta: WebsiteOutput["sections"]["cta"], c: WebsiteOutput["colorP
 
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 function faqHtml(faq: WebsiteOutput["sections"]["faq"], c: WebsiteOutput["colorPalette"], vc: VariantConfig): string {
-  const isLight = c.background === "#ffffff" || c.background === "#fafafa" || c.background === "#f8f9fa"
+  const isLight = isLightBg(c.background)
   const altBg = isLight ? "#f1f3f5" : (vc.glassCards ? "transparent" : "#040404")
   const items = (faq?.items ?? []).map((item, i) => `
   <details class="animate-fadeUp d${Math.min(i + 1, 5)}" style="border-radius:${vc.cornerRadius};border:${vc.brutalistBorders ? "3px solid var(--tx)" : `1px solid ${isLight ? "rgba(0,0,0,0.08)" : "var(--br)"}`};overflow:hidden;transition:all .2s;background:${vc.glassCards ? "rgba(255,255,255,0.06)" : isLight ? "#fff" : c.surface}${vc.glassCards ? ";backdrop-filter:blur(16px)" : ""}" onmouseover="this.style.borderColor='${c.primary}'" onmouseout="this.style.borderColor='${vc.brutalistBorders ? "var(--tx)" : isLight ? "rgba(0,0,0,0.08)" : "var(--br)"}'">
@@ -1089,7 +1127,7 @@ function faqHtml(faq: WebsiteOutput["sections"]["faq"], c: WebsiteOutput["colorP
 
 // ─── Footer ───────────────────────────────────────────────────────────────────
 function footerHtml(footer: WebsiteOutput["sections"]["footer"], brand: WebsiteOutput["brand"], c: WebsiteOutput["colorPalette"], vc: VariantConfig): string {
-  const isLight = c.background === "#ffffff" || c.background === "#fafafa" || c.background === "#f8f9fa"
+  const isLight = isLightBg(c.background)
   const cols = (footer?.columns ?? []).map(col => `
   <div>
     <div style="font-size:12px;font-weight:700;color:var(--tx);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:18px">${e(col.title)}</div>

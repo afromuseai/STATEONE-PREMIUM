@@ -242,18 +242,26 @@ const DESIGN_VARIANTS: Record<string, {
     componentStyle: "Minimal decoration. Wide padding (section height 100vh for hero). Image overlays with gradient. No floating badges. Horizontal rules as dividers.",
     promptInstructions: "Design variant: CINEMATIC DARK. Think film studio, documentary brand, high-end creative agency. Hero is a full-screen declaration. No stats in hero — let the copy breathe. Testimonials feel like reviews in a film magazine. CTA is an invitation, not a demand.",
   },
+  "Clean Pro": {
+    description: "Modern clean SaaS — white background, bold accent color, card-based layout, Stripe/Linear/Vercel aesthetic, conversion-optimized",
+    heroLayout: "split-product",
+    colorConstraints: "Background MUST be #ffffff (pure white). Primary must be a bold vivid accent: violet #6366f1, indigo #4f46e5, blue #2563eb, teal #0d9488, or emerald #059669. Surface must be #f8fafc or #f1f5f9. Text must be near-black #0f172a or #111827. TextMuted must be #64748b or #6b7280. Border: rgba(0,0,0,0.08). NO dark backgrounds.",
+    typographyConstraints: "Use Inter or DM Sans. Tight tracking (-0.02em). Font weight 700-800 for headings. 18px body text. Subtitle in textMuted. Clean modern hierarchy.",
+    componentStyle: "Rounded corners 12-16px. Card box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06). Icon containers use primary at 10% opacity background. CTA buttons use solid primary color. Section backgrounds alternate: white → #f8fafc → white.",
+    promptInstructions: "Design variant: CLEAN PRO. Think Stripe, Linear, Vercel, Loom, Notion. WHITE background is mandatory — this is a light-mode professional SaaS website. Bold single accent color (indigo/violet/blue). Hero has product dashboard screenshot from Unsplash. Stats row below hero copy. Feature cards have icon + title + description. 3-tier pricing with highlighted 'Most Popular'. CTA section is a rounded card with primary gradient. Professional, polished, instantly trustworthy.",
+  },
 };
 
 const VARIANT_INDUSTRY_POOLS: Record<string, string[]> = {
-  "Cybersecurity":    ["Futuristic", "Enterprise Minimal", "Premium SaaS", "Cinematic Dark", "Bold Brutalist"],
-  "Fintech":          ["Premium SaaS", "Enterprise Minimal", "Glassmorphism", "Futuristic", "Cinematic Dark"],
-  "SaaS":             ["Premium SaaS", "Startup Modern", "Futuristic", "Glassmorphism", "Bold Brutalist", "Cinematic Dark"],
-  "Healthcare":       ["Enterprise Minimal", "Glassmorphism", "Premium SaaS", "Cinematic Dark"],
-  "Education":        ["Startup Modern", "Bold Brutalist", "Glassmorphism", "Futuristic", "Premium SaaS"],
-  "Marketplace":      ["Startup Modern", "Glassmorphism", "Bold Brutalist", "Futuristic", "Cinematic Dark"],
-  "Agency":           ["Luxury Editorial", "Bold Brutalist", "Cinematic Dark", "Glassmorphism", "Premium SaaS"],
+  "Cybersecurity":    ["Futuristic", "Enterprise Minimal", "Premium SaaS", "Clean Pro", "Cinematic Dark"],
+  "Fintech":          ["Clean Pro", "Enterprise Minimal", "Premium SaaS", "Glassmorphism", "Futuristic"],
+  "SaaS":             ["Clean Pro", "Enterprise Minimal", "Premium SaaS", "Startup Modern", "Glassmorphism", "Futuristic"],
+  "Healthcare":       ["Enterprise Minimal", "Clean Pro", "Glassmorphism", "Premium SaaS"],
+  "Education":        ["Clean Pro", "Startup Modern", "Glassmorphism", "Enterprise Minimal", "Futuristic"],
+  "Marketplace":      ["Startup Modern", "Glassmorphism", "Clean Pro", "Bold Brutalist", "Futuristic"],
+  "Agency":           ["Luxury Editorial", "Bold Brutalist", "Cinematic Dark", "Glassmorphism", "Clean Pro"],
   "Luxury":           ["Luxury Editorial", "Cinematic Dark", "Glassmorphism", "Enterprise Minimal"],
-  "E-commerce":       ["Bold Brutalist", "Startup Modern", "Glassmorphism", "Cinematic Dark", "Futuristic"],
+  "E-commerce":       ["Bold Brutalist", "Startup Modern", "Glassmorphism", "Clean Pro", "Futuristic"],
   "Creator Economy":  ["Bold Brutalist", "Glassmorphism", "Cinematic Dark", "Startup Modern", "Futuristic"],
 };
 
