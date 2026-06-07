@@ -548,11 +548,12 @@ export function CopilotPanel() {
   // WORKSPACE CMD — Marcus execution commands: open tabs, populate forms, trigger generation
   const handleWorkspaceCmdAction = useCallback((command: string, payload: string) => {
     if (command === "chatbot") {
-      // Do NOT write an empty PendingIntent here — the empty write gets consumed
-      // by the page's mount effect before the idea tag arrives in the next chunk.
-      // Navigation is deferred to the idea command so the page only mounts once
-      // the real intent is already in sessionStorage.
-      if (location !== "/chatbot-generator") navigate("/chatbot-generator")
+      // Navigation is deferred entirely to the idea command.
+      // If chatbot navigates here, the page mounts before the idea tag completes
+      // (it is a long tag that spans many streaming chunks). consumePendingIntent
+      // then returns null on mount and the idea is lost — same-route navigation
+      // from idea does not remount the component or re-run the mount effect.
+      // Intentional no-op: idea always follows and will navigate.
     } else if (command === "idea") {
       const idea = payload.trim()
       if (!idea) return
