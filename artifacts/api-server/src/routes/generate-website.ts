@@ -465,8 +465,9 @@ async function streamNvidiaRequest(
       max_tokens: maxTokens,
       stream: true,
     };
-    // Qwen3.5 is a thinking model by default — disable thinking for structured JSON output
-    if (modelId.includes("qwen")) body.chat_template_kwargs = { enable_thinking: false };
+    // Thinking models output to delta.reasoning_content by default — disable thinking
+    // so structured JSON goes to delta.content where the parser expects it
+    if (modelId.includes("qwen") || modelId.includes("step")) body.chat_template_kwargs = { enable_thinking: false };
     return JSON.stringify(body);
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };
@@ -545,7 +546,7 @@ async function callModelJson(
       max_tokens: maxTokens,
       stream: false,
     };
-    if (modelId.includes("qwen")) body.chat_template_kwargs = { enable_thinking: false };
+    if (modelId.includes("qwen") || modelId.includes("step")) body.chat_template_kwargs = { enable_thinking: false };
     return JSON.stringify(body);
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };
