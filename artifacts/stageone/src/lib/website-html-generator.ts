@@ -642,27 +642,45 @@ function heroHtml(
 
   // ── Centered hero (Startup Modern) ──
   if (vc.heroLayout === "centered") {
+    const dashStats = stats.length > 0 ? stats : [{ value: "10x", label: "Faster" }, { value: "99%", label: "Uptime" }, { value: "$0", label: "Setup fee" }]
     return `
-<section class="var-hero-bg" style="position:relative;padding:clamp(80px,10vw,130px) max(24px,5vw);overflow:hidden;background:var(--bg);text-align:center">
+<section class="var-hero-bg" style="position:relative;padding:clamp(72px,9vw,120px) max(24px,5vw) 0;overflow:hidden;background:var(--bg);text-align:center">
   ${vc.gridOverlay ? `<div class="grid-overlay"></div>` : ""}
-  <div style="position:relative;max-width:900px;margin:0 auto">
+  <div style="position:relative;max-width:860px;margin:0 auto">
     ${badgeHtml}
     <div class="var-hero-text">
-      <h1 class="animate-fadeUp d1" style="font-size:clamp(40px,6vw,80px);color:var(--tx);margin-bottom:24px;line-height:1.04">${e(hero?.headline ?? "")}</h1>
+      <h1 class="animate-fadeUp d1" style="font-size:clamp(38px,6vw,78px);color:var(--tx);margin-bottom:22px;line-height:1.04">${e(hero?.headline ?? "")}</h1>
     </div>
-    <p class="animate-fadeUp d2 var-hero-sub" style="font-size:clamp(16px,1.8vw,20px);line-height:1.7;color:var(--tm);max-width:560px;margin:0 auto 44px">
+    <p class="animate-fadeUp d2 var-hero-sub" style="font-size:clamp(16px,1.8vw,20px);line-height:1.7;color:var(--tm);max-width:520px;margin:0 auto 36px">
       ${e(hero?.subheadline ?? "")}
     </p>
-    <div class="animate-fadeUp d3" style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center">
-      <button class="var-cta-btn" style="display:inline-flex;align-items:center;gap:8px;padding:17px 40px;border-radius:16px;background:var(--p);color:${isLight ? "#fff" : c.background};font-weight:700;font-size:17px;box-shadow:0 4px 40px ${c.primary}50">
+    <div class="animate-fadeUp d3" style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:56px">
+      <button class="var-cta-btn" style="display:inline-flex;align-items:center;gap:8px;padding:16px 36px;border-radius:16px;background:var(--p);color:${isLight ? "#fff" : c.background};font-weight:700;font-size:16px;box-shadow:0 4px 40px ${c.primary}50">
         ${e(hero?.ctaPrimary ?? "Get Started")} ${icon("ArrowRight", isLight ? "#fff" : c.background)}
       </button>
-      <button style="display:inline-flex;align-items:center;gap:8px;padding:17px 32px;border-radius:16px;background:transparent;color:var(--tx);font-weight:600;font-size:16px;border:1.5px solid ${isLight ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.15)"}">
+      <button style="display:inline-flex;align-items:center;gap:8px;padding:16px 28px;border-radius:16px;background:transparent;color:var(--tx);font-weight:600;font-size:15px;border:1.5px solid ${isLight ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.15)"}">
         ${icon("Play", c.primary)} ${e(hero?.ctaSecondary ?? "Watch Demo")}
       </button>
     </div>
-    ${stats.length > 0 ? `<div class="var-hero-stats animate-fadeUp d5">${stats.map(s => `<div><div class="var-stat-val" style="font-family:var(--hf);font-size:clamp(32px,4vw,52px);font-weight:900;color:var(--p);line-height:1;margin-bottom:6px">${e(s.value)}</div><div style="font-size:12px;color:var(--tm);font-weight:500;letter-spacing:.2px">${e(s.label)}</div></div>`).join("")}</div>` : ""}
     ${trustedHtml}
+  </div>
+  <div class="animate-fadeUp d5" style="position:relative;max-width:900px;margin:0 auto;margin-top:${trustedBy.length ? "40px" : "0"}">
+    <div style="border-radius:20px 20px 0 0;overflow:hidden;background:${isLight ? "#fff" : "#111"};border:1px solid ${isLight ? "rgba(0,0,0,0.09)" : "rgba(255,255,255,0.09)"};border-bottom:none;box-shadow:0 -16px 80px rgba(0,0,0,${isLight ? "0.08" : "0.5"})">
+      <div style="padding:10px 16px;background:${isLight ? "#f4f4f5" : "#0a0a0a"};display:flex;align-items:center;gap:6px;border-bottom:1px solid ${isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)"}">
+        ${["#ff5f57","#ffbd2e","#28ca41"].map(col => `<div style="width:9px;height:9px;border-radius:50%;background:${col}"></div>`).join("")}
+        <div style="flex:1;height:18px;border-radius:3px;background:${isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"};margin:0 12px"></div>
+      </div>
+      <div style="padding:20px 24px;display:grid;grid-template-columns:repeat(${Math.min(dashStats.length, 4)},1fr);gap:12px">
+        ${dashStats.slice(0, 4).map((s, i) => `
+        <div style="padding:18px 20px;border-radius:12px;background:${i === 0 ? c.primary : (isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.04)")};border:1px solid ${i === 0 ? "transparent" : (isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)")}">
+          <div style="font-family:var(--hf);font-size:clamp(20px,2.5vw,30px);font-weight:900;color:${i === 0 ? (isLight ? "#fff" : c.background) : "var(--tx)"};line-height:1;margin-bottom:4px">${e(s.value)}</div>
+          <div style="font-size:11px;color:${i === 0 ? (isLight ? "rgba(255,255,255,0.7)" : `${c.background}99`) : "var(--tm)"};font-weight:500;letter-spacing:.2px">${e(s.label)}</div>
+        </div>`).join("")}
+      </div>
+      <div style="padding:0 24px 20px;display:flex;flex-direction:column;gap:8px">
+        ${[0.72, 0.88, 0.55].map(w => `<div style="height:7px;border-radius:4px;background:${isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"};width:${w * 100}%"></div>`).join("")}
+      </div>
+    </div>
   </div>
 </section>`
   }
@@ -693,8 +711,8 @@ function heroHtml(
 </section>`
   }
 
-  // ── Fullscreen hero (Futuristic, Bold Brutalist) ──
-  if (vc.heroLayout === "fullscreen") {
+  // ── Fullscreen hero (Futuristic) ──
+  if (vc.heroLayout === "fullscreen" && !vc.brutalistBorders) {
     return `
 <section class="var-hero-bg" style="position:relative;min-height:92vh;display:flex;align-items:center;padding:clamp(60px,8vw,100px) max(24px,5vw);overflow:hidden;background:var(--bg)">
   ${vc.gridOverlay ? `<div class="grid-overlay"></div>` : ""}
@@ -720,6 +738,42 @@ function heroHtml(
     ${!stats.length && trustedHtml ? trustedHtml : ""}
   </div>
 </section>`
+  }
+
+  // ── Bold Brutalist hero ──
+  if (vc.heroLayout === "fullscreen" && vc.brutalistBorders) {
+    const tickerItems = stats.length > 0
+      ? stats.map(s => `${e(s.value)} ${e(s.label)}`).join(" ✦ ")
+      : `${e(hero?.socialProof ?? "")} ✦ No setup fee ✦ Cancel anytime ✦ Start free`
+    return `
+<section class="var-hero-bg" style="position:relative;min-height:94vh;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;background:var(--bg)">
+  <div style="position:relative;max-width:1200px;margin:0 auto;width:100%;padding:clamp(64px,8vw,100px) max(24px,5vw) clamp(32px,4vw,56px)">
+    <div style="width:clamp(32px,3vw,48px);height:3px;background:var(--p);margin-bottom:clamp(20px,2.5vw,36px)"></div>
+    <div class="var-hero-text">
+      <h1 class="animate-fadeUp d1" style="font-size:clamp(60px,11vw,160px);color:var(--tx);line-height:.88;letter-spacing:-.04em;text-transform:uppercase;font-weight:900;margin-bottom:clamp(24px,3vw,44px);max-width:100%">
+        ${e(hero?.headline ?? "")}
+      </h1>
+    </div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;border-top:2px solid var(--tx);padding-top:clamp(20px,2.5vw,32px)">
+      <p class="animate-fadeUp d2" style="font-size:clamp(14px,1.5vw,18px);color:var(--tm);max-width:400px;line-height:1.65">${e(hero?.subheadline ?? "")}</p>
+      <div class="animate-fadeUp d3" style="display:flex;gap:16px;align-items:center;flex-shrink:0;flex-wrap:wrap">
+        <button class="var-cta-btn" style="padding:16px 40px;font-weight:900;font-size:16px;letter-spacing:.02em;text-transform:uppercase">
+          ${e(hero?.ctaPrimary ?? "Get Started")}
+        </button>
+        ${hero?.ctaSecondary ? `<span style="font-size:13px;color:var(--tm);letter-spacing:.06em;text-transform:uppercase">${e(hero.ctaSecondary)}</span>` : ""}
+      </div>
+    </div>
+  </div>
+  <div style="width:100%;overflow:hidden;border-top:2px solid var(--tx);background:var(--p);padding:14px 0">
+    <div style="display:flex;gap:0;white-space:nowrap">
+      <span style="display:inline-flex;gap:40px;animation:brutalistTicker 24s linear infinite;font-family:var(--hf);font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:${isLight ? "#fff" : c.background}">
+        <span>${tickerItems} ✦ ${tickerItems}</span>
+        <span aria-hidden="true">${tickerItems} ✦ ${tickerItems}</span>
+      </span>
+    </div>
+  </div>
+</section>
+<style>@keyframes brutalistTicker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}</style>`
   }
 
   // ── Cinematic hero ──
@@ -872,12 +926,152 @@ function howItWorksHtml(hiw: WebsiteOutput["sections"]["howItWorks"], c: Website
 </section>`
 }
 
-// ─── Features ─────────────────────────────────────────────────────────────────
-function featuresHtml(
+// ─── Features: Brutalist Numbered List ────────────────────────────────────────
+function featuresHtmlBrutalist(
   features: WebsiteOutput["sections"]["features"],
   c: WebsiteOutput["colorPalette"],
   vc: VariantConfig
 ): string {
+  const items = features?.items ?? []
+  return `
+<section id="features" style="padding:${vc.sectionPadding} max(24px,5vw);background:var(--bg)">
+  <div style="max-width:1100px;margin:0 auto">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:32px;padding-bottom:32px;border-bottom:3px solid var(--tx)">
+      <h2 class="var-section-title animate-fadeUp" style="font-size:clamp(36px,6vw,80px);color:var(--tx);text-transform:uppercase;letter-spacing:-.02em;line-height:.95;flex:1;max-width:600px">${e(features?.title ?? "")}</h2>
+      <span style="font-size:11px;color:var(--tm);letter-spacing:.2em;text-transform:uppercase;padding-bottom:6px;flex-shrink:0">${items.length} Capabilities</span>
+    </div>
+    ${items.map((f, i) => `
+    <div class="animate-fadeUp d${Math.min(i + 1, 6)}" style="display:grid;grid-template-columns:clamp(72px,8vw,104px) 1fr 36px;align-items:center;gap:clamp(16px,3vw,40px);padding:clamp(24px,3vw,36px) 0;border-bottom:1px solid rgba(127,127,127,0.18);transition:padding-left .2s ease" onmouseover="this.style.paddingLeft='12px'" onmouseout="this.style.paddingLeft='0'">
+      <div style="font-family:var(--hf);font-size:clamp(32px,4.5vw,58px);font-weight:900;line-height:1;color:var(--p);opacity:.55;font-variant-numeric:tabular-nums">${String(i + 1).padStart(2, "0")}</div>
+      <div>
+        <h3 style="font-size:clamp(15px,1.8vw,21px);font-weight:900;color:var(--tx);text-transform:uppercase;letter-spacing:-.01em;margin-bottom:7px">${e(f.title)}</h3>
+        <p style="font-size:14px;color:var(--tm);line-height:1.65;max-width:560px">${e(f.description)}</p>
+      </div>
+      <div style="font-size:22px;color:var(--p);opacity:.5;text-align:right">→</div>
+    </div>`).join("")}
+  </div>
+</section>`
+}
+
+// ─── Features: Bento Asymmetric Grid ──────────────────────────────────────────
+function featuresHtmlBento(
+  features: WebsiteOutput["sections"]["features"],
+  c: WebsiteOutput["colorPalette"],
+  vc: VariantConfig
+): string {
+  const items = features?.items ?? []
+  const isLight = isLightBg(c.background)
+  const bentoLayouts = [
+    { col: "1 / 3", row: "1 / 2", large: true },
+    { col: "3 / 4", row: "1 / 2", large: false },
+    { col: "1 / 2", row: "2 / 3", large: false },
+    { col: "2 / 4", row: "2 / 3", large: true },
+    { col: "1 / 3", row: "3 / 4", large: true },
+    { col: "3 / 4", row: "3 / 4", large: false },
+  ]
+  return `
+<section id="features" style="padding:${vc.sectionPadding} max(24px,5vw);background:var(--bg)">
+  <div style="max-width:1200px;margin:0 auto">
+    <div class="animate-fadeUp" style="margin-bottom:56px">
+      <h2 class="var-section-title" style="font-size:clamp(28px,4vw,52px);color:var(--tx);margin-bottom:12px">${e(features?.title ?? "")}</h2>
+      <p style="font-size:17px;color:var(--tm);line-height:1.65;max-width:460px">${e(features?.subtitle ?? "")}</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;auto-rows:minmax(160px,auto)">
+      ${items.slice(0, 6).map((f, i) => {
+        const layout = bentoLayouts[i] ?? { col: "auto", row: "auto", large: false }
+        const isLargeTile = layout.large
+        const cardBg = vc.glassCards
+          ? `rgba(255,255,255,0.06);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)`
+          : `${c.surface}`
+        const cardBorder = vc.glassCards
+          ? `1px solid rgba(255,255,255,0.1)`
+          : `1px solid ${isLight ? "rgba(0,0,0,0.08)" : "var(--br)"}`
+        return `
+      <div class="animate-fadeUp var-card d${Math.min(i + 1, 6)}" style="grid-column:${layout.col};grid-row:${layout.row};padding:${isLargeTile ? "36px 40px" : "24px 28px"};display:flex;flex-direction:column;justify-content:space-between;min-height:${isLargeTile ? "200px" : "158px"};background:${cardBg};border:${cardBorder};border-radius:${vc.cornerRadius || "14px"};transition:transform .25s ease,box-shadow .25s ease" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 16px 48px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+        <div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:${isLargeTile ? "48px" : "38px"};height:${isLargeTile ? "48px" : "38px"};border-radius:${isLargeTile ? "12px" : "9px"};background:${c.primary}20;border:1px solid ${c.primary}30;margin-bottom:${isLargeTile ? "18px" : "12px"}">${icon(f.icon, c.primary)}</div>
+          <h3 style="font-size:${isLargeTile ? "18px" : "14px"};font-weight:700;color:var(--tx);margin-bottom:${isLargeTile ? "9px" : "6px"};letter-spacing:-.2px">${e(f.title)}</h3>
+          <p style="font-size:${isLargeTile ? "14px" : "12.5px"};color:var(--tm);line-height:1.6${isLargeTile ? "" : ";display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"}">${e(f.description)}</p>
+        </div>
+        ${isLargeTile ? `<div style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--p);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-top:18px">Explore ${icon("ArrowRight", c.primary)}</div>` : ""}
+      </div>`
+      }).join("")}
+    </div>
+  </div>
+</section>`
+}
+
+// ─── Features: Alternating Image-Text Rows ─────────────────────────────────────
+function featuresHtmlAlternating(
+  features: WebsiteOutput["sections"]["features"],
+  c: WebsiteOutput["colorPalette"],
+  vc: VariantConfig
+): string {
+  const items = (features?.items ?? []).slice(0, 3)
+  const isLight = isLightBg(c.background)
+  return `
+<section id="features" style="padding:${vc.sectionPadding} max(24px,5vw);background:${isLight ? "#f8f9fb" : "var(--bg)"}">
+  <div style="max-width:1100px;margin:0 auto">
+    <div class="animate-fadeUp" style="text-align:center;margin-bottom:clamp(56px,7vw,88px)">
+      <h2 class="var-section-title" style="font-size:clamp(28px,4vw,52px);color:var(--tx);margin-bottom:16px">${e(features?.title ?? "")}</h2>
+      <p style="font-size:17px;color:var(--tm);line-height:1.65;max-width:480px;margin:0 auto">${e(features?.subtitle ?? "")}</p>
+    </div>
+    ${items.map((f, i) => `
+    <div class="animate-fadeUp d${i + 1}" style="display:flex;align-items:center;gap:clamp(40px,5vw,88px);margin-bottom:clamp(56px,7vw,96px);flex-direction:${i % 2 === 1 ? "row-reverse" : "row"}">
+      <div style="flex:1;min-width:0">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:100px;background:${c.primary}15;border:1px solid ${c.primary}30;margin-bottom:20px">
+          ${icon(f.icon, c.primary)}
+          <span style="font-size:11px;font-weight:700;color:${c.primary};letter-spacing:.8px;text-transform:uppercase">0${i + 1}</span>
+        </div>
+        <h3 style="font-size:clamp(20px,2.4vw,32px);font-weight:800;color:var(--tx);margin-bottom:14px;letter-spacing:-.03em;line-height:1.15">${e(f.title)}</h3>
+        <p style="font-size:16px;color:var(--tm);line-height:1.75;margin-bottom:28px;max-width:400px">${e(f.description)}</p>
+        <a href="#" style="display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:${c.primary};text-decoration:none">Learn more ${icon("ArrowRight", c.primary)}</a>
+      </div>
+      <div style="flex:1;min-width:0;border-radius:${vc.cornerRadius || "20px"};overflow:hidden;background:${isLight ? "#fff" : "#111"};border:1px solid ${isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.06)"};box-shadow:0 20px 60px rgba(0,0,0,${isLight ? "0.08" : "0.4"});aspect-ratio:3/2;position:relative;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 30%, ${c.primary}12, transparent)"></div>
+        <div style="position:relative;width:100%;padding:clamp(20px,3vw,32px)">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:14px">
+            ${["#ff5f57","#ffbd2e","#28ca41"].map(col => `<div style="width:7px;height:7px;border-radius:50%;background:${col}"></div>`).join("")}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:9px">
+              <div style="width:28px;height:28px;border-radius:7px;background:${c.primary}25;flex-shrink:0;border:1px solid ${c.primary}30"></div>
+              <div style="flex:1">
+                <div style="height:7px;border-radius:3px;background:${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)"};margin-bottom:5px;width:60%"></div>
+                <div style="height:5px;border-radius:3px;background:${isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)"};width:38%"></div>
+              </div>
+              <div style="padding:4px 9px;border-radius:4px;background:${c.primary}20;border:1px solid ${c.primary}30"><div style="height:5px;width:24px;border-radius:3px;background:${c.primary}60"></div></div>
+            </div>
+            ${[0.75, 0.55, 0.65].map(w => `<div style="height:7px;border-radius:3px;background:${isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"};width:${w * 100}%"></div>`).join("")}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+              <div style="height:48px;border-radius:8px;background:${c.primary}20;border:1px solid ${c.primary}30;display:flex;align-items:center;justify-content:center">
+                <div style="font-family:var(--hf);font-size:20px;font-weight:900;color:${c.primary}">↑</div>
+              </div>
+              <div style="height:48px;border-radius:8px;background:${isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.03)"};border:1px solid ${isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.06)"}"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`).join("")}
+  </div>
+</section>`
+}
+
+// ─── Features ─────────────────────────────────────────────────────────────────
+function featuresHtml(
+  features: WebsiteOutput["sections"]["features"],
+  c: WebsiteOutput["colorPalette"],
+  vc: VariantConfig,
+  _variant?: string
+): string {
+  // Bold Brutalist → numbered list
+  if (vc.brutalistBorders) return featuresHtmlBrutalist(features, c, vc)
+  // Futuristic + Startup Modern → bento grid
+  if (vc.heroLayout === "fullscreen" || vc.heroLayout === "centered") return featuresHtmlBento(features, c, vc)
+  // Split-hero variants (Premium SaaS, Enterprise Minimal, Clean Pro) → alternating image-text rows
+  if (vc.heroLayout === "split") return featuresHtmlAlternating(features, c, vc)
+
+  // Glass, Cinematic, Editorial → existing card grid layout
   const isLight = isLightBg(c.background)
 
   const items = (features?.items ?? []).map((f, i) => {
@@ -887,15 +1081,6 @@ function featuresHtml(
     <div style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:14px;background:${c.primary}25;margin-bottom:20px">${icon(f.icon, c.primary)}</div>
     <h3 style="font-size:17px;font-weight:700;color:var(--tx);margin-bottom:10px;letter-spacing:-.3px">${e(f.title)}</h3>
     <p style="font-size:14px;color:var(--tm);line-height:1.7">${e(f.description)}</p>
-  </div>`
-    }
-    if (vc.brutalistBorders) {
-      return `
-  <div class="animate-fadeUp var-card d${Math.min(i + 1, 6)}" style="padding:28px;cursor:default;position:relative">
-    <div style="font-family:var(--hf);font-size:48px;font-weight:900;color:var(--p);opacity:.15;position:absolute;top:16px;right:20px;line-height:1">${String(i + 1).padStart(2, "0")}</div>
-    <div style="margin-bottom:16px">${icon(f.icon, c.primary)}</div>
-    <h3 style="font-size:18px;font-weight:900;color:var(--tx);margin-bottom:10px;text-transform:uppercase;letter-spacing:-.01em">${e(f.title)}</h3>
-    <p style="font-size:14px;color:var(--tm);line-height:1.65">${e(f.description)}</p>
   </div>`
     }
     return `
@@ -915,7 +1100,7 @@ function featuresHtml(
       <h2 class="var-section-title" style="font-size:clamp(30px,4vw,54px);color:var(--tx);margin-bottom:16px">${e(features?.title ?? "")}</h2>
       <p style="font-size:18px;color:var(--tm);line-height:1.65">${e(features?.subtitle ?? "")}</p>
     </div>
-    <div class="feature-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:${vc.brutalistBorders ? "0" : "22px"}">${items}</div>
+    <div class="feature-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px">${items}</div>
   </div>
 </section>`
 }
@@ -1199,7 +1384,7 @@ ${vc.extraCss}
 ${navHtml(s.nav, c, brand, vc)}
 ${heroHtml(s.hero, c, style, brand.name, vc, variant, industry, variantSeed, heroImage)}
 ${howItWorksHtml(s.howItWorks, c)}
-${featuresHtml(s.features, c, vc)}
+${featuresHtml(s.features, c, vc, variant)}
 ${testimonialsHtml(s.testimonials, c, vc)}
 ${pricingHtml(s.pricing, c, vc)}
 ${ctaHtml(s.cta, c, vc)}

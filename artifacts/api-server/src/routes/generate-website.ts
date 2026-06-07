@@ -968,39 +968,19 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
     qwenData._industry = industry;
     qwenData._variantSeed = seedOffset;
 
-    // ─── Phase 2: Parallel — AI HTML generation + FLUX (hero image) ──────────
-    // AI generates a complete custom HTML/CSS website from scratch (no templates).
-    // Runs concurrently with FLUX image generation.
-    res.write(`data: ${JSON.stringify({ phase: "implementing", label: "Designing your website with AI..." })}\n\n`);
+    // ─── Phase 2: FLUX hero image ──────────────────────────────────────────────
+    // The design template engine (client-side) handles layout — no AI HTML needed.
+    // FLUX generates an industry-matched hero image when available on the account.
+    res.write(`data: ${JSON.stringify({ phase: "implementing", label: "Applying design system..." })}\n\n`);
     res.write(`data: ${JSON.stringify({ phase: "imaging", label: "Generating hero imagery..." })}\n\n`);
 
     const imagePrompt = buildImagePrompt(idea, industry, designVariant);
-    const [aiHtml, heroImage] = await Promise.all([
-      callModelJson(
-        IMPLEMENTATION_MODEL,
-        HTML_GENERATION_SYSTEM,
-        buildHtmlPrompt(qwenData, designVariant, idea.trim()),
-        16000, 0.78
-      ).then(raw => {
-        const html = extractHtml(raw);
-        if (html) {
-          req.log.info({ htmlLen: html.length }, "AI HTML generation complete");
-        } else {
-          req.log.warn({ rawLen: raw.length, snippet: raw.slice(0, 120) }, "AI HTML extraction failed — template fallback will be used");
-        }
-        return html;
-      }).catch(e => {
-        req.log.warn({ err: String(e) }, "AI HTML generation failed — template fallback will be used");
-        return null;
-      }),
-      generateHeroImage(imagePrompt),
-    ]);
-
-    // Merge Phase 1 + Phase 2 outputs into final data
-    if (aiHtml) qwenData.htmlCode = aiHtml;
+    const heroImage = await generateHeroImage(imagePrompt);
     if (heroImage) qwenData._heroImage = heroImage;
 
-    res.write(`data: ${JSON.stringify({ done: true, data: qwenData, pipeline: { orchestration: ORCHESTRATION_MODEL, implementation: IMPLEMENTATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage, htmlGenerated: !!aiHtml } })}\n\n`);
+    req.log.info({ designVariant, heroImageGenerated: !!heroImage }, "Website generation complete");
+
+    res.write(`data: ${JSON.stringify({ done: true, data: qwenData, pipeline: { orchestration: ORCHESTRATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage } })}\n\n`);
     res.end();
   } catch (error) {
     req.log.error({ error }, "Generate website error");

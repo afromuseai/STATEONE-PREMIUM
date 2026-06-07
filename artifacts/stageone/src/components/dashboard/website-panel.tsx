@@ -433,9 +433,6 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
 
   const previewHtml = useMemo(() => {
     if (!data) return ""
-    if (data.htmlCode && data.htmlCode.length > 500 && data.htmlCode.includes("</html>")) {
-      return data.htmlCode
-    }
     return buildPreviewHtml(data)
   }, [data])
 
