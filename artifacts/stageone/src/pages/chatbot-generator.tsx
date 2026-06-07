@@ -137,7 +137,7 @@ export default function ChatbotGeneratorPage() {
   const industryRef = useRef(industry)
   const toneRef = useRef(tone)
 
-  const { subscribeWorkspaceSignal, emit } = useWorkspaceController()
+  const { emit } = useWorkspaceController()
 
   // Keep refs in sync with state so signal callbacks always see current values
   useEffect(() => { businessDescRef.current = businessDesc }, [businessDesc])
@@ -163,18 +163,6 @@ export default function ChatbotGeneratorPage() {
       }
     }, 20)
   }, [])
-
-  // ─── Live workspace signal — UI sync only (populate textarea, show banner) ────
-  // Generation is NOT triggered here. It is handled exclusively by
-  // consumePendingIntent on mount. Workspace signals = UI state only.
-  useEffect(() => {
-    return subscribeWorkspaceSignal((signal) => {
-      if (signal.target !== "chatbot") return
-      if (signal.type === "populate" && signal.payload) {
-        typewriterPopulate(signal.payload)
-      }
-    })
-  }, [subscribeWorkspaceSignal, typewriterPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Mount: consume durable intent queue (primary) or legacy signal (fallback) ─
   useEffect(() => {

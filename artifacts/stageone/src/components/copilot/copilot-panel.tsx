@@ -581,6 +581,17 @@ export function CopilotPanel() {
     } else if (command === "generate_website") {
       markPendingIntentAutoGenerate("website")
       navigate("/website-generator")
+    } else if (command === "automation") {
+      setPendingIntent({ type: "automation", idea: "", autoGenerate: false })
+      navigate("/automation-builder")
+    } else if (command === "automation_idea") {
+      const idea = payload.trim()
+      if (!idea) return
+      setPendingIntent({ type: "automation", idea, autoGenerate: false })
+      if (location !== "/automation-builder") navigate("/automation-builder")
+    } else if (command === "generate_automation") {
+      markPendingIntentAutoGenerate("automation")
+      navigate("/automation-builder")
     }
   }, [navigate, location, emitWorkspaceSignal])
 
