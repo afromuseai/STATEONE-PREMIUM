@@ -964,11 +964,11 @@ Detectable actions and their IDs:
 - generate_website → user wants to generate or build a website
 - generate_intelligence → user wants to run business intelligence / analysis
 - open_agents → user wants to install, browse, or manage agents
-- open_automation → user wants to build automations or workflows
-- open_chatbot → user wants to build or configure a chatbot
 - open_deployments → user wants to deploy something or review deployments
 - open_templates → user wants to browse or use templates
 - open_memory → user wants to see workspace memory or history
+
+IMPORTANT: Do NOT use open_chatbot or open_automation as action IDs. Chatbot and automation navigation is handled exclusively by the Workspace Execution Engines below — they open the tab, populate the form, and confirm in one flow. Using an action tag for these breaks the populate pipeline.
 
 Action flow:
 1. Recognize the intent from the user's message.
