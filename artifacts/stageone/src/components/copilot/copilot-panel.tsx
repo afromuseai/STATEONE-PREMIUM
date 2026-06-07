@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useCopilot } from "@/lib/copilot-context"
+import { useLang } from "@/lib/i18n"
 import { motion, AnimatePresence } from "framer-motion"
 import { useLocation } from "wouter"
 import { useQuery } from "@tanstack/react-query"
@@ -195,7 +196,7 @@ function ThinkingIndicator() {
 }
 
 async function streamCopilot(
-  payload: { messages: Message[]; businessContext: unknown; workspaceContext: WorkspaceContext },
+  payload: { messages: Message[]; businessContext: unknown; workspaceContext: WorkspaceContext; language: string },
   signal: AbortSignal,
   onChunk: (buffer: string) => void,
   onAction?: (action: DetectedAction) => void,
@@ -335,6 +336,7 @@ function saveMessages(msgs: Message[], userId: string) {
 export function CopilotPanel() {
   const { user, isLoading } = useAuth()
   const { open, setOpen } = useCopilot()
+  const { lang } = useLang()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
@@ -474,6 +476,7 @@ export function CopilotPanel() {
           messages: [greetingTrigger],
           businessContext: businessDataRef.current,
           workspaceContext: workspaceContextRef.current,
+          language: lang,
         },
         abortRef.current.signal,
         (buffer) => {
@@ -623,6 +626,7 @@ export function CopilotPanel() {
           messages: newMessages.filter(m => !m.hidden),
           businessContext: businessData,
           workspaceContext,
+          language: lang,
         },
         abortRef.current.signal,
         (buffer) => {

@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, callNvidia, extractJson } from "../lib/nvidia";
+import { getLanguageInstruction } from "../lib/language";
 
 // ─── Memory category types ─────────────────────────────────────────────────
 type MemoryCategory = "Decision" | "Goal" | "Assumption" | "Experiment" | "Milestone" | "Learning" | "Risk" | "Preference";
@@ -128,6 +129,7 @@ const CopilotBody = z.object({
   messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })),
   businessContext: z.unknown().optional(),
   workspaceContext: WorkspaceContextSchema,
+  language: z.string().optional(),
 });
 
 router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
@@ -143,7 +145,7 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
   }
 
   const userId = req.user!.userId;
-  const { messages, businessContext, workspaceContext } = parsed.data;
+  const { messages, businessContext, workspaceContext, language } = parsed.data;
 
   // Determine active project id from workspace context (sent by frontend)
   const activeProjectId = (workspaceContext as { currentProject?: { id?: string } } | null | undefined)?.currentProject?.id ?? null;
@@ -1415,7 +1417,7 @@ This system is in production stabilization mode. The goal is to make STAGEONE sh
 - Keep all outputs consistent and deterministic
 [end ship mode]
 ${workspaceBlock}${historyBlock}${businessBlock}${memoryBlock}
-[Reference platform capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a list]`;
+[Reference platform capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a list]${getLanguageInstruction(language)}`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
