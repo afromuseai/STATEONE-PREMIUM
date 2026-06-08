@@ -612,11 +612,12 @@ export function CopilotPanel() {
       const rawAfterIntent = sessionStorage.getItem("stageone_pending_intent")
       console.log("AUTOMATION_TRACE: SessionStorage value after setPendingIntent:", rawAfterIntent)
       if (location === "/automation-builder") {
-        console.log("AUTOMATION_TRACE: [REMOUNT CHECK] navigate() skipped — already on /automation-builder — Phase 1 useEffect will NOT re-run — intent in sessionStorage will NOT be consumed by Phase 1")
+        console.log("AUTOMATION_TRACE: [REMOUNT CHECK] page already mounted — dispatching stageone:intentUpdated so mounted page populates directly")
+        window.dispatchEvent(new CustomEvent("stageone:intentUpdated", { detail: { type: "automation", idea } }))
       } else {
         console.log("AUTOMATION_TRACE: [REMOUNT CHECK] navigate() called — page will mount fresh — Phase 1 useEffect WILL run and consume the intent")
+        navigate("/automation-builder")
       }
-      navigate("/automation-builder")
     } else if (command === "generate_automation") {
       console.log("AUTOMATION_TRACE: Command received | command: generate_automation | payload:", JSON.stringify(payload))
       console.log("AUTOMATION_TRACE: markPendingIntentAutoGenerate called | type: automation")

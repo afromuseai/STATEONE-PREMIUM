@@ -467,6 +467,21 @@ export default function AutomationBuilderPage() {
     return () => window.removeEventListener("stageone:autoGenerate", handler)
   }, [businessDesc, workflowType, complexity]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Post-mount intent sync — handles the case where automation_idea fires while this page
+  // is already mounted. navigate() is a no-op so Phase 1 never re-runs. The copilot dispatches
+  // stageone:intentUpdated instead; we populate businessDesc directly here.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { type, idea } = (e as CustomEvent<{ type: string; idea: string }>).detail
+      if (type !== "automation") return
+      if (!idea?.trim()) return
+      setBusinessDesc(idea)
+      setContextBanner(true)
+    }
+    window.addEventListener("stageone:intentUpdated", handler)
+    return () => window.removeEventListener("stageone:intentUpdated", handler)
+  }, [])
+
   const generateWith = async (desc: string, wt: string, cplx: string) => {
     if (!desc.trim()) return
     setGenError(""); setStep("generating"); setStreamText(""); setData(null); setSelectedNode(null)
