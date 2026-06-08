@@ -218,7 +218,7 @@ export default function WebsiteGeneratorPage() {
         marcusPopulateRef.current = text
         setMarcusPopulateTick(t => t + 1)
       }
-    })
+    }, "website")
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Marcus populate typewriter: types live but does NOT auto-generate ────────

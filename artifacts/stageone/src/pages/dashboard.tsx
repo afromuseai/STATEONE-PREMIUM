@@ -12,7 +12,7 @@ import { useBusinessContext } from "@/lib/business-context"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { api, type Project } from "@/lib/api"
 import { recordRevenueSignal } from "@/lib/intelligence-state"
-import { saveGenerationContext, saveProjectContext, saveDashboardState, loadDashboardState, clearDashboardState, consumeCopilotAutorun, consumeMarcusWorkspaceSignal } from "@/lib/generation-context"
+import { saveGenerationContext, saveProjectContext, saveDashboardState, loadDashboardState, clearDashboardState, consumeCopilotAutorun, consumeMarcusWorkspaceSignal, dequeueWorkspaceSignals } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang, useFormatters } from "@/lib/i18n"
 import {
@@ -215,13 +215,29 @@ export default function DashboardPage() {
       setTimeout(() => setAutorunIdea(autorun.idea!), 150)
     }
 
-    // Marcus workspace signal: cross-navigation delivery (sessionStorage)
+    // Marcus workspace signal: cross-navigation delivery (sessionStorage single-slot, legacy path)
     const signal = consumeMarcusWorkspaceSignal()
     if (signal?.target === "intelligence" && signal.type === "populate" && signal.payload) {
       setLocation("/dashboard?tab=new")
       const idea = signal.payload
       marcusBiIdeaRef.current = idea
       setTimeout(() => setMarcusPopulate(idea), 150)
+    }
+
+    // Workspace signal queue: drain ALL queued signals for this target (new reliable path).
+    // This handles the case where signals fired before this page mounted — they were stored
+    // in sessionStorage by emitWorkspaceSignal when no subscriber was registered.
+    // Must run BEFORE subscribeWorkspaceSignal is called (which happens in the next effect).
+    const queued = dequeueWorkspaceSignals("intelligence")
+    for (const qs of queued) {
+      if (qs.type === "populate" && qs.payload) {
+        setLocation("/dashboard?tab=new")
+        marcusBiIdeaRef.current = qs.payload
+        setTimeout(() => setMarcusPopulate(qs.payload!), 150)
+      } else if (qs.type === "generate") {
+        const idea = qs.payload?.trim() || marcusBiIdeaRef.current.trim()
+        if (idea) setTimeout(() => handleGenerateRef.current?.(idea), 300)
+      }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -263,7 +279,7 @@ export default function DashboardPage() {
       } else {
         console.log("[CONFIRM_FLOW:INTEL:unhandled] signal type not handled | type:", signal.type)
       }
-    })
+    }, "intelligence")
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist generation results whenever they change (non-null only)

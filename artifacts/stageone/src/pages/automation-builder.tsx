@@ -15,6 +15,7 @@ import {
   loadProjectContext, clearProjectContext,
   loadAutomationRestoreContext, clearAutomationRestoreContext,
   deriveWorkflowType, buildAutomationDesc, consumePendingIntent, cacheConsumedIdea,
+  dequeueWorkspaceSignals,
 } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
@@ -303,7 +304,7 @@ function NodeDetailPanel({ node, logic }: { node: WorkflowNode; logic: LogicStep
 /* ── Main Page ──────────────────────────────────────────── */
 export default function AutomationBuilderPage() {
   const { lang } = useLang()
-  const { emit } = useWorkspaceController()
+  const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
   const [collapsed, setCollapsed] = useState(false)
   const [businessDesc, setBusinessDesc] = useState("")
   const [workflowType, setWorkflowType] = useState("Lead Capture")
@@ -390,6 +391,20 @@ export default function AutomationBuilderPage() {
   // Phase 1 — Load context and hydrate state fields
   useEffect(() => {
     console.log("AUTOMATION_TRACE: Page mounted | Phase 1 starting | checking consumePendingIntent('automation')")
+
+    // Workspace signal queue: drain any signals that arrived before this page mounted.
+    // These were stored by emitWorkspaceSignal when no automation subscriber was registered.
+    // Must run BEFORE subscribeWorkspaceSignal (which is in the next effect).
+    const queued = dequeueWorkspaceSignals("automation")
+    for (const qs of queued) {
+      if (qs.type === "populate" && qs.payload?.trim()) {
+        console.log("AUTOMATION_TRACE: Draining queued populate signal | idea:", JSON.stringify(qs.payload.slice(0, 60)))
+        cacheConsumedIdea("automation", qs.payload)
+        setBusinessDesc(qs.payload)
+        setContextBanner(true)
+      }
+    }
+
     // Primary: durable pending intent — written by Copilot before navigating.
     const intent = consumePendingIntent("automation")
     console.log("AUTOMATION_TRACE: Intent consumed | result:", JSON.stringify(intent))
@@ -468,19 +483,19 @@ export default function AutomationBuilderPage() {
   }, [businessDesc, workflowType, complexity]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Post-mount intent sync — handles the case where automation_idea fires while this page
-  // is already mounted. navigate() is a no-op so Phase 1 never re-runs. The copilot dispatches
-  // stageone:intentUpdated instead; we populate businessDesc directly here.
+  // is already mounted. The copilot now uses emitWorkspaceSignal (live delivery) instead of
+  // the old stageone:intentUpdated CustomEvent + 300ms timeout hack.
   useEffect(() => {
-    const handler = (e: Event) => {
-      const { type, idea } = (e as CustomEvent<{ type: string; idea: string }>).detail
-      if (type !== "automation") return
-      if (!idea?.trim()) return
-      setBusinessDesc(idea)
-      setContextBanner(true)
-    }
-    window.addEventListener("stageone:intentUpdated", handler)
-    return () => window.removeEventListener("stageone:intentUpdated", handler)
-  }, [])
+    return subscribeWorkspaceSignal((signal) => {
+      if (signal.target !== "automation") return
+      if (signal.type === "populate" && signal.payload?.trim()) {
+        console.log("AUTOMATION_TRACE: Live workspace signal received | type: populate | idea:", JSON.stringify(signal.payload.slice(0, 60)))
+        cacheConsumedIdea("automation", signal.payload)
+        setBusinessDesc(signal.payload)
+        setContextBanner(true)
+      }
+    }, "automation")
+  }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateWith = async (desc: string, wt: string, cplx: string) => {
     if (!desc.trim()) return

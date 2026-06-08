@@ -367,6 +367,8 @@ export function CopilotPanel() {
   const streamingRef = useRef(false)
   // Tracks the last bi_idea payload so generate_intelligence can always carry it forward
   const lastBiIdeaRef = useRef<string>("")
+  // Tracks the last automation_idea payload so generate_automation can recover it
+  const lastAutomationIdeaRef = useRef<string>("")
   const [location, navigate] = useLocation()
   const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
@@ -613,38 +615,24 @@ export function CopilotPanel() {
       }
     } else if (command === "automation_idea") {
       console.log("AUTOMATION_TRACE: Command received | command: automation_idea | payload:", JSON.stringify(payload))
-      const alreadyMounted = location === "/automation-builder"
-      console.log("AUTOMATION_TRACE: [REMOUNT CHECK] current location at automation_idea time:", JSON.stringify(location), "| page already mounted:", alreadyMounted)
       const idea = payload.trim()
       if (!idea) {
-        console.log("AUTOMATION_TRACE: PendingIntent SKIPPED | idea is empty — no setPendingIntent, no navigate")
+        console.log("AUTOMATION_TRACE: PendingIntent SKIPPED | idea is empty")
         return
       }
-      // 1. Write sessionStorage first — Phase 1 (fresh mount) reads this.
-      //    This must happen before navigate() so the component finds it on mount.
+      lastAutomationIdeaRef.current = idea
+      // 1. Write sessionStorage (belt-and-suspenders for mount-based Phase 1 path).
       console.log("AUTOMATION_TRACE: PendingIntent written | type: automation | idea:", JSON.stringify(idea))
       setPendingIntent({ type: "automation", idea, autoGenerate: false })
-      const rawAfterIntent = sessionStorage.getItem("stageone_pending_intent")
-      console.log("AUTOMATION_TRACE: SessionStorage value after setPendingIntent:", rawAfterIntent)
-      if (alreadyMounted) {
-        // Page is mounted and listener is registered — dispatch synchronously.
-        // Phase 1 will not re-run (page is already mounted), so the event is the only path.
-        console.log("AUTOMATION_TRACE: dispatching stageone:intentUpdated SYNCHRONOUSLY | page already mounted")
-        window.dispatchEvent(new CustomEvent("stageone:intentUpdated", { detail: { type: "automation", idea } }))
-      } else {
-        // Page is not yet mounted. navigate() will trigger the mount.
-        // Phase 1 (consumePendingIntent) is the primary mechanism via sessionStorage above.
-        // Belt-and-suspenders: also dispatch the event after a delay so if Phase 1 somehow
-        // misses the sessionStorage entry, the now-registered listener can catch it.
-        console.log("AUTOMATION_TRACE: page not mounted — dispatching stageone:intentUpdated DELAYED (300ms) | idea:", JSON.stringify(idea.slice(0, 60)))
-        setTimeout(() => {
-          console.log("AUTOMATION_TRACE: delayed stageone:intentUpdated firing now")
-          window.dispatchEvent(new CustomEvent("stageone:intentUpdated", { detail: { type: "automation", idea } }))
-        }, 300)
+      // 2. Emit workspace signal — if page is mounted, delivers live; if not, queues to
+      //    sessionStorage so the page drains it on mount. No timing hacks needed.
+      console.log("AUTOMATION_TRACE: emitWorkspaceSignal called | target: automation | type: populate")
+      emitWorkspaceSignal({ target: "automation", type: "populate", payload: idea })
+      // 3. Navigate if not already there (mounts the page so it can drain the queue).
+      if (location !== "/automation-builder") {
+        console.log("AUTOMATION_TRACE: navigate() called | to: /automation-builder")
+        navigate("/automation-builder")
       }
-      // 2. Navigate — mounts the component (if not already there) so Phase 1 can run.
-      console.log("AUTOMATION_TRACE: navigate() called | to: /automation-builder")
-      navigate("/automation-builder")
     } else if (command === "generate_automation") {
       console.log("[CONFIRM_FLOW:3] handleWorkspaceCmdAction invoked | command: generate_automation | timestamp:", Date.now())
       console.log("AUTOMATION_TRACE: Command received | command: generate_automation | payload:", JSON.stringify(payload))

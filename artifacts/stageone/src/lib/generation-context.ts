@@ -408,3 +408,42 @@ Payments: ${ctx.recommendedStack.payments}
 
 Growth Focus: ${ctx.strategicInsights.highestLeverageAutomation}`
 }
+
+// ─── Workspace Signal Queue ───────────────────────────────────────────────────
+// Reliable delivery for Marcus workspace signals when the target page is not
+// yet mounted. The copilot writes here when no live subscriber exists; pages
+// drain this queue on mount BEFORE attaching their live subscriber.
+//
+// This is separate from the single-slot `marcus_workspace_signal` key which only
+// carries the most-recent populate signal. This queue carries ALL signals in order.
+
+const WS_SIGNAL_QUEUE_KEY = "stageone_ws_signal_queue"
+
+type QueuedSignal = MarcusWorkspaceSignal & { ts: number }
+
+export function enqueueWorkspaceSignal(signal: MarcusWorkspaceSignal): void {
+  try {
+    const raw = sessionStorage.getItem(WS_SIGNAL_QUEUE_KEY)
+    const queue: QueuedSignal[] = raw ? JSON.parse(raw) : []
+    queue.push({ ...signal, ts: Date.now() })
+    sessionStorage.setItem(WS_SIGNAL_QUEUE_KEY, JSON.stringify(queue))
+  } catch { /* quota — non-fatal */ }
+}
+
+export function dequeueWorkspaceSignals(target: MarcusWorkspaceSignal["target"]): MarcusWorkspaceSignal[] {
+  try {
+    const raw = sessionStorage.getItem(WS_SIGNAL_QUEUE_KEY)
+    if (!raw) return []
+    const now = Date.now()
+    const all: QueuedSignal[] = JSON.parse(raw)
+    const fresh = all.filter(s => now - s.ts < 30_000)
+    const matching = fresh.filter(s => s.target === target)
+    const remaining = fresh.filter(s => s.target !== target)
+    if (remaining.length < all.length) {
+      if (remaining.length > 0) sessionStorage.setItem(WS_SIGNAL_QUEUE_KEY, JSON.stringify(remaining))
+      else sessionStorage.removeItem(WS_SIGNAL_QUEUE_KEY)
+    }
+    // Strip internal ts field before returning
+    return matching.map(({ ts: _ts, ...s }) => s as MarcusWorkspaceSignal)
+  } catch { return [] }
+}

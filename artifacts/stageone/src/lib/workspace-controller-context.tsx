@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react"
 import { useAuth } from "./auth-context"
-import { setCopilotAutorun, type MarcusWorkspaceSignal } from "./generation-context"
+import { setCopilotAutorun, type MarcusWorkspaceSignal, enqueueWorkspaceSignal } from "./generation-context"
 
 // MarcusWorkspaceSignal is defined in generation-context.ts and re-exported for convenience.
 export type { MarcusWorkspaceSignal }
@@ -58,7 +58,7 @@ interface WorkspaceControllerContextValue {
   openTab: (path: string, navigate: (path: string) => void) => void
   populateAndTrigger: (action: string, idea?: string) => void
   emitWorkspaceSignal: (signal: MarcusWorkspaceSignal) => void
-  subscribeWorkspaceSignal: (cb: (signal: MarcusWorkspaceSignal) => void) => () => void
+  subscribeWorkspaceSignal: (cb: (signal: MarcusWorkspaceSignal) => void, target: MarcusWorkspaceSignal["target"]) => () => void
 }
 
 const WorkspaceControllerContext = createContext<WorkspaceControllerContextValue | null>(null)
@@ -71,6 +71,8 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
   const [tasksLoading, setTasksLoading] = useState(false)
   const subscribersRef = useRef<Set<EventCallback>>(new Set())
   const workspaceSubscribersRef = useRef<Set<(signal: MarcusWorkspaceSignal) => void>>(new Set())
+  // Tracks which targets currently have a live subscriber (i.e., which pages are mounted).
+  const subscribedTargetsRef = useRef<Set<MarcusWorkspaceSignal["target"]>>(new Set())
 
   const fetchTasks = useCallback(async () => {
     if (!user) return
@@ -153,15 +155,24 @@ export function WorkspaceControllerProvider({ children }: { children: ReactNode 
   }, [])
 
   const emitWorkspaceSignal = useCallback((signal: MarcusWorkspaceSignal) => {
-    console.log("[WEBSITE TRACE] emitWorkspaceSignal called | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)", "| subscribers:", workspaceSubscribersRef.current.size)
-    workspaceSubscribersRef.current.forEach(cb => {
-      try { cb(signal) } catch { /* non-fatal */ }
-    })
+    const isMounted = subscribedTargetsRef.current.has(signal.target)
+    console.log("[WS] emitWorkspaceSignal | target:", signal.target, "| type:", signal.type, "| mounted:", isMounted, "| subscribers:", workspaceSubscribersRef.current.size)
+    if (isMounted) {
+      // Target page is mounted — deliver live to all subscribers (each filters by target internally)
+      workspaceSubscribersRef.current.forEach(cb => { try { cb(signal) } catch { /* non-fatal */ } })
+    } else {
+      // Target page is not mounted — queue to sessionStorage; page will drain on mount
+      enqueueWorkspaceSignal(signal)
+    }
   }, [])
 
-  const subscribeWorkspaceSignal = useCallback((cb: (signal: MarcusWorkspaceSignal) => void) => {
+  const subscribeWorkspaceSignal = useCallback((cb: (signal: MarcusWorkspaceSignal) => void, target: MarcusWorkspaceSignal["target"]) => {
+    subscribedTargetsRef.current.add(target)
     workspaceSubscribersRef.current.add(cb)
-    return () => { workspaceSubscribersRef.current.delete(cb) }
+    return () => {
+      workspaceSubscribersRef.current.delete(cb)
+      subscribedTargetsRef.current.delete(target)
+    }
   }, [])
 
   return (
