@@ -34,6 +34,7 @@ import integrationsRouter from "./integrations";
 import adminRouter from "./admin";
 import waitlistRouter from "./waitlist";
 import workspaceControllerRouter from "./workspace-controller";
+import aiBuilderRouter from "./ai-builder";
 
 const router: IRouter = Router();
 
@@ -72,5 +73,6 @@ router.use(integrationsRouter);
 router.use(adminRouter);
 router.use(waitlistRouter);
 router.use(workspaceControllerRouter);
+router.use(aiBuilderRouter);
 
 export default router;

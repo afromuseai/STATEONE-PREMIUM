@@ -21,3 +21,4 @@ export * from "./autonomous-signals";
 export * from "./integrations";
 export * from "./waitlist";
 export * from "./workspace-tasks";
+export * from "./builder-projects";

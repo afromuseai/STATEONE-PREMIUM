@@ -41,6 +41,7 @@ import ShowcasePage from "@/pages/showcase";
 import PublicProjectPage from "@/pages/public-project";
 import OSHubPage from "@/pages/os-hub";
 import PricingPage from "@/pages/pricing";
+import AiBuilderPage from "@/pages/ai-builder";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -140,6 +141,9 @@ function Router() {
       </Route>
       <Route path="/os">
         <ProtectedRoute><OSHubPage /></ProtectedRoute>
+      </Route>
+      <Route path="/ai-builder">
+        <ProtectedRoute><AiBuilderPage /></ProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>
