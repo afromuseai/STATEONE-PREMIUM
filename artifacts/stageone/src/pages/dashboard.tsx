@@ -508,8 +508,9 @@ export default function DashboardPage() {
     }
   }, [lang])
 
-  // Keep the ref in sync — must come after handleGenerate is declared
-  useEffect(() => { handleGenerateRef.current = handleGenerate }, [handleGenerate])
+  // Synchronous render-time assignment (not a useEffect) — ref is always
+  // current before any subscriber fires, including on the very first render.
+  handleGenerateRef.current = handleGenerate
 
   const handleDeleteProject = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
