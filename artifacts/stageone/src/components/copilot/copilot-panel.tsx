@@ -365,6 +365,8 @@ export function CopilotPanel() {
   const prevCrossSystemRef = useRef<typeof crossSystem | null>(null)
   const prevProjectCountRef = useRef<number | null>(null)
   const streamingRef = useRef(false)
+  // Tracks the last bi_idea payload so generate_intelligence can always carry it forward
+  const lastBiIdeaRef = useRef<string>("")
   const [location, navigate] = useLocation()
   const { businessData, crossSystem } = useBusinessContext()
   const hasBusinessContext = !!businessData?.industry
@@ -580,11 +582,13 @@ export function CopilotPanel() {
     } else if (command === "bi_idea") {
       const idea = payload.trim()
       if (!idea) return
+      lastBiIdeaRef.current = idea
       setMarcusWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea })
       if (!location.startsWith("/dashboard")) navigate("/dashboard?tab=new")
       emitWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea })
     } else if (command === "generate_intelligence") {
-      emitWorkspaceSignal({ target: "intelligence", type: "generate" })
+      // Always carry the idea as payload — subscriber must not rely on ref timing
+      emitWorkspaceSignal({ target: "intelligence", type: "generate", payload: lastBiIdeaRef.current })
     } else if (command === "website") {
       // Durable intent: just a navigate — no idea, no autoGenerate
       setPendingIntent({ type: "website", idea: "", autoGenerate: false })

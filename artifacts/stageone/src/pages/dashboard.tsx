@@ -247,17 +247,17 @@ export default function DashboardPage() {
         setLocation("/dashboard?tab=new")
         setTimeout(() => setMarcusPopulate(idea), 50)
       } else if (signal.type === "generate") {
-        // [INSTRUMENT:2] generate branch entered
-        const idea = marcusBiIdeaRef.current
-        console.log("[CONFIRM_FLOW:INTEL:3] generate branch entered | marcusBiIdeaRef.current:", JSON.stringify(idea), "| idea length:", idea.length, "| idea trimmed length:", idea.trim().length, "| timestamp:", Date.now())
+        // Prefer idea carried in signal.payload (set by copilot at emit time).
+        // Fall back to marcusBiIdeaRef which was set by the prior populate signal.
+        // Never read React state here — only refs and signal data.
+        const idea = (signal.payload?.trim() || marcusBiIdeaRef.current.trim())
+        console.log("[CONFIRM_FLOW:INTEL:3] generate branch | signal.payload:", JSON.stringify(signal.payload ?? ""), "| marcusBiIdeaRef:", JSON.stringify(marcusBiIdeaRef.current), "| resolved idea:", JSON.stringify(idea), "| timestamp:", Date.now())
 
-        // [INSTRUMENT:4] early return check
-        if (!idea.trim()) {
-          console.log("[CONFIRM_FLOW:INTEL:early-return:empty-idea] generate branch — idea is empty/whitespace, aborting | marcusBiIdeaRef.current was:", JSON.stringify(marcusBiIdeaRef.current))
+        if (!idea) {
+          console.log("[CONFIRM_FLOW:INTEL:early-return:empty-idea] generate branch — no idea in signal.payload or marcusBiIdeaRef — aborting")
           return
         }
 
-        // [INSTRUMENT:5] generateWith (handleGenerate) invocation
         console.log("[CONFIRM_FLOW:INTEL:4] calling handleGenerate | ref is null:", handleGenerateRef.current === null, "| idea:", JSON.stringify(idea), "| timestamp:", Date.now())
         handleGenerateRef.current?.(idea)
       } else {
