@@ -247,14 +247,22 @@ async function streamCopilot(
       } else {
         const wsCmdMatch = tag.match(WORKSPACE_CMD_RE)
         if (wsCmdMatch) {
-          console.log("[WEBSITE TRACE] parser detected", wsCmdMatch[1].trim(), "| tag:", tag)
-          onWorkspaceCmd?.(wsCmdMatch[1].trim(), wsCmdMatch[2]?.trim() ?? "")
+          const cmd = wsCmdMatch[1].trim()
+          console.log("[WEBSITE TRACE] parser detected", cmd, "| tag:", tag)
+          if (cmd.startsWith("generate_")) {
+            console.log("[CONFIRM_FLOW:2] fireAndStripTags detected generation command | command:", cmd, "| timestamp:", Date.now())
+          }
+          onWorkspaceCmd?.(cmd, wsCmdMatch[2]?.trim() ?? "")
         } else {
           // Colon-variant execution command: model emitted {{WORKSPACE:command}} instead of {{WORKSPACE|command}}
           const wsCmdColonMatch = tag.match(WORKSPACE_CMD_COLON_RE)
           if (wsCmdColonMatch) {
-            console.log("[WEBSITE TRACE] parser detected (colon-variant)", wsCmdColonMatch[1].trim(), "| tag:", tag)
-            onWorkspaceCmd?.(wsCmdColonMatch[1].trim(), wsCmdColonMatch[2]?.trim() ?? "")
+            const cmd = wsCmdColonMatch[1].trim()
+            console.log("[WEBSITE TRACE] parser detected (colon-variant)", cmd, "| tag:", tag)
+            if (cmd.startsWith("generate_")) {
+              console.log("[CONFIRM_FLOW:2] fireAndStripTags detected generation command (colon-variant) | command:", cmd, "| timestamp:", Date.now())
+            }
+            onWorkspaceCmd?.(cmd, wsCmdColonMatch[2]?.trim() ?? "")
           }
         }
       }
@@ -634,6 +642,7 @@ export function CopilotPanel() {
       console.log("AUTOMATION_TRACE: navigate() called | to: /automation-builder")
       navigate("/automation-builder")
     } else if (command === "generate_automation") {
+      console.log("[CONFIRM_FLOW:3] handleWorkspaceCmdAction invoked | command: generate_automation | timestamp:", Date.now())
       console.log("AUTOMATION_TRACE: Command received | command: generate_automation | payload:", JSON.stringify(payload))
       console.log("AUTOMATION_TRACE: markPendingIntentAutoGenerate called | type: automation")
       markPendingIntentAutoGenerate("automation")
@@ -826,13 +835,17 @@ export function CopilotPanel() {
     }
 
     const unsub = subscribe((event) => {
+      console.log("[CONFIRM_FLOW:6] Copilot subscriber received workspace event | type:", event.type, "| open:", open, "| streaming:", streamingRef.current, "| timestamp:", Date.now())
       const entry = COMPLETION_MESSAGES[event.type]
       if (entry) {
+        console.log("[CONFIRM_FLOW:6] matched completion entry | will post message:", open && !streamingRef.current, "| will show bubble:", !open)
         if (open && !streamingRef.current) {
           // Panel is open and idle — post Marcus message directly into the chat
           setMessages(prev => [...prev, { role: "assistant", content: entry.open }])
         } else if (!open) {
           showBubble(entry.bubble)
+        } else {
+          console.log("[CONFIRM_FLOW:6] WARNING: completion event received but panel is open AND streaming — message dropped | open:", open, "| streaming:", streamingRef.current)
         }
         return
       }

@@ -484,6 +484,7 @@ export default function AutomationBuilderPage() {
 
   const generateWith = async (desc: string, wt: string, cplx: string) => {
     if (!desc.trim()) return
+    console.log("[CONFIRM_FLOW:4] generateWith called — about to fetch /api/generate/automation | desc length:", desc.length, "| workflowType:", wt, "| complexity:", cplx, "| timestamp:", Date.now())
     setGenError(""); setStep("generating"); setStreamText(""); setData(null); setSelectedNode(null)
     abortRef.current = new AbortController()
     let buffer = ""
@@ -515,6 +516,7 @@ export default function AutomationBuilderPage() {
               setData(msg.data)
               setStep("done")
               saveToProject(msg.data as AutomationData).catch(() => {})
+              console.log("[CONFIRM_FLOW:5] generateWith (auto-path) complete — emitting automation.generated | timestamp:", Date.now())
               emit({ type: "automation.generated" })
             }
           } catch { /* fragment */ }
@@ -561,6 +563,7 @@ export default function AutomationBuilderPage() {
               setData(msg.data)
               setStep("done")
               saveToProject(msg.data as AutomationData).catch(() => {})
+              console.log("[CONFIRM_FLOW:5] generate() (manual-path) complete — emitting automation.generated | timestamp:", Date.now())
               emit({ type: "automation.generated" })
             }
           } catch { /* fragment */ }
