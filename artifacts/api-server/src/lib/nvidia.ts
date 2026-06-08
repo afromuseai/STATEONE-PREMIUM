@@ -17,6 +17,7 @@ export interface NvidiaCallOptions {
   model: ModelId | string;
   messages: NvidiaMessage[];
   temperature?: number;
+  topP?: number;
   maxTokens?: number;
   chatTemplateKwargs?: Record<string, unknown>;
   signal?: AbortSignal;
@@ -31,7 +32,7 @@ function getApiKey(): string {
 }
 
 function buildBody(options: NvidiaCallOptions, stream: boolean): Record<string, unknown> {
-  const { model, messages, temperature = 0.7, maxTokens = 4000, chatTemplateKwargs } = options;
+  const { model, messages, temperature = 0.7, topP, maxTokens = 4000, chatTemplateKwargs } = options;
 
   const kwargs = chatTemplateKwargs ?? MODEL_KWARGS[model as ModelId];
 
@@ -42,6 +43,10 @@ function buildBody(options: NvidiaCallOptions, stream: boolean): Record<string, 
     max_tokens: maxTokens,
     stream,
   };
+
+  if (topP !== undefined) {
+    body.top_p = topP;
+  }
 
   if (kwargs) {
     body.chat_template_kwargs = kwargs;

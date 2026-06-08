@@ -1583,8 +1583,9 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${businessBlock}${memoryBlo
 
   const copilotPayload = {
     messages: [{ role: "system" as const, content: systemPrompt }, ...trimmedMessages],
-    temperature: 0.72,
-    maxTokens: 300,
+    temperature: 0.4,
+    topP: 0.9,
+    maxTokens: 8192,
   };
 
   let streamBody: ReadableStream<Uint8Array>;

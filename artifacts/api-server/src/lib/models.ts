@@ -10,7 +10,7 @@
 //   MEMORY                 — Nemotron 49B: context compression & semantic linking
 //   WEBSITE_PLANNING       — Llama-4 Maverick: fast streaming JSON section planning
 //   COMPONENT_GENERATION   — DeepSeek V4 Flash: fast 284B MoE coding model
-//   COPILOT                — Qwen 3.5 397B: cross-system coordination assistant
+//   COPILOT                — Nemotron 49B v1.5: low-latency instruction-following, workspace command emission
 //   CHATBOT                — Qwen 3.5 397B: structured reasoning for chatbot design
 //   AUTOMATION             — Qwen 3.5 397B: multi-step workflow & automation planning
 //   ENHANCE                — Qwen 3.5 397B: idea expansion & business framing
@@ -25,7 +25,7 @@ export const MODELS = {
   MEMORY:                "nvidia/llama-3.3-nemotron-super-49b-v1",
   WEBSITE_PLANNING:      "meta/llama-4-maverick-17b-128e-instruct",
   COMPONENT_GENERATION:  "deepseek-ai/deepseek-v4-flash",
-  COPILOT:               "qwen/qwen3.5-122b-a10b",
+  COPILOT:               "nvidia/llama-3.3-nemotron-super-49b-v1.5",
   CHATBOT:               "qwen/qwen3.5-397b-a17b",
   AUTOMATION:            "qwen/qwen3.5-397b-a17b",
   ENHANCE:               "qwen/qwen3.5-397b-a17b",
@@ -37,10 +37,4 @@ export type ModelKey = keyof typeof MODELS;
 export type ModelId = (typeof MODELS)[ModelKey];
 
 // Chat template kwargs for models that require them.
-// qwen3.5-122b-a10b is a thinking model by default — disable thinking for the
-// COPILOT role so delta.content is always populated (thinking tokens go to
-// delta.reasoning_content, which forwardStream doesn't read, causing empty
-// responses when the model exhausts its token budget on hidden <think> blocks).
-export const MODEL_KWARGS: Partial<Record<ModelId, Record<string, unknown>>> = {
-  "qwen/qwen3.5-122b-a10b": { enable_thinking: false },
-};
+export const MODEL_KWARGS: Partial<Record<ModelId, Record<string, unknown>>> = {};
