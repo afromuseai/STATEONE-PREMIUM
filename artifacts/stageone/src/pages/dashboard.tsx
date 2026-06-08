@@ -225,20 +225,43 @@ export default function DashboardPage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Declared before handleGenerate — holds a ref so the signal subscriber
+  // (registered once, stable closure) always calls the latest version.
+  const handleGenerateRef = useRef<((idea: string) => Promise<void>) | null>(null)
+
   // Marcus signal subscription (live — for when dashboard is already mounted)
   useEffect(() => {
     return subscribeWorkspaceSignal((signal) => {
-      if (signal.target !== "intelligence") return
+      // [INSTRUMENT:1] subscriber callback entry
+      console.log("[CONFIRM_FLOW:INTEL:1] intelligence subscriber callback entered | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)", "| timestamp:", Date.now())
+
+      if (signal.target !== "intelligence") {
+        console.log("[CONFIRM_FLOW:INTEL:early-return:target] signal target is not intelligence — returning | actual target:", signal.target)
+        return
+      }
+
       if (signal.type === "populate" && signal.payload) {
         const idea = signal.payload
         marcusBiIdeaRef.current = idea
+        console.log("[CONFIRM_FLOW:INTEL:2] populate branch | idea set on marcusBiIdeaRef:", idea)
         setLocation("/dashboard?tab=new")
         setTimeout(() => setMarcusPopulate(idea), 50)
       } else if (signal.type === "generate") {
+        // [INSTRUMENT:2] generate branch entered
         const idea = marcusBiIdeaRef.current
-        if (idea.trim()) {
-          handleGenerate(idea)
+        console.log("[CONFIRM_FLOW:INTEL:3] generate branch entered | marcusBiIdeaRef.current:", JSON.stringify(idea), "| idea length:", idea.length, "| idea trimmed length:", idea.trim().length, "| timestamp:", Date.now())
+
+        // [INSTRUMENT:4] early return check
+        if (!idea.trim()) {
+          console.log("[CONFIRM_FLOW:INTEL:early-return:empty-idea] generate branch — idea is empty/whitespace, aborting | marcusBiIdeaRef.current was:", JSON.stringify(marcusBiIdeaRef.current))
+          return
         }
+
+        // [INSTRUMENT:5] generateWith (handleGenerate) invocation
+        console.log("[CONFIRM_FLOW:INTEL:4] calling handleGenerate | ref is null:", handleGenerateRef.current === null, "| idea:", JSON.stringify(idea), "| timestamp:", Date.now())
+        handleGenerateRef.current?.(idea)
+      } else {
+        console.log("[CONFIRM_FLOW:INTEL:unhandled] signal type not handled | type:", signal.type)
       }
     })
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -484,6 +507,9 @@ export default function DashboardPage() {
       if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
     }
   }, [lang])
+
+  // Keep the ref in sync — must come after handleGenerate is declared
+  useEffect(() => { handleGenerateRef.current = handleGenerate }, [handleGenerate])
 
   const handleDeleteProject = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
