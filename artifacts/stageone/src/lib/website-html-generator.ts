@@ -793,14 +793,31 @@ var ro=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isInter
 document.querySelectorAll('[data-reveal]').forEach(function(el){ro.observe(el);});
 // Animated counters
 function animCount(el,raw){
-  var num=parseFloat(raw.replace(/[^0-9.]/g,''));
-  var suf=raw.replace(/^[\d.]+/,'');
-  if(isNaN(num))return;
-  var dur=1600,st=null;
-  (function tick(ts){if(!st)st=ts;var p=Math.min((ts-st)/dur,1),e=1-Math.pow(1-p,3),v=num*e;
-  el.textContent=(Number.isInteger(num)?Math.floor(v):v.toFixed(1))+suf;if(p<1)requestAnimationFrame(tick);})(0);
+  // Split raw into prefix (non-digit prefix like $ or €), the number, and suffix
+  var preMatch=raw.match(/^([^\d]*)(\d[\d.,]*)(.*)$/);
+  if(!preMatch)return;
+  var pre=preMatch[1],numStr=preMatch[2].replace(/,/g,''),suf=preMatch[3];
+  var num=parseFloat(numStr);
+  if(isNaN(num)||num===0)return;
+  var dur=1400,started=null;
+  // Clear the static HTML value immediately so it can't flash alongside animated value
+  el.textContent=pre+'0'+suf;
+  function tick(ts){
+    if(started===null)started=ts;
+    var p=Math.min((ts-started)/dur,1),ease=1-Math.pow(1-p,3),v=num*ease;
+    el.textContent=pre+(Number.isInteger(num)?Math.floor(v):v.toFixed(1))+suf;
+    if(p<1)requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 }
-var co=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){animCount(e.target,e.target.dataset.counter||'');co.unobserve(e.target);}});},{threshold:.5});
+var co=new IntersectionObserver(function(es){
+  es.forEach(function(e){
+    if(e.isIntersecting){
+      co.unobserve(e.target);
+      animCount(e.target,e.target.dataset.counter||'');
+    }
+  });
+},{threshold:.4,rootMargin:'0px 0px -20px 0px'});
 document.querySelectorAll('[data-counter]').forEach(function(el){co.observe(el);});
 // Sticky nav shadow
 var nv=document.getElementById('nav');
