@@ -1,0 +1,177 @@
+AI BUILDER V4 — MULTI-CANDIDATE GENERATION SYSTEM
+
+IMPORTANT
+
+Do NOT replace the current generation pipeline.
+
+Keep:
+
+* Planning Layer
+* Design DNA
+* Generation Layer
+* Evaluation Layer
+
+fully intact.
+
+====================================
+
+GOAL
+
+Generate multiple website candidates.
+
+Then evaluate and compare them.
+
+Instead of:
+
+Prompt
+→ One Website
+
+Use:
+
+Prompt
+→ Multiple Websites
+→ Evaluation
+→ Ranking
+
+====================================
+
+GENERATION MODES
+
+Create:
+
+1. Standard
+2. Explore
+3. Premium
+
+---
+
+STANDARD
+
+Generate:
+
+1 candidate
+
+Current behavior.
+
+---
+
+EXPLORE
+
+Generate:
+
+3 candidates
+
+Each candidate should vary:
+
+* layout composition
+* visual hierarchy
+* CTA strategy
+* section ordering
+* design direction
+
+while preserving:
+
+* business positioning
+* audience
+* core strategy
+
+---
+
+PREMIUM
+
+Generate:
+
+5 candidates
+
+Maximum variation.
+
+====================================
+
+NEW OBJECT
+
+generation_candidate
+
+Fields:
+
+* id
+* generation_id
+* candidate_number
+* html
+* css
+* js
+* plan
+* design_dna
+* evaluation_report
+* overall_score
+
+====================================
+
+COMPARISON ENGINE
+
+After all candidates finish:
+
+Evaluate each.
+
+Then rank.
+
+Generate:
+
+comparison_report
+
+Fields:
+
+* winner
+* strongest_candidate
+* reasoning
+* strengths_by_candidate
+* weaknesses_by_candidate
+
+====================================
+
+UI
+
+Add:
+
+Candidates tab
+
+Display:
+
+Candidate A
+Candidate B
+Candidate C
+
+Preview switcher.
+
+====================================
+
+RANKING VIEW
+
+Display:
+
+#1 Candidate
+#2 Candidate
+#3 Candidate
+
+With scores.
+
+====================================
+
+IMPORTANT
+
+Do NOT merge candidates.
+
+Each remains independent.
+
+====================================
+
+FUTURE GOAL
+
+This system becomes the foundation for:
+
+* automatic selection
+* regeneration loops
+* design evolution
+* optimization pipelines
+
+The AI Builder should learn to compare ideas,
+not just generate them.

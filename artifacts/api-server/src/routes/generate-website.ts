@@ -1466,4 +1466,83 @@ Be specific — reference actual content (quote headlines, mention feature names
   }
 });
 
+// POST /api/generate/website/compare — multi-candidate comparison engine
+router.post("/generate/website/compare", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const { candidates, businessIdea, businessIntelligence } = req.body;
+    if (!candidates || !Array.isArray(candidates) || candidates.length < 2) {
+      res.status(400).json({ error: "At least 2 candidates required" }); return;
+    }
+    if (!NVIDIA_API_KEY) { res.status(500).json({ error: "API key not configured" }); return; }
+
+    const { callNvidia, extractJson } = await import("../lib/nvidia");
+    const bi = businessIntelligence as { industry?: string; targetMarket?: string } | null;
+    const industry = bi?.industry ?? "SaaS";
+
+    type CandInput = {
+      label: string; designVariant?: string;
+      evaluationReport?: {
+        overall_score?: number; design_score?: number; conversion_score?: number;
+        ux_score?: number; content_score?: number; responsiveness_score?: number;
+        strengths?: string[]; weaknesses?: string[];
+      };
+      websiteData?: {
+        brand?: { name?: string; tagline?: string };
+        sections?: { hero?: { headline?: string; ctaPrimary?: string; socialProof?: string } };
+        colorPalette?: { primary?: string; background?: string };
+        typography?: { headingFont?: string };
+      };
+    };
+
+    const candidateSummaries = (candidates as CandInput[]).map(c => `Candidate ${c.label}:
+- Design Variant: ${c.designVariant ?? "Unknown"}
+- Brand: ${c.websiteData?.brand?.name ?? "?"} — "${c.websiteData?.brand?.tagline ?? ""}"
+- Hero Headline: "${c.websiteData?.sections?.hero?.headline ?? "?"}"
+- Primary CTA: "${c.websiteData?.sections?.hero?.ctaPrimary ?? "?"}"
+- Social Proof: "${c.websiteData?.sections?.hero?.socialProof ?? "?"}"
+- Colors: primary=${c.websiteData?.colorPalette?.primary ?? "?"}, bg=${c.websiteData?.colorPalette?.background ?? "?"}
+- Font: ${c.websiteData?.typography?.headingFont ?? "?"}
+- Scores: overall=${c.evaluationReport?.overall_score ?? "?"} design=${c.evaluationReport?.design_score ?? "?"} conversion=${c.evaluationReport?.conversion_score ?? "?"} ux=${c.evaluationReport?.ux_score ?? "?"} content=${c.evaluationReport?.content_score ?? "?"} mobile=${c.evaluationReport?.responsiveness_score ?? "?"}
+- Strengths: ${(c.evaluationReport?.strengths ?? []).join("; ")}
+- Weaknesses: ${(c.evaluationReport?.weaknesses ?? []).join("; ")}`).join("\n\n---\n\n");
+
+    const labels = (candidates as CandInput[]).map(c => c.label);
+    const labelList = labels.join(", ");
+
+    const systemPrompt = `You are STAGEONE's Multi-Candidate Comparison Engine — an expert in website design, conversion optimization, and brand strategy. You analyze multiple AI-generated website candidates and determine the strongest overall option based on their evaluation scores and content quality.
+
+Return ONLY valid JSON matching this EXACT schema. No markdown, no explanation:
+{
+  "winner": "<label of winning candidate — one of: ${labelList}>",
+  "strongest_candidate": "<same as winner>",
+  "reasoning": "<2-3 sentences explaining why this candidate wins — reference specific scores and content>",
+  "ranking": [<label of 1st>, <label of 2nd>, ...],
+  "strengths_by_candidate": {${labels.map(l => `"${l}": ["<strength 1>", "<strength 2>"]`).join(", ")}},
+  "weaknesses_by_candidate": {${labels.map(l => `"${l}": ["<weakness 1>", "<weakness 2>"]`).join(", ")}}
+}`;
+
+    const userMsg = `Compare these ${(candidates as CandInput[]).length} website candidates for: "${businessIdea ?? "Unknown business"}"
+Industry: ${industry} | Target Market: ${bi?.targetMarket ?? "Not specified"}
+
+${candidateSummaries}
+
+Identify the winner and rank all candidates from strongest to weakest.`;
+
+    const raw = await callNvidia({
+      model: MODELS.ORCHESTRATION,
+      systemPrompt, userMessage: userMsg,
+      temperature: 0.3, maxTokens: 900,
+    });
+
+    let report: unknown;
+    try { report = extractJson(raw); }
+    catch { res.status(500).json({ error: "Failed to parse comparison report" }); return; }
+
+    res.json({ success: true, report });
+  } catch (err) {
+    req.log.error({ err }, "Compare error");
+    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

@@ -9,6 +9,7 @@ import {
   Brain, Target, Users, TrendingUp, Shield, Wand2, ChevronRight,
   Tablet, PanelLeft, ExternalLink, RotateCcw, FileCode, CheckCircle2,
   Lightbulb, Settings2, Layout, Star, AlertCircle, ThumbsUp, ThumbsDown, ListChecks,
+  Trophy, Medal, BarChart3, Crown,
 } from "lucide-react"
 import { type BusinessIntelligence } from "./output-panel"
 import { api } from "@/lib/api"
@@ -27,9 +28,37 @@ interface WebsitePanelProps {
   autoGenerate?: boolean
 }
 
-type SidebarTab = "design" | "edit" | "export" | "strategy" | "intelligence" | "evaluation"
+type SidebarTab = "design" | "edit" | "export" | "strategy" | "intelligence" | "evaluation" | "candidates"
 type Viewport = "desktop" | "tablet" | "mobile"
 type StrategyMode = "plg" | "enterprise" | "high-touch" | "community"
+type GenerationMode = "standard" | "explore" | "premium"
+
+interface GenerationCandidate {
+  id: string
+  candidateNumber: number
+  label: string
+  websiteData: WebsiteOutput
+  previewHtml: string
+  evaluationReport: EvaluationReport | null
+  overallScore: number
+  designVariant: string
+  status: "generating" | "evaluating" | "ready" | "error"
+}
+
+interface ComparisonReport {
+  winner: string
+  strongest_candidate: string
+  reasoning: string
+  ranking: string[]
+  strengths_by_candidate: Record<string, string[]>
+  weaknesses_by_candidate: Record<string, string[]>
+}
+
+interface CandidateProgress {
+  current: number
+  total: number
+  phase: "generating" | "evaluating" | "comparing"
+}
 
 interface EvaluationReport {
   overall_score: number
@@ -170,13 +199,34 @@ const FALLBACK_STAGES = [
   "Finalizing website package",
 ]
 
-function GeneratingOverlay({ streamingText, architectStages, currentStageIdx, phase }: {
+function GeneratingOverlay({ streamingText, architectStages, currentStageIdx, phase, candidateProgress }: {
   streamingText: string; architectStages: string[]; currentStageIdx: number
   phase: "architect" | "generating" | "streaming"
+  candidateProgress?: CandidateProgress | null
 }) {
   const stages = architectStages.length > 0 ? architectStages : FALLBACK_STAGES
+  const phaseLabel = candidateProgress?.phase === "comparing" ? "Comparing" : candidateProgress?.phase === "evaluating" ? "Evaluating" : phase === "architect" ? "Architecting" : phase === "generating" ? "Generating" : "Streaming"
+
   return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm gap-8 p-8">
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm gap-6 p-8">
+      {/* Candidate progress pill */}
+      {candidateProgress && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/8">
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: candidateProgress.total }, (_, i) => (
+              <div key={i} className={`h-2 w-2 rounded-full transition-all ${
+                i < candidateProgress.current - 1 ? "bg-green-400" :
+                i === candidateProgress.current - 1 ? "bg-primary animate-pulse" : "bg-secondary/40"
+              }`} />
+            ))}
+          </div>
+          <span className="text-[11px] font-bold text-primary">
+            Candidate {candidateProgress.current} of {candidateProgress.total}
+          </span>
+        </motion.div>
+      )}
+
       {/* Pulsing orb */}
       <div className="relative">
         <motion.div className="h-20 w-20 rounded-full border border-primary/30 bg-primary/5 flex items-center justify-center"
@@ -193,9 +243,9 @@ function GeneratingOverlay({ streamingText, architectStages, currentStageIdx, ph
 
       {/* Phase */}
       <div className="text-center">
-        <motion.p key={phase} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+        <motion.p key={phaseLabel} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
           className="text-[11px] font-bold text-primary uppercase tracking-widest mb-1">
-          {phase === "architect" ? "Architecting" : phase === "generating" ? "Generating" : "Streaming"}
+          {phaseLabel}
         </motion.p>
         <p className="text-xs text-muted-foreground">AI website builder at work</p>
       </div>
@@ -340,6 +390,12 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
   const [evaluationReport, setEvaluationReport] = useState<EvaluationReport | null>(null)
   const [isEvaluating, setIsEvaluating] = useState(false)
 
+  // Multi-candidate (V4)
+  const [generationMode, setGenerationMode] = useState<GenerationMode>("standard")
+  const [candidates, setCandidates] = useState<GenerationCandidate[]>([])
+  const [comparisonReport, setComparisonReport] = useState<ComparisonReport | null>(null)
+  const [candidateProgress, setCandidateProgress] = useState<CandidateProgress | null>(null)
+
   // Variant seed (module-level so it persists)
   const variantSeedRef = useRef(_globalVariantSeed)
 
@@ -362,68 +418,139 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
   // ─── Main generation ──────────────────────────────────────────────────────────
 
   const generate = useCallback(async () => {
+    const candidateCount = generationMode === "explore" ? 3 : generationMode === "premium" ? 5 : 1
+    const isMulti = candidateCount > 1
     setIsGenerating(true); setError(null); setStreamingText(""); setArchitectStages([]); setCurrentStageIdx(0); setPhase("architect"); setOptimization(null); setShowAnalysisBanner(false)
+    if (isMulti) { setCandidates([]); setComparisonReport(null) }
     const idea = businessIdea || businessIntelligence?.businessSnapshot || "innovative tech startup"
+    const collectedCandidates: GenerationCandidate[] = []
     try {
-      const seed = _globalVariantSeed++
-      variantSeedRef.current = seed
-      const resp = await fetch("/api/generate/website", {
-        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ idea, businessIntelligence, variantSeed: seed, language: lang }),
-      })
-      if (!resp.ok) { const e = await resp.json().catch(() => ({ error: "Failed" })); throw new Error(e.error ?? "Generation failed") }
-      const reader = resp.body?.getReader()
-      if (!reader) throw new Error("No stream")
-      const dec = new TextDecoder(); let carry = "", finalData: WebsiteOutput | null = null, stageIdx = 0
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = carry + dec.decode(value, { stream: true })
-        const lines = chunk.split("\n"); carry = lines.pop() ?? ""
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
-          try {
-            const p = JSON.parse(line.slice(6).trim())
-            if (p.error) throw new Error(p.error)
-            if (p.phase === "architect") { setArchitectStages(p.stages ?? []); setPhase("architect") }
-            else if (p.phase === "reasoning") { stageIdx = (p.stage ?? 0) + 1; setCurrentStageIdx(stageIdx) }
-            else if (p.phase === "generating") setPhase("generating")
-            else if (p.done && p.data) finalData = p.data as WebsiteOutput
-            else if (typeof p.content === "string") { setPhase("streaming"); setStreamingText(prev => (prev + p.content).slice(-500)) }
-          } catch (e) { if (e instanceof SyntaxError) continue; throw e }
+      for (let ci = 0; ci < candidateCount; ci++) {
+        if (isMulti) setCandidateProgress({ current: ci + 1, total: candidateCount, phase: "generating" })
+        setStreamingText(""); setArchitectStages([]); setCurrentStageIdx(0); setPhase("architect")
+        const seed = _globalVariantSeed++
+        variantSeedRef.current = seed
+        const resp = await fetch("/api/generate/website", {
+          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+          body: JSON.stringify({ idea, businessIntelligence, variantSeed: seed, language: lang }),
+        })
+        if (!resp.ok) { const e = await resp.json().catch(() => ({ error: "Failed" })); throw new Error(e.error ?? "Generation failed") }
+        const reader = resp.body?.getReader()
+        if (!reader) throw new Error("No stream")
+        const dec = new TextDecoder(); let carry = "", finalData: WebsiteOutput | null = null, stageIdx = 0
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const chunk = carry + dec.decode(value, { stream: true })
+          const lines = chunk.split("\n"); carry = lines.pop() ?? ""
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue
+            try {
+              const p = JSON.parse(line.slice(6).trim())
+              if (p.error) throw new Error(p.error)
+              if (p.phase === "architect") { setArchitectStages(p.stages ?? []); setPhase("architect") }
+              else if (p.phase === "reasoning") { stageIdx = (p.stage ?? 0) + 1; setCurrentStageIdx(stageIdx) }
+              else if (p.phase === "generating") setPhase("generating")
+              else if (p.done && p.data) finalData = p.data as WebsiteOutput
+              else if (typeof p.content === "string") { setPhase("streaming"); setStreamingText(prev => (prev + p.content).slice(-500)) }
+            } catch (e) { if (e instanceof SyntaxError) continue; throw e }
+          }
         }
-      }
-      reader.releaseLock()
-      if (finalData) {
-        setData(finalData); setSidebarTab("design"); setShowAnalysisBanner(true)
-        // Auto-trigger evaluation in background (non-blocking, advisory only)
-        setIsEvaluating(true); setEvaluationReport(null)
-        ;(async () => {
+        reader.releaseLock()
+        if (!finalData) throw new Error(`Candidate ${ci + 1} returned no data — please try again`)
+
+        if (!isMulti) {
+          // Standard mode: existing single-candidate behavior
+          setData(finalData); setSidebarTab("design"); setShowAnalysisBanner(true)
+          setIsEvaluating(true); setEvaluationReport(null)
+          ;(async () => {
+            try {
+              const evalResp = await fetch("/api/generate/website/evaluate", {
+                method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+                body: JSON.stringify({ websiteData: finalData, businessIdea: idea, businessIntelligence }),
+              })
+              if (evalResp.ok) {
+                const evalJson = await evalResp.json() as { success?: boolean; report?: EvaluationReport }
+                if (evalJson.success && evalJson.report) setEvaluationReport(evalJson.report)
+              }
+            } catch { /* advisory */ }
+            finally { setIsEvaluating(false) }
+          })()
+          if (projectId) {
+            setSavedStatus("saving")
+            try {
+              await api.projects.update(projectId, { websiteOutput: finalData as unknown as Record<string, unknown> })
+              setSavedStatus("saved"); setTimeout(() => setSavedStatus("idle"), 3000)
+              onSaved?.(finalData as unknown as Record<string, unknown>)
+              emit({ type: "website.generated" })
+            } catch { setSavedStatus("idle") }
+          }
+        } else {
+          // Multi-candidate mode: collect candidate + evaluate
+          const candidate: GenerationCandidate = {
+            id: `candidate-${ci + 1}`, candidateNumber: ci + 1, label: String.fromCharCode(65 + ci),
+            websiteData: finalData, previewHtml: buildPreviewHtml(finalData),
+            evaluationReport: null, overallScore: 0,
+            designVariant: (finalData as unknown as { designVariant?: string }).designVariant ?? "Unknown",
+            status: "evaluating",
+          }
+          collectedCandidates.push(candidate)
+          setCandidates(prev => [...prev, { ...candidate }])
+          // Evaluate this candidate immediately
+          setCandidateProgress({ current: ci + 1, total: candidateCount, phase: "evaluating" })
           try {
-            const evalResp = await fetch("/api/generate/website/evaluate", {
+            const er = await fetch("/api/generate/website/evaluate", {
               method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
               body: JSON.stringify({ websiteData: finalData, businessIdea: idea, businessIntelligence }),
             })
-            if (evalResp.ok) {
-              const evalJson = await evalResp.json() as { success?: boolean; report?: EvaluationReport }
-              if (evalJson.success && evalJson.report) setEvaluationReport(evalJson.report)
+            if (er.ok) {
+              const ej = await er.json() as { success?: boolean; report?: EvaluationReport }
+              if (ej.success && ej.report) {
+                candidate.evaluationReport = ej.report
+                candidate.overallScore = ej.report.overall_score
+              }
             }
-          } catch { /* advisory — never block the user */ }
-          finally { setIsEvaluating(false) }
-        })()
-        if (projectId) {
+          } catch { /* advisory */ }
+          candidate.status = "ready"
+          setCandidates(prev => prev.map(c => c.id === candidate.id ? { ...candidate } : c))
+        }
+      }
+      // Multi-candidate finalize
+      if (isMulti && collectedCandidates.length > 0) {
+        const sorted = [...collectedCandidates].sort((a, b) => b.overallScore - a.overallScore)
+        setData(sorted[0].websiteData)
+        setSidebarTab("candidates")
+        // Run comparison
+        if (collectedCandidates.length >= 2) {
+          setCandidateProgress({ current: candidateCount, total: candidateCount, phase: "comparing" })
+          try {
+            const cr = await fetch("/api/generate/website/compare", {
+              method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+              body: JSON.stringify({
+                candidates: collectedCandidates.map(c => ({ label: c.label, designVariant: c.designVariant, evaluationReport: c.evaluationReport, websiteData: c.websiteData })),
+                businessIdea: idea, businessIntelligence,
+              }),
+            })
+            if (cr.ok) {
+              const cj = await cr.json() as { success?: boolean; report?: ComparisonReport }
+              if (cj.success && cj.report) setComparisonReport(cj.report)
+            }
+          } catch { /* advisory */ }
+        }
+        // Save best candidate
+        if (projectId && sorted[0]) {
           setSavedStatus("saving")
           try {
-            await api.projects.update(projectId, { websiteOutput: finalData as unknown as Record<string, unknown> })
+            await api.projects.update(projectId, { websiteOutput: sorted[0].websiteData as unknown as Record<string, unknown> })
             setSavedStatus("saved"); setTimeout(() => setSavedStatus("idle"), 3000)
-            onSaved?.(finalData as unknown as Record<string, unknown>)
+            onSaved?.(sorted[0].websiteData as unknown as Record<string, unknown>)
             emit({ type: "website.generated" })
           } catch { setSavedStatus("idle") }
         }
-      } else throw new Error("No data received — please try again")
+      }
     } catch (err) { setError(err instanceof Error ? err.message : "Generation failed") }
-    finally { setIsGenerating(false); setStreamingText("") }
-  }, [businessIdea, businessIntelligence, projectId, onSaved, lang, emit])
+    finally { setIsGenerating(false); setStreamingText(""); setCandidateProgress(null) }
+  }, [generationMode, businessIdea, businessIntelligence, projectId, onSaved, lang, emit])
 
   // ─── Section regen ────────────────────────────────────────────────────────────
 
@@ -1052,6 +1179,140 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
     )
   }
 
+  // ─── Candidates tab ───────────────────────────────────────────────────────────
+
+  const renderCandidatesTab = () => {
+    if (candidates.length === 0) return (
+      <div className="p-4 text-center py-10">
+        <Trophy className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
+        <p className="text-xs font-semibold text-foreground mb-1">Multi-Candidate Results</p>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          Select Explore or Premium mode and generate to compare multiple website candidates.
+        </p>
+      </div>
+    )
+
+    const scoreColor = (s: number) => s >= 80 ? "text-green-400" : s >= 65 ? "text-yellow-400" : "text-red-400"
+    const winner = comparisonReport?.winner ?? candidates.sort((a, b) => b.overallScore - a.overallScore)[0]?.label
+    const ranked = comparisonReport?.ranking ?? candidates.slice().sort((a, b) => b.overallScore - a.overallScore).map(c => c.label)
+
+    return (
+      <div className="flex flex-col gap-0 pb-4">
+        {/* Winner banner */}
+        {winner && (
+          <div className="px-4 py-3 border-b border-border/30">
+            <div className="flex items-center gap-2.5 p-3 rounded-xl border border-primary/25 bg-primary/6">
+              <Crown className="h-5 w-5 text-primary shrink-0" />
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-0.5">AI Recommendation</p>
+                <p className="text-[11px] text-foreground font-semibold">Candidate {winner} wins</p>
+                {comparisonReport?.reasoning && <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">{comparisonReport.reasoning}</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Candidate cards */}
+        <div className="px-4 py-3 border-b border-border/30">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">
+            {comparisonReport ? "Ranking" : "Candidates"}
+          </p>
+          <div className="space-y-2">
+            {(ranked.length > 0 ? ranked : candidates.map(c => c.label)).map((label, rankIdx) => {
+              const cand = candidates.find(c => c.label === label)
+              if (!cand) return null
+              const isActive = data === cand.websiteData || (data && JSON.stringify(data) === JSON.stringify(cand.websiteData))
+              const isWinner = label === winner
+              const rankBadge = rankIdx === 0 ? "🥇" : rankIdx === 1 ? "🥈" : rankIdx === 2 ? "🥉" : `#${rankIdx + 1}`
+              return (
+                <div key={cand.id}
+                  className={`rounded-xl border p-3 transition-all cursor-pointer ${isActive ? "border-primary/40 bg-primary/8" : "border-border/30 hover:border-border/60 bg-secondary/10 hover:bg-secondary/20"}`}
+                  onClick={() => setData(cand.websiteData)}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base leading-none">{rankBadge}</span>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-foreground">Candidate {cand.label}</span>
+                          {isWinner && <span className="text-[9px] font-bold text-primary bg-primary/15 px-1.5 py-0.5 rounded uppercase tracking-wide">Best</span>}
+                          {isActive && <span className="text-[9px] font-bold text-blue-400 bg-blue-400/15 px-1.5 py-0.5 rounded uppercase tracking-wide">Viewing</span>}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{cand.designVariant}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {cand.status === "evaluating" ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      ) : cand.evaluationReport ? (
+                        <div>
+                          <span className={`text-lg font-black tabular-nums leading-none ${scoreColor(cand.overallScore)}`}>{cand.overallScore}</span>
+                          <div className="text-[9px] text-muted-foreground font-mono">/ 100</div>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Mini score bars */}
+                  {cand.evaluationReport && (
+                    <div className="grid grid-cols-5 gap-1 mt-1.5">
+                      {[
+                        { label: "Design", score: cand.evaluationReport.design_score, color: "#7c3aed" },
+                        { label: "Conv", score: cand.evaluationReport.conversion_score, color: "#d4af37" },
+                        { label: "UX", score: cand.evaluationReport.ux_score, color: "#0ea5e9" },
+                        { label: "Copy", score: cand.evaluationReport.content_score, color: "#22c55e" },
+                        { label: "Mobile", score: cand.evaluationReport.responsiveness_score, color: "#f97316" },
+                      ].map(dim => (
+                        <div key={dim.label} className="text-center">
+                          <div className="h-1 rounded-full bg-secondary/40 mb-1 overflow-hidden">
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${dim.score}%` }} transition={{ duration: 0.6, ease: "easeOut" }}
+                              className="h-full rounded-full" style={{ backgroundColor: dim.color }} />
+                          </div>
+                          <span className="text-[8px] text-muted-foreground">{dim.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Use button */}
+                  {!isActive && (
+                    <button onClick={e => { e.stopPropagation(); setData(cand.websiteData) }}
+                      className="mt-2 w-full py-1 rounded-lg text-[10px] font-semibold text-primary border border-primary/20 hover:bg-primary/10 transition-colors">
+                      Preview this design
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Strengths/weaknesses by candidate from comparison */}
+        {comparisonReport && (
+          <div className="px-4 py-3 border-b border-border/30">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">Analysis by Candidate</p>
+            {candidates.map(cand => (
+              <div key={cand.id} className="mb-3 last:mb-0">
+                <p className="text-[10px] font-bold text-foreground mb-1.5">Candidate {cand.label} — {cand.designVariant}</p>
+                {(comparisonReport.strengths_by_candidate[cand.label] ?? []).map((s, i) => (
+                  <div key={i} className="flex items-start gap-1.5 mb-1">
+                    <Check className="h-2.5 w-2.5 text-green-400 mt-0.5 shrink-0" />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">{s}</p>
+                  </div>
+                ))}
+                {(comparisonReport.weaknesses_by_candidate[cand.label] ?? []).map((w, i) => (
+                  <div key={i} className="flex items-start gap-1.5 mb-1">
+                    <AlertCircle className="h-2.5 w-2.5 text-red-400 mt-0.5 shrink-0" />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">{w}</p>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // ─── Sidebar tabs config ──────────────────────────────────────────────────────
 
   const sidebarTabs: { id: SidebarTab; icon: typeof Globe; label: string }[] = [
@@ -1060,6 +1321,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
     { id: "strategy", icon: Target, label: "Strategy" },
     { id: "intelligence", icon: Brain, label: "AI Audit" },
     { id: "evaluation", icon: Star, label: "Evaluate" },
+    ...(candidates.length > 0 ? [{ id: "candidates" as SidebarTab, icon: Trophy, label: `A/B (${candidates.length})` }] : []),
     { id: "export", icon: Download, label: "Export" },
   ]
 
@@ -1097,15 +1359,25 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
           })}
         </div>
 
-        {/* Right: actions */}
+        {/* Right: mode selector + actions */}
         <div className="flex items-center gap-1.5 shrink-0">
           {savedStatus !== "idle" && (
             <span className={`text-[10px] font-medium transition-all ${savedStatus === "saved" ? "text-green-400" : "text-muted-foreground"}`}>
               {savedStatus === "saving" ? "Saving…" : "✓ Saved"}
             </span>
           )}
+          {/* Generation mode selector */}
+          <div className="flex items-center rounded-lg border border-border/40 bg-secondary/20 overflow-hidden" title="Generation mode">
+            {(["standard", "explore", "premium"] as GenerationMode[]).map(mode => (
+              <button key={mode} onClick={() => setGenerationMode(mode)} disabled={isGenerating}
+                className={`px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-all ${generationMode === mode ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"} disabled:opacity-40`}
+                title={mode === "standard" ? "1 candidate" : mode === "explore" ? "3 candidates" : "5 candidates"}>
+                {mode === "standard" ? "1×" : mode === "explore" ? "3×" : "5×"}
+              </button>
+            ))}
+          </div>
           <button onClick={generate} disabled={isGenerating}
-            title="Regenerate website"
+            title="Generate website"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground border border-border/40 hover:border-border/80 bg-secondary/20 hover:bg-secondary/40 transition-all disabled:opacity-50">
             {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             {data ? "Regen" : "Generate"}
@@ -1176,7 +1448,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
 
               {/* Sidebar content */}
               <div className="flex-1 overflow-y-auto">
-                {!data && sidebarTab !== "intelligence" ? (
+                {!data && sidebarTab !== "intelligence" && sidebarTab !== "candidates" && sidebarTab !== "evaluation" ? (
                   <div className="flex flex-col items-center justify-center h-full p-6 text-center">
                     <Globe className="h-8 w-8 text-muted-foreground/20 mb-3" />
                     <p className="text-xs text-muted-foreground">Generate a website to see controls here</p>
@@ -1188,6 +1460,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
                     {sidebarTab === "strategy" && renderStrategyTab()}
                     {sidebarTab === "intelligence" && renderIntelligenceTab()}
                     {sidebarTab === "evaluation" && renderEvaluationTab()}
+                    {sidebarTab === "candidates" && renderCandidatesTab()}
                     {sidebarTab === "export" && renderExportTab()}
                   </>
                 )}
@@ -1205,6 +1478,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
                 architectStages={architectStages}
                 currentStageIdx={currentStageIdx}
                 phase={phase}
+                candidateProgress={candidateProgress}
               />
             </div>
           ) : data ? (
