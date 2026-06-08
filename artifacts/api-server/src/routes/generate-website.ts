@@ -1316,4 +1316,154 @@ router.post("/generate/website/strategy", requireAuth, async (req, res): Promise
   }
 });
 
+// POST /api/generate/website/evaluate — AI self-evaluation of generated website
+router.post("/generate/website/evaluate", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const { websiteData, businessIdea, businessIntelligence } = req.body;
+    if (!websiteData) { res.status(400).json({ error: "websiteData required" }); return; }
+    if (!NVIDIA_API_KEY) { res.status(500).json({ error: "API key not configured" }); return; }
+
+    const { callNvidia, extractJson } = await import("../lib/nvidia");
+
+    const bi = businessIntelligence as {
+      industry?: string; targetMarket?: string;
+      metrics?: Record<string, number>;
+    } | null;
+    const wd = websiteData as {
+      brand?: { name?: string; tagline?: string };
+      designVariant?: string;
+      _industry?: string;
+      colorPalette?: { primary?: string; background?: string; accent?: string };
+      typography?: { headingFont?: string; bodyFont?: string };
+      sections?: {
+        hero?: { badge?: string; headline?: string; subheadline?: string; ctaPrimary?: string; ctaSecondary?: string; socialProof?: string };
+        features?: { title?: string; items?: Array<{ title: string; description?: string }> };
+        testimonials?: { title?: string; items?: Array<{ quote: string; author: string; metric?: string }> };
+        pricing?: { tiers?: Array<{ name: string; price: string; highlighted?: boolean; badge?: string }> };
+        cta?: { headline?: string; subheadline?: string; buttonText?: string };
+        faq?: { items?: Array<{ question: string; answer?: string }> };
+        footer?: { tagline?: string };
+      };
+      websiteStrategy?: {
+        conversionApproach?: string;
+        audiencePsychology?: string;
+        trustSignals?: string[];
+        sectionOrder?: string;
+      };
+      seoMeta?: { title?: string; description?: string; keywords?: string[] };
+    };
+
+    const industry = bi?.industry ?? wd._industry ?? "SaaS";
+    const designSystem = INDUSTRY_DESIGN_SYSTEMS[industry] ?? INDUSTRY_DESIGN_SYSTEMS["SaaS"];
+    const variant = wd.designVariant ?? "Unknown";
+
+    const systemPrompt = `You are STAGEONE's AI Quality Reviewer — an expert in conversion design, UX, brand strategy, and web performance. You review AI-generated websites and score them across multiple quality dimensions.
+
+Your job: analyze the website plan and generated content, then return a structured evaluation report with precise scores and actionable insights.
+
+Scoring dimensions (each 0–100):
+- design_score: Visual hierarchy, color consistency, typography quality, spacing, aesthetic coherence with the chosen design variant
+- conversion_score: CTA clarity, trust signal placement, pricing clarity, social proof quality, conversion funnel logic
+- ux_score: Navigation clarity, section flow, information architecture, readability, cognitive load
+- content_score: Headline quality, copy clarity, benefit vs feature balance, specificity of claims, tone consistency
+- responsiveness_score: Mobile-readiness signals, viewport adaptability, touch-friendly CTA sizing, content prioritization for small screens
+- overall_score: Weighted composite (design 20%, conversion 30%, ux 20%, content 20%, responsiveness 10%)
+
+Scoring calibration:
+- 90–100: Exceptional — publication-ready, industry-leading quality
+- 75–89: Strong — above average with minor gaps
+- 60–74: Adequate — functional but with clear improvement areas
+- 40–59: Weak — significant gaps affecting effectiveness
+- Below 40: Poor — fundamental issues requiring rework
+
+Return ONLY valid JSON matching this EXACT schema. No markdown, no explanation:
+{
+  "overall_score": <integer 0-100>,
+  "design_score": <integer 0-100>,
+  "conversion_score": <integer 0-100>,
+  "ux_score": <integer 0-100>,
+  "content_score": <integer 0-100>,
+  "responsiveness_score": <integer 0-100>,
+  "strengths": ["<specific strength referencing actual content>", "<strength 2>", "<strength 3>"],
+  "weaknesses": ["<specific weakness referencing actual content>", "<weakness 2>", "<weakness 3>"],
+  "improvement_recommendations": [
+    "<specific, actionable recommendation — reference exact content>",
+    "<recommendation 2>",
+    "<recommendation 3>",
+    "<recommendation 4>",
+    "<recommendation 5>"
+  ]
+}`;
+
+    const userMsg = `Evaluate this AI-generated ${industry} website:
+
+BUSINESS: ${businessIdea ?? wd.brand?.name ?? "Unknown"}
+TARGET MARKET: ${bi?.targetMarket ?? "Not specified"}
+DESIGN VARIANT: ${variant}
+INDUSTRY: ${industry}
+INDUSTRY REQUIRED TRUST SIGNALS: ${designSystem.trustSignals}
+PRIMARY CONVERSION GOAL: ${designSystem.primaryConversion}
+
+DESIGN DNA:
+- Colors: primary=${wd.colorPalette?.primary ?? "?"}, bg=${wd.colorPalette?.background ?? "?"}, accent=${wd.colorPalette?.accent ?? "?"}
+- Typography: ${wd.typography?.headingFont ?? "?"} (headings) / ${wd.typography?.bodyFont ?? "?"} (body)
+- Variant style: ${DESIGN_VARIANTS[variant]?.description ?? "Unknown"}
+
+WEBSITE PLAN:
+- Conversion approach: "${wd.websiteStrategy?.conversionApproach ?? "none"}"
+- Audience psychology: "${wd.websiteStrategy?.audiencePsychology ?? "none"}"
+- Trust signals in plan: ${JSON.stringify(wd.websiteStrategy?.trustSignals ?? [])}
+- Section order: "${wd.websiteStrategy?.sectionOrder ?? "none"}"
+
+GENERATED CONTENT:
+- Brand: "${wd.brand?.name ?? "?"}" — "${wd.brand?.tagline ?? ""}"
+- Hero badge: "${wd.sections?.hero?.badge ?? "none"}"
+- Hero headline: "${wd.sections?.hero?.headline ?? "none"}"
+- Hero subheadline: "${wd.sections?.hero?.subheadline ?? "none"}"
+- Primary CTA: "${wd.sections?.hero?.ctaPrimary ?? "none"}"
+- Secondary CTA: "${wd.sections?.hero?.ctaSecondary ?? "none"}"
+- Social proof: "${wd.sections?.hero?.socialProof ?? "none"}"
+- Features section: "${wd.sections?.features?.title ?? "?"}" — ${(wd.sections?.features?.items ?? []).length} features: ${(wd.sections?.features?.items ?? []).slice(0, 4).map(f => f.title).join(", ")}
+- Testimonials: ${(wd.sections?.testimonials?.items ?? []).length} (${(wd.sections?.testimonials?.items ?? []).filter(t => t.metric).length} with metrics)
+- Pricing tiers: ${(wd.sections?.pricing?.tiers ?? []).map(t => `${t.name}@${t.price}${t.badge ? " ["+t.badge+"]" : ""}`).join(", ")}
+- CTA section: "${wd.sections?.cta?.headline ?? "none"}" → "${wd.sections?.cta?.buttonText ?? "none"}"
+- FAQ: ${(wd.sections?.faq?.items ?? []).length} questions
+- Footer tagline: "${wd.sections?.footer?.tagline ?? "none"}"
+- SEO title (${(wd.seoMeta?.title ?? "").length} chars): "${wd.seoMeta?.title ?? "none"}"
+- SEO description (${(wd.seoMeta?.description ?? "").length} chars): "${wd.seoMeta?.description ?? "none"}"
+
+EVALUATION DIMENSIONS TO JUDGE:
+1. Visual hierarchy — Does the design variant (${variant}) constraints create a clear visual hierarchy?
+2. CTA placement — Are primary CTAs placed at optimal conversion points?
+3. Layout balance — Does the section flow feel balanced and purposeful?
+4. Section flow — Does the section order guide the visitor through a logical journey?
+5. Conversion readiness — Does the page have what a ${industry} buyer needs to convert?
+6. Brand consistency — Is the copy tone consistent with the ${wd.brand?.name ?? "brand"} voice?
+7. Mobile usability — Based on design choices, how mobile-ready does this appear?
+8. Content quality — Are claims specific, benefits clear, and copy compelling?
+
+Be specific — reference actual content (quote headlines, mention feature names, cite pricing tier names). Do NOT give generic advice.`;
+
+    const raw = await callNvidia({
+      model: MODELS.ORCHESTRATION,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMsg },
+      ],
+      temperature: 0.6,
+      maxTokens: 1200,
+    });
+
+    try {
+      const report = extractJson(raw);
+      res.json({ success: true, report });
+    } catch {
+      res.status(500).json({ error: "Failed to parse evaluation — try again" });
+    }
+  } catch (err) {
+    req.log.error({ err }, "Evaluate error");
+    if (!res.headersSent) res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

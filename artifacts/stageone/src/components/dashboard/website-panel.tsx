@@ -8,7 +8,7 @@ import {
   Layers, Zap, DollarSign, HelpCircle, MessageSquare, ArrowRight,
   Brain, Target, Users, TrendingUp, Shield, Wand2, ChevronRight,
   Tablet, PanelLeft, ExternalLink, RotateCcw, FileCode, CheckCircle2,
-  Lightbulb, Settings2, Layout,
+  Lightbulb, Settings2, Layout, Star, AlertCircle, ThumbsUp, ThumbsDown, ListChecks,
 } from "lucide-react"
 import { type BusinessIntelligence } from "./output-panel"
 import { api } from "@/lib/api"
@@ -27,9 +27,21 @@ interface WebsitePanelProps {
   autoGenerate?: boolean
 }
 
-type SidebarTab = "design" | "edit" | "export" | "strategy" | "intelligence"
+type SidebarTab = "design" | "edit" | "export" | "strategy" | "intelligence" | "evaluation"
 type Viewport = "desktop" | "tablet" | "mobile"
 type StrategyMode = "plg" | "enterprise" | "high-touch" | "community"
+
+interface EvaluationReport {
+  overall_score: number
+  design_score: number
+  conversion_score: number
+  ux_score: number
+  content_score: number
+  responsiveness_score: number
+  strengths: string[]
+  weaknesses: string[]
+  improvement_recommendations: string[]
+}
 
 interface OptimizationIssue {
   category: string; severity: "critical" | "high" | "medium"
@@ -324,6 +336,10 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
   const [isSwitchingStrategy, setIsSwitchingStrategy] = useState(false)
   const [switchingStrategySection, setSwitchingStrategySection] = useState<string | null>(null)
 
+  // Evaluation
+  const [evaluationReport, setEvaluationReport] = useState<EvaluationReport | null>(null)
+  const [isEvaluating, setIsEvaluating] = useState(false)
+
   // Variant seed (module-level so it persists)
   const variantSeedRef = useRef(_globalVariantSeed)
 
@@ -380,6 +396,21 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
       reader.releaseLock()
       if (finalData) {
         setData(finalData); setSidebarTab("design"); setShowAnalysisBanner(true)
+        // Auto-trigger evaluation in background (non-blocking, advisory only)
+        setIsEvaluating(true); setEvaluationReport(null)
+        ;(async () => {
+          try {
+            const evalResp = await fetch("/api/generate/website/evaluate", {
+              method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+              body: JSON.stringify({ websiteData: finalData, businessIdea: idea, businessIntelligence }),
+            })
+            if (evalResp.ok) {
+              const evalJson = await evalResp.json() as { success?: boolean; report?: EvaluationReport }
+              if (evalJson.success && evalJson.report) setEvaluationReport(evalJson.report)
+            }
+          } catch { /* advisory — never block the user */ }
+          finally { setIsEvaluating(false) }
+        })()
         if (projectId) {
           setSavedStatus("saving")
           try {
@@ -423,6 +454,25 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
     } catch { /* silent */ }
     finally { setRegenningSection(null) }
   }, [data, regenningSection, businessIdea, businessIntelligence, lang])
+
+  // ─── Evaluation ───────────────────────────────────────────────────────────────
+
+  const runEvaluation = useCallback(async () => {
+    if (!data || isEvaluating) return
+    setIsEvaluating(true); setEvaluationReport(null)
+    const idea = businessIdea || businessIntelligence?.businessSnapshot || "innovative tech startup"
+    try {
+      const resp = await fetch("/api/generate/website/evaluate", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ websiteData: data, businessIdea: idea, businessIntelligence }),
+      })
+      if (resp.ok) {
+        const json = await resp.json() as { success?: boolean; report?: EvaluationReport }
+        if (json.success && json.report) setEvaluationReport(json.report)
+      }
+    } catch { /* advisory only */ }
+    finally { setIsEvaluating(false) }
+  }, [data, isEvaluating, businessIdea, businessIntelligence])
 
   // ─── Optimization ─────────────────────────────────────────────────────────────
 
@@ -849,6 +899,159 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
     </div>
   )
 
+  // ─── Evaluation tab ───────────────────────────────────────────────────────────
+
+  const renderEvaluationTab = () => {
+    if (isEvaluating) return (
+      <div className="flex flex-col items-center gap-4 py-10 px-4">
+        <div className="relative">
+          <motion.div className="h-14 w-14 rounded-full border border-primary/30 bg-primary/5 flex items-center justify-center"
+            animate={{ boxShadow: ["0 0 20px rgba(212,175,55,.08)", "0 0 48px rgba(212,175,55,.28)", "0 0 20px rgba(212,175,55,.08)"] }}
+            transition={{ duration: 2.2, repeat: Infinity }}>
+            <Star className="h-6 w-6 text-primary" />
+          </motion.div>
+        </div>
+        <div className="text-center">
+          <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Evaluating</p>
+          <p className="text-[11px] text-muted-foreground">AI is reviewing your website quality…</p>
+        </div>
+      </div>
+    )
+
+    if (!evaluationReport) return (
+      <div className="p-4 text-center py-10">
+        <Star className="h-8 w-8 text-muted-foreground/20 mx-auto mb-3" />
+        <p className="text-xs font-semibold text-foreground mb-1">AI Quality Evaluation</p>
+        <p className="text-[11px] text-muted-foreground mb-5 leading-relaxed">
+          The AI reviews your website across design, conversion, UX, content, and mobile readiness.
+        </p>
+        <button onClick={runEvaluation} disabled={!data}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors disabled:opacity-40">
+          <Star className="h-3.5 w-3.5" />Evaluate Now
+        </button>
+        {!data && <p className="text-[10px] text-muted-foreground mt-3">Generate a website first</p>}
+      </div>
+    )
+
+    const r = evaluationReport
+    const dims = [
+      { key: "design_score", label: "Design", score: r.design_score, color: "#7c3aed" },
+      { key: "conversion_score", label: "Conversion", score: r.conversion_score, color: "#d4af37" },
+      { key: "ux_score", label: "UX", score: r.ux_score, color: "#0ea5e9" },
+      { key: "content_score", label: "Content", score: r.content_score, color: "#22c55e" },
+      { key: "responsiveness_score", label: "Mobile", score: r.responsiveness_score, color: "#f97316" },
+    ] as const
+
+    const scoreColor = (s: number) => s >= 80 ? "text-green-400" : s >= 65 ? "text-yellow-400" : "text-red-400"
+    const scoreBg = (s: number) => s >= 80 ? "bg-green-500/15 border-green-500/20" : s >= 65 ? "bg-yellow-500/15 border-yellow-500/20" : "bg-red-500/15 border-red-500/20"
+
+    return (
+      <div className="flex flex-col gap-0 pb-4">
+        {/* Overall score hero */}
+        <div className="px-4 py-4 border-b border-border/30">
+          <div className={`flex items-center gap-3 p-3 rounded-xl border ${scoreBg(r.overall_score)}`}>
+            <div className="text-center shrink-0">
+              <div className={`text-3xl font-black ${scoreColor(r.overall_score)}`}>{r.overall_score}</div>
+              <div className="text-[9px] text-muted-foreground font-mono mt-0.5">/ 100</div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Overall Score</p>
+              <p className="text-[11px] text-foreground leading-relaxed">
+                {r.overall_score >= 80 ? "Strong quality — publication-ready" : r.overall_score >= 65 ? "Good quality — minor improvements available" : "Needs improvement — see recommendations"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Score breakdown */}
+        <div className="px-4 py-3 border-b border-border/30">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Score Breakdown</p>
+          <div className="space-y-2.5">
+            {dims.map(({ label, score, color }) => (
+              <div key={label}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-medium text-foreground">{label}</span>
+                  <span className={`text-[11px] font-bold tabular-nums ${scoreColor(score)}`}>{score}</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-secondary/40 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${score}%` }}
+                    transition={{ duration: 0.7, ease: "easeOut", delay: 0.1 }}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: color }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Strengths */}
+        {r.strengths.length > 0 && (
+          <div className="px-4 py-3 border-b border-border/30">
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <ThumbsUp className="h-3.5 w-3.5 text-green-400" />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Strengths</p>
+            </div>
+            <div className="space-y-1.5">
+              {r.strengths.map((s, i) => (
+                <div key={i} className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-green-500/6 border border-green-500/12">
+                  <Check className="h-3 w-3 text-green-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-foreground leading-relaxed">{s}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Weaknesses */}
+        {r.weaknesses.length > 0 && (
+          <div className="px-4 py-3 border-b border-border/30">
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <ThumbsDown className="h-3.5 w-3.5 text-red-400" />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Weaknesses</p>
+            </div>
+            <div className="space-y-1.5">
+              {r.weaknesses.map((w, i) => (
+                <div key={i} className="flex items-start gap-2 px-2.5 py-2 rounded-lg bg-red-500/6 border border-red-500/12">
+                  <AlertCircle className="h-3 w-3 text-red-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-foreground leading-relaxed">{w}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recommendations */}
+        {r.improvement_recommendations.length > 0 && (
+          <div className="px-4 py-3 border-b border-border/30">
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <ListChecks className="h-3.5 w-3.5 text-primary" />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Recommendations</p>
+            </div>
+            <div className="space-y-1.5">
+              {r.improvement_recommendations.map((rec, i) => (
+                <div key={i} className="flex items-start gap-2.5 px-2.5 py-2 rounded-lg bg-primary/5 border border-primary/10">
+                  <span className="text-[9px] font-black text-primary bg-primary/15 rounded px-1.5 py-0.5 shrink-0 mt-0.5 tabular-nums">{i + 1}</span>
+                  <p className="text-[11px] text-foreground leading-relaxed">{rec}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Re-evaluate */}
+        <div className="px-4 pt-3">
+          <button onClick={runEvaluation} disabled={isEvaluating}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-border/40 text-[11px] text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-secondary/20 transition-all disabled:opacity-40">
+            <RefreshCw className="h-3 w-3" />Re-evaluate
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // ─── Sidebar tabs config ──────────────────────────────────────────────────────
 
   const sidebarTabs: { id: SidebarTab; icon: typeof Globe; label: string }[] = [
@@ -856,6 +1059,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
     { id: "edit", icon: Pencil, label: "Edit" },
     { id: "strategy", icon: Target, label: "Strategy" },
     { id: "intelligence", icon: Brain, label: "AI Audit" },
+    { id: "evaluation", icon: Star, label: "Evaluate" },
     { id: "export", icon: Download, label: "Export" },
   ]
 
@@ -983,6 +1187,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
                     {sidebarTab === "edit" && renderEditTab()}
                     {sidebarTab === "strategy" && renderStrategyTab()}
                     {sidebarTab === "intelligence" && renderIntelligenceTab()}
+                    {sidebarTab === "evaluation" && renderEvaluationTab()}
                     {sidebarTab === "export" && renderExportTab()}
                   </>
                 )}
