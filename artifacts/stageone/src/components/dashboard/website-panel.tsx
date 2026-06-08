@@ -42,6 +42,7 @@ interface GenerationCandidate {
   evaluationReport: EvaluationReport | null
   overallScore: number
   designVariant: string
+  designSpace: string
   status: "generating" | "evaluating" | "ready" | "error"
 }
 
@@ -52,6 +53,11 @@ interface ComparisonReport {
   ranking: string[]
   strengths_by_candidate: Record<string, string[]>
   weaknesses_by_candidate: Record<string, string[]>
+}
+
+interface DiversityInfo {
+  score: number
+  flags: Array<{ labels: [string, string]; dimensions: string[] }>
 }
 
 interface CandidateProgress {
@@ -86,6 +92,115 @@ const STRATEGIES = [
   { id: "high-touch" as StrategyMode, label: "High Touch", desc: "Consultative, premium, relationship-led" },
   { id: "community" as StrategyMode, label: "Community-Led", desc: "Network effects, social proof, FOMO" },
 ]
+
+// ─── V4.5 Design Space System ─────────────────────────────────────────────────
+const ALL_DESIGN_SPACES = [
+  "Premium SaaS",
+  "Enterprise Minimal",
+  "Futuristic AI",
+  "Luxury Editorial",
+  "Startup Modern",
+  "Glassmorphism",
+  "Cinematic Dark",
+  "Bold Brutalist",
+] as const
+type DesignSpaceName = typeof ALL_DESIGN_SPACES[number]
+
+const DESIGN_SPACE_TO_VARIANT: Record<DesignSpaceName, string> = {
+  "Premium SaaS":       "Premium SaaS",
+  "Enterprise Minimal": "Enterprise Minimal",
+  "Futuristic AI":      "Futuristic",
+  "Luxury Editorial":   "Luxury Editorial",
+  "Startup Modern":     "Startup Modern",
+  "Glassmorphism":      "Glassmorphism",
+  "Cinematic Dark":     "Cinematic Dark",
+  "Bold Brutalist":     "Bold Brutalist",
+}
+
+const DESIGN_SPACE_ICONS: Record<DesignSpaceName, string> = {
+  "Premium SaaS":       "⚡",
+  "Enterprise Minimal": "🏢",
+  "Futuristic AI":      "🤖",
+  "Luxury Editorial":   "✦",
+  "Startup Modern":     "🚀",
+  "Glassmorphism":      "🔮",
+  "Cinematic Dark":     "🎬",
+  "Bold Brutalist":     "⬛",
+}
+
+// Design DNA fingerprints (client-side mirrors of backend logic)
+function _dsTypographyDNA(ds: string): string {
+  if (ds === "Luxury Editorial" || ds === "Cinematic Dark") return "serif"
+  if (ds === "Bold Brutalist") return "condensed"
+  return "sans"
+}
+function _dsLayoutDNA(ds: string): string {
+  const m: Record<string, string> = {
+    "Futuristic AI":      "fullscreen-centered",
+    "Premium SaaS":       "split-product",
+    "Luxury Editorial":   "centered-editorial",
+    "Enterprise Minimal": "split-product",
+    "Startup Modern":     "centered-metrics",
+    "Bold Brutalist":     "fullscreen-text",
+    "Glassmorphism":      "split-glass",
+    "Cinematic Dark":     "fullscreen-cinematic",
+  }
+  return m[ds] ?? "centered"
+}
+function _dsSpacingDNA(ds: string): string {
+  if (ds === "Bold Brutalist") return "brutalist"
+  if (ds === "Glassmorphism") return "glass"
+  if (ds === "Luxury Editorial") return "editorial"
+  return "modern"
+}
+function _dsVisualDNA(ds: string): string {
+  if (ds === "Luxury Editorial") return "pure-black"
+  if (ds === "Enterprise Minimal") return "white"
+  if (ds === "Glassmorphism") return "gradient"
+  if (ds === "Cinematic Dark") return "cinematic-dark"
+  if (ds === "Futuristic AI") return "neon-dark"
+  return "dark"
+}
+
+function computeDiversityScore(designSpaces: string[]): number {
+  if (designSpaces.length < 2) return 100
+  let totalPairs = 0, diversePairs = 0
+  for (let i = 0; i < designSpaces.length; i++) {
+    for (let j = i + 1; j < designSpaces.length; j++) {
+      totalPairs++
+      const diffs = [
+        _dsTypographyDNA(designSpaces[i]) !== _dsTypographyDNA(designSpaces[j]),
+        _dsLayoutDNA(designSpaces[i]) !== _dsLayoutDNA(designSpaces[j]),
+        _dsSpacingDNA(designSpaces[i]) !== _dsSpacingDNA(designSpaces[j]),
+        _dsVisualDNA(designSpaces[i]) !== _dsVisualDNA(designSpaces[j]),
+      ].filter(Boolean).length
+      if (diffs >= 2) diversePairs++
+    }
+  }
+  return Math.round((diversePairs / totalPairs) * 100)
+}
+
+function getDiversityFlags(candidates: Array<{ label: string; designSpace: string }>) {
+  const flags: Array<{ labels: [string, string]; dimensions: string[] }> = []
+  for (let i = 0; i < candidates.length; i++) {
+    for (let j = i + 1; j < candidates.length; j++) {
+      const a = candidates[i], b = candidates[j]
+      const shared: string[] = []
+      if (_dsTypographyDNA(a.designSpace) === _dsTypographyDNA(b.designSpace)) shared.push("typography")
+      if (_dsLayoutDNA(a.designSpace) === _dsLayoutDNA(b.designSpace)) shared.push("layout")
+      if (_dsSpacingDNA(a.designSpace) === _dsSpacingDNA(b.designSpace)) shared.push("spacing")
+      if (_dsVisualDNA(a.designSpace) === _dsVisualDNA(b.designSpace)) shared.push("visual")
+      if (shared.length >= 3) flags.push({ labels: [a.label, b.label], dimensions: shared })
+    }
+  }
+  return flags
+}
+
+// Select N unique design spaces, shuffled for variety
+function selectUniqueDesignSpaces(n: number): DesignSpaceName[] {
+  const shuffled = [...ALL_DESIGN_SPACES].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, n)
+}
 
 // ─── Global variant seed ────────────────────────────────────────────────────────
 let _globalVariantSeed = 0
@@ -395,6 +510,8 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
   const [candidates, setCandidates] = useState<GenerationCandidate[]>([])
   const [comparisonReport, setComparisonReport] = useState<ComparisonReport | null>(null)
   const [candidateProgress, setCandidateProgress] = useState<CandidateProgress | null>(null)
+  // V4.5: Diversity tracking
+  const [diversityInfo, setDiversityInfo] = useState<DiversityInfo | null>(null)
 
   // Variant seed (module-level so it persists)
   const variantSeedRef = useRef(_globalVariantSeed)
@@ -412,6 +529,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
       const t = setTimeout(() => generate(), 400)
       return () => clearTimeout(t)
     }
+    return undefined
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGenerate])
 
@@ -421,18 +539,29 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
     const candidateCount = generationMode === "explore" ? 3 : generationMode === "premium" ? 5 : 1
     const isMulti = candidateCount > 1
     setIsGenerating(true); setError(null); setStreamingText(""); setArchitectStages([]); setCurrentStageIdx(0); setPhase("architect"); setOptimization(null); setShowAnalysisBanner(false)
-    if (isMulti) { setCandidates([]); setComparisonReport(null) }
+    if (isMulti) { setCandidates([]); setComparisonReport(null); setDiversityInfo(null) }
     const idea = businessIdea || businessIntelligence?.businessSnapshot || "innovative tech startup"
     const collectedCandidates: GenerationCandidate[] = []
+
+    // V4.5: Pre-select unique design spaces for diversity enforcement
+    // Each candidate in explore/premium mode gets a distinct creative direction
+    const candidateDesignSpaces: DesignSpaceName[] = isMulti
+      ? selectUniqueDesignSpaces(candidateCount)
+      : []
+
     try {
       for (let ci = 0; ci < candidateCount; ci++) {
         if (isMulti) setCandidateProgress({ current: ci + 1, total: candidateCount, phase: "generating" })
         setStreamingText(""); setArchitectStages([]); setCurrentStageIdx(0); setPhase("architect")
         const seed = _globalVariantSeed++
         variantSeedRef.current = seed
+        // V4.5: Force the pre-selected unique design space variant for this candidate
+        const forcedVariant = isMulti && candidateDesignSpaces[ci]
+          ? DESIGN_SPACE_TO_VARIANT[candidateDesignSpaces[ci]]
+          : undefined
         const resp = await fetch("/api/generate/website", {
           method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-          body: JSON.stringify({ idea, businessIntelligence, variantSeed: seed, language: lang }),
+          body: JSON.stringify({ idea, businessIntelligence, variantSeed: seed, language: lang, ...(forcedVariant ? { forceDesignVariant: forcedVariant } : {}) }),
         })
         if (!resp.ok) { const e = await resp.json().catch(() => ({ error: "Failed" })); throw new Error(e.error ?? "Generation failed") }
         const reader = resp.body?.getReader()
@@ -487,11 +616,13 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
           }
         } else {
           // Multi-candidate mode: collect candidate + evaluate
+          const fd = finalData as unknown as { designVariant?: string; _designSpace?: string }
           const candidate: GenerationCandidate = {
             id: `candidate-${ci + 1}`, candidateNumber: ci + 1, label: String.fromCharCode(65 + ci),
             websiteData: finalData, previewHtml: buildPreviewHtml(finalData),
             evaluationReport: null, overallScore: 0,
-            designVariant: (finalData as unknown as { designVariant?: string }).designVariant ?? "Unknown",
+            designVariant: fd.designVariant ?? "Unknown",
+            designSpace: fd._designSpace ?? candidateDesignSpaces[ci] ?? "Premium SaaS",
             status: "evaluating",
           }
           collectedCandidates.push(candidate)
@@ -520,6 +651,10 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
         const sorted = [...collectedCandidates].sort((a, b) => b.overallScore - a.overallScore)
         setData(sorted[0].websiteData)
         setSidebarTab("candidates")
+        // V4.5: Compute diversity score across all candidates
+        const diversityScore = computeDiversityScore(collectedCandidates.map(c => c.designSpace))
+        const flags = getDiversityFlags(collectedCandidates.map(c => ({ label: c.label, designSpace: c.designSpace })))
+        setDiversityInfo({ score: diversityScore, flags })
         // Run comparison
         if (collectedCandidates.length >= 2) {
           setCandidateProgress({ current: candidateCount, total: candidateCount, phase: "comparing" })
@@ -1193,6 +1328,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
     )
 
     const scoreColor = (s: number) => s >= 80 ? "text-green-400" : s >= 65 ? "text-yellow-400" : "text-red-400"
+    const divColor = (s: number) => s >= 80 ? "text-green-400" : s >= 60 ? "text-yellow-400" : "text-red-400"
     const winner = comparisonReport?.winner ?? candidates.sort((a, b) => b.overallScore - a.overallScore)[0]?.label
     const ranked = comparisonReport?.ranking ?? candidates.slice().sort((a, b) => b.overallScore - a.overallScore).map(c => c.label)
 
@@ -1203,12 +1339,90 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
           <div className="px-4 py-3 border-b border-border/30">
             <div className="flex items-center gap-2.5 p-3 rounded-xl border border-primary/25 bg-primary/6">
               <Crown className="h-5 w-5 text-primary shrink-0" />
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-0.5">AI Recommendation</p>
-                <p className="text-[11px] text-foreground font-semibold">Candidate {winner} wins</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-[11px] text-foreground font-semibold">Candidate {winner} wins</p>
+                  {(() => { const w = candidates.find(c => c.label === winner); return w ? (
+                    <span className="text-[9px] font-semibold text-muted-foreground bg-secondary/40 px-1.5 py-0.5 rounded">
+                      {DESIGN_SPACE_ICONS[w.designSpace as DesignSpaceName] ?? "◈"} {w.designSpace}
+                    </span>
+                  ) : null })()}
+                </div>
                 {comparisonReport?.reasoning && <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">{comparisonReport.reasoning}</p>}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* V4.5: Diversity score panel */}
+        {diversityInfo && (
+          <div className="px-4 py-3 border-b border-border/30">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Design Diversity</p>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex-1">
+                <div className="h-1.5 rounded-full bg-secondary/40 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${diversityInfo.score}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: diversityInfo.score >= 80 ? "#22c55e" : diversityInfo.score >= 60 ? "#eab308" : "#ef4444" }}
+                  />
+                </div>
+              </div>
+              <span className={`text-sm font-black tabular-nums ${divColor(diversityInfo.score)}`}>{diversityInfo.score}</span>
+              <span className="text-[9px] text-muted-foreground font-mono">/ 100</span>
+            </div>
+            {/* DNA breakdown */}
+            <div className="grid grid-cols-2 gap-1.5 mb-2">
+              {candidates.map(cand => (
+                <div key={cand.id} className="bg-secondary/10 border border-border/20 rounded-lg p-2">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-[11px] leading-none">{DESIGN_SPACE_ICONS[cand.designSpace as DesignSpaceName] ?? "◈"}</span>
+                    <span className="text-[9px] font-bold text-foreground">Candidate {cand.label}</span>
+                  </div>
+                  <p className="text-[9px] text-primary font-semibold truncate">{cand.designSpace}</p>
+                  <div className="mt-1 space-y-0.5">
+                    <div className="flex justify-between">
+                      <span className="text-[8px] text-muted-foreground">Typography</span>
+                      <span className="text-[8px] font-mono text-muted-foreground">{_dsTypographyDNA(cand.designSpace)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[8px] text-muted-foreground">Layout</span>
+                      <span className="text-[8px] font-mono text-muted-foreground truncate ml-1" style={{ maxWidth: 70 }}>{_dsLayoutDNA(cand.designSpace)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[8px] text-muted-foreground">Spacing</span>
+                      <span className="text-[8px] font-mono text-muted-foreground">{_dsSpacingDNA(cand.designSpace)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[8px] text-muted-foreground">Visual</span>
+                      <span className="text-[8px] font-mono text-muted-foreground truncate ml-1" style={{ maxWidth: 70 }}>{_dsVisualDNA(cand.designSpace)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Similarity flags */}
+            {diversityInfo.flags.length > 0 && (
+              <div className="space-y-1">
+                {diversityInfo.flags.map((flag, i) => (
+                  <div key={i} className="flex items-start gap-1.5 p-1.5 rounded-lg bg-yellow-400/6 border border-yellow-400/20">
+                    <AlertCircle className="h-2.5 w-2.5 text-yellow-400 mt-0.5 shrink-0" />
+                    <p className="text-[9px] text-muted-foreground leading-relaxed">
+                      Candidates {flag.labels[0]} &amp; {flag.labels[1]} share {flag.dimensions.join(", ")} DNA — consider regenerating
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {diversityInfo.flags.length === 0 && (
+              <div className="flex items-center gap-1.5">
+                <Check className="h-2.5 w-2.5 text-green-400 shrink-0" />
+                <p className="text-[9px] text-muted-foreground">All candidates are genuinely distinct creative directions</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -1229,18 +1443,23 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
                   className={`rounded-xl border p-3 transition-all cursor-pointer ${isActive ? "border-primary/40 bg-primary/8" : "border-border/30 hover:border-border/60 bg-secondary/10 hover:bg-secondary/20"}`}
                   onClick={() => setData(cand.websiteData)}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base leading-none">{rankBadge}</span>
-                      <div>
-                        <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-base leading-none shrink-0">{rankBadge}</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-bold text-foreground">Candidate {cand.label}</span>
                           {isWinner && <span className="text-[9px] font-bold text-primary bg-primary/15 px-1.5 py-0.5 rounded uppercase tracking-wide">Best</span>}
                           {isActive && <span className="text-[9px] font-bold text-blue-400 bg-blue-400/15 px-1.5 py-0.5 rounded uppercase tracking-wide">Viewing</span>}
                         </div>
-                        <p className="text-[10px] text-muted-foreground">{cand.designVariant}</p>
+                        {/* V4.5: Design space badge */}
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-[10px] leading-none">{DESIGN_SPACE_ICONS[cand.designSpace as DesignSpaceName] ?? "◈"}</span>
+                          <p className="text-[10px] text-primary font-semibold truncate">{cand.designSpace}</p>
+                        </div>
+                        <p className="text-[9px] text-muted-foreground/60 truncate">{cand.designVariant}</p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       {cand.status === "evaluating" ? (
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       ) : cand.evaluationReport ? (
@@ -1292,7 +1511,11 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2.5">Analysis by Candidate</p>
             {candidates.map(cand => (
               <div key={cand.id} className="mb-3 last:mb-0">
-                <p className="text-[10px] font-bold text-foreground mb-1.5">Candidate {cand.label} — {cand.designVariant}</p>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-[11px] leading-none">{DESIGN_SPACE_ICONS[cand.designSpace as DesignSpaceName] ?? "◈"}</span>
+                  <p className="text-[10px] font-bold text-foreground">Candidate {cand.label}</p>
+                  <span className="text-[9px] text-primary font-semibold bg-primary/10 px-1.5 py-0.5 rounded">{cand.designSpace}</span>
+                </div>
                 {(comparisonReport.strengths_by_candidate[cand.label] ?? []).map((s, i) => (
                   <div key={i} className="flex items-start gap-1.5 mb-1">
                     <Check className="h-2.5 w-2.5 text-green-400 mt-0.5 shrink-0" />

@@ -252,6 +252,115 @@ const DESIGN_VARIANTS: Record<string, {
   },
 };
 
+// ─── Design Space System (V4.5) ───────────────────────────────────────────────
+// 8 canonical design spaces for explore/premium mode diversity enforcement.
+// Each maps deterministically to an existing DESIGN_VARIANT key.
+const DESIGN_SPACES = [
+  "Premium SaaS",
+  "Enterprise Minimal",
+  "Futuristic AI",
+  "Luxury Editorial",
+  "Startup Modern",
+  "Glassmorphism",
+  "Cinematic Dark",
+  "Bold Brutalist",
+] as const;
+export type DesignSpace = typeof DESIGN_SPACES[number];
+
+const DESIGN_SPACE_TO_VARIANT: Record<string, string> = {
+  "Premium SaaS":       "Premium SaaS",
+  "Enterprise Minimal": "Enterprise Minimal",
+  "Futuristic AI":      "Futuristic",
+  "Luxury Editorial":   "Luxury Editorial",
+  "Startup Modern":     "Startup Modern",
+  "Glassmorphism":      "Glassmorphism",
+  "Cinematic Dark":     "Cinematic Dark",
+  "Bold Brutalist":     "Bold Brutalist",
+};
+
+// Reverse map: variant key → design space name
+const VARIANT_TO_DESIGN_SPACE: Record<string, string> = Object.fromEntries(
+  Object.entries(DESIGN_SPACE_TO_VARIANT).map(([space, variant]) => [variant, space])
+);
+
+// ─── Design DNA Fingerprints (for diversity validation) ──────────────────────
+function getTypographyDNA(variantKey: string): string {
+  const v = DESIGN_VARIANTS[variantKey];
+  if (!v) return "sans";
+  const tc = v.typographyConstraints.toLowerCase();
+  if (tc.includes("cormorant") || tc.includes("playfair") || tc.includes("cinzel") || tc.includes("serif")) return "serif";
+  if (tc.includes("bebas") || tc.includes("oswald") || tc.includes("anton") || tc.includes("barlow")) return "condensed";
+  if (tc.includes("mono")) return "mono";
+  return "sans";
+}
+
+function getLayoutDNA(variantKey: string): string {
+  return DESIGN_VARIANTS[variantKey]?.heroLayout ?? "centered";
+}
+
+function getSpacingDNA(variantKey: string): string {
+  const v = DESIGN_VARIANTS[variantKey];
+  if (!v) return "modern";
+  const cs = v.componentStyle.toLowerCase();
+  if (cs.includes("zero border-radius") || cs.includes("zero border")) return "brutalist";
+  if (cs.includes("backdrop-filter") || cs.includes("blur")) return "glass";
+  if (cs.includes("hairline") || cs.includes("no card background") || cs.includes("no floating")) return "editorial";
+  return "modern";
+}
+
+function getVisualDNA(variantKey: string): string {
+  const v = DESIGN_VARIANTS[variantKey];
+  if (!v) return "dark";
+  const cc = v.colorConstraints;
+  if (cc.includes("#000000") && !cc.includes("#ffffff")) return "pure-black";
+  if (cc.includes("#ffffff") || cc.includes("#fafafa") || cc.includes("#f5f7fa")) return "white";
+  if (cc.includes("gradient")) return "gradient";
+  if (cc.includes("#08080a") || cc.includes("#0c0c0e")) return "cinematic-dark";
+  if (cc.includes("#020408") || cc.includes("cyan #00d4ff") || cc.includes("neon")) return "neon-dark";
+  return "dark";
+}
+
+// Computes 0–100 diversity score across a list of variant keys.
+// A pair is "diverse" if they differ on ≥2 of 4 DNA dimensions.
+function computeDiversityScore(variantKeys: string[]): number {
+  if (variantKeys.length < 2) return 100;
+  let totalPairs = 0;
+  let diversePairs = 0;
+  for (let i = 0; i < variantKeys.length; i++) {
+    for (let j = i + 1; j < variantKeys.length; j++) {
+      totalPairs++;
+      const diffs = [
+        getTypographyDNA(variantKeys[i]) !== getTypographyDNA(variantKeys[j]),
+        getLayoutDNA(variantKeys[i]) !== getLayoutDNA(variantKeys[j]),
+        getSpacingDNA(variantKeys[i]) !== getSpacingDNA(variantKeys[j]),
+        getVisualDNA(variantKeys[i]) !== getVisualDNA(variantKeys[j]),
+      ].filter(Boolean).length;
+      if (diffs >= 2) diversePairs++;
+    }
+  }
+  return Math.round((diversePairs / totalPairs) * 100);
+}
+
+// Returns pairs of candidates that share ≥3 of 4 DNA dimensions (too similar).
+function getDiversityFlags(
+  candidates: Array<{ label: string; variantKey: string }>
+): Array<{ labels: [string, string]; dimensions: string[] }> {
+  const flags: Array<{ labels: [string, string]; dimensions: string[] }> = [];
+  for (let i = 0; i < candidates.length; i++) {
+    for (let j = i + 1; j < candidates.length; j++) {
+      const a = candidates[i];
+      const b = candidates[j];
+      const shared: string[] = [];
+      if (getTypographyDNA(a.variantKey) === getTypographyDNA(b.variantKey)) shared.push("typography");
+      if (getLayoutDNA(a.variantKey) === getLayoutDNA(b.variantKey)) shared.push("layout");
+      if (getSpacingDNA(a.variantKey) === getSpacingDNA(b.variantKey)) shared.push("spacing");
+      if (getVisualDNA(a.variantKey) === getVisualDNA(b.variantKey)) shared.push("visual");
+      if (shared.length >= 3) flags.push({ labels: [a.label, b.label], dimensions: shared });
+    }
+  }
+  return flags;
+}
+
 const VARIANT_INDUSTRY_POOLS: Record<string, string[]> = {
   "Cybersecurity":    ["Futuristic", "Enterprise Minimal", "Premium SaaS", "Clean Pro", "Cinematic Dark"],
   "Fintech":          ["Clean Pro", "Enterprise Minimal", "Premium SaaS", "Glassmorphism", "Futuristic"],
@@ -915,7 +1024,7 @@ const DEFAULT_STAGES = [
 // POST /api/generate/website — full site generation (industry-aware)
 router.post("/generate/website", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { idea, businessIntelligence, variantSeed, language } = req.body;
+    const { idea, businessIntelligence, variantSeed, language, forceDesignVariant } = req.body;
     if (!idea || typeof idea !== "string" || !idea.trim()) {
       res.status(400).json({ error: "Business idea is required" }); return;
     }
@@ -933,7 +1042,11 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
     const stages = ARCHITECT_STAGES[industry] ?? DEFAULT_STAGES;
     // variantSeed increments on every client regeneration — forces a different hero type each time
     const seedOffset = typeof variantSeed === "number" ? variantSeed : 0;
-    const designVariant = selectDesignVariant(industry, idea.trim(), seedOffset);
+    // V4.5: forceDesignVariant (from Design Space System) overrides hash-based selection
+    // when explore/premium mode pre-selects unique spaces for diversity enforcement
+    const designVariant = (typeof forceDesignVariant === "string" && DESIGN_VARIANTS[forceDesignVariant])
+      ? forceDesignVariant
+      : selectDesignVariant(industry, idea.trim(), seedOffset);
 
     res.write(`data: ${JSON.stringify({ phase: "architect", industry, stages, designVariant })}\n\n`);
     for (let i = 0; i < stages.length; i++) {
@@ -973,6 +1086,8 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
     qwenData.designVariant = designVariant;
     qwenData._industry = industry;
     qwenData._variantSeed = seedOffset;
+    // V4.5: Inject design space label for diversity tracking
+    qwenData._designSpace = VARIANT_TO_DESIGN_SPACE[designVariant] ?? designVariant;
 
     // ─── Phase 2: FLUX hero image ──────────────────────────────────────────────
     // The design template engine (client-side) handles layout — no AI HTML needed.
