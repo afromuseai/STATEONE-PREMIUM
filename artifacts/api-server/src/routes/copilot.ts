@@ -453,6 +453,36 @@ ${summary}
     }
   }
 
+  // ─── Server-side request classifier ──────────────────────────────────────────
+  // Classification is computed in Node.js and injected as a locked fact into the
+  // system prompt. This prevents the LLM's own reasoning layers (Reality Gate,
+  // Interruption Layer) from overriding the classification.
+  const latestUserMessage = (messages[messages.length - 1]?.content ?? "").toLowerCase();
+
+  const GENERATIVE_SIGNALS = [
+    "build", "generate", "create", "make", "set up", "setup", "design", "write",
+    "draft", "produce", "configure", "add", "launch", "deploy", "start", "give me",
+    "show me", "make me", "i want", "i need", "let's build", "let's create",
+  ];
+  const GENERATIVE_ARTIFACTS = [
+    "chatbot", "chat bot", "website", "automation", "workflow", "landing page",
+    "pricing page", "onboarding", "onboarding flow", "support system", "scheduling",
+    "scheduler", "email sequence", "integration", "dashboard", "form", "campaign",
+    "agent", "bot", "flow", "page", "funnel", "system", "platform", "app",
+    "assistant", "tool", "feature", "module",
+  ];
+
+  const hasGenerativeSignal = GENERATIVE_SIGNALS.some(s => latestUserMessage.includes(s));
+  const hasGenerativeArtifact = GENERATIVE_ARTIFACTS.some(a => latestUserMessage.includes(a));
+  const isGenerativeRequest = hasGenerativeSignal || hasGenerativeArtifact;
+
+  const serverIntentType = hasGenerativeSignal ? "EXECUTION" : "STRATEGIC";
+  const serverGateMode = isGenerativeRequest ? "GENERATIVE" : "STRATEGIC";
+
+  console.log(`[MARCUS] intent_type = ${serverIntentType}`);
+  console.log(`[MARCUS] gate_mode = ${serverGateMode}`);
+  console.log(`[MARCUS] has_generative_signal = ${hasGenerativeSignal} | has_generative_artifact = ${hasGenerativeArtifact}`);
+
   // ─── Compute CopilotState fields from real workspace data ─────────────────────
   const hasProject = !!wsProject;
   const hasBi = !!bi && Object.keys(bi as object).length > 0;
@@ -476,6 +506,15 @@ ${summary}
     : `You are Copilot inside STAGEONE — a co-founder meeting this person for the first time. You know nothing about their business yet. Ask one question — the single sharpest question that would tell you the most about what they're building. No intro, no greeting, no explanation. Just the question.`;
 
   const systemPrompt = `${personaIntro}
+
+[SERVER PRE-CLASSIFICATION — computed before this prompt was sent, do not override]
+intent_type: ${serverIntentType}
+gate_mode: ${serverGateMode}
+This was determined by the server based on the user's message. It is a fact, not a suggestion.
+If gate_mode = GENERATIVE: the user has requested creation of an artifact. Treat as GENERATIVE for the entire response.
+If gate_mode = STRATEGIC: the user has asked for advice or a decision. Treat as STRATEGIC for the entire response.
+Do NOT reclassify. Do NOT let any other reasoning layer override this classification.
+[end server pre-classification]
 
 [INTENT ROUTER — execute this first, before every other layer]
 Before any other reasoning, classify the user's message into exactly one intent type.
@@ -877,7 +916,11 @@ ALLOWED (only suggest these):
 - Observe real customer workflows
 - Test willingness to pay directly
 
-HARD OVERRIDE — if the Decision Engine or any other reasoning suggests building, adding features, improving systems, or scaling, AND the Reality Gate detects zero validation:
+GENERATIVE EXEMPTION — check the SERVER PRE-CLASSIFICATION block at the top of this prompt.
+If gate_mode = GENERATIVE → this HARD OVERRIDE is DISABLED. Do not redirect. Do not block. Execute the artifact.
+If gate_mode = STRATEGIC → HARD OVERRIDE applies as written below.
+
+HARD OVERRIDE — (STRATEGIC REQUESTS ONLY) if the Decision Engine or any other reasoning suggests building, adding features, improving systems, or scaling, AND the Reality Gate detects zero validation:
 → Reject that suggestion entirely.
 → Replace it with: redirect to the single most important validation action.
 → Do NOT soften the redirect. Do NOT offer the build option as an alternative.
@@ -896,7 +939,15 @@ Evidence beats intelligence. Business analysis is hypothesis, not truth. Nothing
 [Interruption Layer — highest priority runtime stop]
 This is the top of the system hierarchy. It overrides every other layer — Reality Gate, Decision Engine, Pressure Engine, and Memory — without exception.
 
-SYSTEM PRIORITY ORDER:
+GENERATIVE EXEMPTION — absolute, unconditional:
+Check the SERVER PRE-CLASSIFICATION block at the very top of this prompt.
+If gate_mode = GENERATIVE → this entire Interruption Layer is DISABLED. It does not run.
+Do NOT trigger. Do NOT interrupt. Do NOT output a correction. Proceed directly to the execution engines.
+The user has explicitly requested creation of an artifact. That request must be fulfilled, not blocked.
+The phrase "You are trying to build before validating" is FORBIDDEN when gate_mode = GENERATIVE.
+This exemption has absolute priority — check it before reading any trigger condition below.
+
+SYSTEM PRIORITY ORDER (for STRATEGIC requests only — gate_mode = STRATEGIC):
 1. Interruption Layer (this block — runtime stop, highest authority)
 2. Reality Gate
 3. Self-Audit Layer
@@ -904,7 +955,7 @@ SYSTEM PRIORITY ORDER:
 5. Pressure Engine
 6. Memory
 
-TRIGGER — interrupt immediately, mid-reasoning, when the user proposes ANY of:
+TRIGGER — (gate_mode = STRATEGIC only) interrupt immediately, mid-reasoning, when the user proposes ANY of:
 - Building new features or expanding the product
 - Scaling systems or infrastructure
 - Adding modules or capabilities
@@ -913,7 +964,7 @@ TRIGGER — interrupt immediately, mid-reasoning, when the user proposes ANY of:
 
 AND the Reality Gate detects ZERO-VALIDATION STATE (no customers, no interviews, no LOIs, no pilots, no revenue).
 
-INTERRUPTION BEHAVIOR — when triggered:
+INTERRUPTION BEHAVIOR — when triggered (STRATEGIC only):
 DO NOT continue reasoning.
 DO NOT offer alternatives or options.
 DO NOT suggest a modified version of what they proposed.
@@ -936,6 +987,7 @@ User: "Let's add automation and scale infrastructure."
 Response: "You are trying to scale without validation. This is premature. Validate demand first."
 
 HARD RULE: If this layer triggers, nothing else in the system matters. The interruption IS the response.
+HARD RULE EXCEPTION: gate_mode = GENERATIVE always silences this layer. Always.
 [end interruption layer]
 
 [Self-Audit Layer — meta-cognition check before any response is sent]
@@ -1576,9 +1628,9 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${businessBlock}${memoryBlo
   // Fire-and-forget after response is sent. Never blocks the user.
   // Detects strategic statements in the latest user message and persists
   // them to aiMemoryTable so they are available in all future requests.
-  const latestUserMessage = trimmedMessages.filter(m => m.role === "user").at(-1)?.content;
-  if (latestUserMessage) {
-    extractProjectMemories(userId, latestUserMessage, wsProject?.title, req.log).catch(() => {});
+  const latestUserMessageForMemory = trimmedMessages.filter(m => m.role === "user").at(-1)?.content;
+  if (latestUserMessageForMemory) {
+    extractProjectMemories(userId, latestUserMessageForMemory, wsProject?.title, req.log).catch(() => {});
   }
 });
 
