@@ -423,18 +423,48 @@ export function CopilotPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Load persisted messages once per user session
+  // Load persisted messages on user session — ALWAYS reset state on user change or logout
+  // SECURITY: never skip setMessages() — if we do, the prior user's messages stay visible
   useEffect(() => {
-    if (!user?.id || loadedUserRef.current === user.id) return
-    loadedUserRef.current = user.id
-    const stored = loadMessages(user.id)
-    if (stored.length > 0) {
-      setMessages(stored)
-      greeted.current = true
-    } else if (sessionStorage.getItem(greetedKey(user.id)) === "1") {
+    const userId = user?.id ?? null
+
+    // ── Logout / unauthenticated: wipe everything immediately ──────────────────
+    if (!userId) {
+      if (loadedUserRef.current !== null) {
+        console.log("[Marcus:isolation] logout detected — clearing conversation state | previousUserId:", loadedUserRef.current)
+        setMessages([])
+        greeted.current = false
+        loadedUserRef.current = null
+      }
+      return
+    }
+
+    // ── Already loaded for this exact user ─────────────────────────────────────
+    if (loadedUserRef.current === userId) return
+
+    const prevUserId = loadedUserRef.current
+    loadedUserRef.current = userId
+
+    const sk = storageKey(userId)
+    const stored = loadMessages(userId)
+    const conversationId = `${userId}:copilot`
+
+    console.log("userId", userId)
+    console.log("projectId", currentProject?.id ?? null)
+    console.log("conversationId", conversationId)
+    console.log("storageKey", sk)
+    console.log("[Marcus:isolation] user changed | prev:", prevUserId, "→ next:", userId, "| storedMessages:", stored.length)
+
+    // ALWAYS call setMessages — even with [] — so prior user's messages never
+    // bleed into the next user's session (the original bug: if stored was empty,
+    // setMessages was never called and old messages stayed visible).
+    setMessages(stored)
+    greeted.current = stored.length > 0
+
+    if (stored.length === 0 && sessionStorage.getItem(greetedKey(userId)) === "1") {
       greeted.current = true
     }
-  }, [user?.id])
+  }, [user?.id, currentProject?.id])
 
   // Save messages to sessionStorage on every change
   useEffect(() => {
@@ -661,6 +691,16 @@ export function CopilotPanel() {
   const sendMessage = useCallback(async (text?: string) => {
     const content = (text ?? input).trim()
     if (!content || streaming) return
+
+    // ── Isolation audit log — emitted on every send ────────────────────────────
+    const _sendUserId = user?.id ?? null
+    const _sendProjectId = currentProject?.id ?? null
+    const _sendConversationId = _sendUserId ? `${_sendUserId}:copilot` : null
+    const _sendStorageKey = _sendUserId ? storageKey(_sendUserId) : null
+    console.log("userId", _sendUserId)
+    console.log("projectId", _sendProjectId)
+    console.log("conversationId", _sendConversationId)
+    console.log("storageKey", _sendStorageKey)
 
     setInput("")
     setShowCommands(false)

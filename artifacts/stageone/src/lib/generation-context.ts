@@ -249,16 +249,21 @@ export function consumeMarcusWebsiteGenerateIntent(): boolean {
 // ─── Workspace session isolation ──────────────────────────────────────────────
 // Call this on every login, signup, and logout to prevent one user's
 // sessionStorage data from leaking into a different user's session.
-// Wipes every key that belongs to STAGEONE — copilot messages are already
-// user-scoped (copilot:msgs:<userId>) so they survive this sweep safely.
+// Wipes ALL stageone_ keys AND all copilot:* keys (messages + greeted flags).
+// copilot:msgs:<userId> keys are session-scoped so clearing them on logout is safe —
+// they must NOT survive across account switches or they bleed into the next user's session.
 export function clearWorkspaceSessionData(): void {
   try {
     const STAGEONE_KEYS = [KEY, DASHBOARD_KEY, AUTORUN_KEY, PROJECT_KEY, MARCUS_WEBSITE_GENERATE_KEY, PENDING_INTENT_KEY]
     for (const k of STAGEONE_KEYS) sessionStorage.removeItem(k)
-    // Also sweep any dynamically created keys with the stageone_ prefix
+    // Sweep all dynamically created keys with stageone_ prefix
     const allKeys = Object.keys(sessionStorage)
     for (const k of allKeys) {
       if (k.startsWith("stageone_")) sessionStorage.removeItem(k)
+      // SECURITY: also clear all copilot:* keys (copilot:msgs:<userId>, copilot:greeted:<userId>)
+      // Without this, a prior user's conversation persists in sessionStorage and can bleed
+      // into the next user's session if the React state reset is ever missed.
+      if (k.startsWith("copilot:")) sessionStorage.removeItem(k)
     }
   } catch { /* ignore */ }
 }
