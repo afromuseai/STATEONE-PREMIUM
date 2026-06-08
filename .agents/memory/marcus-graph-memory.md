@@ -1,6 +1,6 @@
 ---
 name: Marcus Graph Memory Integration
-description: How the copilot/Marcus route loads project business graph memory before generating responses, and the Truthfulness Layer that maps evidence types.
+description: How the copilot/Marcus route loads project business graph memory before generating responses, the Truthfulness Layer, and the Decision Gate (DISCOVERY vs EXECUTION mode).
 ---
 
 # Marcus Business Graph Memory Integration
