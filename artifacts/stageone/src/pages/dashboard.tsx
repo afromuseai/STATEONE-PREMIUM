@@ -263,19 +263,30 @@ export default function DashboardPage() {
         setLocation("/dashboard?tab=new")
         setTimeout(() => setMarcusPopulate(idea), 50)
       } else if (signal.type === "generate") {
+        // ── GENERATE BRANCH ─────────────────────────────────────────────────
+        // This branch MUST call generateWith. Any path that does not is a bug.
+        // No silent failures: every exit point is logged explicitly.
+        console.log("[CONFIRM_FLOW:INTEL:3] generate branch entered | signal.payload:", JSON.stringify(signal.payload ?? ""), "| marcusBiIdeaRef:", JSON.stringify(marcusBiIdeaRef.current), "| timestamp:", Date.now())
+
         // Prefer idea carried in signal.payload (set by copilot at emit time).
         // Fall back to marcusBiIdeaRef which was set by the prior populate signal.
         // Never read React state here — only refs and signal data.
         const idea = (signal.payload?.trim() || marcusBiIdeaRef.current.trim())
-        console.log("[CONFIRM_FLOW:INTEL:3] generate branch | signal.payload:", JSON.stringify(signal.payload ?? ""), "| marcusBiIdeaRef:", JSON.stringify(marcusBiIdeaRef.current), "| resolved idea:", JSON.stringify(idea), "| timestamp:", Date.now())
+        console.log("[CONFIRM_FLOW:INTEL:3a] resolved idea:", JSON.stringify(idea), "| length:", idea.length)
 
         if (!idea) {
-          console.log("[CONFIRM_FLOW:INTEL:early-return:empty-idea] generate branch — no idea in signal.payload or marcusBiIdeaRef — aborting")
+          console.error("[CONFIRM_FLOW:INTEL:BUG] generate branch — idea is empty in both signal.payload AND marcusBiIdeaRef — this is a bug, generation cannot proceed")
           return
         }
 
-        console.log("[CONFIRM_FLOW:INTEL:4] calling handleGenerate | ref is null:", handleGenerateRef.current === null, "| idea:", JSON.stringify(idea), "| timestamp:", Date.now())
-        handleGenerateRef.current?.(idea)
+        if (!handleGenerateRef.current) {
+          console.error("[CONFIRM_FLOW:INTEL:BUG] generate branch — handleGenerateRef.current is null — ref was not assigned before signal arrived — this is a bug")
+          return
+        }
+
+        console.log("[CONFIRM_FLOW:INTEL:4] CALLING handleGenerate NOW | idea:", JSON.stringify(idea), "| timestamp:", Date.now())
+        handleGenerateRef.current(idea)
+        console.log("[CONFIRM_FLOW:INTEL:5] handleGenerate call dispatched | timestamp:", Date.now())
       } else {
         console.log("[CONFIRM_FLOW:INTEL:unhandled] signal type not handled | type:", signal.type)
       }
