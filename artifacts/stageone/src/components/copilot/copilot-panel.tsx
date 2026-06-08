@@ -601,24 +601,36 @@ export function CopilotPanel() {
       }
     } else if (command === "automation_idea") {
       console.log("AUTOMATION_TRACE: Command received | command: automation_idea | payload:", JSON.stringify(payload))
-      console.log("AUTOMATION_TRACE: [REMOUNT CHECK] current location at automation_idea time:", JSON.stringify(location), "| page already mounted:", location === "/automation-builder")
+      const alreadyMounted = location === "/automation-builder"
+      console.log("AUTOMATION_TRACE: [REMOUNT CHECK] current location at automation_idea time:", JSON.stringify(location), "| page already mounted:", alreadyMounted)
       const idea = payload.trim()
       if (!idea) {
         console.log("AUTOMATION_TRACE: PendingIntent SKIPPED | idea is empty — no setPendingIntent, no navigate")
         return
       }
-      // 1. Write sessionStorage first — Phase 1 (fresh mount) reads this
+      // 1. Write sessionStorage first — Phase 1 (fresh mount) reads this.
+      //    This must happen before navigate() so the component finds it on mount.
       console.log("AUTOMATION_TRACE: PendingIntent written | type: automation | idea:", JSON.stringify(idea))
       setPendingIntent({ type: "automation", idea, autoGenerate: false })
       const rawAfterIntent = sessionStorage.getItem("stageone_pending_intent")
       console.log("AUTOMATION_TRACE: SessionStorage value after setPendingIntent:", rawAfterIntent)
-      // 2. Always dispatch stageone:intentUpdated — covers the already-mounted case where
-      //    navigate() is a no-op and Phase 1 never re-runs.
-      //    If the page isn't mounted yet, this fires to no listener (safe — Phase 1 handles it).
-      console.log("AUTOMATION_TRACE: dispatching stageone:intentUpdated | location:", JSON.stringify(location))
-      window.dispatchEvent(new CustomEvent("stageone:intentUpdated", { detail: { type: "automation", idea } }))
-      // 3. Always navigate — if already on the page this is a no-op for the router;
-      //    if not on the page yet this mounts it and Phase 1 consumes the sessionStorage intent.
+      if (alreadyMounted) {
+        // Page is mounted and listener is registered — dispatch synchronously.
+        // Phase 1 will not re-run (page is already mounted), so the event is the only path.
+        console.log("AUTOMATION_TRACE: dispatching stageone:intentUpdated SYNCHRONOUSLY | page already mounted")
+        window.dispatchEvent(new CustomEvent("stageone:intentUpdated", { detail: { type: "automation", idea } }))
+      } else {
+        // Page is not yet mounted. navigate() will trigger the mount.
+        // Phase 1 (consumePendingIntent) is the primary mechanism via sessionStorage above.
+        // Belt-and-suspenders: also dispatch the event after a delay so if Phase 1 somehow
+        // misses the sessionStorage entry, the now-registered listener can catch it.
+        console.log("AUTOMATION_TRACE: page not mounted — dispatching stageone:intentUpdated DELAYED (300ms) | idea:", JSON.stringify(idea.slice(0, 60)))
+        setTimeout(() => {
+          console.log("AUTOMATION_TRACE: delayed stageone:intentUpdated firing now")
+          window.dispatchEvent(new CustomEvent("stageone:intentUpdated", { detail: { type: "automation", idea } }))
+        }, 300)
+      }
+      // 2. Navigate — mounts the component (if not already there) so Phase 1 can run.
       console.log("AUTOMATION_TRACE: navigate() called | to: /automation-builder")
       navigate("/automation-builder")
     } else if (command === "generate_automation") {
