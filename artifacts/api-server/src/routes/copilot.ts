@@ -7,6 +7,7 @@ import { z } from "zod";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, callNvidia, extractJson } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
+import { getBusinessContext, getBusinessMemorySummary, type BusinessContextResult } from "../lib/business-graph";
 
 // ─── Memory category types ─────────────────────────────────────────────────
 type MemoryCategory = "Decision" | "Goal" | "Assumption" | "Experiment" | "Milestone" | "Learning" | "Risk" | "Preference";
@@ -150,7 +151,7 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
   // Determine active project id from workspace context (sent by frontend)
   const activeProjectId = (workspaceContext as { currentProject?: { id?: string } } | null | undefined)?.currentProject?.id ?? null;
 
-  const [projects, agents, memories, projectTasksRaw, activeProjectRaw] = await Promise.all([
+  const [projects, agents, memories, projectTasksRaw, activeProjectRaw, graphContext] = await Promise.all([
     db.select({
       id: projectsTable.id,
       title: projectsTable.title,
@@ -192,6 +193,10 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
           .where(and(eq(projectsTable.id, activeProjectId), eq(projectsTable.userId, userId)))
           .limit(1)
       : Promise.resolve([]),
+    // Business graph memory for Marcus context
+    activeProjectId
+      ? getBusinessContext(activeProjectId)
+      : Promise.resolve({ graph: null, nodes: [], recentEvents: [], latestSnapshot: null } as BusinessContextResult),
   ]);
 
   const bi = businessContext as {
@@ -411,6 +416,40 @@ Do NOT mix these with Workspace Reality above. These two sections must stay comp
 
 ${parts.join("\n\n")}
 === END BUSINESS ANALYSIS ===`;
+    }
+  }
+
+  // ─── BUSINESS GRAPH MEMORY block ─────────────────────────────────────────────
+  // Persistent structured intelligence from the project's living graph.
+  // Loaded before every Marcus response so Marcus is project-aware without re-prompting.
+  let businessGraphBlock = "";
+  if (activeProjectId && (graphContext as BusinessContextResult).graph) {
+    const summary = getBusinessMemorySummary(graphContext as BusinessContextResult);
+    if (summary) {
+      businessGraphBlock = `
+
+=== BUSINESS GRAPH MEMORY ===
+This is the persistent business intelligence graph for the active project.
+It is automatically built and updated each time a generation completes — website, chatbot, automation, BI.
+Use this to understand the project without asking the user to repeat themselves.
+
+Truthfulness Layer — apply to every claim before responding:
+  FACT      → source: [ASSETS (FACT)], [RECENT TIMELINE (FACT)], [LAST MEMORY SNAPSHOT], WORKSPACE REALITY.
+              Something that was actually built or logged. State confidently: "Your website was generated." / "A chatbot was created."
+  MEMORY    → source: [IDENTITY], [AUDIENCE], [POSITIONING], [REVENUE MODEL], [GOALS], [KEY GRAPH NODES], WORKSPACE MEMORY.
+              Stored project knowledge extracted from prior generations. Reference naturally: "Based on your project context..." / "The graph shows your target audience is..."
+  INFERENCE → source: [OPERATIONS], [RISKS (INFERENCE)], [Metrics (INFERENCE)].
+              AI-derived from BI output but not real-world validated. Signal: "The analysis suggests..." / "This appears to be..." / "Based on the BI output..."
+  HYPOTHESIS → no graph entry exists for this claim. Unknown territory. Signal: "I don't know yet." / "We haven't validated that." / "That's not in your project context."
+
+When the user asks what they're building, who their audience is, what assets exist, or what risks they face:
+→ Answer from this graph first. Do not claim ignorance about data that is present here.
+→ When examining onboarding, website, chatbot, automations — check [ASSETS] before assuming nothing exists.
+→ When asked about history or what was done before — check [RECENT TIMELINE] before claiming ignorance.
+→ When asked about risks or operations — label them INFERENCE, not FACT.
+
+${summary}
+=== END BUSINESS GRAPH MEMORY ===`;
     }
   }
 
@@ -1416,7 +1455,7 @@ This system is in production stabilization mode. The goal is to make STAGEONE sh
 - Do NOT introduce new systems, frameworks, or abstraction layers into recommendations
 - Keep all outputs consistent and deterministic
 [end ship mode]
-${workspaceBlock}${historyBlock}${businessBlock}${memoryBlock}
+${workspaceBlock}${historyBlock}${businessGraphBlock}${businessBlock}${memoryBlock}
 [Reference platform capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a list]${getLanguageInstruction(language)}`;
 
   res.setHeader("Content-Type", "text/event-stream");

@@ -404,6 +404,186 @@ export async function onChatbotGenerationComplete(
   }
 }
 
+// ─── Marcus Memory Helpers ─────────────────────────────────────────────────────
+// These four functions are called by the copilot route before every response
+// to load the project's persistent intelligence graph into Marcus's context.
+
+export async function getRelevantGraphNodes(graphId: string, limit = 12) {
+  return db
+    .select()
+    .from(graphNodesTable)
+    .where(eq(graphNodesTable.graphId, graphId))
+    .orderBy(desc(graphNodesTable.importance))
+    .limit(limit);
+}
+
+export async function getRecentBusinessEvents(projectId: string, limit = 15) {
+  return getBusinessTimeline(projectId, limit);
+}
+
+export interface BusinessContextResult {
+  graph: BusinessGraph | null;
+  nodes: Awaited<ReturnType<typeof getGraphNodes>>;
+  recentEvents: Awaited<ReturnType<typeof getBusinessTimeline>>;
+  latestSnapshot: { trigger: string; createdAt: Date } | null;
+}
+
+export async function getBusinessContext(projectId: string): Promise<BusinessContextResult> {
+  const graph = await getBusinessGraph(projectId);
+  if (!graph) {
+    return { graph: null, nodes: [], recentEvents: [], latestSnapshot: null };
+  }
+
+  const [nodes, recentEvents, snapshots] = await Promise.all([
+    getGraphNodes(graph.id),
+    getBusinessTimeline(projectId, 15),
+    db
+      .select({
+        trigger: memorySnapshotsTable.trigger,
+        createdAt: memorySnapshotsTable.createdAt,
+      })
+      .from(memorySnapshotsTable)
+      .where(eq(memorySnapshotsTable.projectId, projectId))
+      .orderBy(desc(memorySnapshotsTable.createdAt))
+      .limit(1),
+  ]);
+
+  return {
+    graph,
+    nodes,
+    recentEvents,
+    latestSnapshot: snapshots[0] ?? null,
+  };
+}
+
+export function getBusinessMemorySummary(ctx: BusinessContextResult): string {
+  const { graph, nodes, recentEvents, latestSnapshot } = ctx;
+  if (!graph) return "";
+
+  const sections: string[] = [];
+
+  // Identity
+  const identity = graph.identity as Record<string, unknown> | null;
+  if (identity) {
+    const lines: string[] = [];
+    if (identity.name) lines.push(`  Name: ${identity.name}`);
+    if (identity.industry) lines.push(`  Industry: ${identity.industry}`);
+    if (identity.stage) lines.push(`  Stage: ${identity.stage}`);
+    if (identity.summary) lines.push(`  Summary: ${String(identity.summary).slice(0, 200)}`);
+    const metrics = identity.metrics as Record<string, unknown> | null;
+    if (metrics) {
+      const mp: string[] = [];
+      if (metrics.marketDifficulty != null) mp.push(`market difficulty ${metrics.marketDifficulty}/10`);
+      if (metrics.revenueScalability != null) mp.push(`scalability ${metrics.revenueScalability}/10`);
+      if (metrics.automationPotential != null) mp.push(`automation potential ${metrics.automationPotential}%`);
+      if (mp.length) lines.push(`  Metrics (INFERENCE): ${mp.join(", ")}`);
+    }
+    if (lines.length) sections.push(`[IDENTITY]\n${lines.join("\n")}`);
+  }
+
+  // Audience
+  const audience = graph.audience as Record<string, unknown> | null;
+  if (audience) {
+    const lines: string[] = [];
+    if (audience.targetAudience) lines.push(`  Target: ${audience.targetAudience}`);
+    const problems = audience.customerProblems as string[] | null;
+    if (problems?.length) lines.push(`  Problems: ${(problems as string[]).filter(Boolean).join(", ")}`);
+    if (lines.length) sections.push(`[AUDIENCE]\n${lines.join("\n")}`);
+  }
+
+  // Positioning
+  const positioning = graph.positioning as Record<string, unknown> | null;
+  if (positioning) {
+    const lines: string[] = [];
+    if (positioning.differentiation) lines.push(`  Differentiation: ${positioning.differentiation}`);
+    if (positioning.valueProposition) lines.push(`  Value Prop: ${String(positioning.valueProposition).slice(0, 150)}`);
+    if (lines.length) sections.push(`[POSITIONING]\n${lines.join("\n")}`);
+  }
+
+  // Revenue model
+  const revenue = graph.revenue as Record<string, unknown> | null;
+  if (revenue) {
+    const lines: string[] = [];
+    if (revenue.monetizationStrategy) lines.push(`  Model: ${revenue.monetizationStrategy}`);
+    if (revenue.pricingModel) lines.push(`  Pricing: ${String(revenue.pricingModel).slice(0, 100)}`);
+    if (lines.length) sections.push(`[REVENUE MODEL]\n${lines.join("\n")}`);
+  }
+
+  // Assets — these are FACTS (things that were actually generated)
+  const assets = graph.assets as Record<string, unknown> | null;
+  if (assets) {
+    const lines: string[] = [];
+    const websites = assets.websites as unknown[] | null;
+    const chatbots = assets.chatbots as unknown[] | null;
+    const automations = assets.automations as unknown[] | null;
+    if (websites?.length) {
+      const site = (websites[websites.length - 1]) as Record<string, unknown>;
+      lines.push(`  Websites: ${websites.length} generated${site?.brandName ? ` (brand: ${site.brandName})` : ""}${site?.designVariant ? `, variant: ${site.designVariant}` : ""}`);
+    }
+    if (chatbots?.length) {
+      const bot = (chatbots[chatbots.length - 1]) as Record<string, unknown>;
+      lines.push(`  Chatbots: ${chatbots.length} generated${bot?.name ? ` (${bot.name})` : ""}`);
+    }
+    if (automations?.length) {
+      const auto = (automations[automations.length - 1]) as Record<string, unknown>;
+      lines.push(`  Automations: ${automations.length} generated${auto?.name ? ` (${auto.name})` : ""}`);
+    }
+    if (lines.length) sections.push(`[ASSETS (FACT)]\n${lines.join("\n")}`);
+  }
+
+  // Operations
+  const operations = graph.operations as Record<string, unknown> | null;
+  if (operations) {
+    const lines: string[] = [];
+    if (operations.leadGeneration) lines.push(`  Lead Gen: ${operations.leadGeneration}`);
+    if (operations.onboarding) lines.push(`  Onboarding: ${operations.onboarding}`);
+    if (lines.length) sections.push(`[OPERATIONS]\n${lines.join("\n")}`);
+  }
+
+  // Risks — INFERENCE level (derived from BI)
+  const risks = graph.risks as Record<string, unknown> | null;
+  if (risks?.knownRisks && Array.isArray(risks.knownRisks)) {
+    const known = (risks.knownRisks as string[]).filter(Boolean);
+    if (known.length) sections.push(`[RISKS (INFERENCE)]\n  ${known.join("\n  ")}`);
+  }
+
+  // Goals
+  const goals = graph.goals as Record<string, unknown> | null;
+  if (goals) {
+    const lines: string[] = [];
+    const shortTerm = goals.shortTerm as string[] | null;
+    const longTerm = goals.longTerm as string[] | null;
+    if (shortTerm?.length) lines.push(`  Short-term: ${(shortTerm as string[]).slice(0, 2).join(" → ")}`);
+    if (longTerm?.length) lines.push(`  Long-term: ${(longTerm as string[]).slice(0, 2).join(" → ")}`);
+    if (lines.length) sections.push(`[GOALS]\n${lines.join("\n")}`);
+  }
+
+  // Key graph nodes (importance-ranked)
+  if (nodes.length > 0) {
+    const nodeLines = nodes.slice(0, 8).map((n: { nodeType: string; label: string; description?: string | null }) =>
+      `  [${n.nodeType.toUpperCase()}] ${n.label}${n.description ? `: ${n.description.slice(0, 100)}` : ""}`
+    );
+    sections.push(`[KEY GRAPH NODES]\n${nodeLines.join("\n")}`);
+  }
+
+  // Recent timeline — FACTS (what actually happened)
+  if (recentEvents.length > 0) {
+    const eventLines = recentEvents.slice(0, 10).map((ev: { occurredAt: Date; label: string; description?: string | null }) => {
+      const date = new Date(ev.occurredAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return `  [${date}] ${ev.label}${ev.description ? ` — ${ev.description.slice(0, 80)}` : ""}`;
+    });
+    sections.push(`[RECENT TIMELINE (FACT)]\n${eventLines.join("\n")}`);
+  }
+
+  // Latest snapshot info
+  if (latestSnapshot) {
+    const snapDate = new Date(latestSnapshot.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    sections.push(`[LAST MEMORY SNAPSHOT]\n  Captured: ${snapDate} — trigger: ${latestSnapshot.trigger}`);
+  }
+
+  return sections.join("\n\n");
+}
+
 export async function onAutomationGenerationComplete(
   projectId: string | undefined,
   userId: string,
