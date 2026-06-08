@@ -465,9 +465,19 @@ export function CopilotPanel() {
   const langRef = useRef(lang)
   langRef.current = lang
   streamingRef.current = streaming
+  // Ref so triggerGreeting can read the current user id without adding it as a dep
+  const userIdRef = useRef(user?.id ?? null)
+  userIdRef.current = user?.id ?? null
 
   const triggerGreeting = useCallback(async () => {
     if (greeted.current) return
+    // Remount guard: if sessionStorage shows this user has already seen a greeting,
+    // don't wipe the chat — just sync the ref and bail.
+    const uid = userIdRef.current
+    if (uid && sessionStorage.getItem(greetedKey(uid)) === "1") {
+      greeted.current = true
+      return
+    }
     greeted.current = true
     setStreaming(true)
 
@@ -512,9 +522,11 @@ export function CopilotPanel() {
     }
   }, [])
 
-  // Fire greeting when panel opens — wait for project data or fall back after 900ms
+  // Fire greeting when panel opens — wait for project data or fall back after 900ms.
+  // Requires user?.id to be present so we never fire before the loadedUserRef effect
+  // has had a chance to restore persisted messages and set greeted.current = true.
   useEffect(() => {
-    if (!open || greeted.current) return
+    if (!open || greeted.current || !user?.id) return
 
     if (projectsData !== undefined || businessData) {
       triggerGreeting()
@@ -526,7 +538,7 @@ export function CopilotPanel() {
     }, 900)
 
     return () => clearTimeout(timer)
-  }, [open, projectsData, businessData, triggerGreeting])
+  }, [open, projectsData, businessData, triggerGreeting, user?.id])
 
   // WORKSPACE — create tasks from AI recommendations
   const handleWorkspaceAction = useCallback(async (command: string, rawPayload: string) => {

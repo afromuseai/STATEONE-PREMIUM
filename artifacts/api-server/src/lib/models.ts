@@ -37,4 +37,9 @@ export type ModelKey = keyof typeof MODELS;
 export type ModelId = (typeof MODELS)[ModelKey];
 
 // Chat template kwargs for models that require them.
-export const MODEL_KWARGS: Partial<Record<ModelId, Record<string, unknown>>> = {};
+// nvidia/llama-3.3-nemotron-super-49b-v1.5 has thinking mode on by default —
+// disable it for COPILOT so content tokens start immediately (thinking tokens
+// go to delta.reasoning, causing multi-second latency before any visible output).
+export const MODEL_KWARGS: Partial<Record<ModelId, Record<string, unknown>>> = {
+  "nvidia/llama-3.3-nemotron-super-49b-v1.5": { thinking: false },
+};
