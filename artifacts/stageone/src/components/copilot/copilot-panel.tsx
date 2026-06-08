@@ -590,16 +590,35 @@ export function CopilotPanel() {
       markPendingIntentAutoGenerate("website")
       navigate("/website-generator")
     } else if (command === "automation") {
+      console.log("AUTOMATION_TRACE: Command received | command: automation | payload:", JSON.stringify(payload))
       // Same as chatbot: do NOT write an empty PendingIntent — it gets consumed
       // before automation_idea can write the real one. Just open the tab.
-      if (location !== "/automation-builder") navigate("/automation-builder")
+      if (location !== "/automation-builder") {
+        console.log("AUTOMATION_TRACE: Navigation fired | to: /automation-builder")
+        navigate("/automation-builder")
+      } else {
+        console.log("AUTOMATION_TRACE: Navigation skipped | already on /automation-builder")
+      }
     } else if (command === "automation_idea") {
+      console.log("AUTOMATION_TRACE: Command received | command: automation_idea | payload:", JSON.stringify(payload))
       const idea = payload.trim()
-      if (!idea) return
+      if (!idea) {
+        console.log("AUTOMATION_TRACE: PendingIntent SKIPPED | idea is empty — no setPendingIntent, no navigate")
+        return
+      }
+      console.log("AUTOMATION_TRACE: PendingIntent written | type: automation | idea:", JSON.stringify(idea))
       setPendingIntent({ type: "automation", idea, autoGenerate: false })
+      const rawAfterIntent = sessionStorage.getItem("stageone_pending_intent")
+      console.log("AUTOMATION_TRACE: SessionStorage value after setPendingIntent:", rawAfterIntent)
+      console.log("AUTOMATION_TRACE: Navigation fired | to: /automation-builder")
       navigate("/automation-builder")
     } else if (command === "generate_automation") {
+      console.log("AUTOMATION_TRACE: Command received | command: generate_automation | payload:", JSON.stringify(payload))
+      console.log("AUTOMATION_TRACE: markPendingIntentAutoGenerate called | type: automation")
       markPendingIntentAutoGenerate("automation")
+      const rawAfterMark = sessionStorage.getItem("stageone_pending_intent")
+      console.log("AUTOMATION_TRACE: SessionStorage value after markPendingIntentAutoGenerate:", rawAfterMark)
+      console.log("AUTOMATION_TRACE: Navigation fired | to: /automation-builder")
       navigate("/automation-builder")
     }
   }, [navigate, location, emitWorkspaceSignal])

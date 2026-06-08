@@ -381,25 +381,34 @@ export default function AutomationBuilderPage() {
 
   // Phase 1 — Load context and hydrate state fields
   useEffect(() => {
+    console.log("AUTOMATION_TRACE: Page mounted | Phase 1 starting | checking consumePendingIntent('automation')")
     // Primary: durable pending intent — written by Copilot before navigating.
     const intent = consumePendingIntent("automation")
+    console.log("AUTOMATION_TRACE: Intent consumed | result:", JSON.stringify(intent))
     if (intent && intent.idea) {
       // Cache the idea so markPendingIntentAutoGenerate can recover it if generate_automation
       // fires after this intent has already been consumed (page already mounted).
       cacheConsumedIdea("automation", intent.idea)
+      console.log("AUTOMATION_TRACE: Textarea populated | businessDesc set to:", JSON.stringify(intent.idea))
       setBusinessDesc(intent.idea)
       setContextBanner(true)
       if (intent.autoGenerate) {
+        console.log("AUTOMATION_TRACE: autoGenerate=true | autoGenPending set | generation will fire in Phase 2")
         autoGenPending.current = { wt: "Lead Capture", cplx: "Intermediate" }
+      } else {
+        console.log("AUTOMATION_TRACE: autoGenerate=false | textarea populated | waiting for user to confirm generation")
       }
       return
     }
     // Fallback: generation context written by Business Intelligence page
+    console.log("AUTOMATION_TRACE: No PendingIntent found | checking GenerationContext fallback")
     const ctx = loadGenerationContext()
+    console.log("AUTOMATION_TRACE: GenerationContext loaded:", ctx ? "found (BI fallback)" : "not found — no context available")
     if (!ctx) return
     clearGenerationContext()
     const desc = buildAutomationDesc(ctx)
     const wt = deriveWorkflowType(ctx.automations)
+    console.log("AUTOMATION_TRACE: Textarea populated (BI fallback) | desc length:", desc.length, "| workflowType:", wt)
     setBusinessDesc(desc)
     setWorkflowType(wt)
     setContextBanner(true)
@@ -408,7 +417,14 @@ export default function AutomationBuilderPage() {
 
   // Phase 2 — Start generation after state propagation is confirmed by businessDesc change
   useEffect(() => {
-    if (!autoGenPending.current || !businessDesc.trim() || autoGenFired.current) return
+    if (!autoGenPending.current || !businessDesc.trim() || autoGenFired.current) {
+      console.log("AUTOMATION_TRACE: Phase 2 | skipped |",
+        "autoGenPending:", !!autoGenPending.current,
+        "| businessDesc non-empty:", businessDesc.trim().length > 0,
+        "| autoGenFired:", autoGenFired.current)
+      return
+    }
+    console.log("AUTOMATION_TRACE: Generation started | businessDesc (first 120):", JSON.stringify(businessDesc.slice(0, 120)), "| workflowType:", autoGenPending.current.wt, "| complexity:", autoGenPending.current.cplx)
     autoGenFired.current = true
     const { wt, cplx } = autoGenPending.current
     autoGenPending.current = null
@@ -421,15 +437,22 @@ export default function AutomationBuilderPage() {
   useEffect(() => {
     const handler = (e: Event) => {
       const { type } = (e as CustomEvent<{ type: string }>).detail
-      if (type !== "automation") return
+      console.log("AUTOMATION_TRACE: stageone:autoGenerate event received | type:", type)
+      if (type !== "automation") {
+        console.log("AUTOMATION_TRACE: stageone:autoGenerate event ignored | type is not 'automation'")
+        return
+      }
       const intent = consumePendingIntent("automation")
+      console.log("AUTOMATION_TRACE: Intent consumed (post-mount event) | result:", JSON.stringify(intent))
       if (!intent) return
       const desc = intent.idea || businessDesc
+      console.log("AUTOMATION_TRACE: Textarea populated (post-mount event) | desc (first 120):", JSON.stringify(desc.slice(0, 120)))
       if (!desc.trim()) return
       if (!businessDesc.trim()) {
         setBusinessDesc(desc)
         setContextBanner(true)
       }
+      console.log("AUTOMATION_TRACE: Generation started (post-mount event) | workflowType:", workflowType, "| complexity:", complexity)
       setTimeout(() => generateWith(desc, workflowType, complexity), 100)
     }
     window.addEventListener("stageone:autoGenerate", handler)
