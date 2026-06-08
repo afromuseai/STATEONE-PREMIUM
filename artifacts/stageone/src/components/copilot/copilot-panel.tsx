@@ -601,6 +601,7 @@ export function CopilotPanel() {
       }
     } else if (command === "automation_idea") {
       console.log("AUTOMATION_TRACE: Command received | command: automation_idea | payload:", JSON.stringify(payload))
+      console.log("AUTOMATION_TRACE: [REMOUNT CHECK] current location at automation_idea time:", JSON.stringify(location), "| page already mounted:", location === "/automation-builder")
       const idea = payload.trim()
       if (!idea) {
         console.log("AUTOMATION_TRACE: PendingIntent SKIPPED | idea is empty — no setPendingIntent, no navigate")
@@ -610,7 +611,11 @@ export function CopilotPanel() {
       setPendingIntent({ type: "automation", idea, autoGenerate: false })
       const rawAfterIntent = sessionStorage.getItem("stageone_pending_intent")
       console.log("AUTOMATION_TRACE: SessionStorage value after setPendingIntent:", rawAfterIntent)
-      console.log("AUTOMATION_TRACE: Navigation fired | to: /automation-builder")
+      if (location === "/automation-builder") {
+        console.log("AUTOMATION_TRACE: [REMOUNT CHECK] navigate() skipped — already on /automation-builder — Phase 1 useEffect will NOT re-run — intent in sessionStorage will NOT be consumed by Phase 1")
+      } else {
+        console.log("AUTOMATION_TRACE: [REMOUNT CHECK] navigate() called — page will mount fresh — Phase 1 useEffect WILL run and consume the intent")
+      }
       navigate("/automation-builder")
     } else if (command === "generate_automation") {
       console.log("AUTOMATION_TRACE: Command received | command: generate_automation | payload:", JSON.stringify(payload))

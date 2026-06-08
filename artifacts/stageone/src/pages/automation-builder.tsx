@@ -379,6 +379,14 @@ export default function AutomationBuilderPage() {
     setContextBanner(false)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Lifecycle sentinel — logs mount and unmount so we can confirm whether Phase 1 ever re-runs
+  useEffect(() => {
+    console.log("AUTOMATION_TRACE: [LIFECYCLE] AutomationBuilderPage MOUNTED | timestamp:", Date.now())
+    return () => {
+      console.log("AUTOMATION_TRACE: [LIFECYCLE] AutomationBuilderPage UNMOUNTED | timestamp:", Date.now())
+    }
+  }, [])
+
   // Phase 1 — Load context and hydrate state fields
   useEffect(() => {
     console.log("AUTOMATION_TRACE: Page mounted | Phase 1 starting | checking consumePendingIntent('automation')")
