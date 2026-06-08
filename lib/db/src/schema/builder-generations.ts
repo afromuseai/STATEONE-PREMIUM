@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp, integer, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, integer, pgEnum, jsonb } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
 export const generationStatusEnum = pgEnum("generation_status", [
@@ -17,6 +17,8 @@ export const builderGenerationsTable = pgTable("builder_generations", {
   generatedHtml: text("generated_html"),
   generatedCss: text("generated_css"),
   generatedJs: text("generated_js"),
+  websitePlan: jsonb("website_plan"),
+  designDna: jsonb("design_dna"),
   generationStatus: generationStatusEnum("generation_status").notNull().default("generating"),
   modelUsed: text("model_used"),
   durationMs: integer("duration_ms"),

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
-import { streamNvidia, forwardStream } from "../lib/nvidia";
+import { callNvidia, streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
 import { MODELS } from "../lib/models";
 import { db } from "@workspace/db";
 import { builderProjectsTable, builderGenerationsTable } from "@workspace/db";
@@ -8,7 +8,147 @@ import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 
-// ─── System prompt — the AI has FULL creative control ─────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// PLANNING LAYER — Phase 1 (runs BEFORE HTML generation)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface WebsitePlan {
+  business_summary: string;
+  target_audience: string;
+  value_proposition: string;
+  brand_tone: string;
+  design_direction: string;
+  visual_style: string;
+  section_order: string[];
+  conversion_strategy: string;
+  CTA_strategy: string;
+}
+
+interface DesignDna {
+  typography_system: string;
+  spacing_system: string;
+  layout_style: string;
+  color_direction: string;
+  animation_style: string;
+}
+
+interface PlanResult {
+  websitePlan: WebsitePlan;
+  designDna: DesignDna;
+}
+
+function buildPlannerSystemPrompt(): string {
+  return `You are a senior website strategist and UX architect. Your role is to analyze a business description and produce a structured strategic plan that will guide website design and implementation.
+
+You must return ONLY valid JSON — no markdown, no code fences, no explanation. The JSON must match this exact structure:
+
+{
+  "websitePlan": {
+    "business_summary": "one concise sentence describing the business and its core offering",
+    "target_audience": "specific demographic and psychographic description of the ideal customer",
+    "value_proposition": "the primary benefit and differentiator — what makes this business unique",
+    "brand_tone": "e.g. Authoritative and trustworthy | Playful and energetic | Sophisticated and minimal",
+    "design_direction": "detailed visual design direction for this specific business type",
+    "visual_style": "e.g. Dark luxury editorial | Clean modern SaaS | Bold brutalist | Warm organic",
+    "section_order": ["Hero", "SocialProof", "Problem", "Solution", "Features", "Testimonials", "Pricing", "FAQ", "CTA"],
+    "conversion_strategy": "primary conversion mechanism and psychological levers to use",
+    "CTA_strategy": "specific CTA language, placement, and urgency tactics"
+  },
+  "designDna": {
+    "typography_system": "primary + secondary typeface pairing, weight hierarchy, sizing scale",
+    "spacing_system": "section padding rhythm, component density, whitespace philosophy",
+    "layout_style": "e.g. Asymmetric editorial | Centered minimal | Dense feature-grid | Full-bleed cinematic",
+    "color_direction": "primary color + accent + background palette rationale tied to the business",
+    "animation_style": "e.g. Subtle fade-reveals | Kinetic scroll | Entrance cascades | Static/no animation"
+  }
+}
+
+The section_order must be tailored to the business — not every site needs pricing. Choose from: Hero, SocialProof, Problem, Solution, Features, HowItWorks, Testimonials, Pricing, Trust, FAQ, CTA, Footer. Always include Hero and CTA. Always end implied page with Footer (do not list Footer — it is always included).`;
+}
+
+function buildPlannerUserPrompt(prompt: string, style: string, industry: string): string {
+  return `Analyze this business and generate a strategic website plan:
+
+BUSINESS DESCRIPTION:
+${prompt}
+
+DESIGN STYLE PREFERENCE: ${style}
+INDUSTRY: ${industry}
+
+Return the JSON plan now. No explanation. No markdown. Pure JSON only.`;
+}
+
+async function generatePlan(prompt: string, style: string, industry: string): Promise<PlanResult> {
+  const raw = await callNvidia({
+    model: MODELS.WEBSITE_PLANNING,
+    messages: [
+      { role: "system", content: buildPlannerSystemPrompt() },
+      { role: "user", content: buildPlannerUserPrompt(prompt, style, industry) },
+    ],
+    temperature: 0.6,
+    maxTokens: 1500,
+  });
+
+  const parsed = extractJson(raw) as Partial<PlanResult>;
+
+  // Ensure we always have a valid structure (fallbacks if model output is partial)
+  const websitePlan: WebsitePlan = {
+    business_summary: parsed.websitePlan?.business_summary ?? `${industry} business`,
+    target_audience: parsed.websitePlan?.target_audience ?? "General audience",
+    value_proposition: parsed.websitePlan?.value_proposition ?? "High-quality products and services",
+    brand_tone: parsed.websitePlan?.brand_tone ?? style,
+    design_direction: parsed.websitePlan?.design_direction ?? `${style} design`,
+    visual_style: parsed.websitePlan?.visual_style ?? style,
+    section_order: Array.isArray(parsed.websitePlan?.section_order)
+      ? parsed.websitePlan!.section_order
+      : ["Hero", "Features", "HowItWorks", "Testimonials", "Pricing", "FAQ", "CTA"],
+    conversion_strategy: parsed.websitePlan?.conversion_strategy ?? "Lead capture and direct conversion",
+    CTA_strategy: parsed.websitePlan?.CTA_strategy ?? "Primary CTA above fold, repeated at section breaks",
+  };
+
+  const designDna: DesignDna = {
+    typography_system: parsed.designDna?.typography_system ?? "Inter for UI, bold weights for headings",
+    spacing_system: parsed.designDna?.spacing_system ?? "Generous section padding, moderate component density",
+    layout_style: parsed.designDna?.layout_style ?? "Centered clean layout",
+    color_direction: parsed.designDna?.color_direction ?? "Professional primary palette with high contrast",
+    animation_style: parsed.designDna?.animation_style ?? "Subtle fade-reveal on scroll",
+  };
+
+  return { websitePlan, designDna };
+}
+
+function buildImplementationBrief(websitePlan: WebsitePlan, designDna: DesignDna): string {
+  return `
+━━━ STRATEGIC PLAN (follow this exactly — this overrides generic defaults) ━━━
+
+BUSINESS: ${websitePlan.business_summary}
+TARGET AUDIENCE: ${websitePlan.target_audience}
+VALUE PROPOSITION: ${websitePlan.value_proposition}
+BRAND TONE: ${websitePlan.brand_tone}
+
+PAGE SECTION ORDER (use this exact sequence, in this order):
+${websitePlan.section_order.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}
+  ${websitePlan.section_order.length + 1}. Footer
+
+CONVERSION STRATEGY: ${websitePlan.conversion_strategy}
+CTA STRATEGY: ${websitePlan.CTA_strategy}
+
+━━━ DESIGN DNA (apply these decisions throughout) ━━━
+
+VISUAL DIRECTION: ${websitePlan.design_direction} — ${websitePlan.visual_style}
+TYPOGRAPHY: ${designDna.typography_system}
+SPACING: ${designDna.spacing_system}
+LAYOUT: ${designDna.layout_style}
+COLOR DIRECTION: ${designDna.color_direction}
+ANIMATION: ${designDna.animation_style}
+
+Apply every one of these decisions. Do not substitute generic defaults.`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HTML GENERATION LAYER — Phase 2 (existing system, unchanged)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 function buildSystemPrompt(): string {
   return `You are an elite web designer and frontend engineer. Your job is to generate a complete, production-quality, visually stunning website as a single self-contained HTML document.
 
@@ -26,17 +166,6 @@ TECHNICAL CONSTRAINTS — ALL REQUIRED:
 - CSS custom properties (:root { --primary: ...; }) for the entire design system
 - Mobile-first responsive design with proper @media breakpoints
 - All images use free Unsplash URLs: https://images.unsplash.com/photo-XXXXXXX?w=1200&q=80&fit=crop
-
-SECTIONS — include ALL of these:
-1. Navigation: sticky, logo left, links center, CTA button right, mobile hamburger
-2. Hero: large headline, subheadline, 2 CTAs, one social proof stat or badge
-3. Features/Services: 3-6 items in a grid with icons (use SVG icons inline)
-4. How It Works: 3-4 numbered steps
-5. Testimonials: 2-4 customer quotes with name and role
-6. Pricing (or Trust/Credibility section if pricing doesn't fit)
-7. FAQ: accordion with 4-6 questions (JS-powered open/close)
-8. CTA: large conversion section
-9. Footer: links, copyright, brief description
 
 INTERACTIVITY — ALL REQUIRED:
 - Smooth scroll-reveal animations using IntersectionObserver (not CSS alone)
@@ -67,12 +196,27 @@ ${prompt}
 DESIGN STYLE: ${style}
 INDUSTRY: ${industry}
 
-Design something that feels custom-built for this exact business — unique colors, typography, layout, and visual language appropriate to the industry and style direction.
+Design something that feels custom-built for this exact business — unique colors, typography, layout, and visual language appropriate to the industry and style direction.`;
+}
+
+function buildEnrichedUserPrompt(
+  prompt: string,
+  style: string,
+  industry: string,
+  websitePlan: WebsitePlan,
+  designDna: DesignDna,
+): string {
+  const brief = buildImplementationBrief(websitePlan, designDna);
+  return `${buildUserPrompt(prompt, style, industry)}
+
+${brief}
 
 Generate the complete HTML document now.`;
 }
 
-// ─── POST /api/ai-builder/generate ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// POST /api/ai-builder/generate — Full pipeline: Plan → Design DNA → HTML
+// ═══════════════════════════════════════════════════════════════════════════════
 router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
   const { prompt, style = "Modern SaaS", industry = "SaaS" } = req.body as {
     prompt: string;
@@ -91,10 +235,10 @@ router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  // ── Create generation artifact (status: generating) ────────────────────────
   let generationId: string | null = null;
   const startTime = Date.now();
 
+  // ── Create generation artifact ─────────────────────────────────────────────
   if (req.user?.userId) {
     try {
       const [gen] = await db
@@ -110,21 +254,42 @@ router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
         .returning({ id: builderGenerationsTable.id });
       generationId = gen?.id ?? null;
     } catch {
-      // Non-fatal — proceed without a generation record
+      // Non-fatal
     }
   }
 
-  // Emit the generationId immediately so the client can track it
   if (generationId) {
     res.write(`data: ${JSON.stringify({ generationId })}\n\n`);
   }
 
   try {
+    // ── PHASE 1: Planning ──────────────────────────────────────────────────
+    res.write(`data: ${JSON.stringify({ type: "plan_start" })}\n\n`);
+
+    const { websitePlan, designDna } = await generatePlan(prompt.trim(), style, industry);
+
+    res.write(`data: ${JSON.stringify({ type: "plan", websitePlan, designDna })}\n\n`);
+
+    // ── Persist plan to generation record ─────────────────────────────────
+    if (generationId) {
+      try {
+        await db
+          .update(builderGenerationsTable)
+          .set({ websitePlan, designDna })
+          .where(eq(builderGenerationsTable.id, generationId));
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    // ── PHASE 2: HTML generation (existing system, enriched with plan) ─────
+    res.write(`data: ${JSON.stringify({ type: "generation_start" })}\n\n`);
+
     const body = await streamNvidia({
       model: MODELS.EXECUTION,
       messages: [
         { role: "system", content: buildSystemPrompt() },
-        { role: "user", content: buildUserPrompt(prompt, style, industry) },
+        { role: "user", content: buildEnrichedUserPrompt(prompt.trim(), style, industry, websitePlan, designDna) },
       ],
       temperature: 0.85,
       maxTokens: 12000,
@@ -135,7 +300,7 @@ router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
     const durationMs = Date.now() - startTime;
     const tokenCount = Math.round(cleaned.length / 4);
 
-    // ── Update generation artifact (status: completed) ─────────────────────
+    // ── Update generation artifact (completed) ─────────────────────────────
     if (generationId) {
       try {
         await db
@@ -181,16 +346,11 @@ router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
     const msg = err instanceof Error ? err.message : "Generation failed";
     const durationMs = Date.now() - startTime;
 
-    // ── Update generation artifact (status: failed) ───────────────────────
     if (generationId) {
       try {
         await db
           .update(builderGenerationsTable)
-          .set({
-            generationStatus: "failed",
-            durationMs,
-            errorMessage: msg,
-          })
+          .set({ generationStatus: "failed", durationMs, errorMessage: msg })
           .where(eq(builderGenerationsTable.id, generationId));
       } catch {
         // Non-fatal
@@ -211,7 +371,10 @@ function stripMarkdownFences(raw: string): string {
   return s.trim();
 }
 
-// ─── GET /api/ai-builder/generations ──────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Generation CRUD routes
+// ═══════════════════════════════════════════════════════════════════════════════
+
 router.get("/api/ai-builder/generations", requireAuth, async (req, res) => {
   try {
     const generations = await db
@@ -231,14 +394,12 @@ router.get("/api/ai-builder/generations", requireAuth, async (req, res) => {
       .where(eq(builderGenerationsTable.userId, req.user!.userId))
       .orderBy(desc(builderGenerationsTable.createdAt))
       .limit(50);
-
     res.json({ generations });
   } catch {
     res.status(500).json({ error: "Failed to load generations" });
   }
 });
 
-// ─── GET /api/ai-builder/generations/:id ──────────────────────────────────────
 router.get("/api/ai-builder/generations/:id", requireAuth, async (req, res) => {
   try {
     const [generation] = await db
@@ -246,19 +407,16 @@ router.get("/api/ai-builder/generations/:id", requireAuth, async (req, res) => {
       .from(builderGenerationsTable)
       .where(eq(builderGenerationsTable.id, req.params.id))
       .limit(1);
-
     if (!generation || generation.userId !== req.user!.userId) {
       res.status(404).json({ error: "Generation not found" });
       return;
     }
-
     res.json({ generation });
   } catch {
     res.status(500).json({ error: "Failed to load generation" });
   }
 });
 
-// ─── DELETE /api/ai-builder/generations/:id ───────────────────────────────────
 router.delete("/api/ai-builder/generations/:id", requireAuth, async (req, res) => {
   try {
     const [generation] = await db
@@ -266,12 +424,10 @@ router.delete("/api/ai-builder/generations/:id", requireAuth, async (req, res) =
       .from(builderGenerationsTable)
       .where(eq(builderGenerationsTable.id, req.params.id))
       .limit(1);
-
     if (!generation || generation.userId !== req.user!.userId) {
       res.status(404).json({ error: "Generation not found" });
       return;
     }
-
     await db.delete(builderGenerationsTable).where(eq(builderGenerationsTable.id, req.params.id));
     res.json({ success: true });
   } catch {
@@ -279,7 +435,10 @@ router.delete("/api/ai-builder/generations/:id", requireAuth, async (req, res) =
   }
 });
 
-// ─── GET /api/ai-builder/projects ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Builder Projects CRUD (existing)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 router.get("/api/ai-builder/projects", requireAuth, async (req, res) => {
   try {
     const projects = await db
@@ -294,14 +453,12 @@ router.get("/api/ai-builder/projects", requireAuth, async (req, res) => {
       .where(eq(builderProjectsTable.userId, req.user!.userId))
       .orderBy(desc(builderProjectsTable.createdAt))
       .limit(50);
-
     res.json({ projects });
   } catch {
     res.status(500).json({ error: "Failed to load projects" });
   }
 });
 
-// ─── GET /api/ai-builder/projects/:id ─────────────────────────────────────────
 router.get("/api/ai-builder/projects/:id", requireAuth, async (req, res) => {
   try {
     const [project] = await db
@@ -309,19 +466,16 @@ router.get("/api/ai-builder/projects/:id", requireAuth, async (req, res) => {
       .from(builderProjectsTable)
       .where(eq(builderProjectsTable.id, req.params.id))
       .limit(1);
-
     if (!project || project.userId !== req.user!.userId) {
       res.status(404).json({ error: "Project not found" });
       return;
     }
-
     res.json({ project });
   } catch {
     res.status(500).json({ error: "Failed to load project" });
   }
 });
 
-// ─── DELETE /api/ai-builder/projects/:id ──────────────────────────────────────
 router.delete("/api/ai-builder/projects/:id", requireAuth, async (req, res) => {
   try {
     const [project] = await db
@@ -329,12 +483,10 @@ router.delete("/api/ai-builder/projects/:id", requireAuth, async (req, res) => {
       .from(builderProjectsTable)
       .where(eq(builderProjectsTable.id, req.params.id))
       .limit(1);
-
     if (!project || project.userId !== req.user!.userId) {
       res.status(404).json({ error: "Project not found" });
       return;
     }
-
     await db.delete(builderProjectsTable).where(eq(builderProjectsTable.id, req.params.id));
     res.json({ success: true });
   } catch {
