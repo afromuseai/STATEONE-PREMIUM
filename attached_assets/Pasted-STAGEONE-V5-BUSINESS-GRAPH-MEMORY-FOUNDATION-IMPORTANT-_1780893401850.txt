@@ -1,0 +1,225 @@
+STAGEONE V5 — BUSINESS GRAPH MEMORY FOUNDATION
+
+IMPORTANT
+
+This is NOT a UI feature.
+
+This is NOT a generator.
+
+This is a foundational intelligence layer.
+
+DO NOT:
+
+* rewrite existing systems
+* remove existing project architecture
+* modify generation engines
+* break Website Architect
+* break Chatbot Builder
+* break Automation Builder
+
+The objective is:
+
+Create a persistent Business Graph Memory system that becomes the central intelligence layer for all STAGEONE modules.
+
+====================================
+
+CORE CONCEPT
+
+Every STAGEONE project should evolve from:
+
+Project
+→ outputs
+
+into:
+
+Project
+→ living business graph
+
+====================================
+
+BUSINESS GRAPH
+
+Create a new business_graph system.
+
+Each project should maintain:
+
+Business Identity
+
+* name
+* summary
+* industry
+* category
+* stage
+
+Audience
+
+* target audience
+* customer profiles
+* customer problems
+
+Positioning
+
+* value proposition
+* differentiation
+* competitive advantages
+
+Revenue
+
+* pricing model
+* monetization strategy
+
+Assets
+
+* websites
+* chatbots
+* automations
+* workflows
+
+Operations
+
+* onboarding
+* lead generation
+* retention
+* support
+
+Risks
+
+* known risks
+* assumptions
+* gaps
+
+Goals
+
+* short term goals
+* long term goals
+
+====================================
+
+DATABASE
+
+Create new tables:
+
+business_graphs
+
+graph_nodes
+
+graph_relationships
+
+business_events
+
+memory_snapshots
+
+====================================
+
+BUSINESS EVENTS
+
+Every generation should create events.
+
+Examples:
+
+Business generated
+
+Website generated
+
+Website regenerated
+
+Chatbot generated
+
+Automation generated
+
+Pricing updated
+
+Workflow created
+
+Goal added
+
+Store:
+
+* event type
+* timestamp
+* metadata
+* related project
+
+====================================
+
+BUSINESS TIMELINE
+
+Create a timeline service.
+
+Example:
+
+June 1
+Business created
+
+June 3
+Website generated
+
+June 5
+Pricing updated
+
+June 7
+Chatbot added
+
+June 10
+Automation workflow created
+
+Timeline must be queryable.
+
+====================================
+
+MEMORY API
+
+Create services:
+
+getBusinessGraph(projectId)
+
+updateBusinessGraph(projectId)
+
+createBusinessEvent(...)
+
+getBusinessTimeline(projectId)
+
+createMemorySnapshot(projectId)
+
+====================================
+
+GRAPH UPDATE RULES
+
+Whenever:
+
+Business Intelligence completes
+
+Website Architect completes
+
+Chatbot Builder completes
+
+Automation Builder completes
+
+The graph should update automatically.
+
+No manual syncing.
+
+====================================
+
+IMPORTANT
+
+Do NOT build UI yet.
+
+Build:
+
+* schema
+* services
+* update pipelines
+* event architecture
+* graph architecture
+
+FIRST.
+
+This is the foundation for:
+
+* Marcus Memory
+* Strategic Gap Detection
+* Business Twin
+* Cross-System Intelligence
+
+in future phases.

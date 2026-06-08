@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { jsonrepair } from "jsonrepair";
 import { MODELS } from "../lib/models";
+import { onWebsiteGenerationComplete } from "../lib/business-graph";
 
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 
@@ -1024,7 +1025,8 @@ const DEFAULT_STAGES = [
 // POST /api/generate/website — full site generation (industry-aware)
 router.post("/generate/website", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { idea, businessIntelligence, variantSeed, language, forceDesignVariant } = req.body;
+    const { idea, businessIntelligence, variantSeed, language, forceDesignVariant, projectId } = req.body;
+    const userId = (req as import("express").Request & { user?: { userId: string } }).user?.userId ?? "";
     if (!idea || typeof idea !== "string" || !idea.trim()) {
       res.status(400).json({ error: "Business idea is required" }); return;
     }
@@ -1102,6 +1104,15 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
     req.log.info({ designVariant, heroImageGenerated: !!heroImage }, "Website generation complete");
 
     res.write(`data: ${JSON.stringify({ done: true, data: qwenData, pipeline: { orchestration: ORCHESTRATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage } })}\n\n`);
+
+    // V5: Update Business Graph Memory (fire-and-forget — never blocks the stream)
+    onWebsiteGenerationComplete(
+      projectId as string | undefined,
+      userId,
+      idea,
+      qwenData,
+    ).catch(() => {});
+
     res.end();
   } catch (error) {
     req.log.error({ error }, "Generate website error");

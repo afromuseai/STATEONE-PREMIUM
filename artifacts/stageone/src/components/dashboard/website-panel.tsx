@@ -561,7 +561,7 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
           : undefined
         const resp = await fetch("/api/generate/website", {
           method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-          body: JSON.stringify({ idea, businessIntelligence, variantSeed: seed, language: lang, ...(forcedVariant ? { forceDesignVariant: forcedVariant } : {}) }),
+          body: JSON.stringify({ idea, businessIntelligence, variantSeed: seed, language: lang, projectId: projectId ?? undefined, ...(forcedVariant ? { forceDesignVariant: forcedVariant } : {}) }),
         })
         if (!resp.ok) { const e = await resp.json().catch(() => ({ error: "Failed" })); throw new Error(e.error ?? "Generation failed") }
         const reader = resp.body?.getReader()

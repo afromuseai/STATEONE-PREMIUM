@@ -1,1 +1,2 @@
 - [Website variant differentiation](website-variants.md) — all 9 design variants previously rendered identically; fix adds enforceVariantColors + 5 distinct hero layouts
+- [V5 Business Graph Memory](v5-business-graph.md) — foundational intelligence layer: 5 new DB tables, service layer, fire-and-forget update pipelines hooked into generation routes

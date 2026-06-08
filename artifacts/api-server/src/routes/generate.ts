@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
+import { onBusinessIntelligenceComplete } from "../lib/business-graph";
 
 const router = Router();
 
@@ -303,7 +304,7 @@ Return ONLY valid JSON matching this exact schema (keep text fields brief — 1 
 
 router.post("/generate", requireAuth, async (req, res) => {
   try {
-    const { idea, language } = req.body;
+    const { idea, language, projectId } = req.body;
     const userId = req.user!.userId;
     const isAdmin = req.user!.isAdmin ?? false;
 
@@ -449,6 +450,14 @@ router.post("/generate", requireAuth, async (req, res) => {
         const finalData = JSON.parse(cleanContent);
 
         res.write(`data: ${JSON.stringify({ done: true, data: finalData })}\n\n`);
+
+        // V5: Update Business Graph Memory (fire-and-forget — never blocks the stream)
+        onBusinessIntelligenceComplete(
+          projectId as string | undefined,
+          userId,
+          idea,
+          finalData as Record<string, unknown>,
+        ).catch(() => {});
       } catch (parseErr) {
         req.log.error({ parseErr, contentBuffer: contentBuffer.slice(0, 200) }, "Final JSON parse failed");
         res.write(`data: ${JSON.stringify({ error: "Failed to parse AI response — please try again" })}\n\n`);
