@@ -3,13 +3,12 @@ import { requireAuth } from "../middleware/auth";
 import { streamNvidia, forwardStream } from "../lib/nvidia";
 import { MODELS } from "../lib/models";
 import { db } from "@workspace/db";
-import { builderProjectsTable } from "@workspace/db";
+import { builderProjectsTable, builderGenerationsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
 const router = Router();
 
 // ─── System prompt — the AI has FULL creative control ─────────────────────────
-// No template constraints. The model writes raw HTML/CSS/JS from scratch.
 function buildSystemPrompt(): string {
   return `You are an elite web designer and frontend engineer. Your job is to generate a complete, production-quality, visually stunning website as a single self-contained HTML document.
 
@@ -74,7 +73,6 @@ Generate the complete HTML document now.`;
 }
 
 // ─── POST /api/ai-builder/generate ────────────────────────────────────────────
-// Streaming SSE — returns raw HTML chunks the client accumulates
 router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
   const { prompt, style = "Modern SaaS", industry = "SaaS" } = req.body as {
     prompt: string;
@@ -93,6 +91,34 @@ router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
+  // ── Create generation artifact (status: generating) ────────────────────────
+  let generationId: string | null = null;
+  const startTime = Date.now();
+
+  if (req.user?.userId) {
+    try {
+      const [gen] = await db
+        .insert(builderGenerationsTable)
+        .values({
+          userId: req.user.userId,
+          prompt: prompt.trim(),
+          style,
+          industry,
+          generationStatus: "generating",
+          modelUsed: MODELS.EXECUTION,
+        })
+        .returning({ id: builderGenerationsTable.id });
+      generationId = gen?.id ?? null;
+    } catch {
+      // Non-fatal — proceed without a generation record
+    }
+  }
+
+  // Emit the generationId immediately so the client can track it
+  if (generationId) {
+    res.write(`data: ${JSON.stringify({ generationId })}\n\n`);
+  }
+
   try {
     const body = await streamNvidia({
       model: MODELS.EXECUTION,
@@ -105,11 +131,28 @@ router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
     });
 
     const fullHtml = await forwardStream(body, res, MODELS.EXECUTION);
-
-    // Strip markdown fences if the model wrapped the output
     const cleaned = stripMarkdownFences(fullHtml);
+    const durationMs = Date.now() - startTime;
+    const tokenCount = Math.round(cleaned.length / 4);
 
-    // Auto-save for logged-in user
+    // ── Update generation artifact (status: completed) ─────────────────────
+    if (generationId) {
+      try {
+        await db
+          .update(builderGenerationsTable)
+          .set({
+            generatedHtml: cleaned,
+            generationStatus: "completed",
+            durationMs,
+            tokenCount,
+          })
+          .where(eq(builderGenerationsTable.id, generationId));
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    // ── Also save to builder_projects (existing behaviour preserved) ───────
     if (req.user?.userId) {
       try {
         await db.insert(builderProjectsTable).values({
@@ -120,14 +163,41 @@ router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
           fullHtml: cleaned,
         });
       } catch {
-        // Non-fatal — don't fail the response if save fails
+        // Non-fatal
       }
     }
 
-    res.write(`data: ${JSON.stringify({ done: true, fullHtml: cleaned })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({
+        done: true,
+        fullHtml: cleaned,
+        generationId,
+        durationMs,
+        tokenCount,
+        modelUsed: MODELS.EXECUTION,
+      })}\n\n`,
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Generation failed";
-    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    const durationMs = Date.now() - startTime;
+
+    // ── Update generation artifact (status: failed) ───────────────────────
+    if (generationId) {
+      try {
+        await db
+          .update(builderGenerationsTable)
+          .set({
+            generationStatus: "failed",
+            durationMs,
+            errorMessage: msg,
+          })
+          .where(eq(builderGenerationsTable.id, generationId));
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    res.write(`data: ${JSON.stringify({ error: msg, generationId })}\n\n`);
   } finally {
     res.end();
   }
@@ -140,6 +210,74 @@ function stripMarkdownFences(raw: string): string {
   if (s.endsWith("```")) s = s.slice(0, -3);
   return s.trim();
 }
+
+// ─── GET /api/ai-builder/generations ──────────────────────────────────────────
+router.get("/api/ai-builder/generations", requireAuth, async (req, res) => {
+  try {
+    const generations = await db
+      .select({
+        id: builderGenerationsTable.id,
+        prompt: builderGenerationsTable.prompt,
+        style: builderGenerationsTable.style,
+        industry: builderGenerationsTable.industry,
+        generationStatus: builderGenerationsTable.generationStatus,
+        modelUsed: builderGenerationsTable.modelUsed,
+        durationMs: builderGenerationsTable.durationMs,
+        tokenCount: builderGenerationsTable.tokenCount,
+        errorMessage: builderGenerationsTable.errorMessage,
+        createdAt: builderGenerationsTable.createdAt,
+      })
+      .from(builderGenerationsTable)
+      .where(eq(builderGenerationsTable.userId, req.user!.userId))
+      .orderBy(desc(builderGenerationsTable.createdAt))
+      .limit(50);
+
+    res.json({ generations });
+  } catch {
+    res.status(500).json({ error: "Failed to load generations" });
+  }
+});
+
+// ─── GET /api/ai-builder/generations/:id ──────────────────────────────────────
+router.get("/api/ai-builder/generations/:id", requireAuth, async (req, res) => {
+  try {
+    const [generation] = await db
+      .select()
+      .from(builderGenerationsTable)
+      .where(eq(builderGenerationsTable.id, req.params.id))
+      .limit(1);
+
+    if (!generation || generation.userId !== req.user!.userId) {
+      res.status(404).json({ error: "Generation not found" });
+      return;
+    }
+
+    res.json({ generation });
+  } catch {
+    res.status(500).json({ error: "Failed to load generation" });
+  }
+});
+
+// ─── DELETE /api/ai-builder/generations/:id ───────────────────────────────────
+router.delete("/api/ai-builder/generations/:id", requireAuth, async (req, res) => {
+  try {
+    const [generation] = await db
+      .select({ id: builderGenerationsTable.id, userId: builderGenerationsTable.userId })
+      .from(builderGenerationsTable)
+      .where(eq(builderGenerationsTable.id, req.params.id))
+      .limit(1);
+
+    if (!generation || generation.userId !== req.user!.userId) {
+      res.status(404).json({ error: "Generation not found" });
+      return;
+    }
+
+    await db.delete(builderGenerationsTable).where(eq(builderGenerationsTable.id, req.params.id));
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Failed to delete generation" });
+  }
+});
 
 // ─── GET /api/ai-builder/projects ─────────────────────────────────────────────
 router.get("/api/ai-builder/projects", requireAuth, async (req, res) => {
@@ -158,7 +296,7 @@ router.get("/api/ai-builder/projects", requireAuth, async (req, res) => {
       .limit(50);
 
     res.json({ projects });
-  } catch (err) {
+  } catch {
     res.status(500).json({ error: "Failed to load projects" });
   }
 });
