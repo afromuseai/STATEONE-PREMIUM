@@ -607,17 +607,20 @@ export function CopilotPanel() {
         console.log("AUTOMATION_TRACE: PendingIntent SKIPPED | idea is empty — no setPendingIntent, no navigate")
         return
       }
+      // 1. Write sessionStorage first — Phase 1 (fresh mount) reads this
       console.log("AUTOMATION_TRACE: PendingIntent written | type: automation | idea:", JSON.stringify(idea))
       setPendingIntent({ type: "automation", idea, autoGenerate: false })
       const rawAfterIntent = sessionStorage.getItem("stageone_pending_intent")
       console.log("AUTOMATION_TRACE: SessionStorage value after setPendingIntent:", rawAfterIntent)
-      if (location === "/automation-builder") {
-        console.log("AUTOMATION_TRACE: [REMOUNT CHECK] page already mounted — dispatching stageone:intentUpdated so mounted page populates directly")
-        window.dispatchEvent(new CustomEvent("stageone:intentUpdated", { detail: { type: "automation", idea } }))
-      } else {
-        console.log("AUTOMATION_TRACE: [REMOUNT CHECK] navigate() called — page will mount fresh — Phase 1 useEffect WILL run and consume the intent")
-        navigate("/automation-builder")
-      }
+      // 2. Always dispatch stageone:intentUpdated — covers the already-mounted case where
+      //    navigate() is a no-op and Phase 1 never re-runs.
+      //    If the page isn't mounted yet, this fires to no listener (safe — Phase 1 handles it).
+      console.log("AUTOMATION_TRACE: dispatching stageone:intentUpdated | location:", JSON.stringify(location))
+      window.dispatchEvent(new CustomEvent("stageone:intentUpdated", { detail: { type: "automation", idea } }))
+      // 3. Always navigate — if already on the page this is a no-op for the router;
+      //    if not on the page yet this mounts it and Phase 1 consumes the sessionStorage intent.
+      console.log("AUTOMATION_TRACE: navigate() called | to: /automation-builder")
+      navigate("/automation-builder")
     } else if (command === "generate_automation") {
       console.log("AUTOMATION_TRACE: Command received | command: generate_automation | payload:", JSON.stringify(payload))
       console.log("AUTOMATION_TRACE: markPendingIntentAutoGenerate called | type: automation")
