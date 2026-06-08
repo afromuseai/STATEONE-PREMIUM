@@ -76,6 +76,43 @@ function gf(name: string): string {
   return (name || "Inter").replace(/ /g, "+") + ":ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700"
 }
 
+// ─── Variant Color Enforcement ─────────────────────────────────────────────────
+// The AI sometimes ignores color constraints and produces light palettes for dark
+// variants. This function enforces the correct background/surface/text colors per
+// design variant BEFORE any CSS or HTML is generated.
+const DARK_BG: Record<string, string> = {
+  "Futuristic": "#020408", "Premium SaaS": "#0a0a0a",
+  "Startup Modern": "#0f0f0f", "Cinematic Dark": "#08080a", "Bold Brutalist": "#000000",
+}
+
+function enforceVariantColors(palette: WebsiteOutput['colorPalette'], dv: string): WebsiteOutput['colorPalette'] {
+  const c = { ...palette }
+  const forcedBg = DARK_BG[dv]
+  if (forcedBg && isLight(c.background)) {
+    c.background = forcedBg
+    c.surface = dv === "Futuristic" ? "#071020" : "#111111"
+    c.text = dv === "Cinematic Dark" ? "#f5f0e8" : "#f0f0f0"
+    c.textMuted = dv === "Cinematic Dark" ? "rgba(245,240,232,0.5)" : "rgba(255,255,255,0.5)"
+    c.border = "rgba(255,255,255,0.08)"
+  }
+  if (dv === "Luxury Editorial") {
+    c.background = "#000000"; c.surface = "#0a0a0a"
+    if (isLight(c.primary) || !c.primary) c.primary = "#d4af37"
+    c.accent = "#e8d5a3"; c.secondary = "#b8952f"
+    c.text = "#f0ece0"; c.textMuted = "rgba(240,236,224,0.5)"
+    c.border = "rgba(212,175,55,0.14)"
+  }
+  if ((dv === "Clean Pro") && !isLight(c.background)) {
+    c.background = "#ffffff"; c.surface = "#f8fafc"
+    c.text = "#0f172a"; c.textMuted = "#64748b"; c.border = "rgba(0,0,0,0.08)"
+  }
+  if (dv === "Enterprise Minimal" && !isLight(c.background)) {
+    c.background = "#fafafa"; c.surface = "#f1f5f9"
+    c.text = "#0f172a"; c.textMuted = "#475569"; c.border = "rgba(0,0,0,0.08)"
+  }
+  return c
+}
+
 // ─── SVG Icon library ──────────────────────────────────────────────────────────
 
 const ICONS: Record<string, string> = {
@@ -147,14 +184,18 @@ function avatarImg(i: number): string {
 // ─── CSS Generator ─────────────────────────────────────────────────────────────
 
 function buildCss(w: WebsiteOutput): string {
-  const c = w.colorPalette
-  const t = w.typography
   const dv = w.designVariant ?? "Clean Pro"
+  const c = w.colorPalette  // enforced colors already applied by buildPreviewHtml
+  const t = w.typography
   const light = isLight(c.background)
   const p = c.primary
   const isGlass = dv === "Glassmorphism"
-  const isLux = dv === "Luxury Editorial" || dv === "Cinematic Dark"
+  const isLux = dv === "Luxury Editorial"
   const isBrutalist = dv === "Bold Brutalist"
+  const isFuturistic = dv === "Futuristic"
+  const isCinematic = dv === "Cinematic Dark"
+  const isStartup = dv === "Startup Modern"
+  const isPremiumSaaS = dv === "Premium SaaS"
   const hw = t.headingWeight ?? "800"
 
   const bodyBg = isGlass
@@ -487,6 +528,78 @@ ${!light && !isGlass ? `
 body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.025;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E")}
 ` : ""}
 
+/* ── FUTURISTIC variant ──────────────────────────────────────────────────── */
+${isFuturistic ? `
+.hero{padding:clamp(100px,14vw,180px) 0 clamp(80px,10vw,120px);text-align:center}
+.hero-inner{text-align:center}
+.hero-sub,.hero-trusted{margin-inline:auto}
+.hero-actions{justify-content:center}
+.hero-headline{font-size:clamp(48px,8vw,108px)}
+.hero-grid-bg{position:absolute;inset:0;background-image:linear-gradient(${hexA(p,.055)} 1px,transparent 1px),linear-gradient(90deg,${hexA(p,.055)} 1px,transparent 1px);background-size:64px 64px;pointer-events:none;z-index:0}
+.stat-val{text-shadow:0 0 28px ${hexA(p,.55)};color:${p}}
+.hero-stats{border-top:1px solid ${hexA(p,.2)};max-width:none;justify-content:center;display:flex;gap:clamp(28px,5vw,64px);flex-wrap:wrap;padding-top:44px}
+.hero-stats>div{text-align:center;min-width:100px}
+.btn-primary{box-shadow:0 0 0 1px ${hexA(p,.5)},0 4px 24px ${hexA(p,.4)}}
+.btn-primary:hover{box-shadow:0 0 0 1px ${hexA(p,.9)},0 8px 40px ${hexA(p,.6)}}
+.card{border:1px solid ${hexA(p,.18)};background:${hexA(p,.04)}}
+.card:hover{border-color:${hexA(p,.45)};box-shadow:0 0 0 1px ${hexA(p,.25)},0 8px 32px ${hexA(p,.15)}}
+.bento-card:nth-child(1){background:linear-gradient(135deg,${hexA(p,.1)},transparent);border-color:${hexA(p,.28)}}
+.badge{border-color:${hexA(p,.45)};background:${hexA(p,.1)}}
+` : ""}
+
+/* ── CINEMATIC DARK variant ──────────────────────────────────────────────── */
+${isCinematic ? `
+.hero{min-height:100vh;display:flex;align-items:center;padding-block:clamp(80px,12vw,160px)}
+.hero-headline{font-size:clamp(52px,9vw,128px);letter-spacing:0.04em;line-height:1.0}
+.cine-overline{font-size:10px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:${p};margin-bottom:36px;display:block}
+.cine-divider{width:56px;height:1px;background:${p};margin:28px 0}
+.hero-sub{font-size:clamp(16px,1.6vw,20px);font-weight:300;letter-spacing:0.01em;line-height:1.85;max-width:560px}
+.btn-primary{letter-spacing:0.06em;text-transform:uppercase;font-size:12px;padding:14px 32px}
+.btn-ghost{letter-spacing:0.06em;text-transform:uppercase;font-size:12px}
+.section{padding:clamp(100px,14vw,160px) 0}
+.sh-title{font-size:clamp(32px,4.5vw,60px);letter-spacing:0.03em}
+` : ""}
+
+/* ── STARTUP MODERN variant ──────────────────────────────────────────────── */
+${isStartup ? `
+.hero{text-align:center;padding-block:clamp(80px,12vw,140px)}
+.hero-inner{text-align:center}
+.hero-sub{margin-inline:auto}
+.hero-actions{justify-content:center}
+.hero-headline{font-size:clamp(48px,8.5vw,112px)}
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:${hexA(p,.15)};border:none;padding:0;max-width:none;margin-top:64px;border-radius:20px;overflow:hidden}
+.hero-stats>div{background:${c.surface};padding:clamp(22px,3vw,40px) clamp(16px,2vw,24px);text-align:center}
+.stat-val{font-size:clamp(36px,6vw,72px);line-height:1}
+.stat-lbl{font-size:13px}
+.btn-primary{font-size:15px;padding:15px 32px;border-radius:100px}
+.btn-ghost{border-radius:100px}
+` : ""}
+
+/* ── LUXURY EDITORIAL variant ────────────────────────────────────────────── */
+${isLux ? `
+.hero{min-height:85vh;display:flex;align-items:center;text-align:center;padding-block:clamp(100px,14vw,180px)}
+.hero-inner{text-align:center}
+.hero-sub{margin-inline:auto;font-size:clamp(15px,1.5vw,20px);font-style:italic;font-weight:300;letter-spacing:0.03em;line-height:1.95;max-width:580px}
+.hero-actions{justify-content:center}
+.hero-headline{font-size:clamp(44px,7.5vw,96px);letter-spacing:0.06em;line-height:1.05;font-style:italic}
+.btn-primary{background:transparent;border:1px solid ${p};color:${p};box-shadow:none;letter-spacing:0.1em;text-transform:uppercase;font-size:12px;padding:13px 32px}
+.btn-primary:hover{background:${p};color:${c.background};transform:none;box-shadow:none}
+.btn-ghost{display:none}
+.section{padding:clamp(100px,14vw,160px) 0}
+.sh-title{letter-spacing:0.04em;font-style:italic}
+.card{border-radius:0;border-left:none;border-right:none;border-color:${hexA(p,.18)};background:transparent;box-shadow:none}
+.card:hover{transform:none;box-shadow:none;border-color:${hexA(p,.4)}}
+` : ""}
+
+/* ── GLASSMORPHISM variant ───────────────────────────────────────────────── */
+${isGlass ? `
+.hero{text-align:center;padding-block:clamp(100px,14vw,180px)}
+.hero-inner{text-align:center}
+.hero-sub{margin-inline:auto}
+.hero-actions{justify-content:center}
+.hero-headline{font-size:clamp(44px,7.5vw,96px)}
+` : ""}
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media(max-width:900px){
   .hero-split{grid-template-columns:1fr}
@@ -543,35 +656,87 @@ function hero(w: WebsiteOutput): string {
   const { sections: s, brand, colorPalette: c, designVariant: dv = "Clean Pro", _heroImage, _industry = "SaaS" } = w
   const h = s.hero
   const imgUrl = _heroImage || heroImg(_industry, brand.name)
-  const useSplit = ["Premium SaaS", "Enterprise Minimal", "Clean Pro"].includes(dv) && (h.stats?.length ?? 0) > 0
-
-  const badge = h.badge
-    ? `<div class="hero-badge" data-reveal><span class="badge"><span class="badge-dot"></span>${esc(h.badge)}</span></div>`
-    : ""
 
   const hl = `<h1 class="hero-headline" data-reveal data-d="1">${esc(h.headline)}</h1>`
   const sub = `<p class="hero-sub" data-reveal data-d="2">${esc(h.subheadline)}</p>`
-
-  const btnColor = isLight(c.background) ? "#fff" : c.background
   const acts = `<div class="hero-actions" data-reveal data-d="3">
     <button class="btn btn-primary">${esc(h.ctaPrimary || "Get Started")} ${ico("arrow", 15)}</button>
     ${h.ctaSecondary ? `<button class="btn btn-ghost">${ico("play", 13)} ${esc(h.ctaSecondary)}</button>` : ""}
   </div>`
 
+  const badge = h.badge
+    ? `<div class="hero-badge" data-reveal><span class="badge"><span class="badge-dot"></span>${esc(h.badge)}</span></div>`
+    : ""
   const stats = (h.stats?.length ?? 0) > 0 ? `<div class="hero-stats" data-reveal data-d="4">
     ${(h.stats ?? []).map(st => `<div><div class="stat-val" data-counter="${esc(st.value)}">${esc(st.value)}</div><div class="stat-lbl">${esc(st.label)}</div></div>`).join("")}
   </div>` : ""
-
   const trusted = (h.trustedBy?.length ?? 0) > 0 ? `<div class="hero-trusted" data-reveal data-d="5">
     <div class="trust-label">Trusted by teams at</div>
     <div class="trust-logos">${(h.trustedBy ?? []).map(n => `<span class="trust-name">${esc(n)}</span>`).join("")}</div>
   </div>` : ""
-
   const orbs = `<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>`
-  const content = `${badge}${hl}${sub}${acts}${stats}${trusted}`
 
-  if (useSplit) {
+  // ── FUTURISTIC: fullscreen centered with tech grid, neon glow stats ───────
+  if (dv === "Futuristic") {
+    return `<section class="hero">
+  <div class="hero-grid-bg"></div>
+  ${orbs}
+  <div class="hero-inner">
+    ${badge}
+    ${hl}
+    ${sub}
+    ${acts}
+    ${stats}
+    ${trusted}
+  </div>
+</section>`
+  }
+
+  // ── CINEMATIC DARK: full-height, film aesthetic, no stats/badge clutter ───
+  if (dv === "Cinematic Dark") {
+    return `<section class="hero">
+  ${orbs}
+  <div class="hero-inner">
+    ${h.badge ? `<span class="cine-overline">${esc(h.badge)}</span>` : ""}
+    ${hl}
+    <div class="cine-divider"></div>
+    ${sub}
+    ${acts}
+  </div>
+</section>`
+  }
+
+  // ── LUXURY EDITORIAL: pure editorial, no stats, no badge, italic headline ─
+  if (dv === "Luxury Editorial") {
+    return `<section class="hero">
+  ${orbs}
+  <div class="hero-inner">
+    ${hl}
+    ${sub}
+    ${acts}
+  </div>
+</section>`
+  }
+
+  // ── STARTUP MODERN: centered with oversized stat dashboard panel ──────────
+  if (dv === "Startup Modern") {
+    return `<section class="hero">
+  ${orbs}
+  <div class="hero-inner">
+    ${badge}
+    ${hl}
+    ${sub}
+    ${acts}
+    ${stats}
+    ${trusted}
+  </div>
+</section>`
+  }
+
+  // ── SPLIT LAYOUT: Premium SaaS / Enterprise Minimal / Clean Pro ───────────
+  if (["Premium SaaS", "Enterprise Minimal", "Clean Pro"].includes(dv) && (h.stats?.length ?? 0) > 0) {
     const first = h.stats![0]
+    const content = `${badge}${hl}${sub}${acts}${stats}${trusted}`
     return `<section class="hero">
   ${orbs}
   <div class="hero-inner">
@@ -579,16 +744,17 @@ function hero(w: WebsiteOutput): string {
       <div>${content}</div>
       <div class="hero-img" data-reveal data-d="2">
         <img src="${imgUrl}" alt="${esc(brand.name)}" loading="eager" onerror="this.style.display='none'"/>
-        ${first ? `<div class="hero-img-badge"><div class="hib-val">${esc(first.value)}</div><div class="hib-lbl">${esc(first.label)}</div></div>` : ""}
+        ${first ? `<div class="hero-img-badge"><div class="hib-val" data-counter="${esc(first.value)}">${esc(first.value)}</div><div class="hib-lbl">${esc(first.label)}</div></div>` : ""}
       </div>
     </div>
   </div>
 </section>`
   }
 
+  // ── DEFAULT: centered with orbs ───────────────────────────────────────────
   return `<section class="hero">
   ${orbs}
-  <div class="hero-inner">${content}</div>
+  <div class="hero-inner">${badge}${hl}${sub}${acts}${stats}${trusted}</div>
 </section>`
 }
 
@@ -828,22 +994,26 @@ if(nv)window.addEventListener('scroll',function(){nv.classList.toggle('scrolled'
 // ─── Main Exports ──────────────────────────────────────────────────────────────
 
 export function buildPreviewHtml(w: WebsiteOutput): string {
-  const css = buildCss(w)
-  const seo = w.seoMeta
-  const hf = w.typography.headingFont
-  const bf = w.typography.bodyFont
+  // Enforce variant-correct colors once here so every section builder sees them
+  const dv = w.designVariant ?? "Clean Pro"
+  const we: WebsiteOutput = { ...w, colorPalette: enforceVariantColors(w.colorPalette, dv) }
+
+  const css = buildCss(we)
+  const seo = we.seoMeta
+  const hf = we.typography.headingFont
+  const bf = we.typography.bodyFont
 
   const body = [
-    nav(w),
-    hero(w),
-    w.sections.hero?.trustedBy?.length ? "" : trustBar(w),
-    features(w),
-    howItWorks(w),
-    testimonials(w),
-    pricing(w),
-    faq(w),
-    ctaSection(w),
-    footer(w),
+    nav(we),
+    hero(we),
+    we.sections.hero?.trustedBy?.length ? "" : trustBar(we),
+    features(we),
+    howItWorks(we),
+    testimonials(we),
+    pricing(we),
+    faq(we),
+    ctaSection(we),
+    footer(we),
   ].join("\n")
 
   return `<!DOCTYPE html>

@@ -1,3 +1,1 @@
-- [Website HTML Generator architecture](website-html-generator.md) — class-based CSS (not inline styles), bento grid features, gradient orbs, counter animation, FAQ accordion, scroll reveal
-- [Website Panel builder UI](website-panel-ui.md) — split layout: collapsible 272px inspector sidebar + preview, BrowserChrome mockup, GeneratingOverlay
-- [howItWorks schema](generate-website-schema.md) — JSON schema for generate-website.ts requires subtitle + icon fields on steps
+- [Website variant differentiation](website-variants.md) — all 9 design variants previously rendered identically; fix adds enforceVariantColors + 5 distinct hero layouts
