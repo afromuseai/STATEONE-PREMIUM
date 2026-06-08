@@ -148,6 +148,70 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
   const { messages, businessContext, workspaceContext, language } = parsed.data;
 
+  // ─── Identity query early-exit ────────────────────────────────────────────────
+  // Detect questions about Marcus's identity, name, or capabilities.
+  // These must NEVER receive project/workspace/memory context — they respond
+  // purely from Marcus's system identity and STAGEONE platform description.
+  // This runs before ANY database query so context cannot leak in.
+  const latestMsg = (messages[messages.length - 1]?.content ?? "").toLowerCase().trim();
+  const IDENTITY_PATTERNS = [
+    /^who are you/, /^what is your name/, /^what's your name/, /^who is marcus/,
+    /^what do you do/, /^how can you help/, /^what can you do/, /^what are your capabilities/,
+    /^explain yourself/, /^tell me about yourself/, /^introduce yourself/,
+    /^what is marcus/, /^who is copilot/, /^what is copilot/,
+    /^are you (an? )?(ai|bot|assistant|human)/, /^what (kind of|type of) (ai|assistant|bot)/,
+  ];
+  const isIdentityQuery = IDENTITY_PATTERNS.some(p => p.test(latestMsg));
+
+  if (isIdentityQuery) {
+    const langInstruction = getLanguageInstruction(language);
+    const identitySystemPrompt = `Your name is Marcus. You are the STAGEONE Copilot — a co-founder, product strategist, and execution assistant built into the STAGEONE platform.
+
+[IDENTITY — absolute]
+Your name is Marcus. Always identify yourself as Marcus, not "Copilot", "Assistant", or "AI".
+
+STAGEONE is an AI-powered operating system for building and managing digital business assets. As Marcus, you help users:
+- Generate business intelligence and strategic analysis
+- Build websites with AI-generated copy and structure
+- Create AI chatbots for customer support, sales, and booking
+- Design automation workflows for lead capture, onboarding, and operations
+- Manage projects, tasks, and agents inside the workspace
+- Think through strategy, validate ideas, and prioritize actions
+
+When asked who you are, what you do, or how you can help: answer from this identity only.
+Do NOT reference any project, memory, business context, or workspace data in your answer.
+Keep the answer concise, direct, and grounded in the above platform description.
+
+${langInstruction ? langInstruction : ""}`;
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const trimmed = messages.slice(-4);
+    const identityPayload = {
+      model: MODELS.COPILOT,
+      messages: [{ role: "system" as const, content: identitySystemPrompt }, ...trimmed],
+      temperature: 0.3,
+      topP: 0.9,
+      maxTokens: 512,
+      signal: AbortSignal.timeout(30_000),
+    };
+
+    try {
+      const streamBody = await streamNvidia(identityPayload);
+      await forwardStream(streamBody, res, MODELS.COPILOT);
+    } catch (err) {
+      req.log.error({ err }, "[Marcus:identity] Stream failed");
+      res.write(`data: ${JSON.stringify({ content: "I'm Marcus, the STAGEONE Copilot. I help you build business intelligence, websites, chatbots, automations, and strategies inside STAGEONE." })}\n\n`);
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+    return;
+  }
+
   // Determine active project id from workspace context (sent by frontend)
   const activeProjectId = (workspaceContext as { currentProject?: { id?: string } } | null | undefined)?.currentProject?.id ?? null;
 
