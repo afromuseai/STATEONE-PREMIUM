@@ -7,6 +7,7 @@ import {
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useLang } from "@/lib/i18n"
+import { useTheme } from "@/lib/theme-context"
 import heroVisual from "@assets/ChatGPT_Image_Jun_9,_2026,_03_46_11_AM_1780976814910.png"
 
 /* ─── Typing headline ─────────────────────────────────────────────── */
@@ -840,12 +841,16 @@ function HeroParticles() {
 export function Hero() {
   const { user } = useAuth()
   const { t } = useLang()
+  const { theme } = useTheme()
   const ref = useRef<HTMLElement>(null)
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] })
   const parallaxY = useSpring(useTransform(scrollYProgress, [0, 1], [0, 80]), { stiffness: 80, damping: 20 })
 
+  const bg = theme === "dark" ? "#050505" : "#ffffff"
+  const bgRgb = theme === "dark" ? "5,5,5" : "255,255,255"
+
   return (
-    <section ref={ref} className="relative overflow-hidden pt-[72px]" style={{ background: "#050505" }}>
+    <section ref={ref} className="relative overflow-hidden pt-[72px]" style={{ background: bg }}>
 
       {/* ── Full-bleed background image ──────────────────────────── */}
       <div className="pointer-events-none absolute inset-0">
@@ -857,22 +862,22 @@ export function Hero() {
         />
         {/* Particle animation overlay */}
         <HeroParticles />
-        {/* Left dark vignette so text reads clearly */}
+        {/* Left vignette so text reads clearly */}
         <div className="absolute inset-0" style={{
-          background: "linear-gradient(100deg, rgba(5,5,5,0.96) 0%, rgba(5,5,5,0.80) 42%, rgba(5,5,5,0.20) 70%, rgba(5,5,5,0.05) 100%)",
+          background: `linear-gradient(100deg, rgba(${bgRgb},0.96) 0%, rgba(${bgRgb},0.80) 42%, rgba(${bgRgb},0.20) 70%, rgba(${bgRgb},0.05) 100%)`,
         }} />
         {/* Bottom fade into page */}
         <div className="absolute inset-x-0 bottom-0 h-40" style={{
-          background: "linear-gradient(to bottom, transparent, #050505)",
+          background: `linear-gradient(to bottom, transparent, ${bg})`,
         }} />
         {/* Subtle gold grid on top */}
         <div className="absolute inset-0" style={{
           backgroundImage: "linear-gradient(to right, rgba(184,145,68,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(184,145,68,0.03) 1px, transparent 1px)",
           backgroundSize: "80px 80px",
         }} />
-        {/* Top fade — full-width smooth dissolve into dark background */}
+        {/* Top fade — full-width smooth dissolve into page background */}
         <div className="absolute inset-x-0 top-0 h-[340px]" style={{
-          background: "linear-gradient(to bottom, #050505 0%, #050505 18%, rgba(5,5,5,0.85) 40%, rgba(5,5,5,0.4) 65%, transparent 100%)",
+          background: `linear-gradient(to bottom, ${bg} 0%, ${bg} 18%, rgba(${bgRgb},0.85) 40%, rgba(${bgRgb},0.4) 65%, transparent 100%)`,
         }} />
       </div>
 
