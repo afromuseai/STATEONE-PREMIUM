@@ -42,8 +42,8 @@ import {
   markPendingIntentAutoGenerate,
 } from "@/lib/generation-context";
 import { useWorkspaceController } from "@/lib/workspace-controller-context";
-import { Sparkles } from "lucide-react";
-import { Sparkles } from "lucide-react";
+import { ListChecks, Trash2 } from "lucide-react";
+import { Orbit } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
@@ -1360,7 +1360,7 @@ export function CopilotPanel() {
             style={{
               left: "calc(var(--sidebar-w, 0px) + 12px)",
               width: 380,
-              maxHeight: minimized ? 52 : 720,
+              maxHeight: minimized ? 52 : 600,
               transition: "max-height 0.3s cubic-bezier(0.4,0,0.2,1)",
             }}
           >
@@ -1369,7 +1369,9 @@ export function CopilotPanel() {
               <div className="flex items-center gap-2.5">
                 <div className="relative">
                   <div className="p-1.5 rounded-xl bg-primary/10 border border-primary/20">
-                    <Bot className="h-4 w-4 text-primary" />
+                  
+                    <Brain className="h-4 w-4 text-primary" />
+                
                   </div>
                   <motion.div
                     className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400 border border-[#0d0d0d]"
@@ -1379,10 +1381,12 @@ export function CopilotPanel() {
                 </div>
                 <div>
                   <p className="text-xs font-black text-foreground">
-                    STAGEONE Copilot
+                    Agent Marcus
                   </p>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <p className="text-[9px] text-emerald-400/80">Online</p>
+                    <p className="text-[9px] text-emerald-400/80">
+                      AI Business Operator
+                    </p>
                     {hasBusinessContext && (
                       <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
@@ -1695,11 +1699,7 @@ export function CopilotPanel() {
                           transition={{ duration: 0.25 }}
                           className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                         >
-                          {msg.role === "assistant" && (
-                            <div className="p-1.5 rounded-xl bg-primary/10 border border-primary/15 h-6 w-6 flex items-center justify-center shrink-0 mt-0.5 mr-2">
-                              <Bot className="h-3 w-3 text-primary" />
-                            </div>
-                          )}
+                          
                           <div
                             className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 ${
                               msg.role === "user"
