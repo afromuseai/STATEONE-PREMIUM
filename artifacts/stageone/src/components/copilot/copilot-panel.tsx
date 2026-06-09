@@ -40,6 +40,7 @@ import {
   setMarcusWorkspaceSignal,
   setPendingIntent,
   markPendingIntentAutoGenerate,
+  saveProjectContext,
 } from "@/lib/generation-context";
 import { useWorkspaceController } from "@/lib/workspace-controller-context";
 import { ListChecks, Trash2 } from "lucide-react";
@@ -884,6 +885,9 @@ export function CopilotPanel() {
           "[PIPELINE:5] calling setPendingIntent | idea:",
           JSON.stringify(idea),
         );
+        if (currentProject) {
+          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id });
+        }
         setPendingIntent({ type: "chatbot", idea, autoGenerate: false });
         const raw = sessionStorage.getItem("stageone_pending_intent");
         console.log("[PIPELINE:6] sessionStorage after setPendingIntent:", raw);
@@ -922,6 +926,9 @@ export function CopilotPanel() {
       } else if (command === "website_idea") {
         const idea = payload.trim();
         if (!idea) return;
+        if (currentProject) {
+          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id });
+        }
         setPendingIntent({ type: "website", idea, autoGenerate: false });
         if (location !== "/website-generator") navigate("/website-generator");
       } else if (command === "generate_website") {
@@ -957,6 +964,9 @@ export function CopilotPanel() {
           return;
         }
         lastAutomationIdeaRef.current = idea;
+        if (currentProject) {
+          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id });
+        }
         // 1. Write sessionStorage (belt-and-suspenders for mount-based Phase 1 path).
         console.log(
           "AUTOMATION_TRACE: PendingIntent written | type: automation | idea:",
@@ -1004,7 +1014,7 @@ export function CopilotPanel() {
         navigate("/automation-builder");
       }
     },
-    [navigate, location, emitWorkspaceSignal],
+    [navigate, location, emitWorkspaceSignal, currentProject],
   );
 
   // ─── Send message ─────────────────────────────────────────────────────────────

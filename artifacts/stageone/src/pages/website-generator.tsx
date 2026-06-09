@@ -204,6 +204,29 @@ export default function WebsiteGeneratorPage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── Already-mounted: react to generate_website fired after page open ────────
+  // markPendingIntentAutoGenerate dispatches this event + writes a fresh PendingIntent
+  // with the recovered idea. Consume it and trigger generation directly.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { type } = (e as CustomEvent<{ type: string }>).detail
+      if (type !== "website") return
+      const intent = consumePendingIntent("website")
+      const text = intent?.idea || marcusWebsiteIdeaRef.current || ideaRef.current
+      if (text.trim()) {
+        if (!ideaRef.current.trim()) {
+          setIdea(text)
+          setContextBanner(true)
+        }
+        setTimeout(() => {
+          generateWithIdea(text)
+        }, 100)
+      }
+    }
+    window.addEventListener("stageone:autoGenerate", handler)
+    return () => window.removeEventListener("stageone:autoGenerate", handler)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Live workspace signal — UI sync only (populate textarea, show banner) ────
   // Generation is NOT triggered here. It is handled exclusively by
   // consumePendingIntent on mount. Workspace signals = UI state only.
