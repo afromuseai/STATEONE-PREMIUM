@@ -7,7 +7,7 @@ import {
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useLang } from "@/lib/i18n"
-import heroVisual from "@assets/ChatGPT_Image_May_19,_2026,_05_20_34_AM_1779168162338.png"
+import heroVisual from "@assets/ChatGPT_Image_Jun_9,_2026,_03_46_11_AM_1780976814910.png"
 
 /* ─── Typing headline ─────────────────────────────────────────────── */
 function TypingText({ businessTypes }: { businessTypes: readonly string[] }) {
