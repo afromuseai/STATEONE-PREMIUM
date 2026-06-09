@@ -932,7 +932,9 @@ export function CopilotPanel() {
         setPendingIntent({ type: "website", idea, autoGenerate: false });
         if (location !== "/website-generator") navigate("/website-generator");
       } else if (command === "generate_website") {
+        console.log("WEBSITE_FLOW:2 generate_website command received | calling markPendingIntentAutoGenerate(website)");
         markPendingIntentAutoGenerate("website");
+        console.log("WEBSITE_FLOW:2a markPendingIntentAutoGenerate dispatched | navigating to /website-generator");
         navigate("/website-generator");
       } else if (command === "automation") {
         console.log(

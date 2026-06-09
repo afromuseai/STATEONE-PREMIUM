@@ -257,6 +257,13 @@ export default function ChatbotGeneratorPage() {
   }, [])
 
   const saveToProject = useCallback(async (output: ChatbotOutput): Promise<boolean> => {
+    // Re-read sessionStorage lazily — projectCtxRef may be null if Marcus wrote the
+    // project context AFTER this page mounted (automation_idea / idea commands fire
+    // after the page is already open, so the mount-time read returns null).
+    if (!projectCtxRef.current) {
+      const fresh = loadProjectContext()
+      if (fresh) projectCtxRef.current = fresh
+    }
     const ctx = projectCtxRef.current
     const projectId = ctx?.projectId ?? null
     console.log("GENERATOR_AUDIT: generator=chatbot")

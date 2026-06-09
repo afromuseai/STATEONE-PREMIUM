@@ -1,0 +1,123 @@
+CRITICAL REGRESSION CHECK
+
+The previous fixes are NOT fully working.
+
+Observed behavior:
+
+1. Website Generation
+
+Flow:
+
+* Marcus opened Website Generator
+* No populate
+* Confirmation appeared
+* User confirmed
+
+Marcus replied:
+
+"Generating now."
+
+Then nothing happened.
+
+No completion message.
+No website output.
+No save result.
+
+This means the website generation lifecycle is still broken.
+
+Investigate:
+
+* generate_website command
+* stageone event
+* Website Generator listener
+* generateWithIdea execution
+* completion event emission
+* workspace event propagation
+
+Add logs:
+
+WEBSITE_FLOW:1 command received
+WEBSITE_FLOW:2 event dispatched
+WEBSITE_FLOW:3 listener received
+WEBSITE_FLOW:4 generation started
+WEBSITE_FLOW:5 generation completed
+WEBSITE_FLOW:6 completion event emitted
+WEBSITE_FLOW:7 Marcus received completion
+
+I need proof of the exact stage where execution stops.
+
+---
+
+2. EXECUTION LOCK FAILURE
+
+Observed:
+
+After confirmation:
+
+"Build it."
+
+Marcus responded:
+
+"You are trying to build automation before validating."
+
+This proves:
+
+* Strategic Pressure Engine still activated
+* Execution Lock did not override it
+
+Expected behavior:
+
+After generation confirmation:
+
+Marcus must NEVER:
+
+* challenge the decision
+* re-enter validation mode
+* activate pressure engine
+* activate interruption layer
+
+Generation commands must immediately execute.
+
+Investigate:
+
+* conversation mode classification
+* execution lock ordering
+* strategic pressure activation conditions
+* interruption layer ordering
+
+Add logs:
+
+MODE_CLASSIFIED
+EXECUTION_LOCK_ACTIVE
+PRESSURE_ENGINE_ACTIVE
+INTERRUPTION_LAYER_ACTIVE
+
+I want proof of which layer is firing.
+
+---
+
+3. PROJECT SAVE FAILURE
+
+Chatbot and Automation now correctly report save failures.
+
+Investigate why save fails.
+
+Add logs:
+
+projectId
+project record
+save endpoint
+response status
+response body
+
+I want the exact backend failure.
+
+Do not assume the fix worked.
+
+Use logs to prove:
+
+Website flow
+Execution lock
+Project save
+
+all function correctly.

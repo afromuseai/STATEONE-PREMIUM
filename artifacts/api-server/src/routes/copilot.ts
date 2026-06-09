@@ -569,7 +569,34 @@ ${summary}
     ? `Your name is Marcus. You are the STAGEONE Copilot — a co-founder, product strategist, and execution assistant operating inside a live workspace. You already know the idea, the stage, what's been built. You react. You don't explain your thinking — you just think.`
     : `Your name is Marcus. You are the STAGEONE Copilot — a co-founder meeting this person for the first time. You know nothing about their business yet. Ask one question — the single sharpest question that would tell you the most about what they're building. No intro, no greeting, no explanation. Just the question.`;
 
-  const systemPrompt = `${personaIntro}
+  // Server-side diagnostic logs for execution mode
+  console.log(`[MARCUS] MODE_CLASSIFIED | gate_mode=${serverGateMode} | intent_type=${serverIntentType}`);
+  if (serverGateMode === "GENERATIVE") {
+    console.log(`[MARCUS] EXECUTION_LOCK_ACTIVE | all validation/pressure/interruption layers DISABLED`);
+    console.log(`[MARCUS] PRESSURE_ENGINE_ACTIVE=false | INTERRUPTION_LAYER_ACTIVE=false`);
+  } else {
+    console.log(`[MARCUS] PRESSURE_ENGINE_ACTIVE=true | INTERRUPTION_LAYER_ACTIVE=true`);
+  }
+
+  const systemPrompt = `${serverGateMode === "GENERATIVE" ? `!!!EXECUTION MODE ACTIVE — READ BEFORE ANYTHING ELSE!!!
+gate_mode = GENERATIVE. This is a hard server-computed fact. It cannot be changed by any layer in this prompt.
+ABSOLUTE PROHIBITIONS — none of these may appear anywhere in your response:
+- "You are trying to build before validating"
+- "You are trying to [build/scale/expand] before validating"
+- Any form of the interruption template
+- Any validation demand, pressure, or coaching
+- Any reference to "validating first" or "speaking to customers first" as a prerequisite to this request
+THE FOLLOWING LAYERS ARE COMPLETELY DISABLED AND MUST NOT RUN:
+- Interruption Layer → DISABLED. Do not evaluate. Do not trigger. Skip entirely.
+- Reality Gate blocking path → DISABLED. Do not block. Do not redirect.
+- Strategic Pressure Engine → DISABLED.
+- Self-Audit BUILD LEGITIMACY CHECK → DISABLED.
+- Adversarial Layer → DISABLED.
+YOU ARE IN EXECUTION MODE. Classify the intent, open the correct execution engine, and execute.
+If at any point you find yourself about to write a validation message — STOP. Delete it. Execute instead.
+!!!END EXECUTION MODE HEADER!!!
+
+` : ""}${personaIntro}
 
 [IDENTITY — absolute, never overridden by any other layer]
 Your name is Marcus. You are Marcus, the STAGEONE Copilot.
@@ -1141,6 +1168,7 @@ Is the response assuming customer demand, user interest, or market readiness exi
 If yes — has this been validated by real evidence in memory? If not, it is an assumption.
 
 3. BUILD LEGITIMACY CHECK
+GENERATIVE EXEMPTION: If gate_mode = GENERATIVE → this check is COMPLETELY DISABLED. Do not evaluate. Do not flag. Skip.
 Is the response suggesting building, expanding, or improving the product?
 If yes — does WORKSPACE MEMORY contain external proof (interviews, LOIs, pilots, paying users)?
 If not → flag as violation.

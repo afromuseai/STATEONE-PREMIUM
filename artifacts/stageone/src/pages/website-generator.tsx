@@ -8,7 +8,7 @@ import {
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumePendingIntent } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
 
@@ -180,8 +180,13 @@ export default function WebsiteGeneratorPage() {
     // Primary: durable pending intent — written by Copilot before navigating.
     // Does NOT depend on subscriber timing, React effect order, or live signals.
     const intent = consumePendingIntent("website")
+    console.log("WEBSITE_FLOW:1 mount | consumePendingIntent result:", JSON.stringify(intent))
     if (intent) {
       if (intent.idea) {
+        // Cache BEFORE using — so markPendingIntentAutoGenerate can recover the idea
+        // when generate_website fires after this intent has already been consumed.
+        cacheConsumedIdea("website", intent.idea)
+        console.log("WEBSITE_FLOW:1a cacheConsumedIdea written | idea length:", intent.idea.length)
         marcusWebsiteIdeaRef.current = intent.idea
         ideaRef.current = intent.idea
         setContextBanner(true)
@@ -210,17 +215,26 @@ export default function WebsiteGeneratorPage() {
   useEffect(() => {
     const handler = (e: Event) => {
       const { type } = (e as CustomEvent<{ type: string }>).detail
-      if (type !== "website") return
+      console.log("WEBSITE_FLOW:3 stageone:autoGenerate event received | type:", type)
+      if (type !== "website") {
+        console.log("WEBSITE_FLOW:3 ignored — type is not 'website'")
+        return
+      }
       const intent = consumePendingIntent("website")
+      console.log("WEBSITE_FLOW:3a consumePendingIntent result:", JSON.stringify(intent))
       const text = intent?.idea || marcusWebsiteIdeaRef.current || ideaRef.current
+      console.log("WEBSITE_FLOW:3b resolved text | length:", text.length, "| source: intent.idea=", !!(intent?.idea), "marcusRef=", !!marcusWebsiteIdeaRef.current, "ideaRef=", !!ideaRef.current)
       if (text.trim()) {
         if (!ideaRef.current.trim()) {
           setIdea(text)
           setContextBanner(true)
         }
+        console.log("WEBSITE_FLOW:4 calling generateWithIdea | idea (first 80):", text.slice(0, 80))
         setTimeout(() => {
           generateWithIdea(text)
         }, 100)
+      } else {
+        console.warn("WEBSITE_FLOW:3c NO idea text found — generation aborted. marcusWebsiteIdeaRef:", marcusWebsiteIdeaRef.current, "ideaRef:", ideaRef.current)
       }
     }
     window.addEventListener("stageone:autoGenerate", handler)
@@ -347,6 +361,7 @@ export default function WebsiteGeneratorPage() {
     console.log("[WEBSITE TRACE] generateWithIdea entered | idea:", ideaOverride || "(empty)")
     if (!ideaOverride.trim()) return
     setGenError("")
+    console.log("WEBSITE_FLOW:5 generateWithIdea started | idea (first 80):", ideaOverride.slice(0, 80))
     setStep("generating")
     abortRef.current = new AbortController()
     let buffer = ""
@@ -358,6 +373,7 @@ export default function WebsiteGeneratorPage() {
         body: JSON.stringify({ idea: ideaOverride.trim(), style, tone }),
         signal: abortRef.current.signal,
       })
+      console.log("WEBSITE_FLOW:5a fetch response status:", res.status)
       if (!res.ok) throw new Error("Request failed")
       if (!res.body) throw new Error("No response stream")
       const reader = res.body.getReader()
@@ -376,10 +392,12 @@ export default function WebsiteGeneratorPage() {
             if (msg.content) buffer += msg.content
             if (msg.error) { setGenError(msg.error); setStep("input"); return }
             if (msg.done && msg.data) {
+              console.log("WEBSITE_FLOW:6 generation completed | data keys:", Object.keys(msg.data as object).join(","))
               const out = msg.data as WebsiteOutput
               setData(out)
               updatePreview(out)
               setStep("done")
+              console.log("WEBSITE_FLOW:6a step set to done")
               return
             }
           } catch { /* fragment */ }
@@ -388,6 +406,7 @@ export default function WebsiteGeneratorPage() {
       setGenError("Generation ended unexpectedly. Try again."); setStep("input")
     } catch (err: unknown) {
       if ((err as Error).name === "AbortError") { setStep("input"); return }
+      console.error("WEBSITE_FLOW:5b error:", (err as Error).message)
       setGenError("Connection error. Check your API key and try again.")
       setStep("input")
     }
