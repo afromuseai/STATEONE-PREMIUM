@@ -230,7 +230,7 @@ export default function WebsiteGeneratorPage() {
           setIdea(text)
           setContextBanner(true)
         }
-        console.log("WEBSITE_FLOW:4 calling generateWithIdea | idea (first 80):", text.slice(0, 80))
+        console.log("WEBSITE_FLOW:H generateWithIdea called | idea (first 80):", text.slice(0, 80))
         setTimeout(() => {
           generateWithIdea(text)
         }, 100)
@@ -358,6 +358,7 @@ export default function WebsiteGeneratorPage() {
   }, [])
 
   const generateWithIdea = async (ideaOverride: string) => {
+    console.log("WEBSITE_FLOW:I generation started | idea (first 80):", ideaOverride.slice(0, 80))
     console.log("[TRACE] generateWithIdea entered | idea:", ideaOverride || "(empty)")
     console.log("[WEBSITE TRACE] generateWithIdea entered | idea:", ideaOverride || "(empty)")
     if (!ideaOverride.trim()) {

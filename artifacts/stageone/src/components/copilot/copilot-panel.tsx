@@ -1080,6 +1080,9 @@ export function CopilotPanel() {
           },
           (action) => {
             // ACTION — render card immediately, even while streaming
+            if (action.id === "generate_website") {
+              console.log("WEBSITE_FLOW:E confirmation received | ACTION tag detected | action.id:", action.id, "| timestamp:", Date.now());
+            }
             setPendingAction(action);
           },
           (path) => {
@@ -1178,6 +1181,14 @@ export function CopilotPanel() {
       // Write autorun intent so target page picks it up and executes immediately
       const idea = crossSystem.lastBusinessIdea ?? undefined;
       setCopilotAutorun({ action: action.id, idea, timestamp: Date.now() });
+      // generate_website ACTION path: setCopilotAutorun alone is not enough —
+      // website-generator only listens for stageone:autoGenerate (via markPendingIntentAutoGenerate).
+      // Without this call, the event is never dispatched and generateWithIdea is never invoked.
+      if (action.id === "generate_website") {
+        console.log("WEBSITE_FLOW:F autoGenerate requested | executeAction firing for generate_website | idea length:", (idea ?? "").length, "| timestamp:", Date.now());
+        markPendingIntentAutoGenerate("website");
+        console.log("WEBSITE_FLOW:G event dispatched | markPendingIntentAutoGenerate(website) called");
+      }
       navigate(route);
       setOpen(false);
     },
