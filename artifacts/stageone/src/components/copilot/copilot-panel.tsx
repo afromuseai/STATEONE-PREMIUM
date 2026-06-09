@@ -920,16 +920,23 @@ export function CopilotPanel() {
           payload: lastBiIdeaRef.current,
         });
       } else if (command === "website") {
-        // Durable intent: just a navigate — no idea, no autoGenerate
-        setPendingIntent({ type: "website", idea: "", autoGenerate: false });
-        navigate("/website-generator");
+        // Navigate only — NEVER overwrite a pending intent here.
+        // website_idea (which fires after or instead of this) writes the real idea.
+        // Writing an empty intent here caused a race condition where the page mounted
+        // with idea="" because website_idea hadn't processed yet.
+        console.log("WEBSITE_FLOW:B navigation triggered (website command) | NOT writing pending intent");
+        if (location !== "/website-generator") navigate("/website-generator");
       } else if (command === "website_idea") {
         const idea = payload.trim();
         if (!idea) return;
+        // WEBSITE_FLOW:A — idea stored BEFORE any navigation
+        console.log("WEBSITE_FLOW:A idea stored | length:", idea.length, "| first 80:", idea.slice(0, 80));
         if (currentProject) {
           saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id });
         }
         setPendingIntent({ type: "website", idea, autoGenerate: false });
+        // WEBSITE_FLOW:B — navigate only AFTER idea is in sessionStorage
+        console.log("WEBSITE_FLOW:B navigation triggered (website_idea command) | pending intent written first");
         if (location !== "/website-generator") navigate("/website-generator");
       } else if (command === "generate_website") {
         console.log("WEBSITE_FLOW:2 generate_website command received | calling markPendingIntentAutoGenerate(website)");

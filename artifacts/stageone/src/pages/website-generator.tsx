@@ -179,8 +179,9 @@ export default function WebsiteGeneratorPage() {
   useEffect(() => {
     // Primary: durable pending intent — written by Copilot before navigating.
     // Does NOT depend on subscriber timing, React effect order, or live signals.
+    console.log("WEBSITE_FLOW:C page mounted")
     const intent = consumePendingIntent("website")
-    console.log("WEBSITE_FLOW:1 mount | consumePendingIntent result:", JSON.stringify(intent))
+    console.log("WEBSITE_FLOW:D idea loaded | consumePendingIntent result:", JSON.stringify(intent))
     if (intent) {
       if (intent.idea) {
         // Cache BEFORE using — so markPendingIntentAutoGenerate can recover the idea
