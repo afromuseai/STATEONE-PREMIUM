@@ -860,12 +860,14 @@ export function Hero() {
           className="absolute inset-0 w-full h-full object-cover object-center"
           style={{
             opacity: 0.88,
-            maskImage: "linear-gradient(90deg, transparent 0%, black 30%)",
-            WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 30%)",
+            maskImage: "linear-gradient(90deg, transparent 0%, transparent 28%, black 30%)",
+            WebkitMaskImage: "linear-gradient(90deg, transparent 0%, transparent 28%, black 30%)",
           }}
         />
-        {/* Particle animation overlay */}
-        <HeroParticles />
+        {/* Particle animation overlay — clipped to right 70% so particles don't bleed past the fade boundary */}
+        <div className="absolute inset-0" style={{ clipPath: "inset(0 0 0 30%)" }}>
+          <HeroParticles />
+        </div>
         {/* Left vignette — reinforces the mask fade */}
         <div className="absolute inset-0" style={{
           background: `linear-gradient(90deg, rgba(${r},1) 0%, rgba(${r},1) 25%, rgba(${r},0.85) 45%, rgba(${r},0.40) 60%, rgba(${r},0.05) 75%, rgba(${r},0) 100%)`,
@@ -913,8 +915,8 @@ export function Hero() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-            className="font-black tracking-[-0.03em] text-white leading-[1.02]"
-            style={{ fontSize: "clamp(2.8rem, 5.5vw, 4.8rem)" }}
+            className="font-black tracking-[-0.03em] leading-[1.02]"
+            style={{ fontSize: "clamp(2.8rem, 5.5vw, 4.8rem)", color: theme === "dark" ? "#ffffff" : "#0a0a0a" }}
           >
             {t.hero.headline1}
             <span className="block mt-1" style={{ height: "1.15em" }}><TypingText businessTypes={t.hero.businessTypes} /></span>
@@ -934,7 +936,7 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.45 }}
             className="text-[15px] leading-[1.75]"
-            style={{ color: "rgba(255,255,255,0.50)" }}
+            style={{ color: theme === "dark" ? "rgba(255,255,255,0.50)" : "rgba(0,0,0,0.60)" }}
           >
             {t.hero.subHeadline}
           </motion.p>
@@ -963,11 +965,11 @@ export function Hero() {
             </Link>
 
             <a href="/#how-it-works"
-              className="inline-flex h-12 items-center gap-2 rounded-xl px-7 text-[13px] font-medium transition-colors hover:text-white"
+              className="inline-flex h-12 items-center gap-2 rounded-xl px-7 text-[13px] font-medium transition-colors"
               style={{
-                color: "rgba(255,255,255,0.55)",
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.10)",
+                color: theme === "dark" ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.60)",
+                background: theme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                border: theme === "dark" ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,0,0,0.12)",
                 backdropFilter: "blur(8px)",
               }}
             >
@@ -987,9 +989,9 @@ export function Hero() {
                 <span key={i} style={{ color: "oklch(0.75 0.12 85)", fontSize: "11px" }}>★</span>
               ))}
             </div>
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>{t.hero.trustedBy}</span>
-            <div className="h-3 w-px" style={{ background: "rgba(255,255,255,0.10)" }} />
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.28)" }}>{t.hero.noCreditCard}</span>
+            <span className="text-[11px]" style={{ color: theme === "dark" ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.45)" }}>{t.hero.trustedBy}</span>
+            <div className="h-3 w-px" style={{ background: theme === "dark" ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.15)" }} />
+            <span className="text-[11px]" style={{ color: theme === "dark" ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.45)" }}>{t.hero.noCreditCard}</span>
           </motion.div>
         </div>
       </div>
