@@ -860,8 +860,8 @@ export function Hero() {
           className="absolute inset-0 w-full h-full object-cover object-center"
           style={{
             opacity: 0.88,
-            maskImage: "linear-gradient(90deg, transparent 0%, transparent 20%, black 45%)",
-            WebkitMaskImage: "linear-gradient(90deg, transparent 0%, transparent 20%, black 45%)",
+            maskImage: "linear-gradient(90deg, transparent 0%, black 30%)",
+            WebkitMaskImage: "linear-gradient(90deg, transparent 0%, black 30%)",
           }}
         />
         {/* Particle animation overlay */}
