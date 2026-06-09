@@ -360,7 +360,12 @@ export default function WebsiteGeneratorPage() {
   const generateWithIdea = async (ideaOverride: string) => {
     console.log("[TRACE] generateWithIdea entered | idea:", ideaOverride || "(empty)")
     console.log("[WEBSITE TRACE] generateWithIdea entered | idea:", ideaOverride || "(empty)")
-    if (!ideaOverride.trim()) return
+    if (!ideaOverride.trim()) {
+      console.warn("WEBSITE_FLOW:NO_IDEA generateWithIdea called with empty idea — showing error and dispatching recovery event")
+      setGenError("No idea was loaded — type your business idea above, or ask Marcus to re-prepare the website.")
+      window.dispatchEvent(new CustomEvent("stageone:noIdeaForGeneration", { detail: { type: "website" } }))
+      return
+    }
     setGenError("")
     console.log("WEBSITE_FLOW:5 generateWithIdea started | idea (first 80):", ideaOverride.slice(0, 80))
     setStep("generating")

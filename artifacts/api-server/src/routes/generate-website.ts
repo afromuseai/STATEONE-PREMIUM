@@ -1027,16 +1027,24 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
   try {
     const { idea, businessIntelligence, variantSeed, language, forceDesignVariant, projectId } = req.body;
     const userId = (req as import("express").Request & { user?: { userId: string } }).user?.userId ?? "";
-    if (!idea || typeof idea !== "string" || !idea.trim()) {
-      res.status(400).json({ error: "Business idea is required" }); return;
-    }
-    if (!NVIDIA_API_KEY) {
-      res.status(500).json({ error: "API key not configured" }); return;
-    }
 
+    // Always open SSE stream first so the client receives a typed error event
+    // (not a plain 400 JSON which the SSE reader treats as a generic connection error)
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
+
+    if (!idea || typeof idea !== "string" || !idea.trim()) {
+      console.warn("[generate-website] NO_IDEA: request received with empty idea — rejecting via SSE error");
+      res.write(`data: ${JSON.stringify({ error: "NO_IDEA: No business idea was provided. The website generator requires a description to generate from.", code: "NO_IDEA" })}\n\n`);
+      res.end();
+      return;
+    }
+    if (!NVIDIA_API_KEY) {
+      res.write(`data: ${JSON.stringify({ error: "API key not configured" })}\n\n`);
+      res.end();
+      return;
+    }
 
     // ─── Pre-flight reasoning SSE events ─────────────────────────────────────
     const bi = businessIntelligence as { industry?: string } | null;

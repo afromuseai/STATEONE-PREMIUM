@@ -1127,6 +1127,23 @@ export function CopilotPanel() {
     ],
   );
 
+  // ─── No-idea recovery listener ────────────────────────────────────────────────
+  // Fires when the website generator finds no idea in the pending intent.
+  // Auto-sends Marcus a recovery prompt so he re-seeds the form.
+  // MUST be defined after sendMessage (useCallback ref must exist before dep array runs).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { type } = (e as CustomEvent<{ type: string }>).detail;
+      console.log(`[Marcus:recovery] stageone:noIdeaForGeneration received | type: ${type}`);
+      if (type !== "website") return;
+      setTimeout(() => {
+        sendMessage("The website generator has no idea loaded — please re-prepare the website with the business description.");
+      }, 400);
+    };
+    window.addEventListener("stageone:noIdeaForGeneration", handler);
+    return () => window.removeEventListener("stageone:noIdeaForGeneration", handler);
+  }, [sendMessage]);
+
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
