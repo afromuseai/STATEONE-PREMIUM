@@ -853,7 +853,11 @@ export function Hero() {
           src={heroVisual}
           alt=""
           className="absolute inset-0 w-full h-full object-cover object-center"
-          style={{ opacity: 0.88 }}
+          style={{
+            opacity: 0.88,
+            maskImage: "linear-gradient(90deg, transparent 0%, transparent 30%, black 62%)",
+            WebkitMaskImage: "linear-gradient(90deg, transparent 0%, transparent 30%, black 62%)",
+          }}
         />
         {/* Particle animation overlay */}
         <HeroParticles />
