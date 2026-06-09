@@ -1,0 +1,166 @@
+CRITICAL REGRESSION AUDIT — WEBSITE GENERATION + EXECUTION MODE
+
+Three separate failures were observed.
+
+====================================
+FAILURE 1 — WEBSITE GENERATION NEVER STARTS
+===========================================
+
+Observed:
+
+User:
+Generate Website
+
+Marcus:
+Opening now.
+Everything is ready.
+Would you like me to generate this website now?
+
+User:
+Yes.
+
+Marcus:
+Generating now.
+
+END
+
+No website generation occurs.
+
+No success event.
+No failure event.
+No save event.
+
+This indicates:
+
+Confirmation flow succeeded.
+
+But generate_website never entered the Website Architect generation lifecycle.
+
+Investigate:
+
+1. generate_website command handler
+2. website confirmation handler
+3. website generation trigger
+4. website auto-generation lifecycle
+
+Trace:
+
+confirmation
+→ generate_website
+→ handler invoked
+→ generator invoked
+→ stream starts
+→ output produced
+→ save
+→ completion event
+
+Add logs at every step.
+
+====================================
+FAILURE 2 — CHATBOT SAVE FAILURE
+================================
+
+Observed:
+
+Generation succeeds.
+
+Marcus reports:
+
+"Chatbot generation completed, but saving to the project failed."
+
+This means:
+
+generation pipeline works
+
+save pipeline fails
+
+Investigate:
+
+* projectId
+* save endpoint
+* save payload
+* response body
+* response status
+
+Need exact cause.
+
+====================================
+FAILURE 3 — EXECUTION MODE IS BEING OVERRIDDEN
+==============================================
+
+Observed:
+
+User:
+Build automation
+
+Marcus:
+You are trying to build automation before validating.
+
+This is incorrect behavior.
+
+The user issued a direct execution command.
+
+Marcus should immediately enter EXECUTION MODE.
+
+Current behavior suggests:
+
+Pressure Engine
+Reality Gate
+Strategic Challenge Layer
+
+are overriding execution requests.
+
+Required rule:
+
+EXECUTION MODE has higher priority than:
+
+* Strategic Pressure Engine
+* Reality Gate
+* Adversarial Layer
+* Validation Coaching
+
+If user explicitly requests:
+
+* Build
+* Generate
+* Create
+* Run
+
+Marcus must execute.
+
+He may provide warnings AFTER execution.
+
+He must never block execution.
+
+====================================
+PRIORITY ORDER
+==============
+
+EXECUTION MODE
+
+>
+
+CONFIRMATION FLOW
+
+>
+
+WORKSPACE ACTIONS
+
+>
+
+PRESSURE ENGINE
+
+>
+
+ADVERSARIAL LAYER
+
+Execution requests must always win.
+
+====================================
+GOAL
+====
+
+1. Website Architect starts generation after confirmation.
+2. Chatbot save failure root cause identified.
+3. Marcus never argues with direct build commands.
+4. Execution Mode becomes highest-priority behavior.
