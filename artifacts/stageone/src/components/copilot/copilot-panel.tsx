@@ -1215,27 +1215,35 @@ export function CopilotPanel() {
   // Workspace Controller event subscriptions — proactive follow-ups + completion awareness
   useEffect(() => {
     const COMPLETION_MESSAGES: Partial<
-      Record<string, { open: string; bubble: string }>
+      Record<string, { open: string; bubble: string; openSaveFailed: string; bubbleSaveFailed: string }>
     > = {
       "generation.complete": {
         open: "Business Intelligence generation completed successfully.\n\nI've attached the report to this project and reviewed the analysis.\n\nIf you'd like to discuss assumptions, risks, growth strategy, or any part of the report, I'm here.",
         bubble:
           "Analysis done. The biggest unknown isn't strategy — it's whether customers agree.",
+        openSaveFailed: "Business Intelligence generation completed, but saving to the project failed.\n\nThe output is visible here but was not persisted. You may want to re-run the generation from the project page.",
+        bubbleSaveFailed: "Analysis done — but it didn't save to the project. Open to sort it out.",
       },
       "website.generated": {
         open: "Website generation completed successfully.\n\nThe draft has been attached to this project.\n\nIf you'd like feedback on positioning, messaging, structure, or conversion flow, we can review it together.",
         bubble:
           "Website ready. Does the copy match what you'd say to a real customer?",
+        openSaveFailed: "Website generation completed, but saving to the project failed.\n\nThe output is visible here but was not persisted. You may want to re-run the generation from the project page.",
+        bubbleSaveFailed: "Website generated — but it didn't save to the project. Open to sort it out.",
       },
       "automation.generated": {
         open: "Automation workflow generated successfully.\n\nThe workflow is now attached to this project.\n\nIf you'd like to evaluate implementation complexity, efficiency, or operational impact, I can help.",
         bubble:
           "Automation built. Let's verify the triggers match your actual workflow.",
+        openSaveFailed: "Automation workflow generated, but saving to the project failed.\n\nThe output is visible here but was not persisted. You may want to re-run the generation from the project page.",
+        bubbleSaveFailed: "Automation built — but it didn't save to the project. Open to sort it out.",
       },
       "chatbot.generated": {
         open: "Chatbot generation completed successfully.\n\nThe chatbot has been attached to this project.\n\nIf you'd like to review conversation design, onboarding flow, or support strategy, we can examine it together.",
         bubble:
           "Chatbot ready. What's the first real conversation you want it to handle?",
+        openSaveFailed: "Chatbot generation completed, but saving to the project failed.\n\nThe output is visible here but was not persisted. You may want to re-run the generation from the project page.",
+        bubbleSaveFailed: "Chatbot generated — but it didn't save to the project. Open to sort it out.",
       },
     };
 
@@ -1252,20 +1260,20 @@ export function CopilotPanel() {
       );
       const entry = COMPLETION_MESSAGES[event.type];
       if (entry) {
+        const saved = event.data?.saved !== false;
         console.log(
-          "[CONFIRM_FLOW:6] matched completion entry | will post message:",
-          open && !streamingRef.current,
-          "| will show bubble:",
-          !open,
+          "[CONFIRM_FLOW:6] matched completion entry | saved:", saved,
+          "| will post message:", open && !streamingRef.current,
+          "| will show bubble:", !open,
         );
         if (open && !streamingRef.current) {
           // Panel is open and idle — post Marcus message directly into the chat
           setMessages((prev) => [
             ...prev,
-            { role: "assistant", content: entry.open },
+            { role: "assistant", content: saved ? entry.open : entry.openSaveFailed },
           ]);
         } else if (!open) {
-          showBubble(entry.bubble);
+          showBubble(saved ? entry.bubble : entry.bubbleSaveFailed);
         } else {
           console.log(
             "[CONFIRM_FLOW:6] WARNING: completion event received but panel is open AND streaming — message dropped | open:",

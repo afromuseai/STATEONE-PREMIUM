@@ -330,12 +330,16 @@ export default function AutomationBuilderPage() {
     projectCtxRef.current = loadProjectContext()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const saveToProject = useCallback(async (output: AutomationData) => {
+  const saveToProject = useCallback(async (output: AutomationData): Promise<boolean> => {
     const ctx = projectCtxRef.current
-    console.log("[automation] projectId", ctx?.projectId ?? "(none — no project context in sessionStorage)")
-    if (!ctx?.projectId) return
+    console.log("GENERATOR_AUDIT: generator=automation")
+    console.log("PROJECT_SAVE: projectId=" + (ctx?.projectId ?? "(none — no project context in sessionStorage)"))
+    if (!ctx?.projectId) {
+      console.log("SAVE_RESULT: failure (no projectId — save skipped)")
+      return false
+    }
     const endpoint = `/api/projects/${ctx.projectId}`
-    console.log("[automation] save endpoint", endpoint)
+    console.log("SAVE_ENDPOINT: " + endpoint)
     try {
       const res = await fetch(endpoint, {
         method: "PATCH",
@@ -344,17 +348,22 @@ export default function AutomationBuilderPage() {
         body: JSON.stringify({ automationOutput: output as unknown as Record<string, unknown> }),
       })
       const responseBody = await res.json().catch(() => "(unparseable body)")
-      console.log("[automation] response", { status: res.status, ok: res.ok, body: responseBody })
+      console.log("SAVE_RESPONSE_STATUS: " + res.status)
+      console.log("SAVE_RESPONSE_BODY:", responseBody)
       if (!res.ok) {
-        console.error(`[automation] saveToProject failed: HTTP ${res.status} for project ${ctx.projectId}`, responseBody)
+        console.error("SAVE_RESULT: failure (HTTP " + res.status + " for project " + ctx.projectId + ")", responseBody)
         if (res.status === 404) {
           console.warn("[automation] project not found in DB — clearing stale sessionStorage project context")
           clearProjectContext()
           projectCtxRef.current = null
         }
+        return false
       }
+      console.log("SAVE_RESULT: success")
+      return true
     } catch (err) {
-      console.error("[automation] saveToProject network error:", err)
+      console.error("SAVE_RESULT: failure (network error)", err)
+      return false
     }
   }, [])
 
@@ -530,9 +539,10 @@ export default function AutomationBuilderPage() {
             if (msg.done && msg.data) {
               setData(msg.data)
               setStep("done")
-              saveToProject(msg.data as AutomationData).catch(() => {})
-              console.log("[CONFIRM_FLOW:5] generateWith (auto-path) complete — emitting automation.generated | timestamp:", Date.now())
-              emit({ type: "automation.generated" })
+              console.log("GENERATOR_AUDIT: generator=automation | generation completed")
+              const saved = await saveToProject(msg.data as AutomationData)
+              console.log("[CONFIRM_FLOW:5] generateWith (auto-path) complete — emitting automation.generated | saved:", saved, "| timestamp:", Date.now())
+              emit({ type: "automation.generated", data: { saved } })
             }
           } catch { /* fragment */ }
         }
@@ -577,9 +587,10 @@ export default function AutomationBuilderPage() {
             if (msg.done && msg.data) {
               setData(msg.data)
               setStep("done")
-              saveToProject(msg.data as AutomationData).catch(() => {})
-              console.log("[CONFIRM_FLOW:5] generate() (manual-path) complete — emitting automation.generated | timestamp:", Date.now())
-              emit({ type: "automation.generated" })
+              console.log("GENERATOR_AUDIT: generator=automation | generation completed")
+              const saved = await saveToProject(msg.data as AutomationData)
+              console.log("[CONFIRM_FLOW:5] generate() (manual-path) complete — emitting automation.generated | saved:", saved, "| timestamp:", Date.now())
+              emit({ type: "automation.generated", data: { saved } })
             }
           } catch { /* fragment */ }
         }

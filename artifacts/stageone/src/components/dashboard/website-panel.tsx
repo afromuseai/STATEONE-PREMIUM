@@ -605,14 +605,26 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
             } catch { /* advisory */ }
             finally { setIsEvaluating(false) }
           })()
+          console.log("GENERATOR_AUDIT: generator=website | generation completed")
+          console.log("PROJECT_SAVE: projectId=" + (projectId ?? "(none)"))
           if (projectId) {
             setSavedStatus("saving")
+            const endpoint = `/api/projects/${projectId}`
+            console.log("SAVE_ENDPOINT: " + endpoint)
             try {
               await api.projects.update(projectId, { websiteOutput: finalData as unknown as Record<string, unknown> })
+              console.log("SAVE_RESPONSE_STATUS: 200")
+              console.log("SAVE_RESULT: success")
               setSavedStatus("saved"); setTimeout(() => setSavedStatus("idle"), 3000)
               onSaved?.(finalData as unknown as Record<string, unknown>)
-              emit({ type: "website.generated" })
-            } catch { setSavedStatus("idle") }
+              emit({ type: "website.generated", data: { saved: true } })
+            } catch (saveErr) {
+              console.error("SAVE_RESULT: failure (exception)", saveErr)
+              setSavedStatus("idle")
+              emit({ type: "website.generated", data: { saved: false } })
+            }
+          } else {
+            emit({ type: "website.generated", data: { saved: false } })
           }
         } else {
           // Multi-candidate mode: collect candidate + evaluate
@@ -673,14 +685,26 @@ export function WebsitePanel({ businessIdea, businessIntelligence, projectId, ex
           } catch { /* advisory */ }
         }
         // Save best candidate
+        console.log("GENERATOR_AUDIT: generator=website (multi-candidate) | generation completed")
+        console.log("PROJECT_SAVE: projectId=" + (projectId ?? "(none)"))
         if (projectId && sorted[0]) {
           setSavedStatus("saving")
+          const endpoint = `/api/projects/${projectId}`
+          console.log("SAVE_ENDPOINT: " + endpoint)
           try {
             await api.projects.update(projectId, { websiteOutput: sorted[0].websiteData as unknown as Record<string, unknown> })
+            console.log("SAVE_RESPONSE_STATUS: 200")
+            console.log("SAVE_RESULT: success")
             setSavedStatus("saved"); setTimeout(() => setSavedStatus("idle"), 3000)
             onSaved?.(sorted[0].websiteData as unknown as Record<string, unknown>)
-            emit({ type: "website.generated" })
-          } catch { setSavedStatus("idle") }
+            emit({ type: "website.generated", data: { saved: true } })
+          } catch (saveErr) {
+            console.error("SAVE_RESULT: failure (exception)", saveErr)
+            setSavedStatus("idle")
+            emit({ type: "website.generated", data: { saved: false } })
+          }
+        } else {
+          emit({ type: "website.generated", data: { saved: false } })
         }
       }
     } catch (err) { setError(err instanceof Error ? err.message : "Generation failed") }

@@ -457,7 +457,30 @@ export default function DashboardPage() {
       setResults(finalData)
       setGenerationStage(6)
       setBusinessData(finalData as unknown as Record<string, unknown>)
-      emit({ type: "generation.complete" })
+
+      // Flush any pending debounced save and do a final authoritative save of the complete data
+      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current)
+      console.log("GENERATOR_AUDIT: generator=business-intelligence | generation completed")
+      console.log("PROJECT_SAVE: projectId=" + (draftProjectIdRef.current ?? "(none — draft not yet created)"))
+      let biSaved = false
+      if (draftProjectIdRef.current) {
+        const endpoint = `/api/projects/${draftProjectIdRef.current}`
+        console.log("SAVE_ENDPOINT: " + endpoint)
+        try {
+          await api.projects.update(draftProjectIdRef.current, {
+            output: finalData as unknown as Record<string, unknown>,
+            status: "active",
+          })
+          console.log("SAVE_RESPONSE_STATUS: 200")
+          console.log("SAVE_RESULT: success")
+          biSaved = true
+        } catch (saveErr) {
+          console.error("SAVE_RESULT: failure (exception)", saveErr)
+        }
+      } else {
+        console.log("SAVE_RESULT: failure (no projectId — draft was never created)")
+      }
+      emit({ type: "generation.complete", data: { saved: biSaved } })
       // Update memory count after auto-save (memories are saved async server-side)
       setTimeout(() => {
         fetch("/api/memory", { credentials: "include" })
