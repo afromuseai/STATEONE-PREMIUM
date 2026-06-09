@@ -857,9 +857,9 @@ export function Hero() {
         />
         {/* Particle animation overlay */}
         <HeroParticles />
-        {/* Left dark vignette so text reads clearly */}
+        {/* Left dark vignette — fades image from transparent on left to visible past the midpoint */}
         <div className="absolute inset-0" style={{
-          background: "linear-gradient(100deg, rgba(5,5,5,0.96) 0%, rgba(5,5,5,0.80) 42%, rgba(5,5,5,0.20) 70%, rgba(5,5,5,0.05) 100%)",
+          background: "linear-gradient(90deg, rgba(5,5,5,1) 0%, rgba(5,5,5,1) 25%, rgba(5,5,5,0.85) 45%, rgba(5,5,5,0.40) 60%, rgba(5,5,5,0.05) 75%, rgba(5,5,5,0) 100%)",
         }} />
         {/* Bottom fade into page */}
         <div className="absolute inset-x-0 bottom-0 h-40" style={{
