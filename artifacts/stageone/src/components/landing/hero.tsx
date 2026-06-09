@@ -8,7 +8,7 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useLang } from "@/lib/i18n"
 import { useTheme } from "@/lib/theme-context"
-import heroVisual from "@assets/ChatGPT_Image_Jun_9,_2026,_03_46_11_AM_1780976814910.png"
+import heroVisual from "@assets/ChatGPT_Image_Jun_9,_2026,_03_53_33_AM_1780977230486.png"
 
 /* ─── Typing headline ─────────────────────────────────────────────── */
 function TypingText({ businessTypes }: { businessTypes: readonly string[] }) {
@@ -858,7 +858,7 @@ export function Hero() {
           src={heroVisual}
           alt=""
           className="absolute inset-0 w-full h-full object-cover object-center"
-          style={{ opacity: 0.88 }}
+          style={{ opacity: 1 }}
         />
         {/* Particle animation overlay */}
         <HeroParticles />
