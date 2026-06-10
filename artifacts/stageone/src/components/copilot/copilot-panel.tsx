@@ -935,9 +935,18 @@ export function CopilotPanel() {
           saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id });
         }
         setPendingIntent({ type: "website", idea, autoGenerate: false });
-        // WEBSITE_FLOW:B — navigate only AFTER idea is in sessionStorage
-        console.log("WEBSITE_FLOW:B navigation triggered (website_idea command) | pending intent written first");
-        if (location !== "/website-generator") navigate("/website-generator");
+        if (location === "/website-generator") {
+          // Page is already mounted — the mount effect won't re-run, so the pending
+          // intent would sit in sessionStorage forever and the textarea stays empty.
+          // Drive the typewriter directly via the workspace signal subscriber instead.
+          console.log("WEBSITE_FLOW:B already on /website-generator — emitting workspace signal to populate textarea");
+          emitWorkspaceSignal({ target: "website", type: "populate", payload: idea });
+        } else {
+          // WEBSITE_FLOW:B — navigate only AFTER idea is in sessionStorage
+          // Fresh mount: the mount effect will consume pendingIntent and start typewriter.
+          console.log("WEBSITE_FLOW:B navigation triggered (website_idea command) | pending intent written first");
+          navigate("/website-generator");
+        }
       } else if (command === "generate_website") {
         console.log("WEBSITE_FLOW:2 generate_website command received | calling markPendingIntentAutoGenerate(website)");
         markPendingIntentAutoGenerate("website");
