@@ -6,6 +6,7 @@ import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/o
 import { WebsitePanel } from "@/components/dashboard/website-panel"
 import { ChatbotPanel, ChatbotEmptyPanel } from "@/components/dashboard/chatbot-panel"
 import { AutomationPanel, AutomationEmptyPanel } from "@/components/dashboard/automation-panel"
+import { OrchestratorPanel, OrchestratorEmptyPanel } from "@/components/dashboard/orchestrator-panel"
 import { api, type Project, type ProjectEvent } from "@/lib/api"
 import { saveProjectContext, saveGenerationContext } from "@/lib/generation-context"
 import {
@@ -19,7 +20,7 @@ interface ProjectPageProps {
   id: string
 }
 
-type Tab = "analysis" | "website" | "chatbot" | "automation" | "tasks" | "history"
+type Tab = "analysis" | "website" | "chatbot" | "automation" | "orchestrator" | "tasks" | "history"
 
 interface ProjectTask {
   id: string
@@ -34,11 +35,12 @@ interface ProjectTask {
 // ─── History event icon/colour mapping ───────────────────────────────────────
 
 const EVENT_META: Record<string, { icon: React.ElementType; colour: string; label: string }> = {
-  "intelligence.generated": { icon: BarChart3,  colour: "text-blue-400",   label: "Business Intelligence Generated" },
-  "website.generated":      { icon: Globe,       colour: "text-green-400",  label: "Website Generated" },
-  "chatbot.generated":      { icon: Bot,         colour: "text-purple-400", label: "Chatbot Generated" },
-  "automation.generated":   { icon: Workflow,    colour: "text-orange-400", label: "Automation Generated" },
-  "task.completed":         { icon: CheckCircle2,colour: "text-primary",    label: "Task Completed" },
+  "intelligence.generated":  { icon: BarChart3,   colour: "text-blue-400",   label: "Business Intelligence Generated" },
+  "website.generated":       { icon: Globe,        colour: "text-green-400",  label: "Website Generated" },
+  "chatbot.generated":       { icon: Bot,          colour: "text-purple-400", label: "Chatbot Generated" },
+  "automation.generated":    { icon: Workflow,     colour: "text-orange-400", label: "Automation Generated" },
+  "orchestrator.generated":  { icon: Workflow,     colour: "text-violet-400", label: "Orchestration Designed" },
+  "task.completed":          { icon: CheckCircle2, colour: "text-primary",    label: "Task Completed" },
 }
 
 function eventMeta(type: string) {
@@ -293,16 +295,40 @@ function HistoryTab({ events, createdAt }: { events: ProjectEvent[]; createdAt: 
 }
 
 
-// ─── Tab config ───────────────────────────────────────────────────────────────
+// ─── Tab config (dynamic module system) ──────────────────────────────────────
+// Fixed tabs always shown; module tabs shown only when project has that output.
+// To add a new module: add an entry to MODULE_TABS with the output field name.
 
-const TABS: { id: Tab; label: string; icon: React.ElementType; indicator?: (p: Project) => boolean }[] = [
-  { id: "analysis",   label: "Business Intelligence", icon: BarChart3                                   },
-  { id: "website",    label: "Website",               icon: Globe,    indicator: p => !!p.websiteOutput  },
-  { id: "chatbot",    label: "Chatbot",               icon: Bot,      indicator: p => !!p.chatbotOutput  },
-  { id: "automation", label: "Automation",            icon: Workflow, indicator: p => !!p.automationOutput },
-  { id: "tasks",      label: "Tasks",                 icon: CheckSquare                                 },
-  { id: "history",    label: "History",               icon: History                                     },
+const FIXED_TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: "analysis", label: "Business Intelligence", icon: BarChart3  },
+  { id: "tasks",    label: "Tasks",                 icon: CheckSquare },
+  { id: "history",  label: "History",               icon: History     },
 ]
+
+const MODULE_TABS: { id: Tab; label: string; icon: React.ElementType; outputField: keyof Project }[] = [
+  { id: "website",      label: "Website",      icon: Globe,    outputField: "websiteOutput"      },
+  { id: "chatbot",      label: "Chatbot",      icon: Bot,      outputField: "chatbotOutput"      },
+  { id: "automation",   label: "Automation",   icon: Workflow, outputField: "automationOutput"   },
+  { id: "orchestrator", label: "Orchestrator", icon: Workflow, outputField: "orchestratorOutput" },
+]
+
+function buildTabs(project: Project) {
+  const moduleTabs = MODULE_TABS.filter(m => !!project[m.outputField])
+  return [
+    FIXED_TABS[0],               // analysis always first
+    ...moduleTabs,                // present modules in declaration order
+    FIXED_TABS[1],               // tasks
+    FIXED_TABS[2],               // history
+  ]
+}
+
+function defaultTab(project: Project): Tab {
+  if (
+    (project.type === "orchestration" || !project.output) &&
+    project.orchestratorOutput
+  ) return "orchestrator"
+  return "analysis"
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -325,6 +351,7 @@ export default function ProjectPage({ id }: ProjectPageProps) {
       .then(({ project }) => {
         setProject(project)
         setTitleInput(project.title)
+        setTab(defaultTab(project))
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
@@ -422,10 +449,12 @@ export default function ProjectPage({ id }: ProjectPageProps) {
 
   const biData = project.output as BusinessIntelligence | null
   const events = project.projectEvents ?? []
+  const tabs = buildTabs(project)
   const isWebsiteTab = tab === "website"
   const isChatbotPanel = tab === "chatbot" && !!project.chatbotOutput
   const isAutomationPanel = tab === "automation" && !!project.automationOutput
-  const isFullHeightTab = isWebsiteTab || isChatbotPanel || isAutomationPanel
+  const isOrchestratorPanel = tab === "orchestrator" && !!project.orchestratorOutput
+  const isFullHeightTab = isWebsiteTab || isChatbotPanel || isAutomationPanel || isOrchestratorPanel
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -489,11 +518,11 @@ export default function ProjectPage({ id }: ProjectPageProps) {
           </button>
         </header>
 
-        {/* ── Tabs ── */}
+        {/* ── Tabs (dynamic — only shows tabs for which the project has output) ── */}
         <div className="flex items-center gap-0.5 border-b border-border/50 px-4 shrink-0 overflow-x-auto scrollbar-none">
-          {TABS.map(({ id: tid, label, icon: Icon, indicator }) => {
+          {tabs.map(({ id: tid, label, icon: Icon }) => {
             const active = tab === tid
-            const hasData = indicator?.(project)
+            const isModule = MODULE_TABS.some(m => m.id === tid)
             return (
               <button
                 key={tid}
@@ -502,10 +531,10 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className={`h-3.5 w-3.5 ${tid === "orchestrator" ? "text-violet-400" : ""}`} />
                 {label}
-                {hasData && !active && (
-                  <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-green-400" />
+                {isModule && !active && (
+                  <span className={`ml-0.5 h-1.5 w-1.5 rounded-full ${tid === "orchestrator" ? "bg-violet-400" : "bg-green-400"}`} />
                 )}
               </button>
             )
@@ -606,6 +635,28 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                       console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/automation-builder (automation-empty)`)
                       if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                       setLocation("/automation-builder")
+                    }}
+                  />
+                )}
+              </motion.div>
+            )}
+
+            {tab === "orchestrator" && (
+              <motion.div key="orchestrator" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className={isOrchestratorPanel ? "flex flex-col flex-1 min-h-0 overflow-hidden" : undefined}>
+                {project.orchestratorOutput ? (
+                  <OrchestratorPanel
+                    orchestratorOutput={project.orchestratorOutput as Record<string, unknown>}
+                    onRegenerate={() => {
+                      console.log(`PROJECT_OPENED | projectId=${id} | destination=/orchestrator (orchestrator-regen)`)
+                      setLocation("/orchestrator")
+                    }}
+                  />
+                ) : (
+                  <OrchestratorEmptyPanel
+                    onNavigate={() => {
+                      console.log(`PROJECT_OPENED | projectId=${id} | destination=/orchestrator (orchestrator-empty)`)
+                      setLocation("/orchestrator")
                     }}
                   />
                 )}

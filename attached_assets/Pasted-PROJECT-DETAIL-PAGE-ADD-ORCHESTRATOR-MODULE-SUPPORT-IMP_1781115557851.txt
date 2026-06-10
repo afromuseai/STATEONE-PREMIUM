@@ -1,0 +1,125 @@
+PROJECT DETAIL PAGE — ADD ORCHESTRATOR MODULE SUPPORT
+
+IMPORTANT:
+
+AI Orchestrator now creates and saves projects successfully.
+
+Database support already exists:
+
+* project.type = "orchestration"
+* orchestratorOutput field
+* project creation flow
+
+However:
+
+Project Detail UI does not expose Orchestrator content.
+
+Current tabs:
+
+* Business Intelligence
+* Website
+* Chatbot
+* Automation
+* Tasks
+* History
+
+Missing:
+
+* Orchestrator
+
+RESULT:
+
+Orchestrator projects save correctly but users cannot access the saved orchestrator output from the project page.
+
+==================================================
+
+REQUIRED FIX
+
+Add a new project module:
+
+* Orchestrator
+
+Display it alongside:
+
+* Business Intelligence
+* Website
+* Chatbot
+* Automation
+
+==================================================
+
+DEFAULT TAB LOGIC
+
+If:
+
+project.type === "orchestration"
+
+AND
+
+orchestratorOutput exists
+
+Then default active tab should be:
+
+Orchestrator
+
+NOT:
+
+Business Intelligence
+
+==================================================
+
+ORCHESTRATOR TAB CONTENT
+
+Render:
+
+project.orchestratorOutput
+
+using the same viewing pattern used by:
+
+* chatbot output
+* automation output
+* website output
+
+The user must be able to:
+
+* revisit orchestrator results
+* review generated orchestration plans
+* continue working from saved orchestration outputs
+
+==================================================
+
+FUTURE-PROOFING
+
+Do not hardcode project modules.
+
+Build a dynamic module system.
+
+Example:
+
+Show module tab only when corresponding project output exists.
+
+Examples:
+
+websiteOutput → Website tab
+
+chatbotOutput → Chatbot tab
+
+automationOutput → Automation tab
+
+orchestratorOutput → Orchestrator tab
+
+This allows future modules to be added without rewriting the project page.
+
+==================================================
+
+EXPECTED RESULT
+
+Projects created from AI Orchestrator should:
+
+* appear in Projects
+* open correctly
+* default to Orchestrator tab
+* display saved orchestrator output
+* preserve project continuity
+
+No saved orchestrator project should appear empty.
