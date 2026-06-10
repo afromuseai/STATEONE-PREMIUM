@@ -343,6 +343,7 @@ export default function ProjectPage({ id }: ProjectPageProps) {
   const [editingTitle, setEditingTitle]   = useState(false)
   const [titleInput, setTitleInput]       = useState("")
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+  const [userPlan, setUserPlan] = useState<string>("free")
 
   useEffect(() => {
     api.projects.get(id)
@@ -354,6 +355,13 @@ export default function ProjectPage({ id }: ProjectPageProps) {
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    fetch("/api/subscriptions/me", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.subscription?.plan) setUserPlan(d.subscription.plan) })
+      .catch(() => {})
+  }, [])
 
   const handleRegenerate = useCallback(async () => {
     if (!project) return
@@ -553,7 +561,12 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                       </p>
                     </div>
                     <button
-                      onClick={handleRegenerate}
+                      onClick={() => {
+                        const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                        saveProjectContext(pctx)
+                        console.log(`PROJECT_OPENED | projectId=${id} | continuityMode=continuation | source=Existing Project | destination=/dashboard (bi-empty)`)
+                        setLocation("/dashboard")
+                      }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-primary/30 bg-primary/8 text-sm font-medium text-primary hover:bg-primary/15 transition-all"
                     >
                       <BarChart3 className="h-4 w-4" />
@@ -567,6 +580,7 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                     isLoading={regenerating}
                     streamingText={streamingText}
                     generationStage={0}
+                    userPlan={userPlan}
                     onGenerateWebsite={biData ? () => setTab("website") : undefined}
                     onGenerateChatbot={biData ? () => {
                       const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
