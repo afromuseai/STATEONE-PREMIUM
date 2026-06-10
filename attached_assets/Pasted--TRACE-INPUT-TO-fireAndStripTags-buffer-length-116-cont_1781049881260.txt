@@ -1,0 +1,85 @@
+[TRACE] INPUT TO fireAndStripTags | buffer length: 116 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 176 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 221 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 290 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 341 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORK
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 391 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 454 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking,
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 522 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 583 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 632 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-des
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 704 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 746 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows.}}  
+
+Everything is ready. Would you like
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows.}} | already fired: false
+injected.js:37 [WEBSITE TRACE] parser detected website_idea | tag: {{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows.}}
+injected.js:37 WEBSITE_FLOW:A idea stored | length: 345 | first 80: AI-powered scheduling assistant for healthcare clinics. Automates patient appoin
+injected.js:37 WEBSITE_FLOW:B navigation triggered (website_idea command) | pending intent written first
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+  
+
+Everything is ready. Would you like
+injected.js:37 WEBSITE_FLOW:C page mounted
+injected.js:37 WEBSITE_FLOW:D idea loaded | consumePendingIntent result: {"type":"website","idea":"AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows.","autoGenerate":false,"timestamp":1781049834569}
+injected.js:37 WEBSITE_FLOW:1a cacheConsumedIdea written | idea length: 345
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 779 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows.}}  
+
+Everything is ready. Would you like me to generate this website now?
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows.}} | already fired: true
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+  
+
+Everything is ready. Would you like me to generate this website now?
+injected.js:37 [TRACE] RAW ASSISTANT RESPONSE | length: 779 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows.}}  
+
+Everything is ready. Would you like me to generate this website now?
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 779 | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+{{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows.}}  
+
+Everything is ready. Would you like me to generate this website now?
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website_idea|AI-powered scheduling assistant for healthcare clinics. Automates patient appointment booking, sends intelligent reminders based on patient behavior, and executes personalized follow-up sequences post-visit. Targets clinics seeking to reduce no-shows, streamline front-desk operations, and improve patient engagement through automated workflows.}} | already fired: true
+injected.js:37 [TRACE] OUTPUT AFTER fireAndStripTags | display: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+  
+
+Everything is ready. Would you like me to generate this website now?
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. Using your healthcare context, I'll configure a website that showcases the AI scheduling assistant's ability to automate patient booking, send smart reminders, and manage post-visit follow-ups — reducing clinic overhead and improving patient retention. Opening the Website Generator now with this precise context.  
+
+  
+
+Everything is ready. Would you like me to generate this website now?
