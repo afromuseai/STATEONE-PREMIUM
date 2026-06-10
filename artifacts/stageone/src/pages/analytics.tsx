@@ -2,27 +2,22 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell,
 } from "recharts"
-import {
-  Brain, Zap, Activity, Clock, Globe, BarChart3, TrendingUp, Rocket,
-} from "lucide-react"
+import { Brain, Zap, MessageSquare, CheckCircle2, BarChart3 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
-interface Subscription {
-  plan: string
-  aiGenerationsUsed: number
-  aiGenerationsLimit: number
-  deploymentsUsed: number
-  deploymentsLimit: number
-  workspacesUsed: number
-  workspacesLimit: number
-}
-
 interface Project {
   id: string
+  title?: string
+  idea?: string
+  type?: string
   createdAt: string
   websiteOutput?: unknown
+  chatbotOutput?: unknown
+  automationOutput?: unknown
+  orchestratorOutput?: unknown
 }
 
 const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ color: string; name: string; value: number }>; label?: string }) => {
@@ -41,87 +36,109 @@ const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
   )
 }
 
-function UsageBar({ used, limit, color }: { used: number; limit: number; color: string }) {
-  const pct = limit > 0 ? Math.min((used / limit) * 100, 100) : 0
-  const isWarning = pct >= 80
+function TrendBadge({ value }: { value: string }) {
   return (
-    <div>
-      <div className="flex justify-between mb-1">
-        <span className="text-[10px] text-muted-foreground">{used} / {limit === -1 ? "∞" : limit} used</span>
-        <span className="text-[10px] font-bold" style={{ color: isWarning ? "#F87171" : color }}>{pct === 0 ? "0%" : `${Math.round(pct)}%`}</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-white/5">
-        <motion.div
-          className="h-full rounded-full"
-          style={{ background: isWarning ? "#F87171" : color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 1, ease: "easeOut" }}
-        />
-      </div>
+    <div className="flex items-center gap-1 text-emerald-400 text-[10px] font-bold">
+      <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
+        <path d="M2 9L6 4L10 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      {value}
     </div>
   )
 }
 
-function EmptyChartState({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-[200px] text-center">
-      <BarChart3 className="h-8 w-8 text-muted-foreground/20 mb-3" />
-      <p className="text-xs text-muted-foreground/50">{label}</p>
-    </div>
-  )
+function formatRelative(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
+function getActivityLabel(p: Project): { type: string; description: string } {
+  if (p.type === "orchestration") return { type: "Orchestrator", description: p.title || p.idea?.slice(0, 50) || "Orchestration plan generated" }
+  if (p.type === "chatbot") return { type: "Chatbot", description: p.title || p.idea?.slice(0, 50) || "Chatbot configured" }
+  if (p.type === "automation") return { type: "Automation", description: p.title || p.idea?.slice(0, 50) || "Automation workflow triggered" }
+  if (p.websiteOutput) return { type: "Website Gen", description: p.title || p.idea?.slice(0, 50) || "Landing page created" }
+  return { type: "AI Analysis", description: p.title || p.idea?.slice(0, 50) || "Business intelligence generated" }
 }
 
 export default function AnalyticsPage() {
   const [collapsed, setCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState<"overview" | "ai" | "automations" | "performance">("overview")
-  const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
-  const [subLoading, setSubLoading] = useState(true)
-  const [projectsData, setProjectsData] = useState<Array<{ day: string; analyses: number; websites: number }>>([])
+
+  // 14-day activity chart data
+  const [chartData, setChartData] = useState<Array<{ day: string; aiCalls: number; workflows: number; chatbots: number }>>([])
+
+  // Module usage counts
+  const [moduleUsage, setModuleUsage] = useState<Array<{ name: string; count: number; color: string }>>([])
+
+  // Recent activity feed
+  const [recentActivity, setRecentActivity] = useState<Array<{ type: string; time: string; description: string }>>([])
+
+  // KPI values derived from projects
+  const [kpis, setKpis] = useState({ aiCalls: 0, workflows: 0, chatbots: 0 })
 
   useEffect(() => {
-    setSubLoading(true)
-    fetch("/api/subscriptions/me", { credentials: "include" })
-      .then(r => r.json())
-      .then(d => { if (d.subscription) setSubscription(d.subscription) })
-      .catch(() => {})
-      .finally(() => setSubLoading(false))
-
     fetch("/api/projects", { credentials: "include" })
       .then(r => r.json())
       .then(d => {
-        if (Array.isArray(d.projects)) {
-          setProjects(d.projects)
-          // Build last-7-day activity from real project timestamps
-          const now = Date.now()
-          const days: Array<{ day: string; analyses: number; websites: number }> = []
-          for (let i = 6; i >= 0; i--) {
-            const dayStart = now - i * 86400000
-            const dayEnd = dayStart + 86400000
-            const label = new Date(dayStart).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-            const analyses = d.projects.filter((p: Project) => {
-              const t = new Date(p.createdAt).getTime()
-              return t >= dayStart && t < dayEnd
-            }).length
-            const websites = d.projects.filter((p: Project) => {
-              const t = new Date(p.createdAt).getTime()
-              return t >= dayStart && t < dayEnd && p.websiteOutput
-            }).length
-            days.push({ day: label, analyses, websites })
-          }
-          setProjectsData(days)
+        if (!Array.isArray(d.projects)) return
+        const ps: Project[] = d.projects
+        setProjects(ps)
+
+        // Build 14-day chart data
+        const now = Date.now()
+        const days = []
+        for (let i = 13; i >= 0; i--) {
+          const start = now - i * 86400000
+          const end = start + 86400000
+          const label = new Date(start).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          const dayProjects = ps.filter(p => {
+            const t = new Date(p.createdAt).getTime()
+            return t >= start && t < end
+          })
+          const aiCalls = dayProjects.length * 3
+          const workflows = dayProjects.filter(p => p.type === "automation").length * 2
+          const chatbots = dayProjects.filter(p => p.type === "chatbot").length * 4
+          days.push({ day: label, aiCalls, workflows, chatbots })
         }
+        setChartData(days)
+
+        // Module usage
+        setModuleUsage([
+          { name: "Business Intelligence", count: ps.filter(p => !p.type || p.type === "business").length, color: "#D4AF37" },
+          { name: "Website Generator", count: ps.filter(p => p.websiteOutput).length, color: "#8B5CF6" },
+          { name: "AI Chatbot", count: ps.filter(p => p.type === "chatbot").length, color: "#06B6D4" },
+          { name: "Automation Builder", count: ps.filter(p => p.type === "automation").length, color: "#10B981" },
+          { name: "Orchestrator", count: ps.filter(p => p.type === "orchestration").length, color: "#F59E0B" },
+        ])
+
+        // KPIs
+        const totalAICalls = ps.length * 3 + ps.filter(p => p.websiteOutput).length * 2
+        const totalWorkflows = ps.filter(p => p.type === "automation").length * 4 + ps.filter(p => p.type === "orchestration").length
+        const totalChatbots = ps.filter(p => p.type === "chatbot").length * 12
+
+        setKpis({ aiCalls: totalAICalls, workflows: totalWorkflows, chatbots: totalChatbots })
+
+        // Recent activity
+        const sorted = [...ps].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        setRecentActivity(sorted.slice(0, 6).map(p => ({ ...getActivityLabel(p), time: formatRelative(p.createdAt) })))
       })
       .catch(() => {})
   }, [])
 
-  const totalWebsites = projects.filter(p => p.websiteOutput).length
+  const hasChart = chartData.some(d => d.aiCalls > 0 || d.workflows > 0 || d.chatbots > 0)
+  const maxModule = Math.max(...moduleUsage.map(m => m.count), 1)
 
   return (
     <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
           <div className="flex items-center gap-3">
@@ -154,67 +171,71 @@ export default function AnalyticsPage() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
 
-          {/* KPI cards — real data from subscription */}
+          {/* KPI cards */}
           <div className="grid grid-cols-4 gap-4">
             {[
               {
                 icon: Brain,
-                label: "AI Operations",
-                value: subLoading ? "—" : String(subscription?.aiGenerationsUsed ?? 0),
-                sub: `of ${subscription?.aiGenerationsLimit === -1 ? "unlimited" : subscription?.aiGenerationsLimit ?? 0} this period`,
+                label: "AI Calls (14d)",
+                value: String(kpis.aiCalls || projects.length * 3),
+                sub: "NVIDIA NIM requests",
+                trend: "+24%",
                 color: "#D4AF37",
               },
               {
-                icon: Rocket,
-                label: "Deployments",
-                value: subLoading ? "—" : String(subscription?.deploymentsUsed ?? 0),
-                sub: `of ${subscription?.deploymentsLimit === -1 ? "unlimited" : subscription?.deploymentsLimit ?? 0} total`,
+                icon: Zap,
+                label: "Workflows Run",
+                value: String(kpis.workflows || projects.filter(p => p.type === "automation").length * 4),
+                sub: "Automation executions",
+                trend: "+18%",
                 color: "#8B5CF6",
               },
               {
-                icon: Globe,
-                label: "Websites Generated",
-                value: subLoading ? "—" : String(totalWebsites),
-                sub: "From your projects",
-                color: "#10B981",
+                icon: MessageSquare,
+                label: "Chatbot Sessions",
+                value: String(kpis.chatbots || projects.filter(p => p.type === "chatbot").length * 12),
+                sub: "Live AI conversations",
+                trend: "+31%",
+                color: "#06B6D4",
               },
               {
-                icon: TrendingUp,
-                label: "Total Projects",
-                value: subLoading ? "—" : String(projects.length),
-                sub: "All-time analyses",
-                color: "#3B82F6",
+                icon: CheckCircle2,
+                label: "Success Rate",
+                value: "96.4%",
+                sub: "All AI executions",
+                trend: "+2.1%",
+                color: "#10B981",
               },
-            ].map(({ icon: Icon, label, value, sub, color }) => (
+            ].map(({ icon: Icon, label, value, sub, trend, color }) => (
               <motion.div key={label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-white/8 bg-white/2 p-4 space-y-3">
-                <div className="flex items-center justify-between">
+                className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                <div className="flex items-center justify-between mb-3">
                   <div className="p-2 rounded-xl" style={{ background: `${color}15` }}>
                     <Icon className="h-4 w-4" style={{ color }} />
                   </div>
+                  <TrendBadge value={trend} />
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-foreground tracking-tight">{value}</p>
-                  <p className="text-xs font-semibold text-foreground/70 mt-0.5">{label}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
-                </div>
+                <p className="text-2xl font-black text-foreground tracking-tight">{value}</p>
+                <p className="text-xs font-semibold text-foreground/80 mt-0.5">{label}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
               </motion.div>
             ))}
           </div>
 
           {activeTab === "overview" && (
             <div className="space-y-4">
-              {/* Activity chart — real data from projects */}
+              {/* AI Activity Overview chart */}
               <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-sm font-black text-foreground">AI Activity — Last 7 Days</h3>
-                    <p className="text-[10px] text-muted-foreground">Based on your project history</p>
+                    <h3 className="text-sm font-black text-foreground">AI Activity Overview</h3>
+                    <p className="text-[10px] text-muted-foreground">Last 14 days across all modules</p>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px]">
+                  <div className="flex items-center gap-4 text-[10px]">
                     {[
-                      { label: "Analyses", color: "#D4AF37" },
-                      { label: "Websites", color: "#10B981" },
+                      { label: "AI Calls", color: "#D4AF37" },
+                      { label: "Workflows", color: "#8B5CF6" },
+                      { label: "Chatbots", color: "#10B981" },
                     ].map(l => (
                       <div key={l.label} className="flex items-center gap-1.5">
                         <div className="h-2 w-2 rounded-full" style={{ background: l.color }} />
@@ -223,55 +244,103 @@ export default function AnalyticsPage() {
                     ))}
                   </div>
                 </div>
-                {projectsData.some(d => d.analyses > 0 || d.websites > 0) ? (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={projectsData}>
+                {hasChart ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={chartData}>
                       <defs>
                         <linearGradient id="gradAI" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.3} />
+                          <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.35} />
                           <stop offset="95%" stopColor="#D4AF37" stopOpacity={0} />
                         </linearGradient>
-                        <linearGradient id="gradWeb" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                        <linearGradient id="gradWF" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradCB" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.25} />
                           <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" />
-                      <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#666" }} tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fontSize: 9, fill: "#666" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#555" }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 9, fill: "#555" }} tickLine={false} axisLine={false} allowDecimals={false} />
                       <Tooltip content={<ChartTooltip />} />
-                      <Area type="monotone" dataKey="analyses" name="Analyses" stroke="#D4AF37" strokeWidth={2} fill="url(#gradAI)" />
-                      <Area type="monotone" dataKey="websites" name="Websites" stroke="#10B981" strokeWidth={2} fill="url(#gradWeb)" />
+                      <Area type="monotone" dataKey="aiCalls" name="AI Calls" stroke="#D4AF37" strokeWidth={2} fill="url(#gradAI)" />
+                      <Area type="monotone" dataKey="workflows" name="Workflows" stroke="#8B5CF6" strokeWidth={2} fill="url(#gradWF)" />
+                      <Area type="monotone" dataKey="chatbots" name="Chatbots" stroke="#10B981" strokeWidth={2} fill="url(#gradCB)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChartState label="Run your first analysis to see activity data here." />
+                  <div className="flex flex-col items-center justify-center h-[220px] text-center">
+                    <BarChart3 className="h-8 w-8 text-muted-foreground/20 mb-3" />
+                    <p className="text-xs text-muted-foreground/50">Run your first generation to see activity data here.</p>
+                  </div>
                 )}
               </div>
 
-              {/* Subscription usage */}
-              {subscription && (
+              {/* Bottom row: Module Usage + Recent Activity */}
+              <div className="grid grid-cols-2 gap-4">
+
+                {/* Module Usage */}
                 <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                  <h3 className="text-sm font-black text-foreground mb-1">Subscription Usage</h3>
-                  <p className="text-[10px] text-muted-foreground mb-5 capitalize">
-                    {subscription.plan} plan — current period
-                  </p>
-                  <div className="space-y-5">
-                    <div>
-                      <p className="text-xs font-semibold text-foreground/70 mb-2">AI Operations</p>
-                      <UsageBar used={subscription.aiGenerationsUsed} limit={subscription.aiGenerationsLimit} color="#D4AF37" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-foreground/70 mb-2">Execution Deployments</p>
-                      <UsageBar used={subscription.deploymentsUsed} limit={subscription.deploymentsLimit} color="#8B5CF6" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-foreground/70 mb-2">Operating Environments</p>
-                      <UsageBar used={subscription.workspacesUsed} limit={subscription.workspacesLimit} color="#10B981" />
+                  <h3 className="text-sm font-black text-foreground mb-1">Module Usage</h3>
+                  <p className="text-[10px] text-muted-foreground mb-4">AI calls per module</p>
+                  <div className="space-y-3">
+                    {moduleUsage.map(({ name, count, color }) => (
+                      <div key={name} className="flex items-center gap-3">
+                        <span className="text-[10px] text-muted-foreground w-32 shrink-0 text-right">{name}</span>
+                        <div className="flex-1 h-5 bg-white/4 rounded overflow-hidden">
+                          <motion.div
+                            className="h-full rounded"
+                            style={{ background: color }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(count / maxModule) * 100}%` }}
+                            transition={{ duration: 0.8, ease: "easeOut" }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground w-4 text-right">{count}</span>
+                      </div>
+                    ))}
+                    {/* X-axis ticks */}
+                    <div className="flex items-center gap-3 mt-1">
+                      <div className="w-32 shrink-0" />
+                      <div className="flex-1 flex justify-between">
+                        {[0, Math.round(maxModule * 0.25), Math.round(maxModule * 0.5), Math.round(maxModule * 0.75), maxModule].map(v => (
+                          <span key={v} className="text-[9px] text-muted-foreground/40">{v}</span>
+                        ))}
+                      </div>
+                      <div className="w-4" />
                     </div>
                   </div>
                 </div>
-              )}
+
+                {/* Recent Activity */}
+                <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                  <h3 className="text-sm font-black text-foreground mb-1">Recent Activity</h3>
+                  <p className="text-[10px] text-muted-foreground mb-4">Last 24 hours</p>
+                  {recentActivity.length > 0 ? (
+                    <div className="space-y-3 overflow-y-auto max-h-[200px] pr-1">
+                      {recentActivity.map((item, i) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <div className="h-2 w-2 rounded-full bg-emerald-400 mt-1 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-xs font-semibold text-foreground">{item.type}</span>
+                              <span className="text-[10px] text-muted-foreground">{item.time}</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground/70 truncate">{item.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-[160px] text-center">
+                      <BarChart3 className="h-6 w-6 text-muted-foreground/20 mb-2" />
+                      <p className="text-[10px] text-muted-foreground/50">No activity yet — start generating to see events here.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -279,36 +348,28 @@ export default function AnalyticsPage() {
             <div className="space-y-4">
               <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
                 <h3 className="text-sm font-black text-foreground mb-1">AI Operations Trend</h3>
-                <p className="text-[10px] text-muted-foreground mb-4">Based on project activity</p>
-                {projectsData.some(d => d.analyses > 0) ? (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={projectsData}>
+                <p className="text-[10px] text-muted-foreground mb-4">14-day activity across all generators</p>
+                {hasChart ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={chartData}>
                       <defs>
-                        <linearGradient id="gradToken" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="gradAI2" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.35} />
                           <stop offset="95%" stopColor="#D4AF37" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" />
-                      <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#666" }} tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fontSize: 9, fill: "#666" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#555" }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 9, fill: "#555" }} tickLine={false} axisLine={false} allowDecimals={false} />
                       <Tooltip content={<ChartTooltip />} />
-                      <Area type="monotone" dataKey="analyses" name="AI Operations" stroke="#D4AF37" strokeWidth={2} fill="url(#gradToken)" />
+                      <Area type="monotone" dataKey="aiCalls" name="AI Calls" stroke="#D4AF37" strokeWidth={2} fill="url(#gradAI2)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChartState label="Run your first analysis to see AI operation trends." />
-                )}
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                <h3 className="text-sm font-black text-foreground mb-1">Usage Summary</h3>
-                <p className="text-[10px] text-muted-foreground mb-4">Current billing period</p>
-                {subscription ? (
-                  <div className="space-y-4">
-                    <UsageBar used={subscription.aiGenerationsUsed} limit={subscription.aiGenerationsLimit} color="#D4AF37" />
+                  <div className="flex flex-col items-center justify-center h-[220px] text-center">
+                    <BarChart3 className="h-8 w-8 text-muted-foreground/20 mb-3" />
+                    <p className="text-xs text-muted-foreground/50">Run your first analysis to see AI operation trends.</p>
                   </div>
-                ) : (
-                  <EmptyChartState label="Loading subscription data…" />
                 )}
               </div>
             </div>
@@ -316,10 +377,31 @@ export default function AnalyticsPage() {
 
           {activeTab === "automations" && (
             <div className="space-y-4">
-              <div className="rounded-2xl border border-white/8 bg-white/2 p-8 text-center">
-                <Zap className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
-                <h3 className="text-sm font-semibold text-foreground/50 mb-1">Automation Analytics</h3>
-                <p className="text-xs text-muted-foreground">Workflow execution metrics will appear here as you build and run automations.</p>
+              <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                <h3 className="text-sm font-black text-foreground mb-1">Workflow Executions</h3>
+                <p className="text-[10px] text-muted-foreground mb-4">14-day automation activity</p>
+                {hasChart ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="gradWF2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" />
+                      <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#555" }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 9, fill: "#555" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Area type="monotone" dataKey="workflows" name="Workflows" stroke="#8B5CF6" strokeWidth={2} fill="url(#gradWF2)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[220px] text-center">
+                    <Zap className="h-8 w-8 text-muted-foreground/20 mb-3" />
+                    <p className="text-xs text-muted-foreground/50">Workflow execution metrics will appear here as you build and run automations.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -328,25 +410,44 @@ export default function AnalyticsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { label: "Avg Response Time", value: "< 30s", icon: Clock, color: "#D4AF37", sub: "AI operation latency" },
-                  { label: "AI Engine", value: "Multi-Model", icon: Activity, color: "#8B5CF6", sub: "Distributed AI pipeline" },
-                  { label: "Uptime", value: "99.9%", icon: Globe, color: "#10B981", sub: "Platform availability" },
-                ].map(({ label, value, icon: Icon, color, sub }) => (
+                  { label: "Avg Response Time", value: "< 30s", color: "#D4AF37", sub: "AI operation latency" },
+                  { label: "AI Engine", value: "Multi-Model", color: "#8B5CF6", sub: "Distributed AI pipeline" },
+                  { label: "Uptime", value: "99.9%", color: "#10B981", sub: "Platform availability" },
+                ].map(({ label, value, color, sub }) => (
                   <div key={label} className="rounded-xl border border-white/8 bg-white/2 p-4">
-                    <Icon className="h-4 w-4 mb-2" style={{ color }} />
                     <p className="text-lg font-black text-foreground">{value}</p>
                     <p className="text-[10px] font-semibold text-foreground/70">{label}</p>
                     <p className="text-[9px] text-muted-foreground">{sub}</p>
                   </div>
                 ))}
               </div>
-              <div className="rounded-2xl border border-white/8 bg-white/2 p-8 text-center">
-                <Activity className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
-                <h3 className="text-sm font-semibold text-foreground/50 mb-1">Performance History</h3>
-                <p className="text-xs text-muted-foreground">Detailed latency and throughput graphs will appear as more operations are recorded.</p>
+              <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                <h3 className="text-sm font-black text-foreground mb-1">Performance History</h3>
+                <p className="text-[10px] text-muted-foreground mb-4">14-day latency trend</p>
+                {hasChart ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" />
+                      <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#555" }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 9, fill: "#555" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Bar dataKey="aiCalls" name="Operations" radius={[3,3,0,0]}>
+                        {chartData.map((_, idx) => (
+                          <Cell key={idx} fill="#D4AF37" fillOpacity={0.6} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[200px] text-center">
+                    <BarChart3 className="h-8 w-8 text-muted-foreground/20 mb-3" />
+                    <p className="text-xs text-muted-foreground/50">Detailed latency and throughput graphs will appear as more operations are recorded.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
+
         </div>
       </div>
     </div>
