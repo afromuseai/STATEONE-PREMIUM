@@ -199,11 +199,25 @@ export default function DashboardPage() {
   useEffect(() => {
     const saved = loadDashboardState()
     if (saved?.results) {
-      setResults(saved.results)
-      setCurrentIdea(saved.currentIdea)
-      setGenerationStage(saved.generationStage)
-      setActiveProjectId(saved.activeProjectId)
-      setBusinessData(saved.results as unknown as Record<string, unknown>)
+      // ISOLATION: if the saved state carries a userId that doesn't match the
+      // current user, reject it immediately and clear storage.
+      // Records saved before the userId field existed have saved.userId == null
+      // and are treated as safe (backward-compatible).
+      const savedUserId = saved.userId ?? null
+      const currentUserId = user?.id ?? null
+      if (savedUserId !== null && currentUserId !== null && savedUserId !== currentUserId) {
+        console.warn(
+          "[dashboard:isolation] stale session state rejected — userId mismatch",
+          { savedUserId, currentUserId },
+        )
+        clearDashboardState()
+      } else {
+        setResults(saved.results)
+        setCurrentIdea(saved.currentIdea)
+        setGenerationStage(saved.generationStage)
+        setActiveProjectId(saved.activeProjectId)
+        setBusinessData(saved.results as unknown as Record<string, unknown>)
+      }
     }
 
     // Copilot autorun: navigate to "new" tab and pass idea to InputPanel
@@ -296,7 +310,7 @@ export default function DashboardPage() {
   // Persist generation results whenever they change (non-null only)
   useEffect(() => {
     if (results) {
-      saveDashboardState({ results, currentIdea, activeProjectId, generationStage: 6 })
+      saveDashboardState({ userId: user?.id ?? null, results, currentIdea, activeProjectId, generationStage: 6 })
     }
   }, [results, currentIdea, activeProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 

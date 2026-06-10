@@ -580,14 +580,18 @@ export function CopilotPanel() {
   } = useWorkspaceController();
 
   const { data: projectsData } = useQuery({
-    queryKey: ["copilot-projects"],
+    // ISOLATION: key must include userId so a new user never gets a previous
+    // user's cached project list (React Query cache persists across account
+    // switches until the old entry expires or is invalidated).
+    queryKey: ["copilot-projects", user?.id ?? null],
     queryFn: () => api.projects.list(),
     enabled: !!user && open,
     staleTime: 30_000,
   });
 
   const { data: memoryData } = useQuery({
-    queryKey: ["copilot-memory-count"],
+    // ISOLATION: same userId-scoping rationale as copilot-projects above.
+    queryKey: ["copilot-memory-count", user?.id ?? null],
     queryFn: () =>
       fetch("/api/memory", { credentials: "include" }).then((r) =>
         r.json(),
@@ -628,6 +632,44 @@ export function CopilotPanel() {
   };
 
   const completedCount = Object.values(modules).filter(Boolean).length;
+
+  // ─── MARCUS_BOOT diagnostic ───────────────────────────────────────────────
+  // Fires every time the panel opens. Exposes all context sources so any
+  // cross-account context leak is immediately visible in the browser console.
+  // currentContextOwnerUserId will differ from userId when a stale cache
+  // entry from a previous user bleeds through — that gap is the tenant bug.
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    const workspaceSource: string = currentProject
+      ? `project-api (queryKey: copilot-projects,${user.id})`
+      : "none";
+    const contextSource: string = (businessData as { industry?: string } | null)?.industry
+      ? "businessData-in-memory (from dashboard sessionStorage restore)"
+      : currentProject?.output
+        ? "project.output field"
+        : "none";
+    const industry =
+      (businessData as { industry?: string } | null)?.industry ??
+      (currentProject?.businessIdea ? `(idea) ${currentProject.businessIdea.slice(0, 40)}` : null);
+
+    console.log("[MARCUS_BOOT]", {
+      userId: user.id,
+      projectId: currentProject?.id ?? null,
+      industry,
+      workspaceSource,
+      contextSource,
+      projectCount: projects.length,
+      modules,
+      memoryCount,
+    });
+
+    if (currentProject && !projectsData?.projects?.some(p => p.id === currentProject.id)) {
+      console.warn(
+        "[MARCUS_BOOT] ISOLATION WARNING: currentProject not found in user-scoped query result — possible stale cache",
+        { currentProjectId: currentProject.id, userId: user.id },
+      );
+    }
+  }, [open, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

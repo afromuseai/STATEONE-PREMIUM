@@ -132,6 +132,10 @@ export function clearAutomationRestoreContext(): void {
 const DASHBOARD_KEY = "stageone_dashboard_state"
 
 export interface DashboardPersistedState {
+  // ISOLATION: userId added so the load path can reject state that belongs to
+  // a different account. Undefined on records saved before this field existed
+  // (backward-compatible — treated as "unknown owner, allow load").
+  userId?: string | null
   results: import("@/components/dashboard/output-panel").BusinessIntelligence
   currentIdea: string
   activeProjectId: string | null

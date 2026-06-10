@@ -212,10 +212,15 @@ ${langInstruction ? langInstruction : ""}`;
     return;
   }
 
-  // Determine active project id from workspace context (sent by frontend)
-  const activeProjectId = (workspaceContext as { currentProject?: { id?: string } } | null | undefined)?.currentProject?.id ?? null;
+  // Determine active project id from workspace context (sent by frontend).
+  // NOTE: this value is client-supplied and must be validated against the
+  // authenticated user's own projects before it touches any DB query that
+  // doesn't already carry a userId WHERE clause (e.g. getBusinessContext).
+  const clientActiveProjectId = (workspaceContext as { currentProject?: { id?: string } } | null | undefined)?.currentProject?.id ?? null;
 
-  const [projects, agents, memories, projectTasksRaw, activeProjectRaw, graphContext] = await Promise.all([
+  // First pass: fetch user-scoped data that doesn't require ownership validation.
+  // The projects list (scoped to userId) is used below to verify clientActiveProjectId.
+  const [projects, agents, memories, projectTasksRaw, activeProjectRaw] = await Promise.all([
     db.select({
       id: projectsTable.id,
       title: projectsTable.title,
@@ -233,14 +238,14 @@ ${langInstruction ? langInstruction : ""}`;
     db.select().from(aiMemoryTable).where(eq(aiMemoryTable.userId, userId))
       .orderBy(desc(aiMemoryTable.importance), desc(aiMemoryTable.updatedAt)).limit(15),
     // Workspace tasks for active project (or all user tasks if no project)
-    activeProjectId
+    clientActiveProjectId
       ? db.select({
           id: workspaceTasksTable.id,
           title: workspaceTasksTable.title,
           status: workspaceTasksTable.status,
           completedAt: workspaceTasksTable.completedAt,
         }).from(workspaceTasksTable)
-          .where(and(eq(workspaceTasksTable.userId, userId), eq(workspaceTasksTable.projectId, activeProjectId)))
+          .where(and(eq(workspaceTasksTable.userId, userId), eq(workspaceTasksTable.projectId, clientActiveProjectId)))
           .limit(30)
       : db.select({
           id: workspaceTasksTable.id,
@@ -250,14 +255,34 @@ ${langInstruction ? langInstruction : ""}`;
         }).from(workspaceTasksTable)
           .where(eq(workspaceTasksTable.userId, userId))
           .limit(20),
-    // Active project's event history
-    activeProjectId
+    // Active project's event history — already guarded by userId in WHERE clause
+    clientActiveProjectId
       ? db.select({ projectEvents: projectsTable.projectEvents })
           .from(projectsTable)
-          .where(and(eq(projectsTable.id, activeProjectId), eq(projectsTable.userId, userId)))
+          .where(and(eq(projectsTable.id, clientActiveProjectId), eq(projectsTable.userId, userId)))
           .limit(1)
       : Promise.resolve([]),
-    // Business graph memory for Marcus context
+  ]);
+
+  // TENANT ISOLATION: validate that the client-supplied projectId actually
+  // belongs to this user. projects[] is already userId-scoped from above.
+  // If the frontend sent a stale/wrong id (e.g. from a previous session's
+  // React Query cache), we silently drop it rather than leak another user's
+  // business graph into this response.
+  const activeProjectId = clientActiveProjectId && projects.some(p => p.id === clientActiveProjectId)
+    ? clientActiveProjectId
+    : null;
+
+  if (clientActiveProjectId && !activeProjectId) {
+    req.log.warn(
+      { userId, clientActiveProjectId },
+      "[Marcus:isolation] WARN — client sent projectId that does not belong to this user; dropping",
+    );
+  }
+
+  // Second pass: fetch business graph only for a verified project.
+  const [graphContext] = await Promise.all([
+    // Business graph memory for Marcus context — only called after ownership verified
     activeProjectId
       ? getBusinessContext(activeProjectId)
       : Promise.resolve({ graph: null, nodes: [], recentEvents: [], latestSnapshot: null } as BusinessContextResult),
