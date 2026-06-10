@@ -186,8 +186,23 @@ export default function WebsiteGeneratorPage() {
     const intent = consumePendingIntent("website")
     console.log("WEBSITE_FLOW:D idea loaded | consumePendingIntent result:", JSON.stringify(intent))
     if (!intent) {
-      console.log("WEBSITE_FLOW:D no pending intent — standalone mount, clearing stale project context")
-      clearProjectContext()
+      // No pending intent — check if a valid continuation context was written by project.tsx
+      // before navigating here. If so, preserve it; only clear on true standalone mounts.
+      const isContinuation = _mountCtx?.continuityMode === "continuation" && !!_mountCtx?.projectId
+      const ctxReason = !_mountCtx?.projectId
+        ? "missing_project"
+        : _mountCtx.continuityMode === "continuation"
+          ? "continuation_context"
+          : _mountCtx.continuityMode === "standalone"
+            ? "standalone_context"
+            : "stale_context"
+      console.log(`CONTEXT_DECISION | preserve=${isContinuation} | reason=${ctxReason} | projectId=${_mountCtx?.projectId ?? "(none)"}`)
+      if (!isContinuation) {
+        console.log("WEBSITE_FLOW:D no pending intent — standalone mount, clearing stale project context")
+        clearProjectContext()
+      } else {
+        console.log("WEBSITE_FLOW:D no pending intent but continuation context preserved — will reuse existing project")
+      }
       return
     }
     if (intent.idea) {

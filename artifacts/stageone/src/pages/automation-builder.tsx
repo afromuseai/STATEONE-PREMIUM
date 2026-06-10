@@ -408,9 +408,23 @@ export default function AutomationBuilderPage() {
     // Fallback: generation context written by Business Intelligence page
     console.log("AUTOMATION_TRACE: No PendingIntent found | checking GenerationContext fallback")
     const ctx = loadGenerationContext()
-    console.log("AUTOMATION_TRACE: GenerationContext loaded:", ctx ? "found (BI fallback)" : "not found — standalone mount, clearing stale project context")
+    console.log("AUTOMATION_TRACE: GenerationContext loaded:", ctx ? "found (BI fallback)" : "not found — evaluating context before clearing")
     if (!ctx) {
-      clearProjectContext()
+      const isContinuation = _mountCtx?.continuityMode === "continuation" && !!_mountCtx?.projectId
+      const ctxReason = !_mountCtx?.projectId
+        ? "missing_project"
+        : _mountCtx.continuityMode === "continuation"
+          ? "continuation_context"
+          : _mountCtx.continuityMode === "standalone"
+            ? "standalone_context"
+            : "stale_context"
+      console.log(`CONTEXT_DECISION | preserve=${isContinuation} | reason=${ctxReason} | projectId=${_mountCtx?.projectId ?? "(none)"}`)
+      if (!isContinuation) {
+        console.log("AUTOMATION_TRACE: standalone mount — clearing stale project context")
+        clearProjectContext()
+      } else {
+        console.log("AUTOMATION_TRACE: continuation context preserved — will reuse existing project")
+      }
       return
     }
     clearGenerationContext()

@@ -223,8 +223,23 @@ export default function ChatbotGeneratorPage() {
       }
       return
     }
-    console.log("[PIPELINE:7] intent is NULL — standalone mount, clearing stale project context")
-    clearProjectContext()
+    // No pending intent — check if a valid continuation context was written by project.tsx
+    // before navigating here. If so, preserve it; only clear on true standalone mounts.
+    const isContinuation = _mountCtx?.continuityMode === "continuation" && !!_mountCtx?.projectId
+    const ctxReason = !_mountCtx?.projectId
+      ? "missing_project"
+      : _mountCtx.continuityMode === "continuation"
+        ? "continuation_context"
+        : _mountCtx.continuityMode === "standalone"
+          ? "standalone_context"
+          : "stale_context"
+    console.log(`CONTEXT_DECISION | preserve=${isContinuation} | reason=${ctxReason} | projectId=${_mountCtx?.projectId ?? "(none)"}`)
+    if (!isContinuation) {
+      console.log("[PIPELINE:7] intent is NULL — standalone mount, clearing stale project context")
+      clearProjectContext()
+    } else {
+      console.log("[PIPELINE:7] intent is NULL but continuation context preserved — will reuse existing project")
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Already-mounted: react to generate_chatbot fired after page open ─────────
