@@ -821,7 +821,7 @@ export default function DashboardPage() {
                   })
                   if (activeProjectId) {
                     const activeProject = projects.find(p => p.id === activeProjectId)
-                    saveProjectContext({ projectId: activeProjectId, projectTitle: activeProject?.title ?? currentIdea.slice(0, 60), originatingBusinessIntelligenceId: activeProjectId })
+                    saveProjectContext({ projectId: activeProjectId, projectTitle: activeProject?.title ?? currentIdea.slice(0, 60), originatingBusinessIntelligenceId: activeProjectId, continuityMode: "continuation", source: "Existing Project" })
                   }
                   setLocation("/chatbot-generator")
                 } : undefined}
@@ -844,7 +844,7 @@ export default function DashboardPage() {
                   })
                   if (activeProjectId) {
                     const activeProject = projects.find(p => p.id === activeProjectId)
-                    saveProjectContext({ projectId: activeProjectId, projectTitle: activeProject?.title ?? currentIdea.slice(0, 60), originatingBusinessIntelligenceId: activeProjectId })
+                    saveProjectContext({ projectId: activeProjectId, projectTitle: activeProject?.title ?? currentIdea.slice(0, 60), originatingBusinessIntelligenceId: activeProjectId, continuityMode: "continuation", source: "Existing Project" })
                   }
                   setLocation("/automation-builder")
                 } : undefined}

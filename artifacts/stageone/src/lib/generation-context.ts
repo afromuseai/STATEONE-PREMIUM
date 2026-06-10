@@ -4,7 +4,9 @@
 export interface ProjectContext {
   projectId: string
   projectTitle: string
-  originatingBusinessIntelligenceId: string
+  originatingBusinessIntelligenceId?: string
+  continuityMode: "continuation" | "standalone"
+  source?: "Marcus" | "Existing Project" | "Standalone Generator"
 }
 
 const PROJECT_KEY = "stageone_project_ctx"

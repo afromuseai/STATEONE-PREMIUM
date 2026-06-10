@@ -1,0 +1,137 @@
+PROJECT CONTINUITY FIX — REPLACE IDEA MATCHING WITH EXPLICIT CONTEXT OWNERSHIP
+
+IMPORTANT:
+
+Do NOT implement project reuse by comparing business idea text.
+
+Do NOT use string matching, similarity checks, prefixes, or idea comparisons to determine project continuity.
+
+The issue is not whether two ideas look similar.
+
+The issue is whether the user is intentionally continuing an existing project.
+
+====================================
+
+ROOT PROBLEM
+
+Current ensureProject() logic reuses any project found in sessionStorage.
+
+This causes unrelated standalone generations to be merged into the same project.
+
+Example:
+
+Website Idea A
+→ Project A created
+
+Later:
+
+Chatbot Idea B
+→ incorrectly saved into Project A
+
+This is incorrect.
+
+====================================
+
+GOAL
+
+Project reuse must be determined by workflow state.
+
+NOT by idea text.
+
+====================================
+
+IMPLEMENT EXPLICIT CONTINUITY MODES
+
+Extend ProjectContext.
+
+Example:
+
+{
+projectId: string
+continuityMode: "continuation" | "standalone"
+}
+
+====================================
+
+CONTINUATION MODE
+
+Reuse existing project ONLY when:
+
+1. Marcus is continuing a workflow
+
+Example:
+
+Business Intelligence
+→ Website
+→ Chatbot
+→ Automation
+
+OR
+
+2. User intentionally opened an existing project from the Projects page
+
+Example:
+
+Projects
+→ Open Project
+→ Generate Website
+
+In these cases:
+
+ensureProject() should reuse the existing projectId.
+
+====================================
+
+STANDALONE MODE
+
+When user manually enters:
+
+/website-generator
+/chatbot-generator
+/automation-builder
+/orchestrator
+
+without coming from:
+
+* Marcus workflow
+* Existing project
+
+then:
+
+ensureProject() should create a NEW project.
+
+Never reuse stale sessionStorage context.
+
+====================================
+
+REQUIRED AUDIT LOGS
+
+Add logs:
+
+PROJECT_MODE: continuation | standalone
+
+PROJECT_REUSE: true | false
+
+PROJECT_SOURCE:
+
+* Marcus
+* Existing Project
+* Standalone Generator
+
+PROJECT_ID_BEFORE
+
+PROJECT_ID_AFTER
+
+PROJECT_CREATED: true | false
+
+====================================
+
+IMPORTANT
+
+Do NOT implement business-idea matching.
+
+Continuity is a workflow decision.
+
+Not a text-comparison decision.
+
+The user must never have unrelated businesses merged into the same project simply because sessionStorage still contains an old project ID.

@@ -11,7 +11,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import {
-  loadGenerationContext, clearGenerationContext,
+  loadGenerationContext, clearGenerationContext, clearProjectContext,
   loadAutomationRestoreContext, clearAutomationRestoreContext,
   deriveWorkflowType, buildAutomationDesc, consumePendingIntent, cacheConsumedIdea,
   dequeueWorkspaceSignals,
@@ -406,8 +406,11 @@ export default function AutomationBuilderPage() {
     // Fallback: generation context written by Business Intelligence page
     console.log("AUTOMATION_TRACE: No PendingIntent found | checking GenerationContext fallback")
     const ctx = loadGenerationContext()
-    console.log("AUTOMATION_TRACE: GenerationContext loaded:", ctx ? "found (BI fallback)" : "not found — no context available")
-    if (!ctx) return
+    console.log("AUTOMATION_TRACE: GenerationContext loaded:", ctx ? "found (BI fallback)" : "not found — standalone mount, clearing stale project context")
+    if (!ctx) {
+      clearProjectContext()
+      return
+    }
     clearGenerationContext()
     const desc = buildAutomationDesc(ctx)
     const wt = deriveWorkflowType(ctx.automations)

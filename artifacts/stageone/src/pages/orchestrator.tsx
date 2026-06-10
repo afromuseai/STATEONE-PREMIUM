@@ -12,6 +12,7 @@ import { useLocation } from "wouter"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
+import { clearProjectContext } from "@/lib/generation-context"
 
 interface Agent {
   id: string; name: string; role: string; model: string
@@ -268,6 +269,13 @@ export default function OrchestratorPage() {
   const { lang } = useLang()
   const [, navigate] = useLocation()
   const { openUpgradeModal } = useUpgradeModal()
+
+  useEffect(() => {
+    console.log("PROJECT_MODE: standalone")
+    console.log("PROJECT_SOURCE: Standalone Generator")
+    console.log("ORCHESTRATOR_TRACE: standalone mount — clearing stale project context")
+    clearProjectContext()
+  }, [])
 
   useEffect(() => {
     if (!user) return

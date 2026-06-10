@@ -886,7 +886,7 @@ export function CopilotPanel() {
           JSON.stringify(idea),
         );
         if (currentProject) {
-          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id });
+          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
         }
         setPendingIntent({ type: "chatbot", idea, autoGenerate: false });
         const raw = sessionStorage.getItem("stageone_pending_intent");
@@ -932,7 +932,7 @@ export function CopilotPanel() {
         // WEBSITE_FLOW:A — idea stored BEFORE any navigation
         console.log("WEBSITE_FLOW:A idea stored | length:", idea.length, "| first 80:", idea.slice(0, 80));
         if (currentProject) {
-          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id });
+          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
         }
         setPendingIntent({ type: "website", idea, autoGenerate: false });
         if (location === "/website-generator") {
@@ -983,7 +983,7 @@ export function CopilotPanel() {
         }
         lastAutomationIdeaRef.current = idea;
         if (currentProject) {
-          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id });
+          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
         }
         // 1. Write sessionStorage (belt-and-suspenders for mount-based Phase 1 path).
         console.log(

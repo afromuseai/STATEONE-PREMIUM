@@ -221,7 +221,8 @@ export default function ChatbotGeneratorPage() {
       }
       return
     }
-    console.log("[PIPELINE:7] intent is NULL — no populate")
+    console.log("[PIPELINE:7] intent is NULL — standalone mount, clearing stale project context")
+    clearProjectContext()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Already-mounted: react to generate_chatbot fired after page open ─────────

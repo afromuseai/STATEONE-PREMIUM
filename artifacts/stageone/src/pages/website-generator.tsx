@@ -8,7 +8,7 @@ import {
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea } from "@/lib/generation-context"
 import { ensureProject } from "@/lib/ensure-project"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
@@ -183,8 +183,12 @@ export default function WebsiteGeneratorPage() {
     console.log("WEBSITE_FLOW:C page mounted")
     const intent = consumePendingIntent("website")
     console.log("WEBSITE_FLOW:D idea loaded | consumePendingIntent result:", JSON.stringify(intent))
-    if (intent) {
-      if (intent.idea) {
+    if (!intent) {
+      console.log("WEBSITE_FLOW:D no pending intent — standalone mount, clearing stale project context")
+      clearProjectContext()
+      return
+    }
+    if (intent.idea) {
         // Cache BEFORE using — so markPendingIntentAutoGenerate can recover the idea
         // when generate_website fires after this intent has already been consumed.
         cacheConsumedIdea("website", intent.idea)
@@ -201,13 +205,11 @@ export default function WebsiteGeneratorPage() {
           setMarcusPopulateTick(t => t + 1)
         }
       }
-      if (intent.autoGenerate) {
-        setTimeout(() => {
-          const text = intent.idea || marcusWebsiteIdeaRef.current || ideaRef.current
-          if (text.trim()) generateWithIdea(text)
-        }, 300)
-      }
-      return
+    if (intent.autoGenerate) {
+      setTimeout(() => {
+        const text = intent.idea || marcusWebsiteIdeaRef.current || ideaRef.current
+        if (text.trim()) generateWithIdea(text)
+      }, 300)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

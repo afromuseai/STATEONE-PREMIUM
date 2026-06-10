@@ -1,4 +1,4 @@
-import { loadProjectContext, saveProjectContext } from "./generation-context";
+import { loadProjectContext, saveProjectContext, clearProjectContext } from "./generation-context";
 
 export type ProjectType =
   | "business_intelligence"
@@ -59,24 +59,37 @@ export async function ensureProject(
 
   const ctx = loadProjectContext();
   const existingId = ctx?.projectId ?? null;
+  const mode = ctx?.continuityMode ?? "standalone";
+  const source = ctx?.source ?? "Standalone Generator";
 
   const projectTitle =
     title ?? (idea.length > 60 ? `${idea.slice(0, 60)}…` : idea);
 
-  if (existingId) {
-    console.log(
-      `[ensureProject] type=${type} | projectId=${existingId} | saving ${outputField}`,
-    );
+  console.log(`PROJECT_ID_BEFORE: ${existingId ?? "(none)"}`);
+  console.log(`PROJECT_MODE: ${mode}`);
+  console.log(`PROJECT_SOURCE: ${source}`);
+
+  if (existingId && mode === "continuation") {
+    console.log(`PROJECT_REUSE: true`);
+    console.log(`PROJECT_CREATED: false`);
     const saved = await patchProject(existingId, outputField, output);
     console.log(
-      `[ensureProject] ${saved ? "saved" : "save failed"} — projectId=${existingId}`,
+      `[ensureProject] ${saved ? "saved" : "save failed"} — reusing projectId=${existingId} (continuation from ${source})`,
     );
+    console.log(`PROJECT_ID_AFTER: ${existingId}`);
     return { projectId: existingId, created: false, saved };
   }
 
-  console.log(
-    `[ensureProject] type=${type} | no projectId in sessionStorage — creating project`,
-  );
+  if (existingId) {
+    console.log(
+      `PROJECT_REUSE: false (stale continuation discarded — mode=${mode}, existingId=${existingId})`,
+    );
+    clearProjectContext();
+  } else {
+    console.log(`PROJECT_REUSE: false (no prior context in sessionStorage)`);
+  }
+
+  console.log(`PROJECT_CREATED: true — creating new standalone project (type=${type})`);
   try {
     const createRes = await fetch("/api/projects", {
       method: "POST",
@@ -99,7 +112,13 @@ export async function ensureProject(
     };
     const newId = project.id;
 
-    saveProjectContext({ projectId: newId, projectTitle });
+    saveProjectContext({
+      projectId: newId,
+      projectTitle,
+      continuityMode: "continuation",
+      source: "Standalone Generator",
+    });
+    console.log(`PROJECT_ID_AFTER: ${newId}`);
     console.log(`[ensureProject] created project ${newId} (type=${type})`);
 
     const saved = await patchProject(newId, outputField, output);
