@@ -124,6 +124,33 @@ export function clearAutomationRestoreContext(): void {
   try { sessionStorage.removeItem(AUTOMATION_RESTORE_KEY) } catch { /* ignore */ }
 }
 
+// ─── Orchestrator Context ─────────────────────────────────────────────────────
+// Lets the Project Detail page deep-link into /orchestrator with the saved
+// goal and business context pre-filled, so users can iterate without retyping.
+
+const ORCHESTRATOR_CONTEXT_KEY = "stageone_orchestrator_context"
+
+export interface OrchestratorContext {
+  goal: string
+  businessContext?: string
+}
+
+export function saveOrchestratorContext(ctx: OrchestratorContext): void {
+  try { sessionStorage.setItem(ORCHESTRATOR_CONTEXT_KEY, JSON.stringify(ctx)) } catch { /* ignore */ }
+}
+
+export function loadOrchestratorContext(): OrchestratorContext | null {
+  try {
+    const raw = sessionStorage.getItem(ORCHESTRATOR_CONTEXT_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as OrchestratorContext
+  } catch { return null }
+}
+
+export function clearOrchestratorContext(): void {
+  try { sessionStorage.removeItem(ORCHESTRATOR_CONTEXT_KEY) } catch { /* ignore */ }
+}
+
 // ─── Dashboard State Persistence ─────────────────────────────────────────────
 // Persists generation results across sidebar navigation so users never lose
 // their workspace context by switching tabs. Only cleared on explicit new

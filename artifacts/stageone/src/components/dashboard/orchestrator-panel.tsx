@@ -5,6 +5,7 @@ import {
   Clock, Cpu, GitBranch, Database, Globe, Zap, Activity,
   ChevronDown, ChevronUp, Network, Radio, Rocket,
 } from "lucide-react"
+import { saveOrchestratorContext } from "@/lib/generation-context"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -291,10 +292,21 @@ export function OrchestratorPanel({ orchestratorOutput, onRegenerate }: Orchestr
             {isReplaying ? "Running..." : "Replay Execution"}
           </button>
           {onRegenerate && (
-            <button onClick={onRegenerate}
+            <button
+              onClick={() => {
+                // Save goal + execution mode as business context so the
+                // Orchestrator page pre-fills the fields on mount.
+                saveOrchestratorContext({
+                  goal: data.overview.goal,
+                  businessContext: data.overview.executionMode
+                    ? `Execution mode: ${data.overview.executionMode}`
+                    : undefined,
+                })
+                onRegenerate()
+              }}
               className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/2 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
               <Rocket className="h-3.5 w-3.5" />
-              Regenerate
+              Continue in Orchestrator
             </button>
           )}
           <div className="flex gap-1 bg-white/3 border border-white/8 rounded-xl p-1">

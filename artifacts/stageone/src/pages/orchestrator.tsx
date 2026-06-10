@@ -12,7 +12,7 @@ import { useLocation } from "wouter"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
-import { clearProjectContext } from "@/lib/generation-context"
+import { clearProjectContext, loadOrchestratorContext, clearOrchestratorContext } from "@/lib/generation-context"
 
 interface Agent {
   id: string; name: string; role: string; model: string
@@ -275,6 +275,16 @@ export default function OrchestratorPage() {
     console.log("PROJECT_SOURCE: Standalone Generator")
     console.log("ORCHESTRATOR_TRACE: standalone mount — clearing stale project context")
     clearProjectContext()
+
+    // Deep-link from Project Detail page: pre-fill goal + business context
+    // if the user clicked "Continue in Orchestrator" / "Regenerate".
+    const ctx = loadOrchestratorContext()
+    if (ctx?.goal) {
+      setGoal(ctx.goal)
+      if (ctx.businessContext) setBusinessContext(ctx.businessContext)
+      console.log("ORCHESTRATOR_TRACE: pre-filled from project context | goal:", ctx.goal.slice(0, 60))
+    }
+    clearOrchestratorContext()
   }, [])
 
   useEffect(() => {
