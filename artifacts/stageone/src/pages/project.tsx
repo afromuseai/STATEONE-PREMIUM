@@ -295,31 +295,29 @@ function HistoryTab({ events, createdAt }: { events: ProjectEvent[]; createdAt: 
 }
 
 
-// ─── Tab config (dynamic module system) ──────────────────────────────────────
-// Fixed tabs always shown; module tabs shown only when project has that output.
-// To add a new module: add an entry to MODULE_TABS with the output field name.
+// ─── Tab config ───────────────────────────────────────────────────────────────
+// ALL tabs are always visible — a project is a business container, not an
+// isolated generator output. Tabs with output show a presence dot; tabs without
+// output show an empty-state panel with a CTA to launch the generator in
+// continuation mode (keeping project context, never creating a new project).
 
-const FIXED_TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: "analysis", label: "Business Intelligence", icon: BarChart3  },
-  { id: "tasks",    label: "Tasks",                 icon: CheckSquare },
-  { id: "history",  label: "History",               icon: History     },
+const ALL_TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: "analysis",     label: "Business Intelligence", icon: BarChart3   },
+  { id: "website",      label: "Website",               icon: Globe       },
+  { id: "chatbot",      label: "Chatbot",               icon: Bot         },
+  { id: "automation",   label: "Automation",            icon: Workflow    },
+  { id: "orchestrator", label: "Orchestrator",          icon: Workflow    },
+  { id: "tasks",        label: "Tasks",                 icon: CheckSquare },
+  { id: "history",      label: "History",               icon: History     },
 ]
 
-const MODULE_TABS: { id: Tab; label: string; icon: React.ElementType; outputField: keyof Project }[] = [
-  { id: "website",      label: "Website",      icon: Globe,    outputField: "websiteOutput"      },
-  { id: "chatbot",      label: "Chatbot",      icon: Bot,      outputField: "chatbotOutput"      },
-  { id: "automation",   label: "Automation",   icon: Workflow, outputField: "automationOutput"   },
-  { id: "orchestrator", label: "Orchestrator", icon: Workflow, outputField: "orchestratorOutput" },
-]
-
-function buildTabs(project: Project) {
-  const moduleTabs = MODULE_TABS.filter(m => !!project[m.outputField])
-  return [
-    FIXED_TABS[0],               // analysis always first
-    ...moduleTabs,                // present modules in declaration order
-    FIXED_TABS[1],               // tasks
-    FIXED_TABS[2],               // history
-  ]
+function hasOutput(project: Project, tid: Tab): boolean {
+  if (tid === "analysis")     return !!project.output
+  if (tid === "website")      return !!project.websiteOutput
+  if (tid === "chatbot")      return !!project.chatbotOutput
+  if (tid === "automation")   return !!project.automationOutput
+  if (tid === "orchestrator") return !!project.orchestratorOutput
+  return false
 }
 
 function defaultTab(project: Project): Tab {
@@ -449,7 +447,6 @@ export default function ProjectPage({ id }: ProjectPageProps) {
 
   const biData = project.output as BusinessIntelligence | null
   const events = project.projectEvents ?? []
-  const tabs = buildTabs(project)
   const isWebsiteTab = tab === "website"
   const isChatbotPanel = tab === "chatbot" && !!project.chatbotOutput
   const isAutomationPanel = tab === "automation" && !!project.automationOutput
@@ -518,11 +515,11 @@ export default function ProjectPage({ id }: ProjectPageProps) {
           </button>
         </header>
 
-        {/* ── Tabs (dynamic — only shows tabs for which the project has output) ── */}
+        {/* ── Tabs — always all 7, dots indicate output presence ── */}
         <div className="flex items-center gap-0.5 border-b border-border/50 px-4 shrink-0 overflow-x-auto scrollbar-none">
-          {tabs.map(({ id: tid, label, icon: Icon }) => {
+          {ALL_TABS.map(({ id: tid, label, icon: Icon }) => {
             const active = tab === tid
-            const isModule = MODULE_TABS.some(m => m.id === tid)
+            const hasOut = hasOutput(project, tid)
             return (
               <button
                 key={tid}
@@ -533,7 +530,7 @@ export default function ProjectPage({ id }: ProjectPageProps) {
               >
                 <Icon className={`h-3.5 w-3.5 ${tid === "orchestrator" ? "text-violet-400" : ""}`} />
                 {label}
-                {isModule && !active && (
+                {hasOut && !active && (
                   <span className={`ml-0.5 h-1.5 w-1.5 rounded-full ${tid === "orchestrator" ? "bg-violet-400" : "bg-green-400"}`} />
                 )}
               </button>

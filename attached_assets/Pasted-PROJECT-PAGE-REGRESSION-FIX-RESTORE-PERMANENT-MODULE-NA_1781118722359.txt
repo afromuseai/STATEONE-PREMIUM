@@ -1,0 +1,251 @@
+PROJECT PAGE REGRESSION FIX — RESTORE PERMANENT MODULE NAVIGATION
+
+IMPORTANT:
+
+The recent dynamic-tab implementation introduced a workflow regression.
+
+Do NOT remove:
+
+* Orchestrator tab
+* Orchestrator panel
+* Orchestrator persistence
+* Orchestrator history support
+
+Those additions are correct.
+
+==================================================
+
+ROOT ISSUE
+
+Project pages currently hide modules that do not yet contain output.
+
+Example:
+
+Project contains:
+
+* Chatbot output
+
+Project page shows:
+
+* Chatbot
+* History
+
+Only.
+
+This is incorrect for STAGEONE's operating-system model.
+
+==================================================
+
+PROJECTS ARE CONTAINERS
+
+A project is not:
+
+"Website project"
+
+or
+
+"Chatbot project"
+
+A project is:
+
+A business system container.
+
+Modules operate inside the container.
+
+==================================================
+
+REQUIRED FIX
+
+Restore permanent project navigation.
+
+Always show:
+
+* Business Intelligence
+* Website
+* Chatbot
+* Automation
+* Orchestrator
+* Tasks
+* History
+
+regardless of whether output exists.
+
+==================================================
+
+MODULE BEHAVIOR
+
+IF output exists:
+
+Show output normally.
+
+Examples:
+
+* websiteOutput
+* chatbotOutput
+* automationOutput
+* orchestratorOutput
+* businessIntelligenceOutput
+
+==================================================
+
+IF output does NOT exist
+
+Show empty state.
+
+Examples:
+
+Website:
+
+"No website generated yet."
+
+Button:
+
+Generate Website
+
+---
+
+Chatbot:
+
+"No chatbot generated yet."
+
+Button:
+
+Generate Chatbot
+
+---
+
+Automation:
+
+"No automation generated yet."
+
+Button:
+
+Build Automation
+
+---
+
+Orchestrator:
+
+"No orchestration created yet."
+
+Button:
+
+Open Orchestrator
+
+---
+
+Business Intelligence:
+
+"No business intelligence generated yet."
+
+Button:
+
+Generate Business Intelligence
+
+==================================================
+
+CONTINUITY REQUIREMENT
+
+CRITICAL:
+
+When user clicks:
+
+* Generate Website
+* Generate Chatbot
+* Build Automation
+* Open Orchestrator
+* Generate Business Intelligence
+
+from inside a project page,
+
+the generator MUST launch in CONTINUATION MODE.
+
+Use:
+
+* current projectId
+* project context
+* project memory
+* project continuity
+
+Do NOT create standalone projects.
+
+Do NOT clear project context.
+
+Do NOT open generators in standalone mode.
+
+==================================================
+
+MARCUS REQUIREMENT
+
+Marcus should operate through project modules.
+
+Correct:
+
+Project
+→ Website tab
+→ Generate
+
+Project
+→ Chatbot tab
+→ Generate
+
+Project
+→ Automation tab
+→ Generate
+
+Incorrect:
+
+Standalone generator
+→ New project
+
+unless explicitly requested.
+
+==================================================
+
+DEFAULT TAB LOGIC
+
+Keep:
+
+If project.type === "orchestration"
+
+and orchestratorOutput exists
+
+default to:
+
+Orchestrator tab
+
+This behavior is correct.
+
+==================================================
+
+REMOVE
+
+Do NOT dynamically hide:
+
+* Website
+* Chatbot
+* Automation
+* Business Intelligence
+* Orchestrator
+
+Tabs should remain visible at all times.
+
+==================================================
+
+GOAL
+
+Projects should feel like:
+
+persistent business workspaces
+
+where users gradually build:
+
+Business Intelligence
+→ Website
+→ Chatbot
+→ Automation
+→ Orchestration
+
+inside one continuous project.
+
+NOT isolated generator outputs.
