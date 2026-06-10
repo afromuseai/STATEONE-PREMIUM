@@ -543,28 +543,47 @@ export default function ProjectPage({ id }: ProjectPageProps) {
           <AnimatePresence mode="wait">
             {tab === "analysis" && (
               <motion.div key="analysis" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <OutputPanel
-                  data={biData}
-                  partialData={{}}
-                  isLoading={regenerating}
-                  streamingText={streamingText}
-                  generationStage={0}
-                  onGenerateWebsite={biData ? () => setTab("website") : undefined}
-                  onGenerateChatbot={biData ? () => {
-                    const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
-                    saveProjectContext(pctx)
-                    console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/chatbot-generator`)
-                    saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
-                    setLocation("/chatbot-generator")
-                  } : undefined}
-                  onBuildAutomation={biData ? () => {
-                    const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
-                    saveProjectContext(pctx)
-                    console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/automation-builder`)
-                    saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
-                    setLocation("/automation-builder")
-                  } : undefined}
-                />
+                {!biData && !regenerating ? (
+                  <div className="p-6 space-y-5">
+                    <div className="glass-card rounded-xl p-8 text-center">
+                      <BarChart3 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm font-semibold text-foreground mb-1">No business intelligence yet.</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                        Run AI analysis on <span className="text-foreground/70 font-medium">{project.businessIdea}</span> to generate market insights, competitive advantage, growth plan, and tech stack recommendations.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleRegenerate}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-primary/30 bg-primary/8 text-sm font-medium text-primary hover:bg-primary/15 transition-all"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Generate Business Intelligence
+                    </button>
+                  </div>
+                ) : (
+                  <OutputPanel
+                    data={biData}
+                    partialData={{}}
+                    isLoading={regenerating}
+                    streamingText={streamingText}
+                    generationStage={0}
+                    onGenerateWebsite={biData ? () => setTab("website") : undefined}
+                    onGenerateChatbot={biData ? () => {
+                      const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                      saveProjectContext(pctx)
+                      console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/chatbot-generator`)
+                      saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
+                      setLocation("/chatbot-generator")
+                    } : undefined}
+                    onBuildAutomation={biData ? () => {
+                      const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                      saveProjectContext(pctx)
+                      console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/automation-builder`)
+                      saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
+                      setLocation("/automation-builder")
+                    } : undefined}
+                  />
+                )}
               </motion.div>
             )}
 
