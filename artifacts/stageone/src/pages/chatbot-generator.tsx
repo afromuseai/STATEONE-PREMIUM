@@ -179,6 +179,8 @@ export default function ChatbotGeneratorPage() {
     // Primary: durable pending intent — written by Copilot before navigating.
     // Does NOT depend on subscriber timing, React effect order, or live signals.
     const rawSS = sessionStorage.getItem("stageone_pending_intent")
+    const _mountCtx = loadProjectContext()
+    console.log(`GENERATOR_MOUNT | page=chatbot-generator | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
     console.log("[PIPELINE:7a] chatbot-generator mounted | raw sessionStorage:", rawSS)
     const intent = consumePendingIntent("chatbot")
     console.log("[PIPELINE:7] consumePendingIntent return value:", JSON.stringify(intent))

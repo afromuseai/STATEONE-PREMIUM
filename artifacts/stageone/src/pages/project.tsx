@@ -525,12 +525,16 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   generationStage={0}
                   onGenerateWebsite={biData ? () => setTab("website") : undefined}
                   onGenerateChatbot={biData ? () => {
-                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation", source: "Existing Project" })
+                    const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                    saveProjectContext(pctx)
+                    console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/chatbot-generator`)
                     saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                     setLocation("/chatbot-generator")
                   } : undefined}
                   onBuildAutomation={biData ? () => {
-                    saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation", source: "Existing Project" })
+                    const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                    saveProjectContext(pctx)
+                    console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/automation-builder`)
                     saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                     setLocation("/automation-builder")
                   } : undefined}
@@ -557,7 +561,9 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   <ChatbotPanel
                     chatbotOutput={project.chatbotOutput as Record<string, unknown>}
                     onRegenerate={() => {
-                      saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation", source: "Existing Project" })
+                      const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                      saveProjectContext(pctx)
+                      console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/chatbot-generator (chatbot-regen)`)
                       if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                       setLocation("/chatbot-generator")
                     }}
@@ -566,7 +572,9 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   <ChatbotEmptyPanel
                     biData={biData}
                     onNavigate={() => {
-                      saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation", source: "Existing Project" })
+                      const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                      saveProjectContext(pctx)
+                      console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/chatbot-generator (chatbot-empty)`)
                       if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                       setLocation("/chatbot-generator")
                     }}
@@ -582,7 +590,9 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   <AutomationPanel
                     automationOutput={project.automationOutput as Record<string, unknown>}
                     onRegenerate={() => {
-                      saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation", source: "Existing Project" })
+                      const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                      saveProjectContext(pctx)
+                      console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/automation-builder (automation-regen)`)
                       if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                       setLocation("/automation-builder")
                     }}
@@ -591,7 +601,9 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   <AutomationEmptyPanel
                     biData={biData}
                     onNavigate={() => {
-                      saveProjectContext({ projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation", source: "Existing Project" })
+                      const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                      saveProjectContext(pctx)
+                      console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/automation-builder (automation-empty)`)
                       if (biData) saveGenerationContext({ idea: project.businessIdea, industry: biData.industry, businessSnapshot: biData.businessSnapshot, targetMarket: biData.targetMarket, chatbotRole: biData.chatbotRole, automations: biData.automations ?? [], growthPlan: biData.growthPlan ?? [], strategicInsights: biData.strategicInsights, recommendedStack: biData.recommendedStack, competitiveAdvantage: biData.competitiveAdvantage })
                       setLocation("/automation-builder")
                     }}

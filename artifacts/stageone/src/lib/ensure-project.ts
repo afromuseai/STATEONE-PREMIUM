@@ -65,11 +65,14 @@ export async function ensureProject(
   const projectTitle =
     title ?? (idea.length > 60 ? `${idea.slice(0, 60)}…` : idea);
 
+  console.log(`ENSURE_PROJECT_INPUT | projectId=${existingId ?? "(none)"} | continuityMode=${mode} | source=${source} | type=${type}`);
   console.log(`PROJECT_ID_BEFORE: ${existingId ?? "(none)"}`);
   console.log(`PROJECT_MODE: ${mode}`);
   console.log(`PROJECT_SOURCE: ${source}`);
 
   if (existingId && mode === "continuation") {
+    console.log(`ENSURE_PROJECT_DECISION | reuse=true | reason=existingId+continuation | projectId=${existingId}`);
+    console.log(`PROJECT_REUSED | projectId=${existingId}`);
     console.log(`PROJECT_REUSE: true`);
     console.log(`PROJECT_CREATED: false`);
     const saved = await patchProject(existingId, outputField, output);
@@ -81,11 +84,13 @@ export async function ensureProject(
   }
 
   if (existingId) {
+    console.log(`ENSURE_PROJECT_DECISION | reuse=false | reason=mode-not-continuation | mode=${mode} | projectId=${existingId}`);
     console.log(
       `PROJECT_REUSE: false (stale continuation discarded — mode=${mode}, existingId=${existingId})`,
     );
     clearProjectContext();
   } else {
+    console.log(`ENSURE_PROJECT_DECISION | reuse=false | reason=no-prior-context`);
     console.log(`PROJECT_REUSE: false (no prior context in sessionStorage)`);
   }
 

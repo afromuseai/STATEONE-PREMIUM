@@ -11,7 +11,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import {
-  loadGenerationContext, clearGenerationContext, clearProjectContext,
+  loadGenerationContext, clearGenerationContext, clearProjectContext, loadProjectContext,
   loadAutomationRestoreContext, clearAutomationRestoreContext,
   deriveWorkflowType, buildAutomationDesc, consumePendingIntent, cacheConsumedIdea,
   dequeueWorkspaceSignals,
@@ -370,6 +370,8 @@ export default function AutomationBuilderPage() {
 
   // Phase 1 — Load context and hydrate state fields
   useEffect(() => {
+    const _mountCtx = loadProjectContext()
+    console.log(`GENERATOR_MOUNT | page=automation-builder | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
     console.log("AUTOMATION_TRACE: Page mounted | Phase 1 starting | checking consumePendingIntent('automation')")
 
     // Workspace signal queue: drain any signals that arrived before this page mounted.

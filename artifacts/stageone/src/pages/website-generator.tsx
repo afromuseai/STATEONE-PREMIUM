@@ -8,7 +8,7 @@ import {
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, loadProjectContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea } from "@/lib/generation-context"
 import { ensureProject } from "@/lib/ensure-project"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
@@ -180,6 +180,8 @@ export default function WebsiteGeneratorPage() {
   useEffect(() => {
     // Primary: durable pending intent — written by Copilot before navigating.
     // Does NOT depend on subscriber timing, React effect order, or live signals.
+    const _mountCtx = loadProjectContext()
+    console.log(`GENERATOR_MOUNT | page=website-generator | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
     console.log("WEBSITE_FLOW:C page mounted")
     const intent = consumePendingIntent("website")
     console.log("WEBSITE_FLOW:D idea loaded | consumePendingIntent result:", JSON.stringify(intent))
