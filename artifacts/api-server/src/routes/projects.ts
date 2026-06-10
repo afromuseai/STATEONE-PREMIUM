@@ -9,12 +9,24 @@ const router = Router();
 
 const ProjectStatus = z.enum(["draft", "active", "completed", "archived"]);
 
+const ProjectType = z.enum([
+  "business_intelligence",
+  "website",
+  "chatbot",
+  "automation",
+  "orchestration",
+]);
+
 const CreateProjectBody = z.object({
   title: z.string().min(1),
   businessIdea: z.string().min(1),
+  type: ProjectType.optional().default("business_intelligence"),
   status: ProjectStatus.optional().default("active"),
   output: z.record(z.unknown()).optional().nullable(),
   websiteOutput: z.record(z.unknown()).optional().nullable(),
+  chatbotOutput: z.record(z.unknown()).optional().nullable(),
+  automationOutput: z.record(z.unknown()).optional().nullable(),
+  orchestratorOutput: z.record(z.unknown()).optional().nullable(),
 });
 
 const UpdateProjectBody = z.object({
@@ -24,6 +36,7 @@ const UpdateProjectBody = z.object({
   websiteOutput: z.record(z.unknown()).optional().nullable(),
   chatbotOutput: z.record(z.unknown()).optional().nullable(),
   automationOutput: z.record(z.unknown()).optional().nullable(),
+  orchestratorOutput: z.record(z.unknown()).optional().nullable(),
 });
 
 interface WebsiteVersion {
@@ -56,9 +69,13 @@ router.post("/projects", requireAuth, async (req, res): Promise<void> => {
     userId,
     title: parsed.data.title,
     businessIdea: parsed.data.businessIdea,
+    type: parsed.data.type ?? "business_intelligence",
     status: parsed.data.status ?? "active",
     output: parsed.data.output ?? null,
     websiteOutput: parsed.data.websiteOutput ?? null,
+    chatbotOutput: parsed.data.chatbotOutput ?? null,
+    automationOutput: parsed.data.automationOutput ?? null,
+    orchestratorOutput: parsed.data.orchestratorOutput ?? null,
   }).returning();
   res.status(201).json({ project });
 });
@@ -121,6 +138,7 @@ router.patch("/projects/:id", requireAuth, async (req, res): Promise<void> => {
   }
   if (parsed.data.chatbotOutput !== undefined) updates.chatbotOutput = parsed.data.chatbotOutput;
   if (parsed.data.automationOutput !== undefined) updates.automationOutput = parsed.data.automationOutput;
+  if (parsed.data.orchestratorOutput !== undefined) updates.orchestratorOutput = parsed.data.orchestratorOutput;
 
   const [project] = await db
     .update(projectsTable)
@@ -145,6 +163,9 @@ router.patch("/projects/:id", requireAuth, async (req, res): Promise<void> => {
   }
   if (parsed.data.automationOutput !== undefined && parsed.data.automationOutput !== null) {
     appendProjectEvent(id, userId, { type: "automation.generated", label: "Automation workflow generated" }).catch(() => {});
+  }
+  if (parsed.data.orchestratorOutput !== undefined && parsed.data.orchestratorOutput !== null) {
+    appendProjectEvent(id, userId, { type: "orchestration.generated", label: "Orchestration plan generated" }).catch(() => {});
   }
 
   res.json({ project });

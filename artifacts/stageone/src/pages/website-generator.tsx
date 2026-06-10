@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
 import { loadGenerationContext, clearGenerationContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea } from "@/lib/generation-context"
+import { ensureProject } from "@/lib/ensure-project"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
 
@@ -405,6 +406,12 @@ export default function WebsiteGeneratorPage() {
               updatePreview(out)
               setStep("done")
               console.log("WEBSITE_FLOW:6a step set to done")
+              ensureProject({
+                type: "website",
+                idea: ideaOverride,
+                outputField: "websiteOutput",
+                output: out as unknown as Record<string, unknown>,
+              }).catch(() => {})
               return
             }
           } catch { /* fragment */ }
@@ -459,6 +466,12 @@ export default function WebsiteGeneratorPage() {
               setData(out)
               updatePreview(out)
               setStep("done")
+              ensureProject({
+                type: "website",
+                idea: idea,
+                outputField: "websiteOutput",
+                output: out as unknown as Record<string, unknown>,
+              }).catch(() => {})
               return
             }
           } catch { /* fragment */ }

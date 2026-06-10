@@ -27,16 +27,25 @@ export interface ProjectEvent {
   timestamp: string;
 }
 
+export type ProjectType =
+  | "business_intelligence"
+  | "website"
+  | "chatbot"
+  | "automation"
+  | "orchestration";
+
 export interface Project {
   id: string;
   userId: string;
   title: string;
   businessIdea: string;
+  type: ProjectType;
   status: string;
   output: Record<string, unknown> | null;
   websiteOutput: Record<string, unknown> | null;
   chatbotOutput: Record<string, unknown> | null;
   automationOutput: Record<string, unknown> | null;
+  orchestratorOutput: Record<string, unknown> | null;
   projectEvents: ProjectEvent[] | null;
   createdAt: string;
   updatedAt: string;
@@ -72,12 +81,12 @@ export const api = {
   projects: {
     list: () => request<{ projects: Project[] }>("/projects"),
     get: (id: string) => request<{ project: Project }>(`/projects/${id}`),
-    create: (data: { title: string; businessIdea: string; status?: string; output?: unknown; websiteOutput?: unknown }) =>
+    create: (data: { title: string; businessIdea: string; type?: ProjectType; status?: string; output?: unknown; websiteOutput?: unknown; chatbotOutput?: unknown; automationOutput?: unknown; orchestratorOutput?: unknown }) =>
       request<{ project: Project }>("/projects", {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    update: (id: string, data: { title?: string; status?: string; output?: unknown; websiteOutput?: unknown }) =>
+    update: (id: string, data: { title?: string; status?: string; output?: unknown; websiteOutput?: unknown; chatbotOutput?: unknown; automationOutput?: unknown; orchestratorOutput?: unknown }) =>
       request<{ project: Project }>(`/projects/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),

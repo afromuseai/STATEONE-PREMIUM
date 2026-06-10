@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context"
 import { useLocation } from "wouter"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { useLang } from "@/lib/i18n"
+import { ensureProject } from "@/lib/ensure-project"
 
 interface Agent {
   id: string; name: string; role: string; model: string
@@ -280,6 +281,7 @@ export default function OrchestratorPage() {
 
   const generate = async () => {
     if (!goal.trim()) return
+    const goalText = goal.trim()
     setGenError(""); setStep("generating"); setStreamText(""); setData(null); setReplayStep(-1)
     abortRef.current = new AbortController()
     let buffer = ""
@@ -288,7 +290,7 @@ export default function OrchestratorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ goal: goal.trim(), businessContext, language: lang }),
+        body: JSON.stringify({ goal: goalText, businessContext, language: lang }),
         signal: abortRef.current.signal,
       })
       if (!res.ok || !res.body) throw new Error("Request failed")
@@ -307,7 +309,15 @@ export default function OrchestratorPage() {
             const msg = JSON.parse(line.slice(6))
             if (msg.error) { setGenError(msg.error); setStep("idle"); return }
             if (msg.content) { buffer += msg.content; setStreamText(buffer) }
-            if (msg.done && msg.data) { setData(msg.data); setStep("done"); setActiveTab("graph") }
+            if (msg.done && msg.data) {
+              setData(msg.data); setStep("done"); setActiveTab("graph")
+              ensureProject({
+                type: "orchestration",
+                idea: goalText,
+                outputField: "orchestratorOutput",
+                output: msg.data as Record<string, unknown>,
+              }).catch(() => {})
+            }
           } catch { /* fragment */ }
         }
       }

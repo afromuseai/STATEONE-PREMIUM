@@ -12,13 +12,13 @@ import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import {
   loadGenerationContext, clearGenerationContext,
-  loadProjectContext, clearProjectContext,
   loadAutomationRestoreContext, clearAutomationRestoreContext,
   deriveWorkflowType, buildAutomationDesc, consumePendingIntent, cacheConsumedIdea,
   dequeueWorkspaceSignals,
 } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
+import { ensureProject } from "@/lib/ensure-project"
 
 /* ── Types ─────────────────────────────────────────────── */
 type NodeType = "trigger" | "action" | "ai_agent" | "notification" | "crm" | "database" | "webhook"
@@ -324,54 +324,18 @@ export default function AutomationBuilderPage() {
   const autoGenPending = useRef<{ wt: string; cplx: string } | null>(null)
   const autoGenFired = useRef(false)
   // Project linkage — loaded once on mount, used to save output back to originating project
-  const projectCtxRef = useRef<{ projectId: string; projectTitle: string } | null>(null)
-
-  useEffect(() => {
-    projectCtxRef.current = loadProjectContext()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const businessDescRef = useRef(businessDesc)
+  useEffect(() => { businessDescRef.current = businessDesc }, [businessDesc])
 
   const saveToProject = useCallback(async (output: AutomationData): Promise<boolean> => {
-    // Re-read sessionStorage lazily — projectCtxRef may be null if Marcus wrote the
-    // project context AFTER this page mounted (automation_idea commands fire after
-    // the page is already open, so the mount-time read returns null).
-    if (!projectCtxRef.current) {
-      const fresh = loadProjectContext()
-      if (fresh) projectCtxRef.current = fresh
-    }
-    const ctx = projectCtxRef.current
     console.log("GENERATOR_AUDIT: generator=automation")
-    console.log("PROJECT_SAVE: projectId=" + (ctx?.projectId ?? "(none — no project context in sessionStorage)"))
-    if (!ctx?.projectId) {
-      console.log("SAVE_RESULT: failure (no projectId — save skipped)")
-      return false
-    }
-    const endpoint = `/api/projects/${ctx.projectId}`
-    console.log("SAVE_ENDPOINT: " + endpoint)
-    try {
-      const res = await fetch(endpoint, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ automationOutput: output as unknown as Record<string, unknown> }),
-      })
-      const responseBody = await res.json().catch(() => "(unparseable body)")
-      console.log("SAVE_RESPONSE_STATUS: " + res.status)
-      console.log("SAVE_RESPONSE_BODY:", responseBody)
-      if (!res.ok) {
-        console.error("SAVE_RESULT: failure (HTTP " + res.status + " for project " + ctx.projectId + ")", responseBody)
-        if (res.status === 404) {
-          console.warn("[automation] project not found in DB — clearing stale sessionStorage project context")
-          clearProjectContext()
-          projectCtxRef.current = null
-        }
-        return false
-      }
-      console.log("SAVE_RESULT: success")
-      return true
-    } catch (err) {
-      console.error("SAVE_RESULT: failure (network error)", err)
-      return false
-    }
+    const { saved } = await ensureProject({
+      type: "automation",
+      idea: businessDescRef.current || "Automation workflow",
+      outputField: "automationOutput",
+      output: output as unknown as Record<string, unknown>,
+    })
+    return saved
   }, [])
 
   // Check subscription tier

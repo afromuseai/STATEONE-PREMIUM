@@ -18,6 +18,7 @@ import {
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
+import { ensureProject } from "@/lib/ensure-project"
 
 // ─── Module-level intent cache ────────────────────────────────────────────────
 // AnimatedRoutes uses key={location}, so navigation causes an unmount+remount
@@ -257,48 +258,14 @@ export default function ChatbotGeneratorPage() {
   }, [])
 
   const saveToProject = useCallback(async (output: ChatbotOutput): Promise<boolean> => {
-    // Re-read sessionStorage lazily — projectCtxRef may be null if Marcus wrote the
-    // project context AFTER this page mounted (automation_idea / idea commands fire
-    // after the page is already open, so the mount-time read returns null).
-    if (!projectCtxRef.current) {
-      const fresh = loadProjectContext()
-      if (fresh) projectCtxRef.current = fresh
-    }
-    const ctx = projectCtxRef.current
-    const projectId = ctx?.projectId ?? null
     console.log("GENERATOR_AUDIT: generator=chatbot")
-    console.log("PROJECT_SAVE: projectId=" + (projectId ?? "(none — no project context in sessionStorage)"))
-    if (!ctx?.projectId) {
-      console.log("SAVE_RESULT: failure (no projectId — save skipped)")
-      return false
-    }
-    const endpoint = `/api/projects/${ctx.projectId}`
-    console.log("SAVE_ENDPOINT: " + endpoint)
-    try {
-      const res = await fetch(endpoint, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatbotOutput: output as unknown as Record<string, unknown> }),
-      })
-      const responseBody = await res.json().catch(() => "(unparseable body)")
-      console.log("SAVE_RESPONSE_STATUS: " + res.status)
-      console.log("SAVE_RESPONSE_BODY:", responseBody)
-      if (!res.ok) {
-        console.error("SAVE_RESULT: failure (HTTP " + res.status + " for project " + ctx.projectId + ")", responseBody)
-        if (res.status === 404) {
-          console.warn("[chatbot] project not found in DB — clearing stale sessionStorage project context")
-          clearProjectContext()
-          projectCtxRef.current = null
-        }
-        return false
-      }
-      console.log("SAVE_RESULT: success")
-      return true
-    } catch (err) {
-      console.error("SAVE_RESULT: failure (network error)", err)
-      return false
-    }
+    const { saved } = await ensureProject({
+      type: "chatbot",
+      idea: businessDescRef.current || "Chatbot",
+      outputField: "chatbotOutput",
+      output: output as unknown as Record<string, unknown>,
+    })
+    return saved
   }, [])
 
   // Check subscription tier
