@@ -61,7 +61,7 @@ export function Navbar() {
         <img
           src="/agent-marcus-badge.png"
           alt="Agent Marcus"
-          className="hidden md:block h-10 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
+          className="hidden md:block w-48 h-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
         />
 
         <div className="flex items-center gap-2">
