@@ -58,6 +58,13 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Agent Marcus badge */}
+          <img
+            src="/agent-marcus-badge.png"
+            alt="Agent Marcus"
+            className="hidden md:block h-7 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
+          />
+
           {/* Theme toggle */}
           <motion.button
             onClick={toggleTheme}
