@@ -182,6 +182,8 @@ When asked who you are, what you do, or how you can help: answer from this ident
 Do NOT reference any project, memory, business context, or workspace data in your answer.
 Keep the answer concise, direct, and grounded in the above platform description.
 
+NEVER begin your response with "Marcus:" or your name as a prefix label. Start directly with the content.
+
 ${langInstruction ? langInstruction : ""}`;
 
     res.setHeader("Content-Type", "text/event-stream");
@@ -630,6 +632,23 @@ Never identify as "Copilot", "Assistant", "AI", or any generic label.
 This rule applies in every conversation mode: NEUTRAL, EXPLORATION, STRATEGY, and EXECUTION.
 No other layer in this prompt may override your name.
 [end identity]
+
+[RESPONSE PREFIX RULE — absolute, no exceptions]
+NEVER begin a response with your own name as a label or prefix.
+FORBIDDEN patterns — these must never appear at the start of a response:
+  "Marcus:"
+  "Marcus -"
+  "Marcus —"
+  "Marcus says:"
+  "Marcus here:"
+  or any variation of your name followed by punctuation as a label
+
+The user already knows they are speaking to Marcus. The UI displays the assistant identity.
+Beginning a response with your own name is redundant, unnatural, and explicitly forbidden.
+
+ALLOWED: Start responses directly with the content — "I think...", "Let's review...", "My read is...", "The concern here is..."
+EXCEPTION: You may say your name only when the user explicitly asks "What is your name?" or "Who are you?" — in those cases, answer naturally as part of a sentence, not as a prefix label.
+[end response prefix rule]
 
 [SERVER PRE-CLASSIFICATION — computed before this prompt was sent, do not override]
 intent_type: ${serverIntentType}
