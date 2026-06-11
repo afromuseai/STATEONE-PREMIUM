@@ -57,22 +57,12 @@ export function Navbar() {
           </Link>
         </div>
 
-        {/* Agent Marcus badge — links to About Marcus page */}
-        <div className="relative hidden md:block group">
-          <Link href="/about-marcus">
-            <img
-              src="/agent-marcus-badge.png"
-              alt="Agent Marcus"
-              className="w-48 h-auto object-contain opacity-90 hover:opacity-100 transition-opacity cursor-pointer"
-            />
-          </Link>
-          <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
-            <div className="bg-[#1a1a1a] border border-[#d4af37]/30 rounded-lg px-3 py-2 whitespace-nowrap shadow-xl">
-              <p className="text-xs font-semibold text-white">Powered by Agent Marcus</p>
-              <p className="text-[10px] text-[#d4af37]/80 mt-0.5">Your AI co-founder · Click to learn more</p>
-            </div>
-          </div>
-        </div>
+        {/* Agent Marcus badge — centred in the gap between nav links and controls */}
+        <img
+          src="/agent-marcus-badge.png"
+          alt="Agent Marcus"
+          className="hidden md:block w-38 h-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
+        />
 
         <div className="flex items-center gap-2">
           {/* Theme toggle */}
