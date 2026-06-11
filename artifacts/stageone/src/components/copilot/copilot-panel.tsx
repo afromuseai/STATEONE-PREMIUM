@@ -31,6 +31,7 @@ import {
   ArrowRight,
   XCircle,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { useBusinessContext } from "@/lib/business-context";
 import { useAuth } from "@/lib/auth-context";
@@ -135,6 +136,12 @@ function getPageName(path: string): string {
 }
 
 const QUICK_COMMANDS = [
+  {
+    icon: ShieldCheck,
+    label: "Validate assumptions",
+    prompt:
+      "Validate assumptions — walk through every assumption in the current business intelligence report and classify each one as FACT, INFERENCE, or HYPOTHESIS based on what actually exists in the project records.",
+  },
   {
     icon: TrendingUp,
     label: "Improve scalability",
