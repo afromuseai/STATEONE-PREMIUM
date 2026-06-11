@@ -1,7 +1,9 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
+import { db, usersTable, passwordResetTokensTable } from "@workspace/db";
+import { eq, and, gt, isNull } from "drizzle-orm";
 import { signToken, verifyToken } from "../middleware/auth";
 import { z } from "zod";
 
@@ -18,6 +20,15 @@ const LoginBody = z.object({
   password: z.string().min(1),
 });
 
+const ForgotPasswordBody = z.object({
+  email: z.string().email(),
+});
+
+const ResetPasswordBody = z.object({
+  token: z.string().min(1),
+  password: z.string().min(6),
+});
+
 const COOKIE_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -25,6 +36,19 @@ const COOKIE_OPTS = {
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: "/",
 };
+
+function getMailer() {
+  if (!process.env.SMTP_HOST) return null;
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT ?? 587),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
 
 router.post("/auth/signup", async (req, res): Promise<void> => {
   const parsed = SignupBody.safeParse(req.body);
@@ -104,6 +128,89 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     return;
   }
   res.json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin, createdAt: user.createdAt } });
+});
+
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  const parsed = ForgotPasswordBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Valid email required" });
+    return;
+  }
+  const { email } = parsed.data;
+
+  // Always return 200 to avoid email enumeration
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  if (!user) {
+    res.json({ ok: true });
+    return;
+  }
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await db.insert(passwordResetTokensTable).values({
+    userId: user.id,
+    token: rawToken,
+    expiresAt,
+  });
+
+  const origin = process.env.APP_ORIGIN ?? `${req.protocol}://${req.get("host")}`;
+  const resetLink = `${origin}/reset-password?token=${rawToken}`;
+
+  const mailer = getMailer();
+  if (mailer) {
+    await mailer.sendMail({
+      from: process.env.SMTP_FROM ?? `STAGEONE <noreply@stageone.ai>`,
+      to: user.email,
+      subject: "Reset your STAGEONE password",
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#1a1a1a;color:#f0f0f0;border-radius:12px">
+          <h2 style="margin:0 0 8px;font-size:20px;color:#f0f0f0">Reset your password</h2>
+          <p style="margin:0 0 24px;font-size:14px;color:#aaa">Click the button below to set a new password. This link expires in 1 hour.</p>
+          <a href="${resetLink}" style="display:inline-block;padding:12px 24px;background:#c9a227;color:#0a0a0a;font-weight:700;font-size:14px;border-radius:8px;text-decoration:none">Reset Password</a>
+          <p style="margin:24px 0 0;font-size:12px;color:#666">If you didn't request this, you can safely ignore this email.</p>
+        </div>
+      `,
+      text: `Reset your STAGEONE password:\n${resetLink}\n\nThis link expires in 1 hour.`,
+    });
+    res.json({ ok: true });
+  } else {
+    // Dev mode: no SMTP configured — return the link directly
+    console.log(`[auth] Password reset link for ${user.email}: ${resetLink}`);
+    res.json({ ok: true, devLink: resetLink });
+  }
+});
+
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const parsed = ResetPasswordBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
+    return;
+  }
+  const { token, password } = parsed.data;
+
+  const now = new Date();
+  const [record] = await db
+    .select()
+    .from(passwordResetTokensTable)
+    .where(
+      and(
+        eq(passwordResetTokensTable.token, token),
+        gt(passwordResetTokensTable.expiresAt, now),
+        isNull(passwordResetTokensTable.usedAt),
+      )
+    );
+
+  if (!record) {
+    res.status(400).json({ error: "This reset link is invalid or has expired. Please request a new one." });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, record.userId));
+  await db.update(passwordResetTokensTable).set({ usedAt: now }).where(eq(passwordResetTokensTable.id, record.id));
+
+  res.json({ ok: true });
 });
 
 export default router;
