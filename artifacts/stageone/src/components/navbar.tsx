@@ -5,14 +5,12 @@ import logoImg from "@assets/ChatGPT_Image_May_9__2026__02_48_29_AM-removebg-pre
 import { useAuth } from "@/lib/auth-context"
 import { useTheme } from "@/lib/theme-context"
 import { useLang, LANGUAGES, type Lang } from "@/lib/i18n"
-import { useCopilot } from "@/lib/copilot-context"
 import { useState, useRef, useEffect } from "react"
 
 export function Navbar() {
   const { user } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { lang, setLang, t } = useLang()
-  const { setOpen: setCopilotOpen } = useCopilot()
   const [langOpen, setLangOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -59,20 +57,14 @@ export function Navbar() {
           </Link>
         </div>
 
-        {/* Agent Marcus badge — opens the Marcus copilot panel */}
-        <motion.button
-          onClick={() => setCopilotOpen(true)}
-          whileTap={{ scale: 0.95 }}
-          whileHover={{ opacity: 1 }}
-          className="hidden md:block cursor-pointer opacity-90 hover:opacity-100 transition-opacity focus:outline-none"
-          aria-label="Open Marcus AI Copilot"
-        >
+        {/* Agent Marcus badge — links to the About Marcus page */}
+        <Link href="/about-marcus" className="hidden md:block opacity-90 hover:opacity-100 transition-opacity">
           <img
             src="/agent-marcus-badge.png"
             alt="Agent Marcus"
             className="w-38 h-auto object-contain"
           />
-        </motion.button>
+        </Link>
 
         <div className="flex items-center gap-2">
           {/* Theme toggle */}
