@@ -81,7 +81,6 @@ export default function LoginPage() {
             </defs>
             <rect width="100%" height="100%" fill="url(#rg)"/>
           </svg>
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[480px] w-[480px] rounded-full bg-primary/[0.04] blur-[120px]" />
         </div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
