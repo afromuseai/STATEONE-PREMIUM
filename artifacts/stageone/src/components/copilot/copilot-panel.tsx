@@ -723,6 +723,15 @@ export function CopilotPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Scroll to bottom instantly whenever the panel is opened
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      }, 50);
+    }
+  }, [open]);
+
   // Load persisted messages on user session — ALWAYS reset state on user change or logout
   // SECURITY: never skip setMessages() — if we do, the prior user's messages stay visible
   useEffect(() => {
