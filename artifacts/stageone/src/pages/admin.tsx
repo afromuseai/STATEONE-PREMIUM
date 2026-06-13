@@ -14,7 +14,7 @@ import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "events" | "analytics" | "broadcasts"
+type AdminTab = "users" | "stats" | "events" | "analytics" | "broadcasts" | "intelligence" | "messages"
 
 interface AdminUser {
   id: string
@@ -61,14 +61,38 @@ interface Analytics {
     totalUsers: number
     activeUsers24h: number
     activeUsers7d: number
+    activeUsers30d: number
     totalEvents: number
     totalProjects: number
+    totalGenerations: number
+    totalMarcusMessages: number
   }
   funnel: Array<{ stage: string; count: number; pct: number }>
   geo: Array<{ country: string | null; users: number }>
+  topCities: Array<{ city: string | null; users: number }>
   eventTypes: Array<{ type: string; total: number }>
   recentEvents: AdminEvent[]
   dailySignups: Array<{ date: string; signups: number }>
+  topUsers: Array<{ userId: string | null; email: string | null; name: string | null; total: number }>
+}
+
+interface IntelligenceUser {
+  id: string
+  email: string
+  name: string
+  country?: string | null
+  city?: string | null
+  lastSeenAt?: string | null
+  createdAt: string
+  plan: string
+  projectCount: number
+  biGenerations: number
+  websiteGenerations: number
+  chatbotGenerations: number
+  automationGenerations: number
+  orchestratorGenerations: number
+  marcusMessages: number
+  activityScore: number
 }
 
 interface Broadcast {
@@ -196,6 +220,13 @@ export default function AdminPage() {
   })
   const [sendingBroadcast, setSendingBroadcast] = useState(false)
   const [broadcastSent, setBroadcastSent] = useState(false)
+  const [intelligence, setIntelligence] = useState<IntelligenceUser[] | null>(null)
+  const [intelligenceSearch, setIntelligenceSearch] = useState("")
+  const [intelligenceSort, setIntelligenceSort] = useState<"activityScore" | "createdAt" | "projectCount" | "biGenerations">("activityScore")
+  const [intelligenceFilter, setIntelligenceFilter] = useState<"all" | "active" | "inactive" | "power" | "paid" | "new">("all")
+  const [msgForm, setMsgForm] = useState({ target: "all", targetUserId: "", type: "announcement", title: "", body: "" })
+  const [sendingMsg, setSendingMsg] = useState(false)
+  const [msgSent, setMsgSent] = useState(false)
 
   useEffect(() => {
     if (!user) { setLocation("/login"); return }
@@ -241,13 +272,21 @@ export default function AdminPage() {
     } catch (_) {}
   }, [])
 
+  const loadIntelligence = useCallback(async () => {
+    try {
+      const data = await fetch("/api/admin/user-intelligence", { credentials: "include" }).then(r => r.json())
+      if (data?.users) setIntelligence(data.users)
+    } catch (_) {}
+  }, [])
+
   useEffect(() => { loadData() }, [loadData])
 
   useEffect(() => {
     if (activeTab === "analytics") loadAnalytics()
     else if (activeTab === "events") loadEvents()
     else if (activeTab === "broadcasts") loadBroadcasts()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts])
+    else if (activeTab === "intelligence") loadIntelligence()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence])
 
   useEffect(() => {
     if (activeTab !== "events") return
@@ -329,11 +368,13 @@ export default function AdminPage() {
   )
 
   const TABS: { id: AdminTab; label: string; icon: React.ElementType }[] = [
-    { id: "users",      label: "Users",      icon: Users },
-    { id: "stats",      label: "Stats",      icon: BarChart3 },
-    { id: "events",     label: "Events",     icon: Radio },
-    { id: "analytics",  label: "Analytics",  icon: TrendingUp },
-    { id: "broadcasts", label: "Broadcast",  icon: Megaphone },
+    { id: "users",        label: "Users",         icon: Users },
+    { id: "stats",        label: "Stats",         icon: BarChart3 },
+    { id: "events",       label: "Events",        icon: Radio },
+    { id: "analytics",    label: "Analytics",     icon: TrendingUp },
+    { id: "intelligence", label: "Intelligence",  icon: Bot },
+    { id: "messages",     label: "Messages",      icon: Send },
+    { id: "broadcasts",   label: "Broadcast",     icon: Megaphone },
   ]
 
   if (!user?.isAdmin) return null
@@ -371,6 +412,7 @@ export default function AdminPage() {
               if (activeTab === "analytics") loadAnalytics()
               if (activeTab === "events") loadEvents()
               if (activeTab === "broadcasts") loadBroadcasts()
+              if (activeTab === "intelligence") loadIntelligence()
             }} disabled={loading}
               className="p-2 rounded-lg border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -683,12 +725,17 @@ export default function AdminPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <StatCard label="Total Users" value={analytics.overview.totalUsers} icon={Users} color="#6366F1" />
-                    <StatCard label="Active (24h)" value={analytics.overview.activeUsers24h} icon={Activity} color="#10B981" sub="unique users" />
-                    <StatCard label="Active (7d)" value={analytics.overview.activeUsers7d} icon={TrendingUp} color="#D4AF37" sub="unique users" />
                     <StatCard label="Total Projects" value={analytics.overview.totalProjects ?? 0} icon={FolderOpen} color="#F59E0B" />
-                    <StatCard label="Total Events" value={analytics.overview.totalEvents} icon={Radio} color="#8B5CF6" />
+                    <StatCard label="Total Generations" value={analytics.overview.totalGenerations ?? 0} icon={Zap} color="#D4AF37" />
+                    <StatCard label="Marcus Messages" value={analytics.overview.totalMarcusMessages ?? 0} icon={Bot} color="#06B6D4" />
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <StatCard label="Active Today" value={analytics.overview.activeUsers24h} icon={Activity} color="#10B981" sub="unique users" />
+                    <StatCard label="Active (7d)" value={analytics.overview.activeUsers7d} icon={TrendingUp} color="#8B5CF6" sub="unique users" />
+                    <StatCard label="Active (30d)" value={analytics.overview.activeUsers30d ?? 0} icon={Globe} color="#EC4899" sub="unique users" />
+                    <StatCard label="Total Events" value={analytics.overview.totalEvents} icon={Radio} color="#6B7280" />
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
@@ -726,7 +773,7 @@ export default function AdminPage() {
                         <Globe className="h-4 w-4 text-primary" /> Top Countries
                       </h3>
                       {analytics.geo.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-8 text-center">No geo data yet — events will populate as users interact</p>
+                        <p className="text-xs text-muted-foreground py-8 text-center">No geo data yet</p>
                       ) : (
                         <div className="space-y-2">
                           {analytics.geo.slice(0, 8).map((g, i) => {
@@ -751,24 +798,258 @@ export default function AdminPage() {
                     </div>
                   </div>
 
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                      <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-primary" /> Top Cities
+                      </h3>
+                      {!analytics.topCities || analytics.topCities.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-8 text-center">No city data yet</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {analytics.topCities.slice(0, 8).map((c, i) => (
+                            <div key={c.city ?? i} className="flex items-center justify-between">
+                              <span className="text-xs text-foreground">{c.city ?? "Unknown"}</span>
+                              <span className="text-[10px] text-muted-foreground bg-white/5 rounded-full px-2 py-0.5">{c.users}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                      <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                        <Users className="h-4 w-4 text-primary" /> Top Users
+                      </h3>
+                      {!analytics.topUsers || analytics.topUsers.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-8 text-center">No activity yet</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {analytics.topUsers.map((u, i) => (
+                            <div key={u.userId ?? i} className="flex items-center justify-between">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs text-foreground truncate">{u.email ?? "Unknown"}</p>
+                              </div>
+                              <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5 ml-2 shrink-0">{Number(u.total).toLocaleString()} events</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
                     <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
                       <BarChart3 className="h-4 w-4 text-primary" /> Event Breakdown
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {analytics.eventTypes.map(et => {
-                        const meta = EVENT_TYPE_META[et.type] ?? { color: "#6B7280", label: et.type }
-                        return (
-                          <div key={et.type} className="rounded-xl border border-white/8 bg-white/2 p-3">
-                            <EventTypeBadge type={et.type} />
-                            <p className="text-lg font-black text-foreground mt-2">{et.total.toLocaleString()}</p>
-                          </div>
-                        )
-                      })}
+                      {analytics.eventTypes.map(et => (
+                        <div key={et.type} className="rounded-xl border border-white/8 bg-white/2 p-3">
+                          <EventTypeBadge type={et.type} />
+                          <p className="text-lg font-black text-foreground mt-2">{et.total.toLocaleString()}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* ── User Intelligence Tab ─────────────────────────────────────── */}
+          {activeTab === "intelligence" && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input type="text" placeholder="Search by email or name..."
+                    value={intelligenceSearch} onChange={e => setIntelligenceSearch(e.target.value)}
+                    className="w-full rounded-xl border border-white/8 bg-white/3 pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors" />
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {(["all", "active", "inactive", "power", "paid", "new"] as const).map(f => (
+                    <button key={f} onClick={() => setIntelligenceFilter(f)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize ${intelligenceFilter === f ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                      {f === "all" ? "All Users" : f === "active" ? "Active (7d)" : f === "inactive" ? "Dormant" : f === "power" ? "Power Users" : f === "paid" ? "Paid" : "New (<7d)"}
+                    </button>
+                  ))}
+                </div>
+                <select value={intelligenceSort} onChange={e => setIntelligenceSort(e.target.value as typeof intelligenceSort)}
+                  className="rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-xs text-foreground outline-none">
+                  <option value="activityScore">Sort: Activity Score</option>
+                  <option value="biGenerations">Sort: BI Gens</option>
+                  <option value="projectCount">Sort: Projects</option>
+                  <option value="createdAt">Sort: Newest</option>
+                </select>
+              </div>
+
+              {!intelligence ? (
+                <div className="flex items-center justify-center py-20">
+                  <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin" />
+                </div>
+              ) : (() => {
+                const now = Date.now()
+                const day7 = 7 * 24 * 60 * 60 * 1000
+                const filtered = intelligence
+                  .filter(u => {
+                    const q = intelligenceSearch.toLowerCase()
+                    if (q && !u.email.toLowerCase().includes(q) && !u.name.toLowerCase().includes(q)) return false
+                    if (intelligenceFilter === "active") return u.lastSeenAt && (now - new Date(u.lastSeenAt).getTime()) < day7
+                    if (intelligenceFilter === "inactive") return !u.lastSeenAt || (now - new Date(u.lastSeenAt).getTime()) > day7 * 4
+                    if (intelligenceFilter === "power") return u.activityScore >= 20
+                    if (intelligenceFilter === "paid") return u.plan !== "free"
+                    if (intelligenceFilter === "new") return (now - new Date(u.createdAt).getTime()) < day7
+                    return true
+                  })
+                  .sort((a, b) => {
+                    if (intelligenceSort === "activityScore") return b.activityScore - a.activityScore
+                    if (intelligenceSort === "biGenerations") return b.biGenerations - a.biGenerations
+                    if (intelligenceSort === "projectCount") return b.projectCount - a.projectCount
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                  })
+
+                return (
+                  <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/8 bg-white/3">
+                            <th className="text-left px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">User</th>
+                            <th className="text-left px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Location</th>
+                            <th className="text-left px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Plan</th>
+                            <th className="text-left px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Last Active</th>
+                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Projects</th>
+                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">BI</th>
+                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Web</th>
+                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Chat</th>
+                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Auto</th>
+                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Orch</th>
+                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Marcus</th>
+                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Score</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.length === 0 ? (
+                            <tr><td colSpan={12} className="text-center py-12 text-muted-foreground">No users match this filter</td></tr>
+                          ) : filtered.map(u => (
+                            <tr key={u.id} className="border-b border-white/5 hover:bg-white/2 transition-colors">
+                              <td className="px-4 py-3">
+                                <p className="font-bold text-foreground truncate max-w-[160px]">{u.email}</p>
+                                <p className="text-muted-foreground text-[10px]">{u.name}</p>
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground">
+                                {u.country ? `${u.city ? u.city + ", " : ""}${u.country}` : "—"}
+                              </td>
+                              <td className="px-4 py-3"><PlanBadge plan={u.plan as Plan} /></td>
+                              <td className="px-4 py-3 text-muted-foreground">
+                                {u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Never"}
+                              </td>
+                              <td className="px-4 py-3 text-right font-bold text-foreground">{u.projectCount}</td>
+                              <td className="px-4 py-3 text-right text-muted-foreground">{u.biGenerations}</td>
+                              <td className="px-4 py-3 text-right text-muted-foreground">{u.websiteGenerations}</td>
+                              <td className="px-4 py-3 text-right text-muted-foreground">{u.chatbotGenerations}</td>
+                              <td className="px-4 py-3 text-right text-muted-foreground">{u.automationGenerations}</td>
+                              <td className="px-4 py-3 text-right text-muted-foreground">{u.orchestratorGenerations}</td>
+                              <td className="px-4 py-3 text-right text-muted-foreground">{u.marcusMessages}</td>
+                              <td className="px-4 py-3 text-right">
+                                <span className={`font-black text-sm ${u.activityScore >= 50 ? "text-primary" : u.activityScore >= 20 ? "text-amber-400" : "text-muted-foreground"}`}>
+                                  {u.activityScore}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-2 border-t border-white/5 text-[10px] text-muted-foreground">
+                      {filtered.length} of {intelligence.length} users
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* ── Message Center Tab ────────────────────────────────────────── */}
+          {activeTab === "messages" && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                <h3 className="text-sm font-black text-foreground flex items-center gap-2 mb-4">
+                  <Send className="h-4 w-4 text-primary" /> Send In-App Message
+                </h3>
+                <div className="space-y-3">
+                  <input type="text" placeholder="Message title..."
+                    value={msgForm.title} onChange={e => setMsgForm(f => ({ ...f, title: e.target.value }))}
+                    className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors" />
+                  <textarea placeholder="Message body..."
+                    value={msgForm.body} onChange={e => setMsgForm(f => ({ ...f, body: e.target.value }))}
+                    rows={4}
+                    className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors resize-none" />
+                  <div className="flex gap-5 flex-wrap">
+                    <div>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Type</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {(["announcement", "feature", "tip", "warning", "maintenance"] as const).map(t => (
+                          <button key={t} onClick={() => setMsgForm(f => ({ ...f, type: t }))}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize ${msgForm.type === t ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Target</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {(["all", "free", "pro", "startup", "enterprise", "individual"] as const).map(t => (
+                          <button key={t} onClick={() => setMsgForm(f => ({ ...f, target: t }))}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize ${msgForm.target === t ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {msgForm.target === "individual" && (
+                    <input type="text" placeholder="User ID (UUID)..."
+                      value={msgForm.targetUserId} onChange={e => setMsgForm(f => ({ ...f, targetUserId: e.target.value }))}
+                      className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors font-mono text-xs" />
+                  )}
+                  <div className="flex items-center gap-3 pt-1">
+                    <button onClick={async () => {
+                      if (!msgForm.title.trim() || !msgForm.body.trim()) return
+                      setSendingMsg(true)
+                      try {
+                        await fetch("/api/admin/message-center", {
+                          method: "POST", credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ ...msgForm }),
+                        })
+                        setMsgSent(true)
+                        setMsgForm({ target: "all", targetUserId: "", type: "announcement", title: "", body: "" })
+                        setTimeout(() => setMsgSent(false), 3000)
+                      } catch (_) {}
+                      setSendingMsg(false)
+                    }} disabled={sendingMsg || !msgForm.title.trim() || !msgForm.body.trim()}
+                      className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold bg-primary text-black hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                      {sendingMsg ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {sendingMsg ? "Sending..." : `Send to ${msgForm.target === "individual" ? "user" : msgForm.target} (in-app)`}
+                    </button>
+                    <AnimatePresence>
+                      {msgSent && (
+                        <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                          className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
+                          <Check className="h-3.5 w-3.5" /> Message sent!
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                <p className="text-xs text-muted-foreground">
+                  Messages are delivered to users' notification bell in real-time. Target segments use the same plan groupings as broadcasts. Use "individual" + User ID to send a direct in-app message to a specific user.
+                </p>
+              </div>
             </div>
           )}
 

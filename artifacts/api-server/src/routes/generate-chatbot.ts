@@ -4,6 +4,7 @@ import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson, callNvidia } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
 import { logEventFireForget } from "../lib/log-event";
+import { trackUsageFireForget } from "../lib/usage";
 
 const router = Router();
 
@@ -251,6 +252,7 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
     }
     res.end();
     logEventFireForget({ userId: req.user!.userId, type: "chatbot_generated", data: { chatbotType, industry }, req });
+    trackUsageFireForget(req.user!.userId, "chatbotGenerations");
   } catch (error) {
     req.log.error({ error }, "Generate chatbot error");
     if (!res.headersSent) res.status(500).json({ error: "Internal server error" });

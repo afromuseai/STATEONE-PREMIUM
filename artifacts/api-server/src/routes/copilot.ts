@@ -9,6 +9,7 @@ import { streamNvidia, forwardStream, callNvidia, extractJson } from "../lib/nvi
 import { getLanguageInstruction } from "../lib/language";
 import { getBusinessContext, getBusinessMemorySummary, type BusinessContextResult } from "../lib/business-graph";
 import { logEventFireForget } from "../lib/log-event";
+import { trackUsageFireForget } from "../lib/usage";
 
 // ─── Memory category types ─────────────────────────────────────────────────
 type MemoryCategory = "Decision" | "Goal" | "Assumption" | "Experiment" | "Milestone" | "Learning" | "Risk" | "Preference";
@@ -2286,6 +2287,7 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
 
   // ─── Event tracking ────────────────────────────────────────────────────────
   logEventFireForget({ userId, type: "marcus_message", data: { messageCount: trimmedMessages.length }, req });
+  trackUsageFireForget(userId, "marcusMessages");
 
   // ─── Background memory extraction ─────────────────────────────────────────
   // Fire-and-forget after response is sent. Never blocks the user.

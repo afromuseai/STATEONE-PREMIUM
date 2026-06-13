@@ -1,0 +1,300 @@
+PHASE 2A — ADMIN INTELLIGENCE + USAGE METERING INFRASTRUCTURE
+
+IMPORTANT:
+
+Do NOT redesign the existing Admin Panel.
+
+Do NOT remove current analytics.
+
+Do NOT modify authentication.
+
+Do NOT break existing event tracking.
+
+Build on top of the current system.
+
+==================================================
+GOAL
+====
+
+Transform the Admin Panel from:
+
+"basic analytics dashboard"
+
+into:
+
+"operational control center for STAGEONE"
+
+==================================================
+
+1. USER INTELLIGENCE MODULE
+   ==================================================
+
+Create new Admin section:
+
+User Intelligence
+
+For every user display:
+
+* user id
+* email
+* signup date
+* country
+* city
+* current plan
+* last active
+* total projects
+* BI generations
+* website generations
+* chatbot generations
+* automation generations
+* orchestrator generations
+* Marcus messages
+* total activity score
+
+Add:
+
+* search
+* filtering
+* sorting
+
+Examples:
+
+Most Active Users
+Inactive Users
+Power Users
+New Users
+Paid Users
+
+==================================================
+2. GEO INTELLIGENCE
+===================
+
+Automatically detect:
+
+* country
+* city
+* region
+* timezone
+
+Store on login.
+
+Create:
+
+Top Countries
+Top Cities
+
+Metrics:
+
+* users by country
+* projects by country
+* generations by country
+* active users by country
+
+Display:
+
+country table
+city table
+map-ready data structure
+
+IMPORTANT:
+
+Store detected location server-side.
+
+==================================================
+3. USAGE METERING
+=================
+
+Create table:
+
+user_usage
+
+Track monthly usage:
+
+* BI generations
+* Website generations
+* Chatbot generations
+* Automation generations
+* Orchestrator generations
+* Marcus messages
+
+Track:
+
+current month
+lifetime
+
+Create helper:
+
+trackUsage()
+
+Usage must update automatically after successful generation.
+
+==================================================
+4. PLAN ENFORCEMENT FOUNDATION
+==============================
+
+Create centralized config:
+
+PLAN_LIMITS
+
+Free
+
+* 5 BI generations
+* limited websites
+* limited project storage
+
+Pro
+
+* higher limits
+
+Startup
+
+* highest limits
+
+IMPORTANT:
+
+Do NOT enforce limits yet.
+
+Only build infrastructure.
+
+Future billing will use this.
+
+==================================================
+5. ADMIN BROADCAST SYSTEM
+=========================
+
+Create:
+
+Admin Broadcasts
+
+Admin can create:
+
+* announcement
+* maintenance notice
+* feature update
+* release notes
+
+Target:
+
+* all users
+* free users
+* pro users
+* startup users
+* individual users
+
+==================================================
+6. USER NOTIFICATIONS
+=====================
+
+Create:
+
+notifications table
+
+Fields:
+
+* id
+* userId
+* title
+* body
+* type
+* read
+* createdAt
+
+Display inside:
+
+notification bell
+
+Support:
+
+* unread count
+* mark read
+* mark all read
+
+==================================================
+7. ADMIN MESSAGE CENTER
+=======================
+
+Admin dashboard should allow:
+
+Send Message To:
+
+* All Users
+* Plan Segment
+* Individual User
+
+Messages appear in:
+
+notification center
+
+No email integration yet.
+
+In-app only.
+
+==================================================
+8. ANALYTICS EXPANSION
+======================
+
+Add cards:
+
+* Total Projects
+* Total Generations
+* Total Marcus Messages
+* Active Users Today
+* Active Users 7 Days
+* Active Users 30 Days
+
+Add:
+
+Top Countries
+Top Users
+Top Projects
+
+==================================================
+9. AUDIT LOGS
+=============
+
+Track:
+
+* admin broadcasts
+* notifications sent
+* usage increments
+* plan changes
+* location detection
+
+Create:
+
+admin_audit_log
+
+==================================================
+10. FUTURE READY
+================
+
+Everything built here must support:
+
+* subscriptions
+* billing
+* Stripe
+* usage-based limits
+* enterprise plans
+
+Do NOT hardcode logic.
+
+Use centralized services and configuration.
+
+==================================================
+RESULT
+======
+
+The Admin Panel should become:
+
+the operational command center for STAGEONE
+
+with:
+
+* user intelligence
+* geo intelligence
+* usage metering
+* notification infrastructure
+* broadcast infrastructure
+* future billing readiness
+
+while preserving all existing functionality.

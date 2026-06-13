@@ -32,3 +32,4 @@ export * from "./password-reset-tokens";
 export * from "./events";
 export * from "./sessions";
 export * from "./broadcasts";
+export * from "./user-usage";

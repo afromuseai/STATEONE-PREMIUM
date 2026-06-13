@@ -1,7 +1,8 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, subscriptionsTable, eventsTable, broadcastsTable, notificationsTable, sessionsTable, projectsTable } from "@workspace/db";
-import { eq, desc, gte, lt, and, count, sql, isNotNull, ne } from "drizzle-orm";
+import { db, usersTable, subscriptionsTable, eventsTable, broadcastsTable, notificationsTable, sessionsTable, projectsTable, userUsageTable } from "@workspace/db";
+import { eq, desc, gte, lt, and, count, sql, isNotNull, ne, inArray } from "drizzle-orm";
+import { logAuditFireForget } from "../lib/audit";
 import { requireAdmin, requireAuth } from "../middleware/auth";
 import { PLAN_LIMITS, getOrCreateSubscription } from "./subscriptions";
 import { setAdminBroadcast } from "../lib/log-event";
@@ -258,16 +259,21 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
     totalUsersRow,
     activeUsers24hRow,
     activeUsers7dRow,
+    activeUsers30dRow,
     totalEventsRow,
     totalProjectsRow,
     biGeneratedRow,
     websiteGeneratedRow,
     chatbotGeneratedRow,
     automationCreatedRow,
+    orchestratorGeneratedRow,
+    marcusMessagesRow,
     recentEvents,
     geoRows,
+    topCitiesRows,
     eventTypeRows,
     dailySignupsRows,
+    topUsersRows,
   ] = await Promise.all([
     db.select({ total: count() }).from(usersTable),
 
@@ -278,6 +284,10 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
     db.select({ total: sql<number>`count(distinct ${eventsTable.userId})` })
       .from(eventsTable)
       .where(and(gte(eventsTable.createdAt, ago7d), isNotNull(eventsTable.userId))),
+
+    db.select({ total: sql<number>`count(distinct ${eventsTable.userId})` })
+      .from(eventsTable)
+      .where(and(gte(eventsTable.createdAt, ago30d), isNotNull(eventsTable.userId))),
 
     db.select({ total: count() }).from(eventsTable),
 
@@ -290,6 +300,10 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
     db.select({ total: count() }).from(eventsTable).where(eq(eventsTable.type, "chatbot_generated")),
 
     db.select({ total: count() }).from(eventsTable).where(eq(eventsTable.type, "automation_created")),
+
+    db.select({ total: count() }).from(eventsTable).where(eq(eventsTable.type, "orchestrator_generated")),
+
+    db.select({ total: count() }).from(eventsTable).where(eq(eventsTable.type, "marcus_message")),
 
     db.select({
       id: eventsTable.id,
@@ -316,6 +330,16 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       .limit(15),
 
     db.select({
+      city: eventsTable.city,
+      total: sql<number>`count(distinct ${eventsTable.userId})`,
+    })
+      .from(eventsTable)
+      .where(isNotNull(eventsTable.city))
+      .groupBy(eventsTable.city)
+      .orderBy(desc(sql`count(distinct ${eventsTable.userId})`))
+      .limit(10),
+
+    db.select({
       type: eventsTable.type,
       total: count(),
     })
@@ -331,31 +355,53 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       .where(gte(usersTable.createdAt, ago30d))
       .groupBy(sql`DATE(${usersTable.createdAt})`)
       .orderBy(sql`DATE(${usersTable.createdAt})`),
+
+    db.select({
+      userId: eventsTable.userId,
+      userEmail: usersTable.email,
+      userName: usersTable.name,
+      total: count(),
+    })
+      .from(eventsTable)
+      .leftJoin(usersTable, eq(eventsTable.userId, usersTable.id))
+      .where(isNotNull(eventsTable.userId))
+      .groupBy(eventsTable.userId, usersTable.email, usersTable.name)
+      .orderBy(desc(count()))
+      .limit(10),
   ]);
 
   const totalBi = biGeneratedRow[0]?.total ?? 0;
   const totalWebsite = websiteGeneratedRow[0]?.total ?? 0;
   const totalChatbot = chatbotGeneratedRow[0]?.total ?? 0;
   const totalAutomation = automationCreatedRow[0]?.total ?? 0;
+  const totalOrchestrator = orchestratorGeneratedRow[0]?.total ?? 0;
+  const totalMarcusMessages = Number(marcusMessagesRow[0]?.total ?? 0);
+  const totalGenerations = totalBi + totalWebsite + totalChatbot + totalAutomation + totalOrchestrator;
 
   res.json({
     overview: {
       totalUsers: totalUsersRow[0]?.total ?? 0,
       activeUsers24h: Number(activeUsers24hRow[0]?.total ?? 0),
       activeUsers7d: Number(activeUsers7dRow[0]?.total ?? 0),
+      activeUsers30d: Number(activeUsers30dRow[0]?.total ?? 0),
       totalEvents: totalEventsRow[0]?.total ?? 0,
       totalProjects: totalProjectsRow[0]?.total ?? 0,
+      totalGenerations,
+      totalMarcusMessages,
     },
     funnel: [
-      { stage: "BI Generated",       count: totalBi,        pct: 100 },
-      { stage: "Website Generated",  count: totalWebsite,   pct: totalBi > 0 ? Math.round((totalWebsite  / totalBi) * 100) : 0 },
-      { stage: "Chatbot Generated",  count: totalChatbot,   pct: totalBi > 0 ? Math.round((totalChatbot  / totalBi) * 100) : 0 },
-      { stage: "Automation Created", count: totalAutomation,pct: totalBi > 0 ? Math.round((totalAutomation / totalBi) * 100) : 0 },
+      { stage: "BI Generated",          count: totalBi,           pct: 100 },
+      { stage: "Website Generated",     count: totalWebsite,      pct: totalBi > 0 ? Math.round((totalWebsite       / totalBi) * 100) : 0 },
+      { stage: "Chatbot Generated",     count: totalChatbot,      pct: totalBi > 0 ? Math.round((totalChatbot       / totalBi) * 100) : 0 },
+      { stage: "Automation Created",    count: totalAutomation,   pct: totalBi > 0 ? Math.round((totalAutomation    / totalBi) * 100) : 0 },
+      { stage: "Orchestrator",          count: totalOrchestrator, pct: totalBi > 0 ? Math.round((totalOrchestrator  / totalBi) * 100) : 0 },
     ],
     geo: geoRows.map(r => ({ country: r.country, users: Number(r.total) })),
+    topCities: topCitiesRows.map(r => ({ city: r.city, users: Number(r.total) })),
     eventTypes: eventTypeRows,
     recentEvents,
     dailySignups: dailySignupsRows.map(r => ({ date: r.date, signups: Number(r.signups) })),
+    topUsers: topUsersRows.map(r => ({ userId: r.userId, email: r.userEmail, name: r.userName, total: Number(r.total) })),
   });
 });
 
@@ -495,6 +541,175 @@ async function getTargetRecipients(target: string): Promise<Array<{ id: string; 
   const users = await db.select({ id: usersTable.id, email: usersTable.email, name: usersTable.name }).from(usersTable);
   return users.filter(u => userIds.includes(u.id));
 }
+
+// ─── User Intelligence ────────────────────────────────────────────────────────
+
+router.get("/admin/user-intelligence", requireAdmin, async (_req, res): Promise<void> => {
+  const users = await db
+    .select({
+      id: usersTable.id,
+      email: usersTable.email,
+      name: usersTable.name,
+      country: usersTable.country,
+      city: usersTable.city,
+      lastSeenAt: usersTable.lastSeenAt,
+      createdAt: usersTable.createdAt,
+    })
+    .from(usersTable)
+    .orderBy(desc(usersTable.createdAt));
+
+  if (users.length === 0) { res.json({ users: [] }); return; }
+
+  const userIds = users.map(u => u.id);
+
+  const [subs, projectCounts, eventCounts, usageRows] = await Promise.all([
+    db.select().from(subscriptionsTable).where(inArray(subscriptionsTable.userId, userIds)),
+
+    db.select({
+      userId: projectsTable.userId,
+      count: count(),
+    })
+      .from(projectsTable)
+      .where(inArray(projectsTable.userId, userIds))
+      .groupBy(projectsTable.userId),
+
+    db.select({
+      userId: eventsTable.userId,
+      type: eventsTable.type,
+      total: count(),
+    })
+      .from(eventsTable)
+      .where(and(isNotNull(eventsTable.userId), inArray(eventsTable.userId, userIds)))
+      .groupBy(eventsTable.userId, eventsTable.type),
+
+    db.select()
+      .from(userUsageTable)
+      .where(inArray(userUsageTable.userId, userIds)),
+  ]);
+
+  const subMap = Object.fromEntries(subs.map(s => [s.userId, s]));
+  const projectMap: Record<string, number> = {};
+  for (const r of projectCounts) projectMap[r.userId!] = Number(r.count);
+
+  const eventMap: Record<string, Record<string, number>> = {};
+  for (const r of eventCounts) {
+    if (!r.userId) continue;
+    if (!eventMap[r.userId]) eventMap[r.userId] = {};
+    eventMap[r.userId][r.type] = Number(r.total);
+  }
+
+  const usageMap: Record<string, typeof usageRows[0]> = {};
+  for (const r of usageRows) {
+    const key = r.userId;
+    if (!usageMap[key]) {
+      usageMap[key] = { ...r };
+    } else {
+      usageMap[key].biGenerations += r.biGenerations;
+      usageMap[key].websiteGenerations += r.websiteGenerations;
+      usageMap[key].chatbotGenerations += r.chatbotGenerations;
+      usageMap[key].automationGenerations += r.automationGenerations;
+      usageMap[key].orchestratorGenerations += r.orchestratorGenerations;
+      usageMap[key].marcusMessages += r.marcusMessages;
+      usageMap[key].totalGenerations += r.totalGenerations;
+    }
+  }
+
+  const result = users.map(u => {
+    const ev = eventMap[u.id] ?? {};
+    const bi = ev["bi_generated"] ?? 0;
+    const website = ev["website_generated"] ?? 0;
+    const chatbot = ev["chatbot_generated"] ?? 0;
+    const automation = ev["automation_created"] ?? 0;
+    const orchestrator = ev["orchestrator_generated"] ?? 0;
+    const marcus = ev["marcus_message"] ?? 0;
+    const totalActivity = bi * 3 + website * 3 + chatbot * 2 + automation * 2 + orchestrator * 4 + marcus * 1 + (projectMap[u.id] ?? 0) * 2;
+
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      country: u.country,
+      city: u.city,
+      lastSeenAt: u.lastSeenAt,
+      createdAt: u.createdAt,
+      plan: subMap[u.id]?.plan ?? "free",
+      projectCount: projectMap[u.id] ?? 0,
+      biGenerations: bi,
+      websiteGenerations: website,
+      chatbotGenerations: chatbot,
+      automationGenerations: automation,
+      orchestratorGenerations: orchestrator,
+      marcusMessages: marcus,
+      activityScore: totalActivity,
+      usage: usageMap[u.id] ?? null,
+    };
+  });
+
+  res.json({ users: result });
+});
+
+// ─── Message Center ───────────────────────────────────────────────────────────
+
+router.post("/admin/message-center", requireAdmin, async (req, res): Promise<void> => {
+  const { target, targetUserId, type, title, body } = req.body as {
+    target?: string;
+    targetUserId?: string;
+    type?: string;
+    title?: string;
+    body?: string;
+  };
+
+  if (!title?.trim() || !body?.trim()) {
+    res.status(400).json({ error: "title and body are required" });
+    return;
+  }
+
+  const validTargets = ["all", "free", "pro", "startup", "enterprise", "individual"];
+  const msgTarget = validTargets.includes(target ?? "") ? target! : "all";
+  const adminId = req.user!.userId;
+
+  let recipients: Array<{ id: string }>;
+  if (msgTarget === "individual") {
+    if (!targetUserId) { res.status(400).json({ error: "targetUserId required for individual target" }); return; }
+    recipients = [{ id: targetUserId }];
+  } else {
+    recipients = await getTargetRecipients(msgTarget);
+  }
+
+  const severityMap: Record<string, "info" | "success" | "warning" | "error"> = {
+    announcement: "info",
+    feature: "success",
+    warning: "warning",
+    maintenance: "warning",
+    tip: "info",
+  };
+  const severity = severityMap[type ?? ""] ?? "info";
+
+  const rows = recipients.map(u => ({
+    userId: u.id,
+    type: type ?? "announcement",
+    title: title.trim(),
+    message: body.trim(),
+    severity,
+    metadata: { sentBy: adminId, target: msgTarget } as Record<string, unknown>,
+  }));
+
+  if (rows.length > 0) {
+    for (let i = 0; i < rows.length; i += 100) {
+      await db.insert(notificationsTable).values(rows.slice(i, i + 100));
+    }
+  }
+
+  logAuditFireForget({
+    userId: adminId,
+    action: "message_center_send",
+    resource: "notifications",
+    changes: { target: msgTarget, type, title, recipientCount: rows.length },
+    severity: "medium",
+  });
+
+  res.status(201).json({ ok: true, sent: rows.length });
+});
 
 async function fanOutBroadcast(
   broadcastId: string,

@@ -4,6 +4,7 @@ import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
 import { logEventFireForget } from "../lib/log-event";
+import { trackUsageFireForget } from "../lib/usage";
 
 const router = Router();
 
@@ -110,6 +111,7 @@ Create a complete orchestration chain with coordinated AI agents, clear data han
       const userId = req.user!.userId;
       const projectId = req.body?.projectId as string | undefined;
       logEventFireForget({ userId, projectId, type: "orchestrator_generated", data: {}, req });
+      trackUsageFireForget(userId, "orchestratorGenerations");
     } catch (streamErr) {
       req.log.error({ streamErr, model: MODELS.ORCHESTRATION }, `[AI:${MODELS.ORCHESTRATION}] Stream error`);
       if (!res.writableEnded) { res.write(`data: ${JSON.stringify({ error: String(streamErr) })}\n\n`); res.end(); }

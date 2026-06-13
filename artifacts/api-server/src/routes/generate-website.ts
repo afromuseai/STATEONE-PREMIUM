@@ -4,6 +4,7 @@ import { jsonrepair } from "jsonrepair";
 import { MODELS } from "../lib/models";
 import { onWebsiteGenerationComplete } from "../lib/business-graph";
 import { logEventFireForget } from "../lib/log-event";
+import { trackUsageFireForget } from "../lib/usage";
 
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 
@@ -1115,6 +1116,7 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
     res.write(`data: ${JSON.stringify({ done: true, data: qwenData, pipeline: { orchestration: ORCHESTRATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage } })}\n\n`);
 
     logEventFireForget({ userId, projectId: projectId as string | undefined, type: "website_generated", data: {}, req });
+    trackUsageFireForget(userId, "websiteGenerations");
 
     // V5: Update Business Graph Memory (fire-and-forget — never blocks the stream)
     onWebsiteGenerationComplete(
