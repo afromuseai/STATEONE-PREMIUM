@@ -1,0 +1,212 @@
+🧠 STAGEONE ADMIN SYSTEM — REPLIT AGENT BUILD PROMPT
+🚨 IMPORTANT INSTRUCTION
+
+You are working on an existing production-grade Next.js SaaS called STAGEONE.
+
+DO NOT:
+
+rewrite architecture
+break routing
+remove existing features
+redesign UI
+change auth system
+
+ONLY ADD missing backend + admin intelligence systems.
+
+🎯 GOAL
+
+Transform the Admin Panel into a real SaaS operating system backend, including:
+
+event tracking system
+geo intelligence
+session security upgrade
+admin analytics dashboard
+broadcast messaging system
+notification system
+🧱 PHASE 1 — EVENT SYSTEM (CRITICAL CORE)
+1. Create database table: events
+id
+userId
+projectId
+type
+data (json)
+country
+city
+ip
+createdAt
+2. Create event middleware
+
+Create helper:
+
+logEvent({
+  userId,
+  projectId,
+  type,
+  data,
+  req
+})
+
+Automatically extract:
+
+IP address
+country
+city
+user agent
+3. Add event tracking everywhere:
+
+Track:
+
+user_login
+project_created
+project_opened
+bi_generated
+website_generated
+chatbot_generated
+automation_created
+marcus_message
+marcus_task_created
+🌍 PHASE 2 — GEO INTELLIGENCE LAYER
+Add IP-based detection
+
+Use:
+
+request headers OR ipapi service
+
+Store in:
+
+users table:
+country
+city
+timezone
+lastSeenIP
+
+Also attach geo info to every event.
+
+🔐 PHASE 3 — SESSION TRUST SYSTEM (IMPORTANT FIX)
+
+Current cookies are not enough.
+
+Upgrade authentication tracking:
+
+Create sessions table
+id
+userId
+tokenHash
+ipAddress
+userAgent
+country
+city
+createdAt
+lastActive
+isValid
+Rule:
+
+NEVER trust frontend cookies alone.
+
+Always validate:
+
+sessionId → DB
+tokenHash → DB
+📢 PHASE 4 — BROADCAST MESSAGE SYSTEM
+
+Admin must be able to send messages to all users.
+
+Create table: broadcasts
+id
+title
+message
+type (info | warning | update | feature)
+target (all | free | pro | startup)
+createdAt
+expiresAt
+Create table: user_notifications
+id
+userId
+broadcastId
+read
+createdAt
+Feature:
+
+On login:
+
+fetch unread broadcasts
+show in notification bell
+allow marking as read
+📊 PHASE 5 — ADMIN ANALYTICS SYSTEM
+
+Upgrade Admin Panel (no redesign, only data layer + views)
+
+Add tabs:
+1. Overview
+total users
+active users (24h / 7d)
+total projects
+total events
+2. Event Stream (REAL TIME)
+live feed of system activity
+3. Funnel Analytics
+
+Track:
+
+BI → Website → Chatbot → Automation → Deployment
+
+Show drop-off rates.
+
+4. Geographic Insights
+users by country
+users by city
+5. Marcus Usage Metrics
+messages per user
+tasks created
+retention impact
+🧠 PHASE 6 — EVENT EMISSION STANDARD
+
+Every system action MUST emit event:
+
+Example:
+
+logEvent({
+  type: "bi_generated",
+  userId,
+  projectId,
+  data: {}
+})
+⚠️ CRITICAL ARCHITECTURE RULE
+
+EVENT SYSTEM IS THE SOURCE OF TRUTH.
+
+Everything in Admin Panel must derive from events.
+
+NOT from UI state.
+
+🚀 IMPLEMENTATION ORDER
+STEP 1
+events table
+logEvent helper
+middleware
+STEP 2
+geo detection
+attach to events
+STEP 3
+session tracking table
+STEP 4
+broadcast system
+STEP 5
+admin analytics UI
+💡 IMPORTANT PRODUCT RULE
+
+Do NOT overbuild UI.
+
+Build in this order:
+
+DATA → EVENTS → ADMIN LOGIC → UI
+🧠 FINAL RESULT
+
+After this upgrade, STAGEONE becomes:
+
+observable
+measurable
+analytics-driven
+production-grade SaaS system
+
+NOT just an AI generator.

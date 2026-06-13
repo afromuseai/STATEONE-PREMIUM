@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useLocation } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Shield, Users, BarChart3, Crown, Zap, Building2,
   Trash2, ChevronDown, RefreshCw, Search, UserCheck,
   TrendingUp, Globe, Bot, X, Check, AlertTriangle,
+  Radio, Activity, Megaphone, MapPin, Funnel,
+  Send, Clock, ArrowDown, ArrowUp,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
@@ -12,12 +14,16 @@ import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type Plan = "free" | "pro" | "enterprise"
+type AdminTab = "users" | "stats" | "events" | "analytics" | "broadcasts"
 
 interface AdminUser {
   id: string
   email: string
   name: string
   isAdmin: boolean
+  country?: string | null
+  city?: string | null
+  lastSeenAt?: string | null
   createdAt: string
   subscription: {
     plan: Plan
@@ -37,10 +43,63 @@ interface Stats {
   totalGenerations: number
 }
 
+interface AdminEvent {
+  id: string
+  type: string
+  userId: string | null
+  projectId: string | null
+  country: string | null
+  city: string | null
+  ip: string | null
+  createdAt: string
+  userEmail: string | null
+  userName: string | null
+}
+
+interface Analytics {
+  overview: {
+    totalUsers: number
+    activeUsers24h: number
+    activeUsers7d: number
+    totalEvents: number
+  }
+  funnel: Array<{ stage: string; count: number; pct: number }>
+  geo: Array<{ country: string | null; users: number }>
+  eventTypes: Array<{ type: string; total: number }>
+  recentEvents: AdminEvent[]
+  dailySignups: Array<{ date: string; signups: number }>
+}
+
+interface Broadcast {
+  id: string
+  title: string
+  message: string
+  type: string
+  target: string
+  createdAt: string
+  expiresAt: string | null
+}
+
 const PLAN_META = {
   free:       { icon: Zap,       color: "#10B981", label: "Free" },
   pro:        { icon: Crown,     color: "#D4AF37", label: "Pro" },
   enterprise: { icon: Building2, color: "#8B5CF6", label: "Enterprise" },
+}
+
+const EVENT_TYPE_META: Record<string, { color: string; label: string }> = {
+  user_login:        { color: "#6366F1", label: "Login" },
+  user_signup:       { color: "#10B981", label: "Signup" },
+  project_created:   { color: "#D4AF37", label: "Project" },
+  bi_generated:      { color: "#F59E0B", label: "BI Gen" },
+  website_generated: { color: "#8B5CF6", label: "Website" },
+  marcus_message:    { color: "#06B6D4", label: "Marcus" },
+}
+
+const BROADCAST_TYPE_META: Record<string, { color: string; label: string }> = {
+  info:    { color: "#6366F1", label: "Info" },
+  warning: { color: "#F59E0B", label: "Warning" },
+  update:  { color: "#10B981", label: "Update" },
+  feature: { color: "#D4AF37", label: "Feature" },
 }
 
 function PlanBadge({ plan }: { plan: Plan }) {
@@ -55,20 +114,66 @@ function PlanBadge({ plan }: { plan: Plan }) {
   )
 }
 
+function EventTypeBadge({ type }: { type: string }) {
+  const meta = EVENT_TYPE_META[type] ?? { color: "#6B7280", label: type }
+  return (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold font-mono"
+      style={{ background: `${meta.color}15`, color: meta.color, border: `1px solid ${meta.color}30` }}>
+      {meta.label}
+    </span>
+  )
+}
+
+function timeAgo(date: string): string {
+  const diff = Date.now() - new Date(date).getTime()
+  if (diff < 60000) return "just now"
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+  return `${Math.floor(diff / 86400000)}d ago`
+}
+
+function StatCard({ label, value, icon: Icon, color, sub }: { label: string; value: number | string; icon: React.ElementType; color: string; sub?: string }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl border border-white/8 bg-white/2 p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="p-2 rounded-xl" style={{ background: `${color}15` }}>
+          <Icon className="h-4 w-4" style={{ color }} />
+        </div>
+      </div>
+      <p className="text-2xl font-black text-foreground">{value}</p>
+      <p className="text-xs text-muted-foreground mt-1">{label}</p>
+      {sub && <p className="text-[10px] text-muted-foreground/50 mt-0.5">{sub}</p>}
+    </motion.div>
+  )
+}
+
 export default function AdminPage() {
   const { user } = useAuth()
   const [, setLocation] = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
+  const [analytics, setAnalytics] = useState<Analytics | null>(null)
+  const [events, setEvents] = useState<AdminEvent[]>([])
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [activeTab, setActiveTab] = useState<"users" | "stats">("users")
+  const [activeTab, setActiveTab] = useState<AdminTab>("users")
   const [changingPlan, setChangingPlan] = useState<string | null>(null)
   const [togglingAdmin, setTogglingAdmin] = useState<string | null>(null)
   const [deletingUser, setDeletingUser] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
+  const [eventTypeFilter, setEventTypeFilter] = useState<string>("all")
+  const [liveEvents, setLiveEvents] = useState<AdminEvent[]>([])
+  const [sseConnected, setSseConnected] = useState(false)
+  const sseRef = useRef<EventSource | null>(null)
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: "", message: "", type: "info", target: "all",
+  })
+  const [sendingBroadcast, setSendingBroadcast] = useState(false)
+  const [broadcastSent, setBroadcastSent] = useState(false)
 
   useEffect(() => {
     if (!user) { setLocation("/login"); return }
@@ -88,7 +193,54 @@ export default function AdminPage() {
     setLoading(false)
   }, [])
 
+  const loadAnalytics = useCallback(async () => {
+    try {
+      const data = await fetch("/api/admin/analytics", { credentials: "include" }).then(r => r.json())
+      if (data?.overview) setAnalytics(data)
+    } catch (_) {}
+  }, [])
+
+  const loadEvents = useCallback(async () => {
+    try {
+      const params = eventTypeFilter !== "all" ? `?type=${eventTypeFilter}` : ""
+      const data = await fetch(`/api/admin/events${params}`, { credentials: "include" }).then(r => r.json())
+      setEvents(data.events ?? [])
+    } catch (_) {}
+  }, [eventTypeFilter])
+
+  const loadBroadcasts = useCallback(async () => {
+    try {
+      const data = await fetch("/api/admin/broadcasts", { credentials: "include" }).then(r => r.json())
+      setBroadcasts(data.broadcasts ?? [])
+    } catch (_) {}
+  }, [])
+
   useEffect(() => { loadData() }, [loadData])
+
+  useEffect(() => {
+    if (activeTab === "analytics") loadAnalytics()
+    else if (activeTab === "events") loadEvents()
+    else if (activeTab === "broadcasts") loadBroadcasts()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts])
+
+  useEffect(() => {
+    if (activeTab !== "events") return
+    const es = new EventSource("/api/admin/events/stream", { withCredentials: true })
+    sseRef.current = es
+    es.addEventListener("open", () => setSseConnected(true))
+    es.addEventListener("message", (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data.event) {
+          setLiveEvents(prev => [data.event as AdminEvent, ...prev].slice(0, 50))
+        }
+      } catch (_) {}
+    })
+    es.addEventListener("error", () => setSseConnected(false))
+    return () => { es.close(); setSseConnected(false) }
+  }, [activeTab])
+
+  useEffect(() => { if (activeTab === "events") loadEvents() }, [eventTypeFilter, activeTab])
 
   const handleChangePlan = async (userId: string, plan: Plan) => {
     setChangingPlan(userId)
@@ -118,10 +270,43 @@ export default function AdminPage() {
     setDeletingUser(null)
   }
 
+  const handleSendBroadcast = async () => {
+    if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) return
+    setSendingBroadcast(true)
+    try {
+      await fetch("/api/admin/broadcasts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(broadcastForm),
+      })
+      setBroadcastSent(true)
+      setBroadcastForm({ title: "", message: "", type: "info", target: "all" })
+      await loadBroadcasts()
+      setTimeout(() => setBroadcastSent(false), 3000)
+    } catch (_) {}
+    setSendingBroadcast(false)
+  }
+
+  const handleDeleteBroadcast = async (id: string) => {
+    try {
+      await fetch(`/api/admin/broadcasts/${id}`, { method: "DELETE", credentials: "include" })
+      setBroadcasts(prev => prev.filter(b => b.id !== id))
+    } catch (_) {}
+  }
+
   const filtered = users.filter(u =>
     u.email.toLowerCase().includes(search.toLowerCase()) ||
     u.name.toLowerCase().includes(search.toLowerCase())
   )
+
+  const TABS: { id: AdminTab; label: string; icon: React.ElementType }[] = [
+    { id: "users",      label: "Users",      icon: Users },
+    { id: "stats",      label: "Stats",      icon: BarChart3 },
+    { id: "events",     label: "Events",     icon: Radio },
+    { id: "analytics",  label: "Analytics",  icon: TrendingUp },
+    { id: "broadcasts", label: "Broadcast",  icon: Megaphone },
+  ]
 
   if (!user?.isAdmin) return null
 
@@ -131,8 +316,8 @@ export default function AdminPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0 gap-4">
+          <div className="flex items-center gap-3 shrink-0">
             <div className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20">
               <Shield className="h-4 w-4 text-red-400" />
             </div>
@@ -141,23 +326,33 @@ export default function AdminPage() {
               <p className="text-[9px] text-muted-foreground tracking-widest uppercase">System Management</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1 bg-white/3 border border-white/8 rounded-xl p-1">
-              {(["users", "stats"] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                    activeTab === tab ? "bg-red-500/15 text-red-400 border border-red-500/25" : "text-muted-foreground hover:text-foreground"
-                  }`}>{tab === "users" ? "Users" : "Statistics"}</button>
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <div className="flex gap-1 bg-white/3 border border-white/8 rounded-xl p-1 shrink-0">
+              {TABS.map(({ id, label, icon: Icon }) => (
+                <button key={id} onClick={() => setActiveTab(id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                    activeTab === id ? "bg-red-500/15 text-red-400 border border-red-500/25" : "text-muted-foreground hover:text-foreground"
+                  }`}>
+                  <Icon className="h-3 w-3" />
+                  {label}
+                </button>
               ))}
             </div>
-            <button onClick={loadData} disabled={loading}
-              className="p-2 rounded-lg border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={() => {
+              loadData()
+              if (activeTab === "analytics") loadAnalytics()
+              if (activeTab === "events") loadEvents()
+              if (activeTab === "broadcasts") loadBroadcasts()
+            }} disabled={loading}
+              className="p-2 rounded-lg border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
+
+          {/* ── Stats Tab ─────────────────────────────────────────────────── */}
           {activeTab === "stats" && stats && (
             <div className="space-y-5">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -167,16 +362,7 @@ export default function AdminPage() {
                   { label: "Total Generations", value: stats.totalGenerations, icon: BarChart3, color: "#D4AF37" },
                   { label: "Pro+ Users", value: (stats.planCounts.pro ?? 0) + (stats.planCounts.enterprise ?? 0), icon: Crown, color: "#8B5CF6" },
                 ].map(({ label, value, icon: Icon, color }) => (
-                  <motion.div key={label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                    className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="p-2 rounded-xl" style={{ background: `${color}15` }}>
-                        <Icon className="h-4 w-4" style={{ color }} />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-black text-foreground">{value}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{label}</p>
-                  </motion.div>
+                  <StatCard key={label} label={label} value={value} icon={Icon} color={color} />
                 ))}
               </div>
 
@@ -186,8 +372,8 @@ export default function AdminPage() {
                   {(["free", "pro", "enterprise"] as Plan[]).map(plan => {
                     const meta = PLAN_META[plan]
                     const Icon = meta.icon
-                    const count = stats.planCounts[plan] ?? 0
-                    const pct = stats.totalUsers > 0 ? Math.round((count / stats.totalUsers) * 100) : 0
+                    const cnt = stats.planCounts[plan] ?? 0
+                    const pct = stats.totalUsers > 0 ? Math.round((cnt / stats.totalUsers) * 100) : 0
                     return (
                       <div key={plan} className="rounded-xl border border-white/8 bg-white/2 p-4">
                         <div className="flex items-center gap-2 mb-3">
@@ -196,7 +382,7 @@ export default function AdminPage() {
                           </div>
                           <span className="text-xs font-bold text-foreground">{meta.label}</span>
                         </div>
-                        <p className="text-xl font-black text-foreground">{count}</p>
+                        <p className="text-xl font-black text-foreground">{cnt}</p>
                         <p className="text-[10px] text-muted-foreground mt-1">{pct}% of users</p>
                         <div className="mt-2 h-1 rounded-full bg-white/8 overflow-hidden">
                           <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
@@ -211,18 +397,14 @@ export default function AdminPage() {
             </div>
           )}
 
+          {/* ── Users Tab ─────────────────────────────────────────────────── */}
           {activeTab === "users" && (
             <div className="space-y-4">
-              {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search users by email or name..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-white/8 bg-white/3 pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors"
-                />
+                <input type="text" placeholder="Search users by email or name..."
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-full rounded-xl border border-white/8 bg-white/3 pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors" />
               </div>
 
               {loading ? (
@@ -239,8 +421,6 @@ export default function AdminPage() {
                       <motion.div key={u.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.02 }}
                         className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
-
-                        {/* Row */}
                         <div className="flex items-center gap-4 px-5 py-4">
                           <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-black"
                             style={{ background: `${meta.color}20`, color: meta.color }}>
@@ -254,11 +434,16 @@ export default function AdminPage() {
                                   <Shield className="h-2 w-2" />Admin
                                 </span>
                               )}
-                              {u.id === user?.id && (
-                                <span className="text-[9px] text-muted-foreground/50">(you)</span>
+                              {u.id === user?.id && <span className="text-[9px] text-muted-foreground/50">(you)</span>}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
+                              {u.country && (
+                                <span className="text-[10px] text-muted-foreground/60 flex items-center gap-0.5">
+                                  <MapPin className="h-2.5 w-2.5" />{u.city ? `${u.city}, ` : ""}{u.country}
+                                </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
                           </div>
                           <div className="hidden md:flex items-center gap-3">
                             <PlanBadge plan={plan} />
@@ -277,18 +462,12 @@ export default function AdminPage() {
                           </button>
                         </div>
 
-                        {/* Expanded actions */}
                         <AnimatePresence>
                           {isExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="overflow-hidden border-t border-white/5"
-                            >
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
+                              className="overflow-hidden border-t border-white/5">
                               <div className="px-5 py-4 space-y-4">
-                                {/* Plan change */}
                                 <div>
                                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Change Plan</p>
                                   <div className="flex gap-2">
@@ -300,15 +479,10 @@ export default function AdminPage() {
                                         <button key={p} onClick={() => handleChangePlan(u.id, p)}
                                           disabled={isCurrent || changingPlan === u.id}
                                           className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all border ${
-                                            isCurrent
-                                              ? "border-white/10 bg-white/5 text-muted-foreground cursor-default"
+                                            isCurrent ? "border-white/10 bg-white/5 text-muted-foreground cursor-default"
                                               : "border-white/8 bg-white/3 text-foreground hover:bg-white/8"
                                           }`}>
-                                          {changingPlan === u.id ? (
-                                            <RefreshCw className="h-3 w-3 animate-spin" />
-                                          ) : (
-                                            <Icon className="h-3 w-3" style={{ color: m.color }} />
-                                          )}
+                                          {changingPlan === u.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" style={{ color: m.color }} />}
                                           {m.label}
                                           {isCurrent && <Check className="h-3 w-3 text-primary" />}
                                         </button>
@@ -316,54 +490,39 @@ export default function AdminPage() {
                                     })}
                                   </div>
                                 </div>
-
-                                {/* Admin toggle + Delete */}
                                 <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
+                                  <button onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
                                     disabled={togglingAdmin === u.id || u.id === user?.id}
                                     className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold border transition-all ${
-                                      u.isAdmin
-                                        ? "border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                                      u.isAdmin ? "border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
                                         : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground hover:bg-white/8"
                                     } disabled:opacity-50 disabled:cursor-not-allowed`}>
-                                    {togglingAdmin === u.id ? (
-                                      <RefreshCw className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      <Shield className="h-3 w-3" />
-                                    )}
+                                    {togglingAdmin === u.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
                                     {u.isAdmin ? "Revoke Admin" : "Grant Admin"}
                                   </button>
-
                                   {u.id !== user?.id && (
-                                    <>
-                                      {confirmDelete === u.id ? (
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs text-red-400 font-medium flex items-center gap-1">
-                                            <AlertTriangle className="h-3 w-3" />Delete {u.name}?
-                                          </span>
-                                          <button onClick={() => handleDelete(u.id)}
-                                            disabled={deletingUser === u.id}
-                                            className="rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold px-3 py-1.5 hover:bg-red-500/30 transition-all">
-                                            {deletingUser === u.id ? "Deleting..." : "Confirm"}
-                                          </button>
-                                          <button onClick={() => setConfirmDelete(null)}
-                                            className="rounded-lg border border-white/10 bg-white/5 text-muted-foreground text-xs px-3 py-1.5 hover:text-foreground transition-all">
-                                            Cancel
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <button onClick={() => setConfirmDelete(u.id)}
-                                          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border border-white/8 bg-white/3 text-muted-foreground hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/5 transition-all">
-                                          <Trash2 className="h-3 w-3" />
-                                          Delete User
+                                    confirmDelete === u.id ? (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-red-400 font-medium flex items-center gap-1">
+                                          <AlertTriangle className="h-3 w-3" />Delete {u.name}?
+                                        </span>
+                                        <button onClick={() => handleDelete(u.id)} disabled={deletingUser === u.id}
+                                          className="rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold px-3 py-1.5 hover:bg-red-500/30 transition-all">
+                                          {deletingUser === u.id ? "Deleting..." : "Confirm"}
                                         </button>
-                                      )}
-                                    </>
+                                        <button onClick={() => setConfirmDelete(null)}
+                                          className="rounded-lg border border-white/10 bg-white/5 text-muted-foreground text-xs px-3 py-1.5 hover:text-foreground transition-all">
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button onClick={() => setConfirmDelete(u.id)}
+                                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border border-white/8 bg-white/3 text-muted-foreground hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/5 transition-all">
+                                        <Trash2 className="h-3 w-3" />Delete User
+                                      </button>
+                                    )
                                   )}
                                 </div>
-
-                                {/* Usage mini-stats */}
                                 {u.subscription && (
                                   <div className="grid grid-cols-3 gap-2 pt-1">
                                     {[
@@ -396,7 +555,6 @@ export default function AdminPage() {
                       </motion.div>
                     )
                   })}
-
                   {filtered.length === 0 && (
                     <div className="text-center py-16 text-muted-foreground">
                       <Users className="h-8 w-8 mx-auto mb-3 opacity-30" />
@@ -407,6 +565,288 @@ export default function AdminPage() {
               )}
             </div>
           )}
+
+          {/* ── Events Tab ────────────────────────────────────────────────── */}
+          {activeTab === "events" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {["all", "user_login", "user_signup", "project_created", "bi_generated", "website_generated"].map(t => (
+                    <button key={t} onClick={() => setEventTypeFilter(t)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                        eventTypeFilter === t ? "bg-red-500/15 border-red-500/25 text-red-400" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"
+                      }`}>
+                      {t === "all" ? "All" : (EVENT_TYPE_META[t]?.label ?? t)}
+                    </button>
+                  ))}
+                </div>
+                <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-full ${sseConnected ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-white/5 text-muted-foreground border border-white/8"}`}>
+                  <motion.div className={`h-1.5 w-1.5 rounded-full ${sseConnected ? "bg-emerald-400" : "bg-muted-foreground"}`}
+                    animate={sseConnected ? { opacity: [1, 0.3, 1] } : {}} transition={{ duration: 1, repeat: Infinity }} />
+                  {sseConnected ? "Live" : "Offline"}
+                </div>
+              </div>
+
+              {liveEvents.length > 0 && (
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                  <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <Radio className="h-3 w-3" /> Live Feed ({liveEvents.length} new)
+                  </p>
+                  <div className="space-y-1.5">
+                    {liveEvents.slice(0, 5).map(ev => (
+                      <div key={ev.id} className="flex items-center gap-3 text-xs">
+                        <EventTypeBadge type={ev.type} />
+                        <span className="text-muted-foreground truncate">{ev.userEmail ?? "anonymous"}</span>
+                        {ev.country && <span className="text-muted-foreground/50 text-[10px]">{ev.country}</span>}
+                        <span className="ml-auto text-muted-foreground/50 shrink-0">{timeAgo(ev.createdAt)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-white/5">
+                        <th className="text-left px-4 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Type</th>
+                        <th className="text-left px-4 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest">User</th>
+                        <th className="text-left px-4 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest hidden md:table-cell">Location</th>
+                        <th className="text-right px-4 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest">When</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {events.map((ev, i) => (
+                        <motion.tr key={ev.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.01 }}
+                          className="border-b border-white/3 hover:bg-white/2 transition-colors">
+                          <td className="px-4 py-3"><EventTypeBadge type={ev.type} /></td>
+                          <td className="px-4 py-3 text-muted-foreground max-w-[160px] truncate">{ev.userEmail ?? "—"}</td>
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            {ev.country ? (
+                              <span className="text-muted-foreground/70 flex items-center gap-1">
+                                <MapPin className="h-2.5 w-2.5" />
+                                {ev.city ? `${ev.city}, ` : ""}{ev.country}
+                              </span>
+                            ) : <span className="text-muted-foreground/30">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right text-muted-foreground/60 whitespace-nowrap">{timeAgo(ev.createdAt)}</td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {events.length === 0 && (
+                    <div className="py-16 text-center text-muted-foreground">
+                      <Activity className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">No events recorded yet</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Analytics Tab ─────────────────────────────────────────────── */}
+          {activeTab === "analytics" && (
+            <div className="space-y-5">
+              {!analytics ? (
+                <div className="flex items-center justify-center py-20">
+                  <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin" />
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <StatCard label="Total Users" value={analytics.overview.totalUsers} icon={Users} color="#6366F1" />
+                    <StatCard label="Active (24h)" value={analytics.overview.activeUsers24h} icon={Activity} color="#10B981" sub="unique users" />
+                    <StatCard label="Active (7d)" value={analytics.overview.activeUsers7d} icon={TrendingUp} color="#D4AF37" sub="unique users" />
+                    <StatCard label="Total Events" value={analytics.overview.totalEvents} icon={Radio} color="#8B5CF6" />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                      <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                        <Funnel className="h-4 w-4 text-primary" /> Conversion Funnel
+                      </h3>
+                      <div className="space-y-3">
+                        {analytics.funnel.map((stage, i) => (
+                          <div key={stage.stage}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-bold text-foreground">{stage.stage}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{stage.count.toLocaleString()}</span>
+                                {i > 0 && (
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${stage.pct >= 50 ? "bg-emerald-500/10 text-emerald-400" : stage.pct >= 25 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"}`}>
+                                    {stage.pct}%
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                              <motion.div initial={{ width: 0 }} animate={{ width: `${stage.pct}%` }}
+                                transition={{ duration: 0.8, delay: i * 0.1 }}
+                                className="h-full rounded-full"
+                                style={{ background: i === 0 ? "#6366F1" : "#D4AF37" }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                      <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-primary" /> Top Countries
+                      </h3>
+                      {analytics.geo.length === 0 ? (
+                        <p className="text-xs text-muted-foreground py-8 text-center">No geo data yet — events will populate as users interact</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {analytics.geo.slice(0, 8).map((g, i) => {
+                            const maxUsers = analytics.geo[0]?.users ?? 1
+                            const pct = Math.round((g.users / maxUsers) * 100)
+                            return (
+                              <div key={g.country ?? i}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs text-foreground">{g.country ?? "Unknown"}</span>
+                                  <span className="text-[10px] text-muted-foreground">{g.users} users</span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                  <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                                    transition={{ duration: 0.6, delay: i * 0.05 }}
+                                    className="h-full rounded-full bg-primary/60" />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                    <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-primary" /> Event Breakdown
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {analytics.eventTypes.map(et => {
+                        const meta = EVENT_TYPE_META[et.type] ?? { color: "#6B7280", label: et.type }
+                        return (
+                          <div key={et.type} className="rounded-xl border border-white/8 bg-white/2 p-3">
+                            <EventTypeBadge type={et.type} />
+                            <p className="text-lg font-black text-foreground mt-2">{et.total.toLocaleString()}</p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Broadcasts Tab ────────────────────────────────────────────── */}
+          {activeTab === "broadcasts" && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                  <Megaphone className="h-4 w-4 text-primary" /> Send Broadcast
+                </h3>
+                <div className="space-y-3">
+                  <input type="text" placeholder="Broadcast title..."
+                    value={broadcastForm.title} onChange={e => setBroadcastForm(f => ({ ...f, title: e.target.value }))}
+                    className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors" />
+                  <textarea placeholder="Message to send to users..."
+                    value={broadcastForm.message} onChange={e => setBroadcastForm(f => ({ ...f, message: e.target.value }))}
+                    rows={3}
+                    className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors resize-none" />
+                  <div className="flex gap-3 flex-wrap">
+                    <div>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Type</p>
+                      <div className="flex gap-2">
+                        {(["info", "update", "feature", "warning"] as const).map(t => {
+                          const meta = BROADCAST_TYPE_META[t]
+                          return (
+                            <button key={t} onClick={() => setBroadcastForm(f => ({ ...f, type: t }))}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${broadcastForm.type === t ? "text-foreground" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}
+                              style={broadcastForm.type === t ? { background: `${meta.color}15`, borderColor: `${meta.color}30`, color: meta.color } : {}}>
+                              {meta.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Target</p>
+                      <div className="flex gap-2">
+                        {(["all", "free", "pro", "enterprise"] as const).map(t => (
+                          <button key={t} onClick={() => setBroadcastForm(f => ({ ...f, target: t }))}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize ${broadcastForm.target === t ? "bg-red-500/15 border-red-500/25 text-red-400" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button onClick={handleSendBroadcast}
+                      disabled={sendingBroadcast || !broadcastForm.title.trim() || !broadcastForm.message.trim()}
+                      className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                      {sendingBroadcast ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {sendingBroadcast ? "Sending..." : "Send Broadcast"}
+                    </button>
+                    <AnimatePresence>
+                      {broadcastSent && (
+                        <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                          className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
+                          <Check className="h-3.5 w-3.5" /> Sent successfully!
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Recent Broadcasts</h3>
+                {broadcasts.length === 0 ? (
+                  <div className="rounded-2xl border border-white/8 bg-white/2 py-16 text-center text-muted-foreground">
+                    <Megaphone className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No broadcasts sent yet</p>
+                  </div>
+                ) : broadcasts.map(b => {
+                  const meta = BROADCAST_TYPE_META[b.type] ?? BROADCAST_TYPE_META.info
+                  return (
+                    <motion.div key={b.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                      className="rounded-2xl border border-white/8 bg-white/2 px-5 py-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
+                              style={{ background: `${meta.color}15`, color: meta.color, border: `1px solid ${meta.color}30` }}>
+                              {meta.label}
+                            </span>
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-white/5 text-muted-foreground border border-white/8 capitalize">
+                              → {b.target}
+                            </span>
+                          </div>
+                          <p className="text-sm font-bold text-foreground">{b.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{b.message}</p>
+                          <p className="text-[10px] text-muted-foreground/50 mt-1.5 flex items-center gap-1">
+                            <Clock className="h-2.5 w-2.5" />
+                            {new Date(b.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <button onClick={() => handleDeleteBroadcast(b.id)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-colors shrink-0">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

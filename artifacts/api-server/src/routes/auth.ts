@@ -2,9 +2,10 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-import { db, usersTable, passwordResetTokensTable } from "@workspace/db";
+import { db, usersTable, passwordResetTokensTable, sessionsTable } from "@workspace/db";
 import { eq, and, gt, isNull } from "drizzle-orm";
 import { signToken, verifyToken } from "../middleware/auth";
+import { logEventFireForget, hashToken } from "../lib/log-event";
 import { z } from "zod";
 
 const router = Router();
@@ -74,6 +75,16 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
 
   const token = signToken({ userId: user.id, email: user.email, isAdmin: user.isAdmin });
   res.cookie("token", token, COOKIE_OPTS);
+
+  db.insert(sessionsTable).values({
+    userId: user.id,
+    tokenHash: hashToken(token),
+    ipAddress: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null,
+    userAgent: req.headers["user-agent"] ?? null,
+    country: (req.headers["cf-ipcountry"] as string) ?? null,
+  }).catch(() => {});
+  logEventFireForget({ userId: user.id, type: "user_signup", data: { email: user.email }, req });
+
   res.status(201).json({
     user: { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin, createdAt: user.createdAt },
   });
@@ -101,6 +112,16 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   const token = signToken({ userId: user.id, email: user.email, isAdmin: user.isAdmin });
   res.cookie("token", token, COOKIE_OPTS);
+
+  db.insert(sessionsTable).values({
+    userId: user.id,
+    tokenHash: hashToken(token),
+    ipAddress: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null,
+    userAgent: req.headers["user-agent"] ?? null,
+    country: (req.headers["cf-ipcountry"] as string) ?? null,
+  }).catch(() => {});
+  logEventFireForget({ userId: user.id, type: "user_login", data: { email: user.email }, req });
+
   res.json({
     user: { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin, createdAt: user.createdAt },
   });

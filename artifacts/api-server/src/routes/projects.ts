@@ -4,6 +4,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { z } from "zod";
 import { appendProjectEvent } from "../lib/project-events";
+import { logEventFireForget } from "../lib/log-event";
 
 const router = Router();
 
@@ -77,6 +78,7 @@ router.post("/projects", requireAuth, async (req, res): Promise<void> => {
     automationOutput: parsed.data.automationOutput ?? null,
     orchestratorOutput: parsed.data.orchestratorOutput ?? null,
   }).returning();
+  logEventFireForget({ userId, projectId: project.id, type: "project_created", data: { title: project.title }, req });
   res.status(201).json({ project });
 });
 

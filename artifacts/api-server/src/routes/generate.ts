@@ -6,6 +6,7 @@ import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
 import { onBusinessIntelligenceComplete } from "../lib/business-graph";
+import { logEventFireForget } from "../lib/log-event";
 
 const router = Router();
 
@@ -450,6 +451,8 @@ router.post("/generate", requireAuth, async (req, res) => {
         const finalData = JSON.parse(cleanContent);
 
         res.write(`data: ${JSON.stringify({ done: true, data: finalData })}\n\n`);
+
+        logEventFireForget({ userId, projectId: projectId as string | undefined, type: "bi_generated", data: { industry: detectedIndustry }, req });
 
         // V5: Update Business Graph Memory (fire-and-forget — never blocks the stream)
         onBusinessIntelligenceComplete(
