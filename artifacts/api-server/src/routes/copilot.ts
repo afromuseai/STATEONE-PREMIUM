@@ -257,9 +257,14 @@ ${langInstruction ? langInstruction : ""}`;
         }).from(workspaceTasksTable)
           .where(eq(workspaceTasksTable.userId, userId))
           .limit(20),
-    // Active project's event history — already guarded by userId in WHERE clause
+    // Active project's full module outputs — already guarded by userId in WHERE clause
     clientActiveProjectId
-      ? db.select({ projectEvents: projectsTable.projectEvents })
+      ? db.select({
+          projectEvents: projectsTable.projectEvents,
+          websiteOutput: projectsTable.websiteOutput,
+          chatbotOutput: projectsTable.chatbotOutput,
+          automationOutput: projectsTable.automationOutput,
+        })
           .from(projectsTable)
           .where(and(eq(projectsTable.id, clientActiveProjectId), eq(projectsTable.userId, userId)))
           .limit(1)
@@ -330,6 +335,106 @@ ${langInstruction ? langInstruction : ""}`;
     if (!raw || !Array.isArray(raw)) return [];
     return (raw as ProjectEventEntry[]).slice(0, 20);
   })();
+
+  // ─── CROSS-MODULE INTELLIGENCE extraction ─────────────────────────────────────
+  // Reads the JSONB output of every completed module and surfaces the assumptions
+  // each one makes about the business. Marcus uses this to detect conflicts.
+  const activeProjectData = (activeProjectRaw as {
+    projectEvents?: unknown;
+    websiteOutput?: unknown;
+    chatbotOutput?: unknown;
+    automationOutput?: unknown;
+  }[])[0];
+
+  const rawWebsiteOutput  = activeProjectData?.websiteOutput  as Record<string, unknown> | null | undefined;
+  const rawChatbotOutput  = activeProjectData?.chatbotOutput  as Record<string, unknown> | null | undefined;
+  const rawAutoOutput     = activeProjectData?.automationOutput as Record<string, unknown> | null | undefined;
+
+  let crossModuleBlock = "";
+  const hasModuleData = rawWebsiteOutput || rawChatbotOutput || rawAutoOutput || bi;
+  if (hasModuleData && activeProjectId) {
+    const moduleLines: string[] = [];
+
+    // BI assumptions
+    if (bi) {
+      const lines: string[] = [];
+      if (bi.targetMarket)                              lines.push(`Target market: "${bi.targetMarket}"`);
+      if (bi.strategicInsights?.growthBottleneck)       lines.push(`Growth bottleneck: ${bi.strategicInsights.growthBottleneck}`);
+      if (bi.strategicInsights?.fastestChannel)         lines.push(`Fastest channel: ${bi.strategicInsights.fastestChannel}`);
+      if (bi.competitiveAdvantage?.differentiation)     lines.push(`Differentiation: ${bi.competitiveAdvantage.differentiation}`);
+      if (bi.metrics?.marketDifficulty !== undefined)   lines.push(`Market difficulty score: ${bi.metrics.marketDifficulty}/10`);
+      if (bi.metrics?.revenueScalability !== undefined) lines.push(`Revenue scalability score: ${bi.metrics.revenueScalability}/10`);
+      if (lines.length > 0) moduleLines.push(`BUSINESS INTELLIGENCE assumes:\n${lines.map(l => `  • ${l}`).join("\n")}`);
+    }
+
+    // Website assumptions
+    if (rawWebsiteOutput) {
+      type WS = {
+        brand?: { tagline?: string; voice?: string };
+        websiteStrategy?: { icp?: string; mainValueProposition?: string; uniquePositioning?: string; primaryCTA?: string };
+        sections?: { hero?: { headline?: string; subheadline?: string }; pricing?: { model?: string; tiers?: { name?: string; price?: string }[] } };
+      };
+      const ws = rawWebsiteOutput as WS;
+      const lines: string[] = [];
+      if (ws.websiteStrategy?.icp)                   lines.push(`ICP: "${ws.websiteStrategy.icp}"`);
+      if (ws.websiteStrategy?.mainValueProposition)  lines.push(`Core promise: "${ws.websiteStrategy.mainValueProposition}"`);
+      if (ws.websiteStrategy?.uniquePositioning)     lines.push(`Positioning: "${ws.websiteStrategy.uniquePositioning}"`);
+      if (ws.sections?.hero?.headline)               lines.push(`Hero headline: "${ws.sections.hero.headline}"`);
+      if (ws.sections?.pricing?.model)               lines.push(`Pricing model: ${ws.sections.pricing.model}`);
+      if (ws.brand?.voice)                           lines.push(`Brand voice: ${ws.brand.voice}`);
+      if (lines.length > 0) moduleLines.push(`WEBSITE assumes:\n${lines.map(l => `  • ${l}`).join("\n")}`);
+    }
+
+    // Chatbot assumptions
+    if (rawChatbotOutput) {
+      type CB = { description?: string; name?: string; persona?: string; targetAudience?: string; purpose?: string; config?: { description?: string; persona?: string; targetAudience?: string; name?: string; purpose?: string } };
+      const cb = rawChatbotOutput as CB;
+      const lines: string[] = [];
+      const name     = cb.name     || cb.config?.name;
+      const purpose  = cb.purpose  || cb.config?.purpose;
+      const audience = cb.targetAudience || cb.config?.targetAudience;
+      const persona  = cb.persona  || cb.config?.persona;
+      const desc     = cb.description || cb.config?.description;
+      if (name)    lines.push(`Name: "${name}"`);
+      if (purpose) lines.push(`Purpose: "${purpose}"`);
+      if (audience) lines.push(`Serves: "${audience}"`);
+      if (persona) lines.push(`Persona: ${persona}`);
+      if (desc && !purpose && !audience) lines.push(`Description: "${desc.slice(0, 120)}"`);
+      if (lines.length > 0) moduleLines.push(`CHATBOT assumes:\n${lines.map(l => `  • ${l}`).join("\n")}`);
+    }
+
+    // Automation assumptions
+    if (rawAutoOutput) {
+      type AUTO = { title?: string; description?: string; config?: { title?: string; description?: string }; steps?: { name?: string }[] };
+      const auto = rawAutoOutput as AUTO;
+      const lines: string[] = [];
+      const title = auto.title || auto.config?.title;
+      const desc  = auto.description || auto.config?.description;
+      if (title) lines.push(`Title: "${title}"`);
+      if (desc)  lines.push(`Description: "${desc.slice(0, 120)}"`);
+      if (auto.steps?.length) lines.push(`Steps: ${auto.steps.slice(0, 4).map(s => s.name).filter(Boolean).join(" → ")}`);
+      if (lines.length > 0) moduleLines.push(`AUTOMATION assumes:\n${lines.map(l => `  • ${l}`).join("\n")}`);
+    }
+
+    if (moduleLines.length >= 2) {
+      crossModuleBlock = `
+
+=== CROSS-MODULE INTELLIGENCE ===
+These are the assumptions each built module currently makes about this project.
+Read all of them before responding. Look for assumptions that conflict with each other.
+
+${moduleLines.join("\n\n")}
+
+CONFLICT DETECTION — run this silently before every strategic response:
+1. Does the BI's target market match who the website is aimed at?
+2. Does the website's core promise align with the BI's differentiation thesis?
+3. Does the chatbot serve the same audience the BI and website target?
+4. Does the automation solve a problem the other modules actually identify?
+If conflicts exist: name the single most important one and state which module to fix first, and why.
+Use language like: "Your BI assumes X. Your website assumes Y. Those conflict — here's the one I'd fix first."
+=== END CROSS-MODULE INTELLIGENCE ===`;
+    }
+  }
 
   const pendingTasks = (projectTasksRaw as { title: string; status: string; completedAt: string | null }[]).filter(t => t.status === "pending");
   const doneTasks = (projectTasksRaw as { title: string; status: string; completedAt: string | null }[]).filter(t => t.status === "done");
@@ -969,6 +1074,46 @@ WRONG: "You should validate demand by interviewing customers."
 RIGHT: "The report assumes a 34% reduction in no-shows — that's the core value proposition and it hasn't been tested in the real world. Everything else (pricing, automation scope, expansion) depends on whether that assumption holds. My read: one pilot clinic, manual process, measure the actual no-show rate. That's the only thing that moves the needle this week."
 [end cofounder rule]
 
+[CALIBRATION RULES — confidence calibration, always active in all modes]
+These rules apply to every response. They cannot be disabled by any mode or layer.
+
+OVERCONFIDENCE IS FORBIDDEN — these patterns must never appear:
+- "This assumption is dead." → SAY INSTEAD: "This would significantly weaken my thesis."
+- "90% of clinics will..." → SAY INSTEAD: "My current estimate is that most clinics..." or "The model projects..."
+- "This will definitely fail." → SAY INSTEAD: "My read is this has a high probability of failing because..."
+- "This market is saturated." → SAY INSTEAD: "The analysis suggests this market is under heavy competitive pressure."
+- "Nobody wants this." → SAY INSTEAD: "We have no evidence yet that customers want this."
+- "This is the wrong strategy." → SAY INSTEAD: "My current read is this strategy has a significant flaw — [specific reason]."
+- Any absolute percentage claim without a sourced report figure behind it.
+
+CALIBRATED LANGUAGE — use these signals proportional to evidence strength:
+- For conclusions drawn from BI data: "The report suggests...", "The model projects...", "Based on the analysis..."
+- For your own reasoning: "My read is...", "If I had to bet...", "My current estimate..."
+- For risks: "The specific assumption I'd pressure-test is...", "This is the thesis that could break everything..."
+
+SHOWING WHAT WOULD CHANGE YOUR MIND:
+In strategic responses, briefly signal what evidence would revise your position.
+This is not hedging — it is calibrated reasoning. Example: "My read is X. That said — if [specific counter-evidence] emerged, I'd revise this significantly."
+[end calibration rules]
+
+[PROJECT-SPECIFIC REASONING — always active when project data exists]
+When project data is available (BI, website, chatbot, automation), reason from THIS project's specifics — not from generic strategy principles.
+
+REQUIRED LANGUAGE PATTERNS when project data exists:
+- "In this project..." not "In general, businesses should..."
+- "This website implies your ICP is..." not "A typical website would target..."
+- "This chatbot assumes..." not "Chatbots in this space usually..."
+- "Your BI identifies [specific figure/claim]..." not "Market analysis typically finds..."
+
+FORBIDDEN when project data is present and specific:
+- Generic strategic advice that ignores what's actually in the workspace
+- Business-school principles stated without grounding in the project's actual data
+- "You should think about your target audience" when the BI has already defined one
+- "Consider your positioning" when the website has already made positioning choices
+
+The goal: every strategic response should feel like it could only have been written for this specific project, by someone who has read everything in the workspace.
+[end project-specific reasoning]
+
 [Information Hierarchy — four distinct tiers, never conflate]
 Every piece of information you work with belongs to exactly one of these four tiers. Never mix them.
 
@@ -1102,6 +1247,28 @@ They work together — memory feeds the pressure map.
 EVIDENCE WINS — always:
 BI output may say "100,000 customers possible." If there are zero interviews: Customer Validation = RED.
 Projections and analysis never override evidence. Only real-world evidence moves a category to GREEN.
+
+EVIDENCE WEIGHTING HIERARCHY — not all evidence is equal, weight it proportionally:
+
+TIER 1 — Decisive (overrides all projections):
+  Paying customers · revenue transactions · signed contracts · live measured usage data
+  → One paying customer outweighs ten interviews. Revenue is the strongest signal in existence.
+
+TIER 2 — Significant (start updating your thesis):
+  5+ consistent customer interviews · signed LOIs · pilot results with measured outcomes
+  → Five interviews pointing the same direction starts to matter, especially if they contradict the BI.
+
+TIER 3 — Weak signal (note it, don't act on it alone):
+  1–2 interviews · one positive conversation · anecdotal feedback from a warm contact
+  → A single interview does NOT overturn a BI conclusion. One data point to watch, not a pivot trigger.
+
+TIER 4 — Noise (acknowledge, discard for decisions):
+  One person's opinion · one unverified claim · one cherry-picked data point in isolation
+
+APPLYING THE HIERARCHY:
+Before incorporating evidence into a strategic conclusion, name its tier in your reasoning.
+Never pivot a conclusion on Tier 3 or Tier 4 alone.
+Usage data (actual product behavior) outweighs stated opinion at any tier — behavior doesn't lie.
 
 BEHAVIOR — when user asks "what should I do next?" or equivalent:
 Do NOT answer based on what was discussed most recently.
@@ -2064,7 +2231,7 @@ This system is in production stabilization mode. The goal is to make STAGEONE sh
 - Do NOT introduce new systems, frameworks, or abstraction layers into recommendations
 - Keep all outputs consistent and deterministic
 [end ship mode]
-${workspaceBlock}${historyBlock}${businessGraphBlock}${businessBlock}${memoryBlock}
+${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${businessBlock}${memoryBlock}
 [Reference platform capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a list]${getLanguageInstruction(language)}`;
 
   res.setHeader("Content-Type", "text/event-stream");
