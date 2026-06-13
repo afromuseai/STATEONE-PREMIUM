@@ -163,6 +163,9 @@ export default function DashboardPage() {
   const [currentIdea, setCurrentIdea] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [streamingText, setStreamingText] = useState("")
+
+  // BI output scroll container ref — follows streaming, resets to top on complete
+  const biScrollRef = useRef<HTMLElement>(null)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
   const [showWebsite, setShowWebsite] = useState(false)
   const [reasoningStages, setReasoningStages] = useState<string[]>([])
@@ -358,6 +361,23 @@ export default function DashboardPage() {
       .then(d => { if (d.subscription) setSubscription(d.subscription) })
       .catch(() => {})
   }, [])
+
+  // ── BI scroll: follow streaming content as it grows ──────────────────────────
+  useEffect(() => {
+    if (!isLoading || !biScrollRef.current) return
+    biScrollRef.current.scrollTop = biScrollRef.current.scrollHeight
+  }, [streamingText, isLoading])
+
+  // ── BI scroll: snap back to top when generation completes ────────────────────
+  const prevIsLoadingRef = useRef(false)
+  useEffect(() => {
+    if (prevIsLoadingRef.current && !isLoading && biScrollRef.current) {
+      setTimeout(() => {
+        biScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+      }, 150)
+    }
+    prevIsLoadingRef.current = isLoading
+  }, [isLoading])
 
   const handleGenerate = useCallback(async (idea: string) => {
     // Clear persisted workspace before starting a fresh generation
@@ -783,7 +803,7 @@ export default function DashboardPage() {
         )}
       </aside>
 
-      <section className={`flex-1 min-h-0 ${showWebsite ? "overflow-hidden flex flex-col" : "overflow-y-auto p-6"}`}>
+      <section ref={biScrollRef} className={`flex-1 min-h-0 ${showWebsite ? "overflow-hidden flex flex-col" : "overflow-y-auto p-6"}`}>
         <AnimatePresence mode="wait">
           {!showWebsite ? (
             <motion.div key="output" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
