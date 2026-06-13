@@ -6,7 +6,7 @@ import {
   Trash2, ChevronDown, RefreshCw, Search, UserCheck,
   TrendingUp, Globe, Bot, X, Check, AlertTriangle,
   Radio, Activity, Megaphone, MapPin, Funnel,
-  Send, Clock, ArrowDown, ArrowUp,
+  Send, Clock, ArrowDown, ArrowUp, Mail, Eye,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
@@ -78,6 +78,17 @@ interface Broadcast {
   target: string
   createdAt: string
   expiresAt: string | null
+  deliveredCount?: number
+  emailDelivered?: boolean
+}
+
+interface SegmentCounts {
+  all: number
+  free: number
+  pro: number
+  startup: number
+  enterprise: number
+  emailEnabled: boolean
 }
 
 const PLAN_META: Record<string, { icon: React.ElementType; color: string; label: string }> = {
@@ -158,6 +169,9 @@ export default function AdminPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [events, setEvents] = useState<AdminEvent[]>([])
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([])
+  const [segmentCounts, setSegmentCounts] = useState<SegmentCounts | null>(null)
+  const [showEmailPreview, setShowEmailPreview] = useState(false)
+  const [sendEmail, setSendEmail] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState<AdminTab>("users")
@@ -211,8 +225,12 @@ export default function AdminPage() {
 
   const loadBroadcasts = useCallback(async () => {
     try {
-      const data = await fetch("/api/admin/broadcasts", { credentials: "include" }).then(r => r.json())
-      setBroadcasts(data.broadcasts ?? [])
+      const [bData, sData] = await Promise.all([
+        fetch("/api/admin/broadcasts", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/segment-counts", { credentials: "include" }).then(r => r.json()).catch(() => null),
+      ])
+      setBroadcasts(bData.broadcasts ?? [])
+      if (sData) setSegmentCounts(sData)
     } catch (_) {}
   }, [])
 
@@ -279,10 +297,12 @@ export default function AdminPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(broadcastForm),
+        body: JSON.stringify({ ...broadcastForm, sendEmail }),
       })
       setBroadcastSent(true)
       setBroadcastForm({ title: "", message: "", type: "info", target: "all" })
+      setSendEmail(false)
+      setShowEmailPreview(false)
       await loadBroadcasts()
       setTimeout(() => setBroadcastSent(false), 3000)
     } catch (_) {}
@@ -747,19 +767,36 @@ export default function AdminPage() {
           {/* ── Broadcasts Tab ────────────────────────────────────────────── */}
           {activeTab === "broadcasts" && (
             <div className="space-y-5">
+
+              {/* Compose card */}
               <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
-                  <Megaphone className="h-4 w-4 text-primary" /> Send Broadcast
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                    <Megaphone className="h-4 w-4 text-primary" /> Compose Broadcast
+                  </h3>
+                  {segmentCounts?.emailEnabled && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-1">
+                      <Check className="h-2.5 w-2.5" /> Email delivery enabled
+                    </span>
+                  )}
+                  {segmentCounts && !segmentCounts.emailEnabled && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/60 bg-white/3 border border-white/8 rounded-full px-2.5 py-1">
+                      In-app only · Configure SMTP to enable email
+                    </span>
+                  )}
+                </div>
+
                 <div className="space-y-3">
-                  <input type="text" placeholder="Broadcast title..."
+                  <input type="text" placeholder="Subject / title..."
                     value={broadcastForm.title} onChange={e => setBroadcastForm(f => ({ ...f, title: e.target.value }))}
                     className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors" />
-                  <textarea placeholder="Message to send to users..."
+                  <textarea placeholder="Write your message to users..."
                     value={broadcastForm.message} onChange={e => setBroadcastForm(f => ({ ...f, message: e.target.value }))}
-                    rows={3}
+                    rows={4}
                     className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors resize-none" />
-                  <div className="flex gap-3 flex-wrap">
+
+                  <div className="flex gap-5 flex-wrap">
+                    {/* Type picker */}
                     <div>
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Type</p>
                       <div className="flex gap-2">
@@ -775,24 +812,79 @@ export default function AdminPage() {
                         })}
                       </div>
                     </div>
+
+                    {/* Target picker with user counts */}
                     <div>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Target</p>
-                      <div className="flex gap-2">
-                        {(["all", "free", "pro", "enterprise"] as const).map(t => (
-                          <button key={t} onClick={() => setBroadcastForm(f => ({ ...f, target: t }))}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize ${broadcastForm.target === t ? "bg-red-500/15 border-red-500/25 text-red-400" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
-                            {t}
-                          </button>
-                        ))}
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Segment</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {(["all", "free", "pro", "startup", "enterprise"] as const).map(t => {
+                          const cnt = segmentCounts ? segmentCounts[t] : null
+                          return (
+                            <button key={t} onClick={() => setBroadcastForm(f => ({ ...f, target: t }))}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize ${broadcastForm.target === t ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                              {t}
+                              {cnt !== null && (
+                                <span className={`text-[9px] font-black rounded-full px-1.5 py-0.5 ${broadcastForm.target === t ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground/60"}`}>
+                                  {cnt}
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+
+                  {/* Email toggle + preview */}
+                  {segmentCounts?.emailEnabled && (
+                    <div className="flex items-center gap-3 pt-1">
+                      <button
+                        onClick={() => setSendEmail(v => !v)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${sendEmail ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-400" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                        <Mail className="h-3.5 w-3.5" />
+                        {sendEmail ? "Email delivery ON" : "Also send via email"}
+                      </button>
+                      {(broadcastForm.title.trim() || broadcastForm.message.trim()) && (
+                        <button
+                          onClick={() => setShowEmailPreview(v => !v)}
+                          className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
+                          <Eye className="h-3.5 w-3.5" />
+                          {showEmailPreview ? "Hide preview" : "Preview email"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Email preview iframe */}
+                  <AnimatePresence>
+                    {showEmailPreview && (broadcastForm.title.trim() || broadcastForm.message.trim()) && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden rounded-xl border border-white/8">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-3 py-2 border-b border-white/5 bg-white/3">
+                          Email Preview
+                        </p>
+                        <iframe
+                          key={`${broadcastForm.title}|${broadcastForm.message}|${broadcastForm.type}`}
+                          src={`/api/admin/broadcasts/preview-email?title=${encodeURIComponent(broadcastForm.title || "Broadcast Title")}&message=${encodeURIComponent(broadcastForm.message || "Your message here.")}&type=${broadcastForm.type}`}
+                          className="w-full border-0"
+                          style={{ height: 460, background: "#0a0a0f" }}
+                          title="Email preview"
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Send bar */}
+                  <div className="flex items-center gap-3 pt-1">
                     <button onClick={handleSendBroadcast}
                       disabled={sendingBroadcast || !broadcastForm.title.trim() || !broadcastForm.message.trim()}
-                      className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                      className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold bg-primary text-black hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                       {sendingBroadcast ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      {sendingBroadcast ? "Sending..." : "Send Broadcast"}
+                      {sendingBroadcast
+                        ? "Sending..."
+                        : sendEmail
+                          ? `Send to ${segmentCounts?.[broadcastForm.target as keyof SegmentCounts] ?? "?"} users (in-app + email)`
+                          : `Send to ${segmentCounts?.[broadcastForm.target as keyof SegmentCounts] ?? "?"} users`}
                     </button>
                     <AnimatePresence>
                       {broadcastSent && (
@@ -806,8 +898,9 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* Recent broadcasts */}
               <div className="space-y-2">
-                <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Recent Broadcasts</h3>
+                <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Broadcast History</h3>
                 {broadcasts.length === 0 ? (
                   <div className="rounded-2xl border border-white/8 bg-white/2 py-16 text-center text-muted-foreground">
                     <Megaphone className="h-8 w-8 mx-auto mb-3 opacity-30" />
@@ -820,7 +913,7 @@ export default function AdminPage() {
                       className="rounded-2xl border border-white/8 bg-white/2 px-5 py-4">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
                               style={{ background: `${meta.color}15`, color: meta.color, border: `1px solid ${meta.color}30` }}>
                               {meta.label}
@@ -828,6 +921,16 @@ export default function AdminPage() {
                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-white/5 text-muted-foreground border border-white/8 capitalize">
                               → {b.target}
                             </span>
+                            {(b.deliveredCount ?? 0) > 0 && (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <Users className="h-2.5 w-2.5" /> {b.deliveredCount} delivered
+                              </span>
+                            )}
+                            {b.emailDelivered && (
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                <Mail className="h-2.5 w-2.5" /> emailed
+                              </span>
+                            )}
                           </div>
                           <p className="text-sm font-bold text-foreground">{b.title}</p>
                           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{b.message}</p>

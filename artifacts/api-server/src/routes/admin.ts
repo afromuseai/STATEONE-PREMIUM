@@ -5,6 +5,7 @@ import { eq, desc, gte, lt, and, count, sql, isNotNull, ne } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../middleware/auth";
 import { PLAN_LIMITS, getOrCreateSubscription } from "./subscriptions";
 import { setAdminBroadcast } from "../lib/log-event";
+import { isEmailConfigured, sendBulkEmails, buildEmailHtml } from "../lib/email";
 import type { Response } from "express";
 
 const router = Router();
@@ -380,7 +381,7 @@ router.get("/admin/sessions", requireAdmin, async (req, res): Promise<void> => {
   res.json({ sessions });
 });
 
-// ─── NEW: Broadcasts ─────────────────────────────────────────────────────────
+// ─── Broadcasts ──────────────────────────────────────────────────────────────
 
 router.get("/admin/broadcasts", requireAdmin, async (_req, res): Promise<void> => {
   const broadcasts = await db
@@ -392,13 +393,41 @@ router.get("/admin/broadcasts", requireAdmin, async (_req, res): Promise<void> =
   res.json({ broadcasts });
 });
 
+// Segment counts — how many users each target would reach
+router.get("/admin/segment-counts", requireAdmin, async (_req, res): Promise<void> => {
+  const [total, freeSubs, proSubs, startupSubs, enterpriseSubs] = await Promise.all([
+    db.select({ c: count() }).from(usersTable),
+    db.select({ c: count() }).from(subscriptionsTable).where(eq(subscriptionsTable.plan, "free")),
+    db.select({ c: count() }).from(subscriptionsTable).where(eq(subscriptionsTable.plan, "pro")),
+    db.select({ c: count() }).from(subscriptionsTable).where(eq(subscriptionsTable.plan, "startup")),
+    db.select({ c: count() }).from(subscriptionsTable).where(eq(subscriptionsTable.plan, "enterprise")),
+  ]);
+  res.json({
+    all:        total[0]?.c ?? 0,
+    free:       freeSubs[0]?.c ?? 0,
+    pro:        proSubs[0]?.c ?? 0,
+    startup:    startupSubs[0]?.c ?? 0,
+    enterprise: enterpriseSubs[0]?.c ?? 0,
+    emailEnabled: isEmailConfigured(),
+  });
+});
+
+// Email preview — returns HTML for the iframe
+router.get("/admin/broadcasts/preview-email", requireAdmin, (req, res): void => {
+  const { title = "Broadcast Title", message = "Your message here.", type = "info" } = req.query as Record<string, string>;
+  const html = buildEmailHtml({ title, message, type });
+  res.setHeader("Content-Type", "text/html");
+  res.send(html);
+});
+
 router.post("/admin/broadcasts", requireAdmin, async (req, res): Promise<void> => {
-  const { title, message, type, target, expiresAt } = req.body as {
+  const { title, message, type, target, expiresAt, sendEmail } = req.body as {
     title?: string;
     message?: string;
     type?: string;
     target?: string;
     expiresAt?: string;
+    sendEmail?: boolean;
   };
 
   if (!title?.trim() || !message?.trim()) {
@@ -413,6 +442,9 @@ router.post("/admin/broadcasts", requireAdmin, async (req, res): Promise<void> =
   const broadcastTarget = validTargets.includes(target ?? "") ? target! : "all";
   const adminId = req.user!.userId;
 
+  // Resolve target users synchronously so we can store the count
+  const recipients = await getTargetRecipients(broadcastTarget);
+
   const [broadcast] = await db.insert(broadcastsTable).values({
     title: title.trim(),
     message: message.trim(),
@@ -420,12 +452,22 @@ router.post("/admin/broadcasts", requireAdmin, async (req, res): Promise<void> =
     target: broadcastTarget,
     createdBy: adminId,
     expiresAt: expiresAt ? new Date(expiresAt) : null,
+    deliveredCount: recipients.length,
+    emailDelivered: false,
   }).returning();
 
-  // Fan out to target users via existing notifications system (fire-and-forget)
-  fanOutBroadcast(broadcast.id, broadcast.title, broadcast.message, broadcastType, broadcastTarget).catch(() => {});
+  // Fan-out notifications + optional email (fire-and-forget)
+  fanOutBroadcast(broadcast.id, title.trim(), message.trim(), broadcastType, recipients)
+    .then(async () => {
+      if (sendEmail && isEmailConfigured()) {
+        const emailRecipients = recipients.filter(r => r.email);
+        await sendBulkEmails(emailRecipients.map(r => ({ email: r.email!, name: r.name ?? r.email! })), title.trim(), message.trim(), broadcastType);
+        await db.update(broadcastsTable).set({ emailDelivered: true }).where(eq(broadcastsTable.id, broadcast.id));
+      }
+    })
+    .catch(() => {});
 
-  res.status(201).json({ broadcast });
+  res.status(201).json({ broadcast: { ...broadcast, deliveredCount: recipients.length } });
 });
 
 router.delete("/admin/broadcasts/:id", requireAdmin, async (req, res): Promise<void> => {
@@ -434,26 +476,29 @@ router.delete("/admin/broadcasts/:id", requireAdmin, async (req, res): Promise<v
   res.json({ ok: true });
 });
 
-// Fan out broadcast to all matching users as notifications
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function getTargetRecipients(target: string): Promise<Array<{ id: string; email?: string; name?: string }>> {
+  if (target === "all") {
+    return db.select({ id: usersTable.id, email: usersTable.email, name: usersTable.name }).from(usersTable);
+  }
+  const subs = await db
+    .select({ userId: subscriptionsTable.userId })
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.plan, target));
+  if (subs.length === 0) return [];
+  const userIds = subs.map(s => s.userId);
+  const users = await db.select({ id: usersTable.id, email: usersTable.email, name: usersTable.name }).from(usersTable);
+  return users.filter(u => userIds.includes(u.id));
+}
+
 async function fanOutBroadcast(
   broadcastId: string,
   title: string,
   message: string,
   type: string,
-  target: string,
+  users: Array<{ id: string }>,
 ) {
-  let users: { id: string }[];
-
-  if (target === "all") {
-    users = await db.select({ id: usersTable.id }).from(usersTable);
-  } else {
-    const subs = await db
-      .select({ userId: subscriptionsTable.userId })
-      .from(subscriptionsTable)
-      .where(eq(subscriptionsTable.plan, target));
-    users = subs.map(s => ({ id: s.userId }));
-  }
-
   const severityMap: Record<string, "info" | "success" | "warning" | "error"> = {
     info: "info",
     update: "success",
