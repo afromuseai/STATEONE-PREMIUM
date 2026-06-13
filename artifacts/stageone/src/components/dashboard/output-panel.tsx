@@ -1,3 +1,4 @@
+import { useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   BarChart3, Bot, Globe, Rocket, Workflow, FileText, Target, TrendingUp,
@@ -493,6 +494,15 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
   partialData: Partial<BusinessIntelligence>; reasoningStages?: string[]
 }) {
   const { t } = useLang()
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to bottom as new sections stream in
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [partialData, streamingText])
+
   const hasMetrics    = !!partialData.metrics
   const hasSnapshot   = !!partialData.businessSnapshot
   const hasInsights   = !!partialData.strategicInsights
@@ -521,7 +531,7 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
 
       <StageIndicator currentStage={generationStage} industry={industry} reasoningStages={reasoningStages} />
 
-      <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto pr-1">
         <AnimatePresence>
           {hasMetrics ? (
             <motion.div key="metrics-live" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
@@ -684,6 +694,15 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
   const { t } = useLang()
   const ot = t.workspace.output
   const isFree = !userPlan || userPlan === "free"
+  const resultsScrollRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to top when completed results first mount (generation just finished)
+  useEffect(() => {
+    if (!isLoading && data && resultsScrollRef.current) {
+      resultsScrollRef.current.scrollTop = 0
+    }
+  }, [isLoading, data])
+
   if (isLoading) {
     return (
       <div className="h-full overflow-y-auto pr-2">
@@ -700,7 +719,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
   if (!data) return <EmptyState />
 
   return (
-    <div className="h-full overflow-y-auto pr-2">
+    <div ref={resultsScrollRef} className="h-full overflow-y-auto pr-2">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
           {/* Header */}
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-5 flex items-center justify-between">
