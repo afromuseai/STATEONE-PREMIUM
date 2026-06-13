@@ -94,6 +94,7 @@ router.get("/projects/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
   res.json({ project });
+  logEventFireForget({ userId, projectId: id, type: "project_opened", data: { title: project.title }, req });
 });
 
 router.patch("/projects/:id", requireAuth, async (req, res): Promise<void> => {

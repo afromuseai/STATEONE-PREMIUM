@@ -1,6 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, subscriptionsTable, eventsTable, broadcastsTable, notificationsTable, sessionsTable } from "@workspace/db";
+import { db, usersTable, subscriptionsTable, eventsTable, broadcastsTable, notificationsTable, sessionsTable, projectsTable } from "@workspace/db";
 import { eq, desc, gte, lt, and, count, sql, isNotNull, ne } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../middleware/auth";
 import { PLAN_LIMITS, getOrCreateSubscription } from "./subscriptions";
@@ -259,6 +259,7 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
     activeUsers24hRow,
     activeUsers7dRow,
     totalEventsRow,
+    totalProjectsRow,
     biGeneratedRow,
     websiteGeneratedRow,
     chatbotGeneratedRow,
@@ -279,6 +280,8 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       .where(and(gte(eventsTable.createdAt, ago7d), isNotNull(eventsTable.userId))),
 
     db.select({ total: count() }).from(eventsTable),
+
+    db.select({ total: count() }).from(projectsTable),
 
     db.select({ total: count() }).from(eventsTable).where(eq(eventsTable.type, "bi_generated")),
 
@@ -341,6 +344,7 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       activeUsers24h: Number(activeUsers24hRow[0]?.total ?? 0),
       activeUsers7d: Number(activeUsers7dRow[0]?.total ?? 0),
       totalEvents: totalEventsRow[0]?.total ?? 0,
+      totalProjects: totalProjectsRow[0]?.total ?? 0,
     },
     funnel: [
       { stage: "BI Generated",       count: totalBi,        pct: 100 },

@@ -3,6 +3,7 @@ import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
+import { logEventFireForget } from "../lib/log-event";
 
 const router = Router();
 
@@ -106,6 +107,9 @@ Create a complete orchestration chain with coordinated AI agents, clear data han
         res.write(`data: ${JSON.stringify({ error: "Failed to parse AI response — please try again" })}\n\n`);
       }
       res.end();
+      const userId = req.user!.userId;
+      const projectId = req.body?.projectId as string | undefined;
+      logEventFireForget({ userId, projectId, type: "orchestrator_generated", data: {}, req });
     } catch (streamErr) {
       req.log.error({ streamErr, model: MODELS.ORCHESTRATION }, `[AI:${MODELS.ORCHESTRATION}] Stream error`);
       if (!res.writableEnded) { res.write(`data: ${JSON.stringify({ error: String(streamErr) })}\n\n`); res.end(); }

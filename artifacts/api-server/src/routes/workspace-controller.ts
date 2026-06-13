@@ -4,6 +4,7 @@ import { db, workspaceTasksTable, projectsTable } from "@workspace/db";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { appendProjectEvent } from "../lib/project-events";
+import { logEventFireForget } from "../lib/log-event";
 
 const router = Router();
 
@@ -37,6 +38,7 @@ router.post("/workspace/tasks", requireAuth, async (req, res): Promise<void> => 
   ).returning();
 
   res.status(201).json({ tasks: rows });
+  logEventFireForget({ userId, projectId: projectId ?? undefined, type: "marcus_task_created", data: { count: rows.length }, req });
 });
 
 // ─── Get tasks ───────────────────────────────────────────────────────────────

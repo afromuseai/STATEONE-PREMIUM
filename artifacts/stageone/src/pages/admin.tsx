@@ -6,7 +6,7 @@ import {
   Trash2, ChevronDown, RefreshCw, Search, UserCheck,
   TrendingUp, Globe, Bot, X, Check, AlertTriangle,
   Radio, Activity, Megaphone, MapPin, Funnel,
-  Send, Clock, ArrowDown, ArrowUp, Mail, Eye,
+  Send, Clock, ArrowDown, ArrowUp, Mail, Eye, FolderOpen,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
@@ -62,6 +62,7 @@ interface Analytics {
     activeUsers24h: number
     activeUsers7d: number
     totalEvents: number
+    totalProjects: number
   }
   funnel: Array<{ stage: string; count: number; pct: number }>
   geo: Array<{ country: string | null; users: number }>
@@ -99,12 +100,18 @@ const PLAN_META: Record<string, { icon: React.ElementType; color: string; label:
 }
 
 const EVENT_TYPE_META: Record<string, { color: string; label: string }> = {
-  user_login:        { color: "#6366F1", label: "Login" },
-  user_signup:       { color: "#10B981", label: "Signup" },
-  project_created:   { color: "#D4AF37", label: "Project" },
-  bi_generated:      { color: "#F59E0B", label: "BI Gen" },
-  website_generated: { color: "#8B5CF6", label: "Website" },
-  marcus_message:    { color: "#06B6D4", label: "Marcus" },
+  user_login:            { color: "#6366F1", label: "Login" },
+  user_signup:           { color: "#10B981", label: "Signup" },
+  user_logout:           { color: "#6B7280", label: "Logout" },
+  project_created:       { color: "#D4AF37", label: "Project" },
+  project_opened:        { color: "#FBBF24", label: "Opened" },
+  bi_generated:          { color: "#F59E0B", label: "BI Gen" },
+  website_generated:     { color: "#8B5CF6", label: "Website" },
+  chatbot_generated:     { color: "#EC4899", label: "Chatbot" },
+  automation_created:    { color: "#F97316", label: "Automation" },
+  orchestrator_generated:{ color: "#7C3AED", label: "Orchestrator" },
+  marcus_message:        { color: "#06B6D4", label: "Marcus" },
+  marcus_task_created:   { color: "#0EA5E9", label: "Task" },
 }
 
 const BROADCAST_TYPE_META: Record<string, { color: string; label: string }> = {
@@ -592,7 +599,7 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2 flex-wrap">
-                  {["all", "user_login", "user_signup", "project_created", "bi_generated", "website_generated"].map(t => (
+                  {["all", "user_signup", "user_login", "user_logout", "project_created", "project_opened", "bi_generated", "website_generated", "chatbot_generated", "automation_created", "orchestrator_generated", "marcus_message", "marcus_task_created"].map(t => (
                     <button key={t} onClick={() => setEventTypeFilter(t)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
                         eventTypeFilter === t ? "bg-red-500/15 border-red-500/25 text-red-400" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"
@@ -676,10 +683,11 @@ export default function AdminPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <StatCard label="Total Users" value={analytics.overview.totalUsers} icon={Users} color="#6366F1" />
                     <StatCard label="Active (24h)" value={analytics.overview.activeUsers24h} icon={Activity} color="#10B981" sub="unique users" />
                     <StatCard label="Active (7d)" value={analytics.overview.activeUsers7d} icon={TrendingUp} color="#D4AF37" sub="unique users" />
+                    <StatCard label="Total Projects" value={analytics.overview.totalProjects ?? 0} icon={FolderOpen} color="#F59E0B" />
                     <StatCard label="Total Events" value={analytics.overview.totalEvents} icon={Radio} color="#8B5CF6" />
                   </div>
 

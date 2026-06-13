@@ -127,7 +127,14 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   });
 });
 
-router.post("/auth/logout", (_req, res): void => {
+router.post("/auth/logout", (req, res): void => {
+  const token = req.cookies?.token ?? req.headers.authorization?.replace("Bearer ", "");
+  if (token) {
+    const payload = verifyToken(token);
+    if (payload?.userId) {
+      logEventFireForget({ userId: payload.userId, type: "user_logout", data: {}, req });
+    }
+  }
   res.clearCookie("token", { path: "/" });
   res.json({ ok: true });
 });

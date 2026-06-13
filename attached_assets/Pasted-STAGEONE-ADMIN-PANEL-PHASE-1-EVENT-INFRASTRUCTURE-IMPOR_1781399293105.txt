@@ -1,0 +1,178 @@
+STAGEONE ADMIN PANEL — PHASE 1 EVENT INFRASTRUCTURE
+
+IMPORTANT:
+
+Do NOT redesign the Admin Panel.
+
+Do NOT modify existing authentication.
+
+Do NOT change project architecture.
+
+Do NOT remove any current functionality.
+
+This task is ONLY to build the foundational analytics infrastructure that future admin features will depend on.
+
+====================================
+GOAL
+====
+
+Create a centralized event tracking system for STAGEONE.
+
+Every major action inside the platform should be trackable, queryable, and visible in the Admin Panel.
+
+This system becomes the source of truth for:
+
+* analytics
+* growth metrics
+* user activity
+* Marcus metrics
+* funnel tracking
+* future reporting
+
+====================================
+DATABASE
+========
+
+Create table:
+
+events
+
+Fields:
+
+* id
+* userId
+* projectId (nullable)
+* eventType
+* metadata (jsonb)
+* country
+* city
+* ipAddress
+* createdAt
+
+Indexes:
+
+* userId
+* projectId
+* eventType
+* createdAt
+
+====================================
+EVENT LOGGER
+============
+
+Create centralized helper:
+
+logEvent()
+
+Example:
+
+logEvent({
+userId,
+projectId,
+eventType,
+metadata,
+request
+})
+
+The helper should automatically enrich events with:
+
+* IP address
+* country
+* city
+* timestamp
+
+====================================
+TRACK THESE EVENTS
+==================
+
+Authentication:
+
+* user_signup
+* user_login
+* user_logout
+
+Projects:
+
+* project_created
+* project_opened
+
+Generators:
+
+* bi_generated
+* website_generated
+* chatbot_generated
+* automation_generated
+* orchestrator_generated
+
+Marcus:
+
+* marcus_message
+* marcus_task_created
+
+====================================
+ADMIN PANEL
+===========
+
+Add new section:
+
+Analytics
+
+Inside Analytics create:
+
+1. Overview
+
+Display:
+
+* total users
+* active users (24h)
+* total projects
+* total events
+
+2. Event Feed
+
+Show newest events first.
+
+Columns:
+
+* user
+* event type
+* project
+* timestamp
+
+Allow filtering by:
+
+* user
+* event type
+
+====================================
+IMPLEMENTATION RULES
+====================
+
+All future analytics must derive from the events table.
+
+Do NOT build duplicate tracking systems.
+
+Do NOT hardcode metrics.
+
+Admin metrics should be computed from event data.
+
+====================================
+IMPORTANT
+=========
+
+This is infrastructure work.
+
+Focus on:
+
+* reliability
+* clean architecture
+* centralized logging
+* scalability
+
+Do NOT build advanced dashboards yet.
+
+Do NOT build broadcasts yet.
+
+Do NOT build notifications yet.
+
+The goal is to establish the event foundation that everything else will use.
