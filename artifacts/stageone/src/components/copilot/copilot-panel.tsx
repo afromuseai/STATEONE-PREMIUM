@@ -627,6 +627,15 @@ export function CopilotPanel() {
     emitWorkspaceSignal,
   } = useWorkspaceController();
 
+  const [userPlan, setUserPlan] = useState<string>("loading");
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/subscriptions/me", { credentials: "include" })
+      .then(r => r.json())
+      .then(d => setUserPlan(d.subscription?.plan ?? "free"))
+      .catch(() => setUserPlan("free"));
+  }, [user?.id]);
+
   const { data: projectsData } = useQuery({
     // ISOLATION: key must include userId so a new user never gets a previous
     // user's cached project list (React Query cache persists across account
@@ -1609,7 +1618,41 @@ export function CopilotPanel() {
               </div>
             </div>
 
-            {!minimized && (
+            {!minimized && userPlan === "free" && (
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-5">
+                <div className="p-3.5 rounded-2xl bg-primary/10 border border-primary/20">
+                  <ShieldCheck className="h-7 w-7 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-foreground mb-1.5">Agent Marcus is Pro+</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed max-w-[260px]">
+                    Upgrade to Pro to unlock your AI co-founder — business strategy, execution planning, and cross-system intelligence.
+                  </p>
+                </div>
+                <div className="space-y-2 w-full">
+                  <a href="/pricing"
+                    className="flex items-center justify-center gap-2 w-full rounded-xl bg-primary text-primary-foreground text-sm font-bold py-2.5 hover:bg-primary/90 transition-all"
+                    onClick={() => setOpen(false)}>
+                    <Zap className="h-3.5 w-3.5" /> Upgrade to Pro
+                  </a>
+                  <button onClick={() => setOpen(false)}
+                    className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1">
+                    Maybe later
+                  </button>
+                </div>
+                <div className="w-full rounded-xl border border-white/6 bg-white/2 p-3.5 text-left space-y-2">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">What Marcus does</p>
+                  {["Strategic business co-founder", "Cross-system execution planner", "AI memory & context awareness", "Website, chatbot & automation control"].map(f => (
+                    <div key={f} className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
+                      <span className="text-[11px] text-muted-foreground">{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!minimized && userPlan !== "free" && userPlan !== "loading" && (
               <>
                 {/* Workspace Memory Panel */}
                 <AnimatePresence>

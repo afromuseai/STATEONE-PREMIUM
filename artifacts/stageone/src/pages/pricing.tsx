@@ -43,6 +43,7 @@ const PLANS = [
       "AI Website Builder",
       "AI Chatbot Generator",
       "Automation Builder",
+      "Agent Marcus (AI Copilot)",
       "AI memory & cross-context",
       "Project history + CRUD",
     ],
@@ -61,6 +62,7 @@ const PLANS = [
     features: [
       "500 AI generations / month",
       "Everything in Pro",
+      "Agent Marcus (AI Copilot)",
       "Extended AI reasoning depth",
       "Proactive intelligence insights",
       "Growth strategy engine",
@@ -81,6 +83,7 @@ const PLANS = [
     color: "#64748B",
     features: [
       "Unlimited AI generations",
+      "Agent Marcus (AI Copilot)",
       "Team collaboration",
       "API access",
       "Custom integrations",
@@ -99,6 +102,7 @@ const COMPARISON_ROWS: { label: string; free: boolean | string; pro: boolean | s
   { label: "AI Website Builder",            free: false,          pro: true,              startup: true },
   { label: "AI Chatbot Generator",          free: false,          pro: true,              startup: true },
   { label: "Automation Builder",            free: false,          pro: true,              startup: true },
+  { label: "Agent Marcus (AI Copilot)",     free: false,          pro: true,              startup: true },
   { label: "AI Memory & cross-context",     free: false,          pro: true,              startup: true },
   { label: "Project history & CRUD",        free: "Limited",      pro: true,              startup: true },
   { label: "Token depth per generation",    free: "1,800",        pro: "3,500",           startup: "5,000" },

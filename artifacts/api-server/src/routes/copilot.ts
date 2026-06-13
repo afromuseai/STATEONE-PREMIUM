@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
-import { db, projectsTable, agentsTable, aiMemoryTable, workspaceTasksTable } from "@workspace/db";
+import { db, projectsTable, agentsTable, aiMemoryTable, workspaceTasksTable, subscriptionsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -149,6 +149,19 @@ router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
 
   const userId = req.user!.userId;
   const { messages, businessContext, workspaceContext, language } = parsed.data;
+
+  // ─── Plan enforcement: Marcus is Pro+ only ────────────────────────────────
+  if (!req.user!.isAdmin) {
+    const subs = await db.select({ plan: subscriptionsTable.plan })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.userId, userId))
+      .limit(1);
+    const plan = subs[0]?.plan ?? "free";
+    if (plan === "free") {
+      res.status(403).json({ error: "Marcus requires a Pro plan or above.", upgrade: true });
+      return;
+    }
+  }
 
   // ─── Identity query early-exit ────────────────────────────────────────────────
   // Detect questions about Marcus's identity, name, or capabilities.
