@@ -7,7 +7,6 @@ import { InputPanel } from "@/components/dashboard/input-panel"
 import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/output-panel"
 import { WebsitePanel } from "@/components/dashboard/website-panel"
 import { CommandCenterOverview } from "@/components/dashboard/command-center-overview"
-import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist"
 import { useAuth } from "@/lib/auth-context"
 import { useBusinessContext } from "@/lib/business-context"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
@@ -1086,11 +1085,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {user && (
-        <AnimatePresence>
-          <OnboardingChecklist userId={user.id} projects={projects} />
-        </AnimatePresence>
-      )}
     </div>
   )
 }
