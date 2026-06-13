@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
-type Plan = "free" | "pro" | "enterprise"
+type Plan = "free" | "pro" | "startup" | "enterprise"
 type AdminTab = "users" | "stats" | "events" | "analytics" | "broadcasts"
 
 interface AdminUser {
@@ -80,9 +80,10 @@ interface Broadcast {
   expiresAt: string | null
 }
 
-const PLAN_META = {
+const PLAN_META: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   free:       { icon: Zap,       color: "#10B981", label: "Free" },
   pro:        { icon: Crown,     color: "#D4AF37", label: "Pro" },
+  startup:    { icon: TrendingUp, color: "#F97316", label: "Startup" },
   enterprise: { icon: Building2, color: "#8B5CF6", label: "Enterprise" },
 }
 
@@ -415,7 +416,7 @@ export default function AdminPage() {
                 <div className="space-y-2">
                   {filtered.map((u, i) => {
                     const plan = (u.subscription?.plan ?? "free") as Plan
-                    const meta = PLAN_META[plan]
+                    const meta = PLAN_META[plan] ?? PLAN_META["free"]
                     const isExpanded = expandedUser === u.id
                     return (
                       <motion.div key={u.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}

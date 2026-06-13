@@ -4,6 +4,7 @@ import { db, usersTable, subscriptionsTable, eventsTable, broadcastsTable, notif
 import { eq, desc, gte, lt, and, count, sql, isNotNull, ne } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../middleware/auth";
 import { PLAN_LIMITS, getOrCreateSubscription } from "./subscriptions";
+import { setAdminBroadcast } from "../lib/log-event";
 import type { Response } from "express";
 
 const router = Router();
@@ -26,6 +27,10 @@ function broadcastToAdmins(data: Record<string, unknown>) {
 export function emitAdminEvent(event: Record<string, unknown>) {
   broadcastToAdmins({ event });
 }
+
+// Register as the admin broadcast target so every logEvent call is pushed
+// to the live SSE stream without a circular import.
+setAdminBroadcast((data) => broadcastToAdmins({ event: data }));
 
 // ─── Existing: Users ─────────────────────────────────────────────────────────
 
@@ -255,6 +260,8 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
     totalEventsRow,
     biGeneratedRow,
     websiteGeneratedRow,
+    chatbotGeneratedRow,
+    automationCreatedRow,
     recentEvents,
     geoRows,
     eventTypeRows,
@@ -275,6 +282,10 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
     db.select({ total: count() }).from(eventsTable).where(eq(eventsTable.type, "bi_generated")),
 
     db.select({ total: count() }).from(eventsTable).where(eq(eventsTable.type, "website_generated")),
+
+    db.select({ total: count() }).from(eventsTable).where(eq(eventsTable.type, "chatbot_generated")),
+
+    db.select({ total: count() }).from(eventsTable).where(eq(eventsTable.type, "automation_created")),
 
     db.select({
       id: eventsTable.id,
@@ -320,6 +331,8 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
 
   const totalBi = biGeneratedRow[0]?.total ?? 0;
   const totalWebsite = websiteGeneratedRow[0]?.total ?? 0;
+  const totalChatbot = chatbotGeneratedRow[0]?.total ?? 0;
+  const totalAutomation = automationCreatedRow[0]?.total ?? 0;
 
   res.json({
     overview: {
@@ -329,8 +342,10 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       totalEvents: totalEventsRow[0]?.total ?? 0,
     },
     funnel: [
-      { stage: "BI Generated", count: totalBi, pct: 100 },
-      { stage: "Website Generated", count: totalWebsite, pct: totalBi > 0 ? Math.round((totalWebsite / totalBi) * 100) : 0 },
+      { stage: "BI Generated",       count: totalBi,        pct: 100 },
+      { stage: "Website Generated",  count: totalWebsite,   pct: totalBi > 0 ? Math.round((totalWebsite  / totalBi) * 100) : 0 },
+      { stage: "Chatbot Generated",  count: totalChatbot,   pct: totalBi > 0 ? Math.round((totalChatbot  / totalBi) * 100) : 0 },
+      { stage: "Automation Created", count: totalAutomation,pct: totalBi > 0 ? Math.round((totalAutomation / totalBi) * 100) : 0 },
     ],
     geo: geoRows.map(r => ({ country: r.country, users: Number(r.total) })),
     eventTypes: eventTypeRows,

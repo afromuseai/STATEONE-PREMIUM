@@ -3,6 +3,7 @@ import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson, callNvidia } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
+import { logEventFireForget } from "../lib/log-event";
 
 const router = Router();
 
@@ -249,6 +250,7 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
       res.write(`data: ${JSON.stringify({ error: "Failed to parse response — please try again" })}\n\n`);
     }
     res.end();
+    logEventFireForget({ userId: req.user!.userId, type: "chatbot_generated", data: { chatbotType, industry }, req });
   } catch (error) {
     req.log.error({ error }, "Generate chatbot error");
     if (!res.headersSent) res.status(500).json({ error: "Internal server error" });

@@ -3,6 +3,16 @@ import { db, eventsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 
+// ─── Admin live-stream hook ────────────────────────────────────────────────
+// admin.ts registers itself here so every logged event is pushed to SSE
+// clients without creating a circular import.
+type AdminBroadcastFn = (data: Record<string, unknown>) => void;
+let _adminBroadcast: AdminBroadcastFn | null = null;
+
+export function setAdminBroadcast(fn: AdminBroadcastFn): void {
+  _adminBroadcast = fn;
+}
+
 const geoCache = new Map<string, { country: string | null; city: string | null; cachedAt: number }>();
 const GEO_TTL = 60 * 60 * 1000;
 
@@ -88,7 +98,7 @@ export async function logEvent(opts: LogEventOptions): Promise<void> {
       }
     }
 
-    await db.insert(eventsTable).values({
+    const [inserted] = await db.insert(eventsTable).values({
       userId: userId ?? null,
       projectId: projectId ?? null,
       type,
@@ -97,7 +107,22 @@ export async function logEvent(opts: LogEventOptions): Promise<void> {
       city,
       ip,
       userAgent,
-    });
+    }).returning();
+
+    if (_adminBroadcast && inserted) {
+      try {
+        _adminBroadcast({
+          id: inserted.id,
+          type: inserted.type,
+          userId: inserted.userId,
+          projectId: inserted.projectId,
+          country: inserted.country,
+          city: inserted.city,
+          ip: inserted.ip,
+          createdAt: inserted.createdAt,
+        });
+      } catch { /* never block */ }
+    }
   } catch (err) {
     console.error("[logEvent] failed:", (err as Error).message);
   }

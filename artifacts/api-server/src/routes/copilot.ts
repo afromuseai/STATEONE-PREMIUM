@@ -8,6 +8,7 @@ import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, callNvidia, extractJson } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
 import { getBusinessContext, getBusinessMemorySummary, type BusinessContextResult } from "../lib/business-graph";
+import { logEventFireForget } from "../lib/log-event";
 
 // ─── Memory category types ─────────────────────────────────────────────────
 type MemoryCategory = "Decision" | "Goal" | "Assumption" | "Experiment" | "Milestone" | "Learning" | "Risk" | "Preference";
@@ -2282,6 +2283,9 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
   }
 
   res.end();
+
+  // ─── Event tracking ────────────────────────────────────────────────────────
+  logEventFireForget({ userId, type: "marcus_message", data: { messageCount: trimmedMessages.length }, req });
 
   // ─── Background memory extraction ─────────────────────────────────────────
   // Fire-and-forget after response is sent. Never blocks the user.

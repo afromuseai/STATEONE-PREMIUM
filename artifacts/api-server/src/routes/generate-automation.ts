@@ -3,6 +3,7 @@ import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
+import { logEventFireForget } from "../lib/log-event";
 
 const router = Router();
 
@@ -137,6 +138,7 @@ Generate a production-ready workflow with real tool integrations, AI agent nodes
         res.write(`data: ${JSON.stringify({ error: "Failed to parse AI response — please try again" })}\n\n`);
       }
       res.end();
+      logEventFireForget({ userId: req.user!.userId, type: "automation_created", data: { workflowType, complexity }, req });
     } catch (streamErr) {
       req.log.error({ streamErr, model: MODELS.AUTOMATION }, `[AI:${MODELS.AUTOMATION}] Stream error`);
       if (!res.writableEnded) {
