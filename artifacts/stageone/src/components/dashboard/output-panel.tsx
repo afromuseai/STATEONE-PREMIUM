@@ -1,9 +1,9 @@
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   BarChart3, Bot, Globe, Rocket, Workflow, FileText, Target, TrendingUp,
   Zap, Gauge, Layers, Shield, Lightbulb, Code, AlertTriangle, Crosshair,
-  Sparkles, Brain, CheckCircle2, Circle, Activity, Cpu, BarChart2,
+  Sparkles, Brain, CheckCircle2, Circle, Activity, Cpu, BarChart2, ArrowDown,
 } from "lucide-react"
 
 function LockIcon({ className }: { className?: string }) {
@@ -495,13 +495,38 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
 }) {
   const { t } = useLang()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [userScrolled, setUserScrolled] = useState(false)
+  // Track whether we're auto-scrolling so we don't re-trigger the onScroll detector
+  const autoScrollingRef = useRef(false)
 
-  // Scroll to bottom as new sections stream in
+  // Auto-scroll to bottom as new sections stream in (unless user has scrolled away)
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    if (userScrolled || !scrollRef.current) return
+    autoScrollingRef.current = true
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    // Reset flag after the scroll event fires
+    requestAnimationFrame(() => { autoScrollingRef.current = false })
+  }, [partialData, streamingText, userScrolled])
+
+  // Detect when user manually scrolls away from the bottom
+  const handleScroll = useCallback(() => {
+    if (autoScrollingRef.current || !scrollRef.current) return
+    const el = scrollRef.current
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceFromBottom > 60) {
+      setUserScrolled(true)
     }
-  }, [partialData, streamingText])
+  }, [])
+
+  // Resume: scroll to bottom and re-engage auto-scroll
+  const resumeLive = useCallback(() => {
+    setUserScrolled(false)
+    if (scrollRef.current) {
+      autoScrollingRef.current = true
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      requestAnimationFrame(() => { autoScrollingRef.current = false })
+    }
+  }, [])
 
   const hasMetrics    = !!partialData.metrics
   const hasSnapshot   = !!partialData.businessSnapshot
@@ -531,7 +556,9 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
 
       <StageIndicator currentStage={generationStage} industry={industry} reasoningStages={reasoningStages} />
 
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto pr-1">
+      <div className="relative flex-1 min-h-0">
+        <div ref={scrollRef} onScroll={handleScroll} className="h-full space-y-4 overflow-y-auto pr-1">
+
         <AnimatePresence>
           {hasMetrics ? (
             <motion.div key="metrics-live" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
@@ -665,6 +692,29 @@ function ProgressiveLoadingState({ streamingText, generationStage, partialData, 
         </AnimatePresence>
 
         {streamingText && <ThinkingPulse text={streamingText} />}
+        </div>
+
+        {/* "Back to live" badge — shown when user has scrolled up */}
+        <AnimatePresence>
+          {userScrolled && (
+            <motion.button
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              transition={{ duration: 0.18 }}
+              onClick={resumeLive}
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full border border-primary/40 bg-background/90 px-3 py-1.5 text-xs font-semibold text-primary shadow-lg backdrop-blur-sm hover:bg-primary/10 transition-colors z-10"
+            >
+              <ArrowDown className="h-3 w-3" />
+              Back to live
+              <motion.span
+                className="h-1.5 w-1.5 rounded-full bg-primary"
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   )
