@@ -295,12 +295,48 @@ const THINKING_PHRASES = [
 ];
 let thinkingIndex = 0;
 
-function ThinkingIndicator() {
+function ThinkingIndicator({ reasoning = false }: { reasoning?: boolean }) {
   const [phrase] = useState(() => {
     const p = THINKING_PHRASES[thinkingIndex % THINKING_PHRASES.length];
     thinkingIndex++;
     return p;
   });
+
+  if (reasoning) {
+    return (
+      <div className="flex items-center gap-2 py-0.5">
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <Brain className="h-3 w-3 text-primary/70" />
+        </motion.div>
+        <motion.span
+          className="text-[11px] text-primary/60 italic font-medium"
+          animate={{ opacity: [0.5, 0.9, 0.5] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+        >
+          reasoning...
+        </motion.span>
+        <div className="flex items-center gap-0.5">
+          {[0, 1, 2].map((j) => (
+            <motion.span
+              key={j}
+              className="h-1 w-1 rounded-full bg-primary/50"
+              animate={{ opacity: [0.2, 1, 0.2], scaleX: [1, 1.8, 1] }}
+              transition={{
+                duration: 0.9,
+                repeat: Infinity,
+                delay: j * 0.15,
+                ease: "easeInOut",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-1.5 py-0.5">
       <motion.span
@@ -343,6 +379,7 @@ async function streamCopilot(
   onExecute?: (id: string, endpoint: string, params?: string) => void,
   onWorkspace?: (command: string, payload: string) => void,
   onWorkspaceCmd?: (command: string, payload: string) => void,
+  onThinking?: (thinking: boolean) => void,
 ) {
   const res = await fetch("/api/copilot", {
     method: "POST",
@@ -460,6 +497,9 @@ async function streamCopilot(
       if (!line.startsWith("data: ")) continue;
       try {
         const msg = JSON.parse(line.slice(6));
+        if (msg.thinking !== undefined) {
+          onThinking?.(msg.thinking as boolean);
+        }
         if (msg.content) {
           buffer += msg.content;
           // Fire any newly-complete event tags immediately
@@ -549,6 +589,7 @@ export function CopilotPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [isModelThinking, setIsModelThinking] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
@@ -818,6 +859,12 @@ export function CopilotPanel() {
             return updated;
           });
         },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        (thinking) => setIsModelThinking(thinking),
       );
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
@@ -831,6 +878,7 @@ export function CopilotPanel() {
       }
     } finally {
       setStreaming(false);
+      setIsModelThinking(false);
     }
   }, []);
 
@@ -1159,6 +1207,7 @@ export function CopilotPanel() {
             // WORKSPACE CMD — Marcus execution: open tabs, populate forms, trigger generation
             handleWorkspaceCmdAction(command, payload);
           },
+          (thinking) => setIsModelThinking(thinking),
         );
       } catch (e: unknown) {
         if (e instanceof Error && e.name !== "AbortError") {
@@ -1173,6 +1222,7 @@ export function CopilotPanel() {
         }
       } finally {
         setStreaming(false);
+        setIsModelThinking(false);
       }
     },
     [
@@ -1825,7 +1875,7 @@ export function CopilotPanel() {
                             ) : msg.content ? (
                               renderMessage(msg.content)
                             ) : (
-                              <ThinkingIndicator />
+                              <ThinkingIndicator reasoning={isModelThinking && i === visibleMessages.length - 1} />
                             )}
                           </div>
                         </motion.div>

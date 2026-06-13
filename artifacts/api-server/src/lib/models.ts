@@ -37,9 +37,7 @@ export type ModelKey = keyof typeof MODELS;
 export type ModelId = (typeof MODELS)[ModelKey];
 
 // Chat template kwargs for models that require them.
-// qwen/qwen3.5-122b-a10b has thinking mode on by default —
-// disable it for COPILOT so content tokens start immediately (thinking tokens
-// go to delta.reasoning, causing multi-second latency before any visible output).
-export const MODEL_KWARGS: Partial<Record<ModelId, Record<string, unknown>>> = {
-  "qwen/qwen3.5-122b-a10b": { thinking: false },
-};
+// qwen/qwen3.5-122b-a10b thinking mode is ON — the reasoning phase is forwarded
+// to the client as { thinking: true/false } SSE events so the UI can show a
+// "reasoning..." indicator during the silent pre-content phase.
+export const MODEL_KWARGS: Partial<Record<ModelId, Record<string, unknown>>> = {};

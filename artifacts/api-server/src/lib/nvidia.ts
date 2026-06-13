@@ -164,6 +164,8 @@ export async function forwardStream(
   let buffer = "";
   let tokenCount = 0;
   const start = Date.now();
+  let thinkingSignalSent = false;
+  let thinkingEndSignalSent = false;
 
   try {
     while (true) {
@@ -184,22 +186,35 @@ export async function forwardStream(
           const delta = parsed.choices?.[0]?.delta;
           const content = delta?.content;
           const reasoning = delta?.reasoning_content;
-          // [TRACE] Log first 5 raw chunks so we can see exactly what the model returns
+          // [TRACE] Log first raw chunk so we can see exactly what the model returns
           if (tokenCount === 0 && !buffer) {
             logger.info(
               { layer: "nvidia_trace", model, hasContent: !!content, hasReasoning: !!reasoning, contentSnippet: String(content ?? "").slice(0, 80), reasoningSnippet: String(reasoning ?? "").slice(0, 80), rawData: data.slice(0, 200) },
               `[AI:${model}] [TRACE] First chunk`
             );
           }
+          if (reasoning && !thinkingSignalSent) {
+            // Model has entered its reasoning/thinking phase — notify client immediately
+            thinkingSignalSent = true;
+            res.write(`data: ${JSON.stringify({ thinking: true })}\n\n`);
+            logger.info(
+              { layer: "nvidia_trace", model, reasoningSnippet: String(reasoning).slice(0, 120) },
+              `[AI:${model}] Thinking phase started`
+            );
+          }
           if (content) {
+            if (thinkingSignalSent && !thinkingEndSignalSent) {
+              // First content token after reasoning — close the thinking phase
+              thinkingEndSignalSent = true;
+              res.write(`data: ${JSON.stringify({ thinking: false })}\n\n`);
+              logger.info(
+                { layer: "nvidia_trace", model },
+                `[AI:${model}] Thinking phase ended — content streaming`
+              );
+            }
             buffer += content;
             tokenCount++;
             res.write(`data: ${JSON.stringify({ content })}\n\n`);
-          } else if (reasoning && tokenCount === 0) {
-            logger.info(
-              { layer: "nvidia_trace", model, reasoningSnippet: String(reasoning).slice(0, 120) },
-              `[AI:${model}] [TRACE] Model is thinking (reasoning_content present, no content)`
-            );
           }
         } catch {
           // Incomplete SSE fragment — skip
