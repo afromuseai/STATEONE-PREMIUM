@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { Link, useLocation, useSearch } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
 import stageoneIcon from "@/assets/stageone-icon.png"
@@ -17,12 +17,10 @@ import {
   X,
   LayoutDashboard,
   Shield,
-  Bell,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useLang } from "@/lib/i18n"
 import { useCopilot } from "@/lib/copilot-context"
-import { useNotifications } from "@/lib/notifications-context"
 
 interface AppSidebarProps {
   collapsed: boolean
@@ -45,20 +43,10 @@ function SidebarContent({
   const { user, logout } = useAuth()
   const { t } = useLang()
   const { open: copilotOpen, setOpen: setCopilotOpen } = useCopilot()
-  const { unreadCount, markAllRead } = useNotifications()
   const isAdmin = user?.isAdmin ?? false
   const [location, navigate] = useLocation()
   const search = useSearch()
   const d = t.dashboard
-  const [bellPulse, setBellPulse] = useState(false)
-
-  useEffect(() => {
-    if (unreadCount > 0) {
-      setBellPulse(true)
-      const t = setTimeout(() => setBellPulse(false), 600)
-      return () => clearTimeout(t)
-    }
-  }, [unreadCount])
 
   const NAV_SECTIONS = [
     {
@@ -370,25 +358,6 @@ function SidebarContent({
               </div>
             </>
           )}
-          {/* Notification bell */}
-          <button
-            onClick={() => { if (unreadCount > 0) markAllRead() }}
-            className={`relative p-2 rounded-lg transition-colors shrink-0 ${
-              unreadCount > 0
-                ? "text-primary hover:bg-primary/10"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-            }`}
-            title={unreadCount > 0 ? `${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}` : "No new notifications"}
-          >
-            <motion.div animate={bellPulse ? { rotate: [0, -15, 15, -10, 10, 0] } : {}} transition={{ duration: 0.4 }}>
-              <Bell className="h-4 w-4" />
-            </motion.div>
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-primary text-[9px] font-black text-black flex items-center justify-center px-1 leading-none shadow-[0_0_6px_rgba(212,175,55,0.6)]">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </button>
           <button
             onClick={() => logout()}
             className="p-2 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
