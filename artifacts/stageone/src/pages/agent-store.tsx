@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useAuth } from "@/lib/auth-context"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import {
   Bot, Search, Star, Download, Zap, X, Settings2, ChevronRight,
@@ -74,15 +75,16 @@ export default function AgentStorePage() {
   const [selected, setSelected] = useState<CatalogAgent | null>(null)
   const [configuring, setConfiguring] = useState<InstalledAgent | null>(null)
   const [behaviorInput, setBehaviorInput] = useState("")
+  const { user } = useAuth()
   const qc = useQueryClient()
 
   const { data: catalogData } = useQuery<{ agents: CatalogAgent[] }>({
-    queryKey: ["agents-catalog"],
+    queryKey: ["agents-catalog", user?.id],
     queryFn: () => fetch("/api/agents/catalog", { credentials: "include" }).then(r => r.json()),
   })
 
   const { data: installedData } = useQuery<{ agents: InstalledAgent[] }>({
-    queryKey: ["agents-installed"],
+    queryKey: ["agents-installed", user?.id],
     queryFn: () => fetch("/api/agents", { credentials: "include" }).then(r => r.json()),
   })
 
@@ -95,7 +97,7 @@ export default function AgentStorePage() {
         body: JSON.stringify({ agentId }),
       }).then(r => r.json()),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-installed"] })
+      qc.invalidateQueries({ queryKey: ["agents-installed", user?.id] })
       setSelected(null)
     },
   })
@@ -103,7 +105,7 @@ export default function AgentStorePage() {
   const uninstallMutation = useMutation({
     mutationFn: (id: string) =>
       fetch(`/api/agents/${id}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-installed"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-installed", user?.id] }),
   })
 
   const updateAgentMutation = useMutation({
@@ -114,7 +116,7 @@ export default function AgentStorePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }).then(r => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-installed"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-installed", user?.id] }),
   })
 
   const catalog = catalogData?.agents ?? []

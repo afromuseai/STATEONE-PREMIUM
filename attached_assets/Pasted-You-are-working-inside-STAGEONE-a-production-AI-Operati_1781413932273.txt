@@ -1,0 +1,176 @@
+You are working inside STAGEONE — a production AI Operating System.
+
+This layer enforces system integrity, prevents hallucinations, prevents cross-user contamination, and ensures deterministic behavior across all modules.
+
+==================================================
+🚨 1. CORE SYSTEM ISOLATION RULE (CRITICAL)
+==================================================
+
+Every request MUST be scoped to:
+
+- current authenticated user
+- current projectId (if exists)
+- current session context only
+
+NEVER:
+
+- access other users' projects
+- reuse stale memory
+- infer missing project data
+- fall back to global state
+
+If projectId or userId is missing:
+→ assume "no context"
+→ do NOT guess
+→ do NOT reuse previous session data
+
+==================================================
+🧠 2. CONTEXT VALIDATION RULE
+==================================================
+
+Before ANY operation:
+
+Validate:
+
+- userId exists
+- projectId belongs to userId
+- session context matches authenticated user
+
+If mismatch:
+→ discard context immediately
+→ start clean execution
+→ log: CONTEXT_REJECTED
+
+==================================================
+🧾 3. NO MEMORY LEAKAGE RULE (CRITICAL FOR MARCUS BUG)
+==================================================
+
+Marcus / Copilot / Generators must NEVER:
+
+- reference past chats from other sessions
+- inherit BI or project context unless explicitly loaded
+- reuse dashboard state across accounts
+- assume "existing business" unless project explicitly loaded
+
+If no explicit load:
+→ Marcus starts BLANK
+→ no greetings based on assumed business
+
+==================================================
+📦 4. PROJECT BOUNDARY ENFORCEMENT
+==================================================
+
+Each project MUST have:
+
+- unique projectId
+- explicit userId ownership
+- isolated state store
+
+Rules:
+
+- NO auto-creation of projects unless explicitly triggered
+- NO silent project switching
+- NO fallback to "last known project"
+
+If multiple projects exist:
+→ user MUST select one explicitly
+
+==================================================
+🔐 5. SESSION & STORAGE RULE
+
+All of the following MUST be user-scoped:
+
+- localStorage
+- cookies
+- React Query cache
+- Zustand stores
+- sessionStorage
+- server cache
+
+Every key MUST include:
+
+${userId} or equivalent namespace
+
+Example:
+
+❌ copilot-projects
+✅ copilot-projects:${userId}
+
+==================================================
+🧠 6. MARCUS CONTEXT RULE (CRITICAL BUG FIX)
+
+Marcus may ONLY:
+
+- greet user based on loaded project
+- if project is explicitly fetched in session
+
+Marcus must NEVER:
+
+- assume user has a business
+- assume industry
+- assume previous BI
+- assume prior tasks
+
+If no project loaded:
+→ Marcus must behave like first-time user
+
+==================================================
+📊 7. ADMIN PANEL DATA INTEGRITY RULE
+
+Admin panel must:
+
+- show ONLY current authenticated tenant data
+- NEVER aggregate cross-user data without explicit admin role
+- always validate ownership on every query
+
+==================================================
+🚫 8. FORBIDDEN BEHAVIOR
+
+NEVER:
+
+- infer missing data
+- “helpfully” reuse previous session context
+- auto-link projects across accounts
+- create tasks outside project scope
+- attach orphaned tasks to dashboard
+- silently persist global state
+
+==================================================
+🧯 9. FAIL-FAST PRINCIPLE
+
+If anything is uncertain:
+
+→ STOP execution
+→ return error state
+→ DO NOT guess
+
+Example:
+
+"CONTEXT_MISSING"
+"PROJECT_NOT_FOUND"
+"USER_SCOPE_INVALID"
+
+==================================================
+📌 10. SYSTEM TRUTH PRINCIPLE
+
+The ONLY source of truth is:
+
+- database (user-scoped queries only)
+- explicitly loaded project context
+- current authenticated session
+
+NOT:
+
+- memory
+- previous UI state
+- cached queries
+- frontend guesswork
+
+==================================================
+⚙️ FINAL RULE
+
+Stability > intelligence > convenience
+
+If unsure, do nothing.
+If missing data, ask.
+If context unclear, reset safely.

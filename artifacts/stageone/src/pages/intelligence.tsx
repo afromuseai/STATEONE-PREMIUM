@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useAuth } from "@/lib/auth-context"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import {
   TrendingUp, TrendingDown, Minus, Brain, BarChart3, AlertTriangle,
@@ -68,30 +69,31 @@ function ScoreRing({ score }: { score: number }) {
 export default function IntelligencePage() {
   const [collapsed, setCollapsed] = useState(false)
   const [tab, setTab] = useState<"health" | "metrics" | "forecast">("health")
+  const { user } = useAuth()
   const qc = useQueryClient()
 
   const { data: healthData, isLoading: healthLoading } = useQuery<HealthData>({
-    queryKey: ["intelligence-health"],
+    queryKey: ["intelligence-health", user?.id],
     queryFn: () => fetch("/api/intelligence/health", { credentials: "include" }).then(r => r.json()),
     refetchInterval: 30000,
   })
 
   const { data: metricsData, isLoading: metricsLoading } = useQuery<{ metrics: BusinessMetric[] }>({
-    queryKey: ["intelligence-metrics"],
+    queryKey: ["intelligence-metrics", user?.id],
     queryFn: () => fetch("/api/intelligence/metrics", { credentials: "include" }).then(r => r.json()),
   })
 
   const { data: forecastData, isLoading: forecastLoading } = useQuery<ForecastData>({
-    queryKey: ["intelligence-forecast"],
+    queryKey: ["intelligence-forecast", user?.id],
     queryFn: () => fetch("/api/intelligence/forecast", { credentials: "include" }).then(r => r.json()),
   })
 
   const seedMutation = useMutation({
     mutationFn: () => fetch("/api/intelligence/metrics/seed", { method: "POST", credentials: "include" }).then(r => r.json()),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["intelligence-metrics"] })
-      qc.invalidateQueries({ queryKey: ["intelligence-health"] })
-      qc.invalidateQueries({ queryKey: ["intelligence-forecast"] })
+      qc.invalidateQueries({ queryKey: ["intelligence-metrics", user?.id] })
+      qc.invalidateQueries({ queryKey: ["intelligence-health", user?.id] })
+      qc.invalidateQueries({ queryKey: ["intelligence-forecast", user?.id] })
     },
   })
 

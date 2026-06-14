@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useAuth } from "@/lib/auth-context"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import {
   Bot, Activity, CheckCircle2, Clock, XCircle, Zap, Play,
@@ -66,32 +67,33 @@ export default function AgentMonitorPage() {
   const [showNewMemory, setShowNewMemory] = useState(false)
   const [newObj, setNewObj] = useState({ agentKey: "sales-prospector", title: "", description: "", escalationThreshold: 80 })
   const [newMem, setNewMem] = useState({ agentKey: "sales-prospector", key: "", value: "", memoryType: "context", importance: 5 })
+  const { user } = useAuth()
   const qc = useQueryClient()
 
   const { data: tasksData, isLoading: tasksLoading } = useQuery<{ tasks: AgentTask[]; stats: Record<string, number> }>({
-    queryKey: ["agent-tasks"],
+    queryKey: ["agent-tasks", user?.id],
     queryFn: () => fetch("/api/agents/tasks", { credentials: "include" }).then(r => r.json()),
     refetchInterval: 5000,
   })
 
   const { data: objectivesData } = useQuery<{ objectives: AgentObjective[] }>({
-    queryKey: ["agent-objectives"],
+    queryKey: ["agent-objectives", user?.id],
     queryFn: () => fetch("/api/agents/objectives", { credentials: "include" }).then(r => r.json()),
   })
 
   const { data: memoryData } = useQuery<{ memories: AgentMemory[] }>({
-    queryKey: ["agent-memory"],
+    queryKey: ["agent-memory", user?.id],
     queryFn: () => fetch("/api/agents/memory", { credentials: "include" }).then(r => r.json()),
   })
 
   const simulateMutation = useMutation({
     mutationFn: () => fetch("/api/agents/tasks/simulate", { method: "POST", credentials: "include" }).then(r => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-tasks"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-tasks", user?.id] }),
   })
 
   const deleteTaskMutation = useMutation({
     mutationFn: (id: string) => fetch(`/api/agents/tasks/${id}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-tasks"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-tasks", user?.id] }),
   })
 
   const createObjectiveMutation = useMutation({
@@ -100,12 +102,12 @@ export default function AgentMonitorPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agent-objectives"] }); setShowNewObjective(false); setNewObj({ agentKey: "sales-prospector", title: "", description: "", escalationThreshold: 80 }) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agent-objectives", user?.id] }); setShowNewObjective(false); setNewObj({ agentKey: "sales-prospector", title: "", description: "", escalationThreshold: 80 }) },
   })
 
   const deleteObjectiveMutation = useMutation({
     mutationFn: (id: string) => fetch(`/api/agents/objectives/${id}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-objectives"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-objectives", user?.id] }),
   })
 
   const createMemoryMutation = useMutation({
@@ -114,12 +116,12 @@ export default function AgentMonitorPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agent-memory"] }); setShowNewMemory(false); setNewMem({ agentKey: "sales-prospector", key: "", value: "", memoryType: "context", importance: 5 }) },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["agent-memory", user?.id] }); setShowNewMemory(false); setNewMem({ agentKey: "sales-prospector", key: "", value: "", memoryType: "context", importance: 5 }) },
   })
 
   const deleteMemoryMutation = useMutation({
     mutationFn: (id: string) => fetch(`/api/agents/memory/${id}`, { method: "DELETE", credentials: "include" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-memory"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-memory", user?.id] }),
   })
 
   const tasks = tasksData?.tasks ?? []

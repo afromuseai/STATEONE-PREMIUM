@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useAuth } from "@/lib/auth-context"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import {
   Webhook, Plus, X, Trash2, Play, CheckCircle2, XCircle, Clock,
@@ -60,10 +61,11 @@ export default function WebhooksPage() {
     events: [] as string[],
   })
 
+  const { user } = useAuth()
   const qc = useQueryClient()
 
   const { data } = useQuery<{ webhooks: WebhookType[] }>({
-    queryKey: ["webhooks"],
+    queryKey: ["webhooks", user?.id],
     queryFn: () => fetch("/api/webhooks", { credentials: "include" }).then(r => r.json()),
   })
 
@@ -76,7 +78,7 @@ export default function WebhooksPage() {
         body: JSON.stringify({ ...body, secret: body.secret || undefined }),
       }).then(r => r.json()),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["webhooks"] })
+      qc.invalidateQueries({ queryKey: ["webhooks", user?.id] })
       setShowCreate(false)
       setForm({ name: "", url: "", secret: "", events: [] })
     },
@@ -104,7 +106,7 @@ export default function WebhooksPage() {
       fetch(`/api/webhooks/${id}/ping`, { method: "POST", credentials: "include" }).then(r => r.json()),
     onSuccess: (result, id) => {
       setPingStatus(s => ({ ...s, [id]: result.success ? "ok" : "fail" }))
-      qc.invalidateQueries({ queryKey: ["webhooks"] })
+      qc.invalidateQueries({ queryKey: ["webhooks", user?.id] })
       setTimeout(() => setPingStatus(s => ({ ...s, [id]: "idle" })), 3000)
     },
   })
