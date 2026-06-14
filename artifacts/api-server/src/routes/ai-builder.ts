@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
+import { requireFeature } from "../middleware/planGuard";
 import { callNvidia, streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
 import { MODELS } from "../lib/models";
 import { db } from "@workspace/db";
@@ -217,7 +218,7 @@ Generate the complete HTML document now.`;
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /api/ai-builder/generate — Full pipeline: Plan → Design DNA → HTML
 // ═══════════════════════════════════════════════════════════════════════════════
-router.post("/api/ai-builder/generate", requireAuth, async (req, res) => {
+router.post("/api/ai-builder/generate", requireAuth, requireFeature("ai_builder"), async (req, res) => {
   const { prompt, style = "Modern SaaS", industry = "SaaS" } = req.body as {
     prompt: string;
     style?: string;

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
+import { requireFeature } from "../middleware/planGuard";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
@@ -83,7 +84,7 @@ Rules:
 - Be specific to the workflow type and complexity
 - NO generic responses — tailor everything to the business`;
 
-router.post("/generate/automation", requireAuth, async (req, res): Promise<void> => {
+router.post("/generate/automation", requireAuth, requireFeature("automation_builder"), async (req, res): Promise<void> => {
   try {
     const {
       businessDescription,

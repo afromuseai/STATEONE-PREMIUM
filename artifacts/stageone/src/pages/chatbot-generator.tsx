@@ -410,6 +410,14 @@ export default function ChatbotGeneratorPage() {
         }),
       })
 
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}))
+        if (errData.error === "UPGRADE_REQUIRED") {
+          openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
+          setIsTyping(false)
+          return
+        }
+      }
       if (!res.ok || !res.body) throw new Error("Request failed")
 
       setIsTyping(false)
@@ -464,6 +472,14 @@ export default function ChatbotGeneratorPage() {
         body: JSON.stringify({ businessDescription: desc.trim(), chatbotType: type, tone: tn, industry: ind, language: lang }),
         signal: abortRef.current.signal,
       })
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}))
+        if (errData.error === "UPGRADE_REQUIRED") {
+          openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
+          setStep("input")
+          return
+        }
+      }
       if (!res.ok || !res.body) throw new Error("Request failed")
       const reader = res.body.getReader()
       const dec = new TextDecoder()

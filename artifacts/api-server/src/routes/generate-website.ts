@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
+import { requireFeature } from "../middleware/planGuard";
 import { jsonrepair } from "jsonrepair";
 import { MODELS } from "../lib/models";
 import { onWebsiteGenerationComplete } from "../lib/business-graph";
@@ -1025,7 +1026,7 @@ const DEFAULT_STAGES = [
 ];
 
 // POST /api/generate/website — full site generation (industry-aware)
-router.post("/generate/website", requireAuth, async (req, res): Promise<void> => {
+router.post("/generate/website", requireAuth, requireFeature("website_generator"), async (req, res): Promise<void> => {
   try {
     const { idea, businessIntelligence, variantSeed, language, forceDesignVariant, projectId } = req.body;
     const userId = (req as import("express").Request & { user?: { userId: string } }).user?.userId ?? "";
@@ -1134,7 +1135,7 @@ router.post("/generate/website", requireAuth, async (req, res): Promise<void> =>
 });
 
 // POST /api/generate/website/section — regenerate one section
-router.post("/generate/website/section", requireAuth, async (req, res): Promise<void> => {
+router.post("/generate/website/section", requireAuth, requireFeature("website_generator"), async (req, res): Promise<void> => {
   try {
     const { idea, businessIntelligence, sectionName, language } = req.body;
     if (!idea || !sectionName) {
@@ -1195,7 +1196,7 @@ router.post("/generate/website/section", requireAuth, async (req, res): Promise<
 });
 
 // POST /api/generate/website/optimize — AI conversion optimization analysis
-router.post("/generate/website/optimize", requireAuth, async (req, res): Promise<void> => {
+router.post("/generate/website/optimize", requireAuth, requireFeature("website_generator"), async (req, res): Promise<void> => {
   try {
     const { websiteData, businessIntelligence, language: optLanguage } = req.body;
     if (!websiteData) { res.status(400).json({ error: "websiteData required" }); return; }
@@ -1288,7 +1289,7 @@ Identify the most impactful conversion gaps for a ${industry} website targeting 
 });
 
 // POST /api/generate/website/analyze — full 7-category AI intelligence analysis
-router.post("/generate/website/analyze", requireAuth, async (req, res): Promise<void> => {
+router.post("/generate/website/analyze", requireAuth, requireFeature("website_generator"), async (req, res): Promise<void> => {
   try {
     const { websiteData, businessIdea, businessIntelligence, language: anlLanguage } = req.body;
     if (!websiteData) { res.status(400).json({ error: "websiteData required" }); return; }
@@ -1404,7 +1405,7 @@ Give an honest, detailed analysis with specific, actionable recommendations for 
 });
 
 // POST /api/generate/website/strategy — switch conversion strategy
-router.post("/generate/website/strategy", requireAuth, async (req, res): Promise<void> => {
+router.post("/generate/website/strategy", requireAuth, requireFeature("website_generator"), async (req, res): Promise<void> => {
   try {
     const { idea, businessIntelligence, strategyMode, sections, language: stratLanguage } = req.body;
     if (!idea || !strategyMode) { res.status(400).json({ error: "idea and strategyMode required" }); return; }

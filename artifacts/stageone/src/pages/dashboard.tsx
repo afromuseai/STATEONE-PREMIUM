@@ -395,6 +395,12 @@ export default function DashboardPage() {
           return
         }
         const errorData = await response.json().catch(() => ({ error: "Request failed" }))
+        if (response.status === 403 && errorData.error === "UPGRADE_REQUIRED") {
+          openUpgradeModal({ feature: errorData.feature, featureLabel: errorData.featureLabel, requiredPlan: errorData.requiredPlan })
+          setIsLoading(false)
+          setGenerationStage(0)
+          return
+        }
         throw new Error(errorData.error || `Server error: ${response.status}`)
       }
 

@@ -401,6 +401,14 @@ export default function WebsiteGeneratorPage() {
         signal: abortRef.current.signal,
       })
       console.log("WEBSITE_FLOW:5a fetch response status:", res.status)
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}))
+        if (errData.error === "UPGRADE_REQUIRED") {
+          openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
+          setStep("input")
+          return
+        }
+      }
       if (!res.ok) throw new Error("Request failed")
       if (!res.body) throw new Error("No response stream")
       const reader = res.body.getReader()

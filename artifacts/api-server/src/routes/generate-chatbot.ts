@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
+import { requireFeature } from "../middleware/planGuard";
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, extractJson, callNvidia } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
@@ -157,7 +158,7 @@ Rules:
 
 
 // POST /api/generate/chatbot/message — real-time NVIDIA-powered chat reply
-router.post("/generate/chatbot/message", requireAuth, async (req, res): Promise<void> => {
+router.post("/generate/chatbot/message", requireAuth, requireFeature("chatbot_generator"), async (req, res): Promise<void> => {
   try {
     const { message, systemPrompt: botSystemPrompt, history = [], language: msgLanguage } = req.body;
     if (!message?.trim()) { res.status(400).json({ error: "message is required" }); return; }
@@ -195,7 +196,7 @@ router.post("/generate/chatbot/message", requireAuth, async (req, res): Promise<
   }
 });
 
-router.post("/generate/chatbot", requireAuth, async (req, res): Promise<void> => {
+router.post("/generate/chatbot", requireAuth, requireFeature("chatbot_generator"), async (req, res): Promise<void> => {
   try {
     const { businessDescription, chatbotType = "Customer Support", tone = "Professional", industry = "SaaS", language } = req.body;
 

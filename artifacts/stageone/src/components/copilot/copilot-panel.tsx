@@ -389,6 +389,10 @@ async function streamCopilot(
     signal,
   });
 
+  if (res.status === 403) {
+    const errData = await res.json().catch(() => ({}))
+    throw Object.assign(new Error("UPGRADE_REQUIRED"), { upgradeData: errData })
+  }
   if (!res.ok || !res.body) throw new Error("Request failed");
 
   const reader = res.body.getReader();
@@ -1228,7 +1232,17 @@ export function CopilotPanel() {
           (thinking) => setIsModelThinking(thinking),
         );
       } catch (e: unknown) {
-        if (e instanceof Error && e.name !== "AbortError") {
+        if (e instanceof Error && e.message === "UPGRADE_REQUIRED") {
+          setShowUpgradeModal(true)
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              role: "assistant",
+              content: "Marcus requires a Pro plan or higher. Upgrade to continue.",
+            };
+            return updated;
+          });
+        } else if (e instanceof Error && e.name !== "AbortError") {
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {

@@ -212,7 +212,7 @@ function WaitlistModal({ onClose }: { onClose: () => void }) {
 }
 
 export function UpgradeModal() {
-  const { open, closeUpgradeModal } = useUpgradeModal()
+  const { open, feature, featureLabel, requiredPlan, closeUpgradeModal } = useUpgradeModal()
   const { user } = useAuth()
   const [yearly, setYearly] = useState(false)
   const [showWaitlist, setShowWaitlist] = useState(false)
@@ -281,6 +281,21 @@ export function UpgradeModal() {
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               className="relative w-full max-w-5xl rounded-2xl border border-white/10 bg-[#111115] shadow-[0_24px_80px_rgba(0,0,0,0.6)] overflow-hidden"
             >
+              {/* Feature gate banner */}
+              {featureLabel && requiredPlan && (
+                <div className="flex items-center gap-3 px-7 py-3 bg-primary/8 border-b border-primary/15">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20">
+                    <Zap className="h-3 w-3 text-primary" />
+                  </div>
+                  <p className="text-xs text-foreground">
+                    <span className="font-semibold">{featureLabel}</span>
+                    {" "}requires the{" "}
+                    <span className="font-semibold capitalize text-primary">{requiredPlan}</span>
+                    {" "}plan. Upgrade below to unlock it.
+                  </p>
+                </div>
+              )}
+
               {/* Header */}
               <div className="flex items-center justify-between px-7 pt-6 pb-5 border-b border-white/6">
                 <div>

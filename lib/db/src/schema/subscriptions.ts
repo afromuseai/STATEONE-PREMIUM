@@ -1,7 +1,7 @@
 import { pgTable, text, uuid, timestamp, integer } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 
-export type Plan = "free" | "pro" | "enterprise";
+export type Plan = "free" | "pro" | "startup" | "enterprise";
 export type SubStatus = "active" | "cancelled" | "past_due";
 
 export const subscriptionsTable = pgTable("subscriptions", {

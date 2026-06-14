@@ -1,0 +1,231 @@
+STAGEONE BILLING + FEATURE ENFORCEMENT (FINAL CORRECT VERSION)
+
+You are working inside the STAGEONE codebase (Next.js App Router + TypeScript SaaS AI Operating System).
+
+⚠️ ABSOLUTE RULES
+DO NOT change UI design or layout system
+DO NOT modify authentication logic
+DO NOT introduce Stripe or external billing systems
+DO NOT break existing generators (BI, Website, Chatbot, Automation, Marcus)
+DO NOT remove existing features
+ONLY implement billing logic + feature enforcement layer
+🎯 OBJECTIVE
+
+Implement a complete internal SaaS monetization + feature gating system based on the following pricing model:
+
+💳 FINAL PLAN STRUCTURE (SOURCE OF TRUTH)
+🟢 FREE — $0
+
+Entry tier
+
+Features:
+
+5 AI generations / month
+Business idea analysis (BI ONLY)
+Market metrics & insights
+Growth plan overview
+Project saving
+
+❌ NO:
+
+Website generator
+Chatbot generator
+Automation builder
+Marcus Copilot
+🔵 PRO — $29/mo
+
+Core builder tier
+
+Features:
+
+100 AI generations / month
+Deep business intelligence
+AI Website Builder
+AI Chatbot Generator
+Automation Builder
+Agent Marcus (AI Copilot)
+AI memory + cross-context
+Project history + CRUD
+🟣 STARTUP — $99/mo
+
+Power builder tier
+
+Features:
+
+500 AI generations / month
+Everything in Pro
+Agent Marcus (full access)
+Extended AI reasoning depth
+Proactive intelligence insights
+Growth strategy engine
+Priority processing (5000 tokens)
+Advanced execution planning
+⚫ ENTERPRISE — Custom
+
+Scale tier
+
+Features:
+
+Unlimited AI generations
+Agent Marcus (AI Copilot)
+Team collaboration
+API access
+Custom integrations
+SSO + enterprise auth
+Dedicated support
+🧠 CORE SYSTEM TO BUILD
+1. Billing Core (INTERNAL ONLY)
+
+Create:
+
+/lib/billing/
+billingService.ts
+
+Must implement:
+
+getUserPlan(userId)
+setUserPlan(userId, plan)
+canAccessFeature(userId, feature)
+getPlanLimits(plan)
+incrementUsage(userId, feature)
+getUsage(userId)
+2. FEATURE GATING ENGINE
+
+Create:
+
+/lib/permissions/featureMatrix.ts
+
+Define strict mapping:
+
+FREE
+
+allowed:
+
+BI only
+PRO
+
+allowed:
+
+BI
+Website Generator
+Chatbot Generator
+Automation Builder
+Marcus
+STARTUP
+
+allowed:
+
+EVERYTHING + advanced intelligence
+ENTERPRISE
+
+allowed:
+
+ALL unlimited
+3. FEATURE CHECK FUNCTION
+
+Before ANY generation:
+
+canAccessFeature(userId, "website_generator")
+
+If false:
+
+return:
+
+{
+  error: "UPGRADE_REQUIRED",
+  requiredPlan: "pro",
+  feature: "website_generator"
+}
+4. USAGE TRACKING SYSTEM
+
+Create:
+
+/lib/usage/usageTracker.ts
+
+Track per user:
+
+BI generations
+website generations
+chatbot generations
+automation runs
+Marcus interactions
+
+Enforce:
+
+FREE → 5/month
+PRO → 100/month
+STARTUP → 500/month
+ENTERPRISE → unlimited
+5. PLAN GUARD MIDDLEWARE
+
+Create:
+
+/middleware/planGuard.ts
+
+Must:
+
+intercept generation requests
+validate plan access
+validate usage limits
+block unauthorized access BEFORE execution
+6. DATABASE EXTENSION (SAFE ADD ONLY)
+
+Add table:
+
+user_subscriptions
+
+Fields:
+
+user_id
+plan ("free" | "pro" | "startup" | "enterprise")
+usage_count
+monthly_limit
+updated_at
+
+DO NOT modify existing tables.
+
+7. FRONTEND HOOK
+
+Create:
+
+/hooks/usePlan.ts
+
+Returns:
+
+currentPlan
+canAccess(feature)
+usageRemaining
+isBlocked(feature)
+8. UI BEHAVIOR (VERY IMPORTANT)
+
+When user tries restricted feature:
+
+SHOW MODAL:
+
+“Upgrade required”
+
+Include:
+
+required plan
+feature name
+upgrade button (UI only, no Stripe)
+9. MARCUS RULES (CRITICAL)
+
+Marcus Copilot:
+
+FREE → NOT accessible
+PRO → available
+STARTUP → full reasoning + proactive intelligence
+ENTERPRISE → unlimited
+
+Marcus MUST check plan before responding.
+
+10. ENFORCEMENT POINTS
+
+Apply gating in:
+
+BI Generator
+Website Generator
+Chatbot Generator
+Automation Builder
+Marcus Copilot endpoints

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
+import { requireFeature } from "../middleware/planGuard";
 import { db, projectsTable, agentsTable, aiMemoryTable, workspaceTasksTable, subscriptionsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
@@ -135,7 +136,7 @@ const CopilotBody = z.object({
   language: z.string().optional(),
 });
 
-router.post("/copilot", requireAuth, async (req, res): Promise<void> => {
+router.post("/copilot", requireAuth, requireFeature("marcus_copilot"), async (req, res): Promise<void> => {
   const parsed = CopilotBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request" });
