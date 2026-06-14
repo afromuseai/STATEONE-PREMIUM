@@ -60,9 +60,9 @@ export function Navbar() {
         {/* Agent Marcus badge — links to the About Marcus page */}
         <Link href="/about-marcus" className="hidden md:block opacity-90 hover:opacity-100 transition-opacity">
           <img
-            src="/agent-marcus-badge.png"
+            src="/agent-marcus-badge-nobg.png"
             alt="Agent Marcus"
-            className="w-30 h-auto object-contain"
+            className="h-10 w-auto object-contain"
           />
         </Link>
 
