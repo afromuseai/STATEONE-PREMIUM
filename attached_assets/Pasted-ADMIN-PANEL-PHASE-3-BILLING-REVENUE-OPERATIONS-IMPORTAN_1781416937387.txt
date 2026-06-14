@@ -1,0 +1,186 @@
+ADMIN PANEL PHASE 3 — BILLING + REVENUE OPERATIONS
+
+IMPORTANT:
+
+DO NOT modify:
+
+* generation pipelines
+* project architecture
+* authentication
+* Marcus
+* business intelligence
+* website architect
+* chatbot systems
+* automation systems
+
+This phase is ONLY:
+
+Admin Operations
+Billing Intelligence
+Revenue Analytics
+
+====================================
+
+GOAL
+
+Transform Admin Panel into a real SaaS control center.
+
+The billing abstraction layer already exists.
+
+The plan enforcement system already exists.
+
+The usage tracking system already exists.
+
+Now build the operational layer on top.
+
+====================================
+
+ADD BILLING DASHBOARD TAB
+
+Create:
+
+Admin → Billing
+
+Show:
+
+* Total MRR
+* Active subscriptions
+* Free users
+* Pro users
+* Startup users
+* Enterprise users
+* Conversion rate
+* Upgrade rate
+* Downgrade rate
+
+====================================
+
+REVENUE ANALYTICS
+
+Create charts for:
+
+* user growth
+* subscription growth
+* plan distribution
+* upgrade trends
+* daily signups
+* monthly recurring revenue
+
+Support:
+
+* 7 days
+* 30 days
+* 90 days
+* all time
+
+====================================
+
+PLAN MANAGEMENT
+
+Admin should be able to:
+
+* upgrade user
+* downgrade user
+* suspend plan
+* reactivate plan
+
+Actions must be logged.
+
+====================================
+
+USER BILLING PROFILE
+
+Inside user details:
+
+Display:
+
+* current plan
+* generations used
+* usage percentage
+* account age
+* last activity
+* projects count
+* total generations
+
+====================================
+
+WAITLIST MANAGEMENT
+
+Create:
+
+Admin → Waitlist
+
+Support:
+
+* enterprise waitlist
+* beta waitlist
+
+Show:
+
+* name
+* email
+* company
+* date joined
+
+====================================
+
+COUPON SYSTEM
+
+Build internal coupon system.
+
+Support:
+
+* percentage discount
+* fixed discount
+* expiration date
+* usage limit
+
+Admin can:
+
+* create coupon
+* disable coupon
+* view usage
+
+====================================
+
+AUDIT LOG
+
+Create:
+
+Admin → Audit
+
+Track:
+
+* plan changes
+* user upgrades
+* user downgrades
+* broadcasts
+* coupon creation
+* admin actions
+
+====================================
+
+IMPORTANT
+
+Do NOT integrate Stripe.
+
+Use existing billing abstraction layer.
+
+Everything must remain provider-agnostic.
+
+Future providers should plug in without refactoring.
+
+====================================
+
+UI STYLE
+
+Maintain:
+
+* STAGEONE black/gold aesthetic
+* premium enterprise dashboard
+* responsive design
+* clean analytics layout
+
+This is a SaaS operations dashboard.
+
+Not a developer dashboard.

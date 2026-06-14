@@ -33,3 +33,4 @@ export * from "./events";
 export * from "./sessions";
 export * from "./broadcasts";
 export * from "./user-usage";
+export * from "./coupons";

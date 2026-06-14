@@ -7,6 +7,9 @@ import {
   TrendingUp, Globe, Bot, X, Check, AlertTriangle,
   Radio, Activity, Megaphone, MapPin, Funnel,
   Send, Clock, ArrowDown, ArrowUp, Mail, Eye, FolderOpen,
+  DollarSign, CreditCard, Tag, FileText, ListFilter,
+  Pause, Play, Plus, Percent, Hash, Calendar, ChevronUp,
+  BadgeCheck, UserX, ToggleLeft, ToggleRight,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
@@ -14,7 +17,7 @@ import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "events" | "analytics" | "broadcasts" | "intelligence" | "messages"
+type AdminTab = "users" | "stats" | "billing" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit"
 
 interface AdminUser {
   id: string
@@ -116,6 +119,61 @@ interface SegmentCounts {
   emailEnabled: boolean
 }
 
+interface BillingData {
+  mrr: number
+  arr: number
+  totalUsers: number
+  activeSubs: number
+  planCounts: Record<string, number>
+  paidUsers: number
+  freeUsers: number
+  conversionRate: number
+  upgradeRate30d: number
+  downgradeRate30d: number
+}
+
+interface BillingCharts {
+  dailySignups: Array<{ date: string; count: number }>
+  planDistribution: Record<string, number>
+}
+
+interface WaitlistEntry {
+  id: string
+  name: string
+  email: string
+  plan: string
+  createdAt: string
+}
+
+interface Coupon {
+  id: string
+  code: string
+  type: string
+  value: number
+  maxUses: number | null
+  uses: number
+  expiresAt: string | null
+  disabled: boolean
+  description: string | null
+  createdAt: string
+  creatorName: string | null
+}
+
+interface AuditLog {
+  id: string
+  userId: string | null
+  action: string
+  resource: string
+  resourceId: string | null
+  changes: Record<string, unknown> | null
+  severity: string
+  outcome: string
+  ipAddress: string | null
+  createdAt: string
+  userEmail: string | null
+  userName: string | null
+}
+
 const PLAN_META: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   free:       { icon: Zap,       color: "#10B981", label: "Free" },
   pro:        { icon: Crown,     color: "#D4AF37", label: "Pro" },
@@ -145,6 +203,25 @@ const BROADCAST_TYPE_META: Record<string, { color: string; label: string }> = {
   feature: { color: "#D4AF37", label: "Feature" },
 }
 
+const SEVERITY_META: Record<string, { color: string; label: string }> = {
+  low:      { color: "#6B7280", label: "Low" },
+  medium:   { color: "#F59E0B", label: "Medium" },
+  high:     { color: "#F97316", label: "High" },
+  critical: { color: "#EF4444", label: "Critical" },
+}
+
+const ACTION_META: Record<string, { color: string; label: string }> = {
+  plan_change:         { color: "#D4AF37", label: "Plan Change" },
+  plan_suspend:        { color: "#EF4444", label: "Suspend" },
+  plan_reactivate:     { color: "#10B981", label: "Reactivate" },
+  coupon_create:       { color: "#8B5CF6", label: "Coupon Created" },
+  coupon_disable:      { color: "#F97316", label: "Coupon Disabled" },
+  coupon_enable:       { color: "#10B981", label: "Coupon Enabled" },
+  coupon_delete:       { color: "#EF4444", label: "Coupon Deleted" },
+  message_center_send: { color: "#6366F1", label: "Message Sent" },
+  waitlist_remove:     { color: "#6B7280", label: "Waitlist Remove" },
+}
+
 function PlanBadge({ plan }: { plan: Plan }) {
   const meta = PLAN_META[plan] ?? PLAN_META.free
   const Icon = meta.icon
@@ -161,6 +238,26 @@ function EventTypeBadge({ type }: { type: string }) {
   const meta = EVENT_TYPE_META[type] ?? { color: "#6B7280", label: type }
   return (
     <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold font-mono"
+      style={{ background: `${meta.color}15`, color: meta.color, border: `1px solid ${meta.color}30` }}>
+      {meta.label}
+    </span>
+  )
+}
+
+function SeverityBadge({ severity }: { severity: string }) {
+  const meta = SEVERITY_META[severity] ?? SEVERITY_META.low
+  return (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
+      style={{ background: `${meta.color}15`, color: meta.color, border: `1px solid ${meta.color}30` }}>
+      {meta.label}
+    </span>
+  )
+}
+
+function ActionBadge({ action }: { action: string }) {
+  const meta = ACTION_META[action] ?? { color: "#6B7280", label: action.replace(/_/g, " ") }
+  return (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold capitalize"
       style={{ background: `${meta.color}15`, color: meta.color, border: `1px solid ${meta.color}30` }}>
       {meta.label}
     </span>
@@ -191,6 +288,15 @@ function StatCard({ label, value, icon: Icon, color, sub }: { label: string; val
   )
 }
 
+function MiniBar({ pct, color }: { pct: number; color: string }) {
+  return (
+    <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
+      <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(pct, 100)}%` }}
+        transition={{ duration: 0.8 }} className="h-full rounded-full" style={{ background: color }} />
+    </div>
+  )
+}
+
 export default function AdminPage() {
   const { user } = useAuth()
   const [, setLocation] = useLocation()
@@ -215,9 +321,7 @@ export default function AdminPage() {
   const [liveEvents, setLiveEvents] = useState<AdminEvent[]>([])
   const [sseConnected, setSseConnected] = useState(false)
   const sseRef = useRef<EventSource | null>(null)
-  const [broadcastForm, setBroadcastForm] = useState({
-    title: "", message: "", type: "info", target: "all",
-  })
+  const [broadcastForm, setBroadcastForm] = useState({ title: "", message: "", type: "info", target: "all" })
   const [sendingBroadcast, setSendingBroadcast] = useState(false)
   const [broadcastSent, setBroadcastSent] = useState(false)
   const [intelligence, setIntelligence] = useState<IntelligenceUser[] | null>(null)
@@ -228,6 +332,31 @@ export default function AdminPage() {
   const [sendingMsg, setSendingMsg] = useState(false)
   const [msgSent, setMsgSent] = useState(false)
 
+  // Billing
+  const [billing, setBilling] = useState<BillingData | null>(null)
+  const [billingCharts, setBillingCharts] = useState<BillingCharts | null>(null)
+  const [billingRange, setBillingRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
+  const [suspendingUser, setSuspendingUser] = useState<string | null>(null)
+
+  // Waitlist
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([])
+  const [waitlistFilter, setWaitlistFilter] = useState<string>("all")
+  const [deletingWaitlist, setDeletingWaitlist] = useState<string | null>(null)
+
+  // Coupons
+  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [couponForm, setCouponForm] = useState({ code: "", type: "percentage", value: "", maxUses: "", expiresAt: "", description: "" })
+  const [creatingCoupon, setCreatingCoupon] = useState(false)
+  const [couponError, setCouponError] = useState<string | null>(null)
+  const [couponSuccess, setCouponSuccess] = useState(false)
+  const [showCouponForm, setShowCouponForm] = useState(false)
+
+  // Audit
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
+  const [auditAction, setAuditAction] = useState("all")
+  const [auditSeverity, setAuditSeverity] = useState("all")
+  const [auditSearch, setAuditSearch] = useState("")
+
   useEffect(() => {
     if (!user) { setLocation("/login"); return }
     if (!user.isAdmin) { setLocation("/dashboard"); return }
@@ -236,10 +365,7 @@ export default function AdminPage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [usersData, statsData] = await Promise.all([
-        api.admin.getUsers(),
-        api.admin.getStats(),
-      ])
+      const [usersData, statsData] = await Promise.all([api.admin.getUsers(), api.admin.getStats()])
       setUsers(usersData.users as AdminUser[])
       setStats(statsData)
     } catch (_) {}
@@ -279,6 +405,42 @@ export default function AdminPage() {
     } catch (_) {}
   }, [])
 
+  const loadBilling = useCallback(async () => {
+    try {
+      const [bData, cData] = await Promise.all([
+        fetch("/api/admin/billing", { credentials: "include" }).then(r => r.json()),
+        fetch(`/api/admin/billing/charts?range=${billingRange}`, { credentials: "include" }).then(r => r.json()),
+      ])
+      setBilling(bData)
+      setBillingCharts(cData)
+    } catch (_) {}
+  }, [billingRange])
+
+  const loadWaitlist = useCallback(async () => {
+    try {
+      const params = waitlistFilter !== "all" ? `?plan=${waitlistFilter}` : ""
+      const data = await fetch(`/api/admin/waitlist${params}`, { credentials: "include" }).then(r => r.json())
+      setWaitlist(data.entries ?? [])
+    } catch (_) {}
+  }, [waitlistFilter])
+
+  const loadCoupons = useCallback(async () => {
+    try {
+      const data = await fetch("/api/admin/coupons", { credentials: "include" }).then(r => r.json())
+      setCoupons(data.coupons ?? [])
+    } catch (_) {}
+  }, [])
+
+  const loadAudit = useCallback(async () => {
+    try {
+      const params = new URLSearchParams()
+      if (auditAction !== "all") params.set("action", auditAction)
+      if (auditSeverity !== "all") params.set("severity", auditSeverity)
+      const data = await fetch(`/api/admin/audit?${params}`, { credentials: "include" }).then(r => r.json())
+      setAuditLogs(data.logs ?? [])
+    } catch (_) {}
+  }, [auditAction, auditSeverity])
+
   useEffect(() => { loadData() }, [loadData])
 
   useEffect(() => {
@@ -286,7 +448,15 @@ export default function AdminPage() {
     else if (activeTab === "events") loadEvents()
     else if (activeTab === "broadcasts") loadBroadcasts()
     else if (activeTab === "intelligence") loadIntelligence()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence])
+    else if (activeTab === "billing") loadBilling()
+    else if (activeTab === "waitlist") loadWaitlist()
+    else if (activeTab === "coupons") loadCoupons()
+    else if (activeTab === "audit") loadAudit()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadWaitlist, loadCoupons, loadAudit])
+
+  useEffect(() => { if (activeTab === "billing") loadBilling() }, [billingRange])
+  useEffect(() => { if (activeTab === "waitlist") loadWaitlist() }, [waitlistFilter])
+  useEffect(() => { if (activeTab === "audit") loadAudit() }, [auditAction, auditSeverity])
 
   useEffect(() => {
     if (activeTab !== "events") return
@@ -296,9 +466,7 @@ export default function AdminPage() {
     es.addEventListener("message", (e) => {
       try {
         const data = JSON.parse(e.data)
-        if (data.event) {
-          setLiveEvents(prev => [data.event as AdminEvent, ...prev].slice(0, 50))
-        }
+        if (data.event) setLiveEvents(prev => [data.event as AdminEvent, ...prev].slice(0, 50))
       } catch (_) {}
     })
     es.addEventListener("error", () => setSseConnected(false))
@@ -310,8 +478,13 @@ export default function AdminPage() {
   const handleChangePlan = async (userId: string, plan: Plan) => {
     setChangingPlan(userId)
     try {
-      await api.admin.updateSubscription(userId, plan)
+      await fetch(`/api/admin/users/${userId}/plan`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      })
       await loadData()
+      if (activeTab === "billing") await loadBilling()
     } catch (_) {}
     setChangingPlan(null)
   }
@@ -335,14 +508,27 @@ export default function AdminPage() {
     setDeletingUser(null)
   }
 
+  const handleSuspendPlan = async (userId: string, currentStatus: string) => {
+    setSuspendingUser(userId)
+    try {
+      const newStatus = currentStatus === "active" ? "cancelled" : "active"
+      await fetch(`/api/admin/users/${userId}/subscription/status`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      await loadData()
+      if (activeTab === "billing") await loadBilling()
+    } catch (_) {}
+    setSuspendingUser(null)
+  }
+
   const handleSendBroadcast = async () => {
     if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) return
     setSendingBroadcast(true)
     try {
       await fetch("/api/admin/broadcasts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ ...broadcastForm, sendEmail }),
       })
       setBroadcastSent(true)
@@ -362,19 +548,84 @@ export default function AdminPage() {
     } catch (_) {}
   }
 
+  const handleDeleteWaitlist = async (id: string) => {
+    setDeletingWaitlist(id)
+    try {
+      await fetch(`/api/admin/waitlist/${id}`, { method: "DELETE", credentials: "include" })
+      setWaitlist(prev => prev.filter(w => w.id !== id))
+    } catch (_) {}
+    setDeletingWaitlist(null)
+  }
+
+  const handleCreateCoupon = async () => {
+    setCouponError(null)
+    if (!couponForm.code.trim() || !couponForm.value) { setCouponError("Code and value are required"); return }
+    setCreatingCoupon(true)
+    try {
+      const body: Record<string, unknown> = {
+        code: couponForm.code.toUpperCase().trim(),
+        type: couponForm.type,
+        value: parseFloat(couponForm.value),
+      }
+      if (couponForm.maxUses) body.maxUses = parseInt(couponForm.maxUses)
+      if (couponForm.expiresAt) body.expiresAt = couponForm.expiresAt
+      if (couponForm.description) body.description = couponForm.description
+
+      const res = await fetch("/api/admin/coupons", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) { setCouponError(data.error ?? "Failed to create coupon"); return }
+      setCouponSuccess(true)
+      setCouponForm({ code: "", type: "percentage", value: "", maxUses: "", expiresAt: "", description: "" })
+      setShowCouponForm(false)
+      await loadCoupons()
+      setTimeout(() => setCouponSuccess(false), 3000)
+    } catch (_) { setCouponError("Failed to create coupon") }
+    setCreatingCoupon(false)
+  }
+
+  const handleToggleCoupon = async (id: string, disabled: boolean) => {
+    try {
+      await fetch(`/api/admin/coupons/${id}/${disabled ? "enable" : "disable"}`, {
+        method: "PATCH", credentials: "include",
+      })
+      await loadCoupons()
+    } catch (_) {}
+  }
+
+  const handleDeleteCoupon = async (id: string) => {
+    try {
+      await fetch(`/api/admin/coupons/${id}`, { method: "DELETE", credentials: "include" })
+      setCoupons(prev => prev.filter(c => c.id !== id))
+    } catch (_) {}
+  }
+
   const filtered = users.filter(u =>
     u.email.toLowerCase().includes(search.toLowerCase()) ||
     u.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  const filteredAudit = auditLogs.filter(l =>
+    !auditSearch ||
+    l.action.includes(auditSearch.toLowerCase()) ||
+    (l.userEmail ?? "").toLowerCase().includes(auditSearch.toLowerCase()) ||
+    (l.resource ?? "").includes(auditSearch.toLowerCase())
+  )
+
   const TABS: { id: AdminTab; label: string; icon: React.ElementType }[] = [
-    { id: "users",        label: "Users",         icon: Users },
-    { id: "stats",        label: "Stats",         icon: BarChart3 },
-    { id: "events",       label: "Events",        icon: Radio },
-    { id: "analytics",    label: "Analytics",     icon: TrendingUp },
-    { id: "intelligence", label: "Intelligence",  icon: Bot },
-    { id: "messages",     label: "Messages",      icon: Send },
-    { id: "broadcasts",   label: "Broadcast",     icon: Megaphone },
+    { id: "users",        label: "Users",        icon: Users },
+    { id: "stats",        label: "Stats",        icon: BarChart3 },
+    { id: "billing",      label: "Billing",      icon: DollarSign },
+    { id: "events",       label: "Events",       icon: Radio },
+    { id: "analytics",    label: "Analytics",    icon: TrendingUp },
+    { id: "intelligence", label: "Intelligence", icon: Bot },
+    { id: "messages",     label: "Messages",     icon: Send },
+    { id: "broadcasts",   label: "Broadcast",    icon: Megaphone },
+    { id: "waitlist",     label: "Waitlist",     icon: UserCheck },
+    { id: "coupons",      label: "Coupons",      icon: Tag },
+    { id: "audit",        label: "Audit",        icon: FileText },
   ]
 
   if (!user?.isAdmin) return null
@@ -413,6 +664,10 @@ export default function AdminPage() {
               if (activeTab === "events") loadEvents()
               if (activeTab === "broadcasts") loadBroadcasts()
               if (activeTab === "intelligence") loadIntelligence()
+              if (activeTab === "billing") loadBilling()
+              if (activeTab === "waitlist") loadWaitlist()
+              if (activeTab === "coupons") loadCoupons()
+              if (activeTab === "audit") loadAudit()
             }} disabled={loading}
               className="p-2 rounded-lg border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -430,16 +685,15 @@ export default function AdminPage() {
                   { label: "Total Users", value: stats.totalUsers, icon: Users, color: "#6366F1" },
                   { label: "Admin Users", value: stats.admins, icon: Shield, color: "#EF4444" },
                   { label: "Total Generations", value: stats.totalGenerations, icon: BarChart3, color: "#D4AF37" },
-                  { label: "Pro+ Users", value: (stats.planCounts.pro ?? 0) + (stats.planCounts.enterprise ?? 0), icon: Crown, color: "#8B5CF6" },
+                  { label: "Pro+ Users", value: (stats.planCounts.pro ?? 0) + (stats.planCounts.startup ?? 0) + (stats.planCounts.enterprise ?? 0), icon: Crown, color: "#8B5CF6" },
                 ].map(({ label, value, icon: Icon, color }) => (
                   <StatCard key={label} label={label} value={value} icon={Icon} color={color} />
                 ))}
               </div>
-
               <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
                 <h3 className="text-sm font-black text-foreground mb-4">Plan Distribution</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {(["free", "pro", "enterprise"] as Plan[]).map(plan => {
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {(["free", "pro", "startup", "enterprise"] as Plan[]).map(plan => {
                     const meta = PLAN_META[plan]
                     const Icon = meta.icon
                     const cnt = stats.planCounts[plan] ?? 0
@@ -454,16 +708,173 @@ export default function AdminPage() {
                         </div>
                         <p className="text-xl font-black text-foreground">{cnt}</p>
                         <p className="text-[10px] text-muted-foreground mt-1">{pct}% of users</p>
-                        <div className="mt-2 h-1 rounded-full bg-white/8 overflow-hidden">
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.8 }} className="h-full rounded-full"
-                            style={{ background: meta.color }} />
-                        </div>
+                        <MiniBar pct={pct} color={meta.color} />
                       </div>
                     )
                   })}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── Billing Tab ────────────────────────────────────────────────── */}
+          {activeTab === "billing" && (
+            <div className="space-y-5">
+              {!billing ? (
+                <div className="flex items-center justify-center py-20">
+                  <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin" />
+                </div>
+              ) : (
+                <>
+                  {/* MRR Hero */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                      className="col-span-2 rounded-2xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <DollarSign className="h-4 w-4 text-[#D4AF37]" />
+                        <span className="text-xs font-black text-[#D4AF37] uppercase tracking-widest">Monthly Recurring Revenue</span>
+                      </div>
+                      <p className="text-4xl font-black text-foreground">${billing.mrr.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground mt-1">ARR: ${billing.arr.toLocaleString()} / year</p>
+                    </motion.div>
+                    <StatCard label="Active Subscriptions" value={billing.activeSubs} icon={CreditCard} color="#6366F1" />
+                    <StatCard label="Conversion Rate" value={`${billing.conversionRate}%`} icon={TrendingUp} color="#10B981" sub="free → paid" />
+                  </div>
+
+                  {/* Plan breakdown */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {(["free", "pro", "startup", "enterprise"] as Plan[]).map(plan => {
+                      const meta = PLAN_META[plan]
+                      const Icon = meta.icon
+                      const cnt = billing.planCounts[plan] ?? 0
+                      const pct = billing.activeSubs > 0 ? Math.round((cnt / billing.activeSubs) * 100) : 0
+                      const MRR_MAP: Record<string, number> = { free: 0, pro: 29, startup: 99, enterprise: 299 }
+                      return (
+                        <motion.div key={plan} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                          className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="p-1.5 rounded-lg" style={{ background: `${meta.color}15` }}>
+                              <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
+                            </div>
+                            <span className="text-xs font-bold text-foreground capitalize">{plan}</span>
+                          </div>
+                          <p className="text-2xl font-black text-foreground">{cnt}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">{pct}% · ${(cnt * MRR_MAP[plan]).toLocaleString()}/mo</p>
+                          <MiniBar pct={pct} color={meta.color} />
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Rates */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                      className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-xl bg-emerald-500/10"><ArrowUp className="h-3.5 w-3.5 text-emerald-400" /></div>
+                        <span className="text-xs font-bold text-foreground">Upgrades (30d)</span>
+                      </div>
+                      <p className="text-2xl font-black text-emerald-400">{billing.upgradeRate30d}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Plan upgrades this month</p>
+                    </motion.div>
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                      className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-xl bg-red-500/10"><ArrowDown className="h-3.5 w-3.5 text-red-400" /></div>
+                        <span className="text-xs font-bold text-foreground">Downgrades (30d)</span>
+                      </div>
+                      <p className="text-2xl font-black text-red-400">{billing.downgradeRate30d}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Plan downgrades this month</p>
+                    </motion.div>
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                      className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-xl bg-primary/10"><Users className="h-3.5 w-3.5 text-primary" /></div>
+                        <span className="text-xs font-bold text-foreground">Free Users</span>
+                      </div>
+                      <p className="text-2xl font-black text-foreground">{billing.freeUsers}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Not converting</p>
+                    </motion.div>
+                  </div>
+
+                  {/* Growth chart */}
+                  <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-black text-foreground">User Growth</h3>
+                      <div className="flex gap-1">
+                        {(["7d", "30d", "90d", "all"] as const).map(r => (
+                          <button key={r} onClick={() => setBillingRange(r)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${billingRange === r ? "bg-primary/15 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"}`}>
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {billingCharts?.dailySignups && billingCharts.dailySignups.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {(() => {
+                          const max = Math.max(...billingCharts.dailySignups.map(d => d.count), 1)
+                          return billingCharts.dailySignups.slice(-20).map((d, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <span className="text-[10px] text-muted-foreground/60 w-20 shrink-0 font-mono">{d.date}</span>
+                              <div className="flex-1 h-4 bg-white/5 rounded-full overflow-hidden">
+                                <motion.div initial={{ width: 0 }} animate={{ width: `${(d.count / max) * 100}%` }}
+                                  transition={{ delay: i * 0.02, duration: 0.6 }}
+                                  className="h-full rounded-full bg-primary/70" />
+                              </div>
+                              <span className="text-[10px] font-black text-foreground w-6 text-right">{d.count}</span>
+                            </div>
+                          ))
+                        })()}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-8">No signup data for this range</p>
+                    )}
+                  </div>
+
+                  {/* Plan Management — user list with billing controls */}
+                  <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                    <h3 className="text-sm font-black text-foreground mb-4">Plan Management</h3>
+                    <div className="space-y-2">
+                      {users.slice(0, 20).map((u) => {
+                        const plan = (u.subscription?.plan ?? "free") as Plan
+                        const status = u.subscription?.status ?? "active"
+                        const meta = PLAN_META[plan]
+                        const suspended = status !== "active"
+                        return (
+                          <div key={u.id} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/6 bg-white/2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-foreground truncate">{u.name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                            </div>
+                            <PlanBadge plan={plan} />
+                            {suspended && (
+                              <span className="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5">Suspended</span>
+                            )}
+                            {/* Plan selector */}
+                            <select value={plan} onChange={e => handleChangePlan(u.id, e.target.value as Plan)}
+                              disabled={changingPlan === u.id}
+                              className="bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-foreground px-2 py-1 outline-none cursor-pointer">
+                              {(["free", "pro", "startup", "enterprise"] as Plan[]).map(p => (
+                                <option key={p} value={p} className="bg-[#1a1a1a]">{PLAN_META[p].label}</option>
+                              ))}
+                            </select>
+                            {/* Suspend/Reactivate */}
+                            <button onClick={() => handleSuspendPlan(u.id, status)}
+                              disabled={suspendingUser === u.id}
+                              className={`p-1.5 rounded-lg transition-colors ${suspended ? "text-emerald-400 hover:bg-emerald-500/10" : "text-muted-foreground hover:text-red-400 hover:bg-red-500/5"}`}
+                              title={suspended ? "Reactivate" : "Suspend"}>
+                              {suspendingUser === u.id
+                                ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                : suspended ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -535,89 +946,79 @@ export default function AdminPage() {
                         <AnimatePresence>
                           {isExpanded && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
-                              className="overflow-hidden border-t border-white/5">
+                              exit={{ height: 0, opacity: 0 }} className="border-t border-white/5 overflow-hidden">
                               <div className="px-5 py-4 space-y-4">
-                                <div>
-                                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Change Plan</p>
-                                  <div className="flex gap-2">
-                                    {(["free", "pro", "enterprise"] as Plan[]).map(p => {
-                                      const m = PLAN_META[p]
-                                      const Icon = m.icon
-                                      const isCurrent = plan === p
-                                      return (
-                                        <button key={p} onClick={() => handleChangePlan(u.id, p)}
-                                          disabled={isCurrent || changingPlan === u.id}
-                                          className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all border ${
-                                            isCurrent ? "border-white/10 bg-white/5 text-muted-foreground cursor-default"
-                                              : "border-white/8 bg-white/3 text-foreground hover:bg-white/8"
-                                          }`}>
-                                          {changingPlan === u.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" style={{ color: m.color }} />}
-                                          {m.label}
-                                          {isCurrent && <Check className="h-3 w-3 text-primary" />}
-                                        </button>
-                                      )
-                                    })}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <button onClick={() => handleToggleAdmin(u.id, u.isAdmin)}
-                                    disabled={togglingAdmin === u.id || u.id === user?.id}
-                                    className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold border transition-all ${
-                                      u.isAdmin ? "border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                                        : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground hover:bg-white/8"
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}>
-                                    {togglingAdmin === u.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
-                                    {u.isAdmin ? "Revoke Admin" : "Grant Admin"}
-                                  </button>
-                                  {u.id !== user?.id && (
-                                    confirmDelete === u.id ? (
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs text-red-400 font-medium flex items-center gap-1">
-                                          <AlertTriangle className="h-3 w-3" />Delete {u.name}?
-                                        </span>
-                                        <button onClick={() => handleDelete(u.id)} disabled={deletingUser === u.id}
-                                          className="rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold px-3 py-1.5 hover:bg-red-500/30 transition-all">
-                                          {deletingUser === u.id ? "Deleting..." : "Confirm"}
-                                        </button>
-                                        <button onClick={() => setConfirmDelete(null)}
-                                          className="rounded-lg border border-white/10 bg-white/5 text-muted-foreground text-xs px-3 py-1.5 hover:text-foreground transition-all">
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button onClick={() => setConfirmDelete(u.id)}
-                                        className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold border border-white/8 bg-white/3 text-muted-foreground hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/5 transition-all">
-                                        <Trash2 className="h-3 w-3" />Delete User
-                                      </button>
-                                    )
-                                  )}
-                                </div>
+
+                                {/* Billing Profile */}
                                 {u.subscription && (
-                                  <div className="grid grid-cols-3 gap-2 pt-1">
-                                    {[
-                                      { label: "AI Gen", used: u.subscription.aiGenerationsUsed, limit: u.subscription.aiGenerationsLimit, color: "#D4AF37", icon: BarChart3 },
-                                      { label: "Deploys", used: u.subscription.deploymentsUsed, limit: u.subscription.deploymentsLimit, color: "#6366F1", icon: Globe },
-                                    ].map(({ label, used, limit, color, icon: Icon }) => (
-                                      <div key={label} className="rounded-xl border border-white/8 bg-white/2 p-3">
-                                        <div className="flex items-center gap-1.5 mb-1.5">
-                                          <Icon className="h-3 w-3" style={{ color }} />
-                                          <span className="text-[10px] font-bold text-muted-foreground">{label}</span>
-                                        </div>
-                                        <p className="text-sm font-black text-foreground">
-                                          {used} <span className="text-[10px] text-muted-foreground font-normal">/ {limit >= 9999 ? "∞" : limit}</span>
-                                        </p>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div className="rounded-xl border border-white/6 bg-white/2 p-3">
+                                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Plan</p>
+                                      <PlanBadge plan={plan} />
+                                    </div>
+                                    <div className="rounded-xl border border-white/6 bg-white/2 p-3">
+                                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Generations</p>
+                                      <p className="text-sm font-black text-foreground">{u.subscription.aiGenerationsUsed} <span className="text-muted-foreground font-normal">/ {u.subscription.aiGenerationsLimit === 9999 ? "∞" : u.subscription.aiGenerationsLimit}</span></p>
+                                      <div className="mt-1.5">
+                                        <MiniBar pct={u.subscription.aiGenerationsLimit > 0 ? (u.subscription.aiGenerationsUsed / u.subscription.aiGenerationsLimit) * 100 : 0} color="#D4AF37" />
                                       </div>
-                                    ))}
-                                    <div className="rounded-xl border border-white/8 bg-white/2 p-3">
-                                      <div className="flex items-center gap-1.5 mb-1.5">
-                                        <UserCheck className="h-3 w-3 text-emerald-400" />
-                                        <span className="text-[10px] font-bold text-muted-foreground">Status</span>
-                                      </div>
-                                      <p className="text-sm font-black text-emerald-400 capitalize">{u.subscription.status}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-white/6 bg-white/2 p-3">
+                                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Status</p>
+                                      <span className={`text-xs font-bold ${u.subscription.status === "active" ? "text-emerald-400" : "text-red-400"}`}>
+                                        {u.subscription.status}
+                                      </span>
+                                    </div>
+                                    <div className="rounded-xl border border-white/6 bg-white/2 p-3">
+                                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Period End</p>
+                                      <p className="text-xs font-bold text-foreground">{new Date(u.subscription.currentPeriodEnd).toLocaleDateString()}</p>
                                     </div>
                                   </div>
                                 )}
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mr-2">Change Plan:</p>
+                                  {(["free", "pro", "startup", "enterprise"] as Plan[]).map(p => {
+                                    const pm = PLAN_META[p]
+                                    return (
+                                      <button key={p} onClick={() => handleChangePlan(u.id, p)}
+                                        disabled={changingPlan === u.id || plan === p}
+                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all ${plan === p ? "opacity-50 cursor-default" : "hover:opacity-80"}`}
+                                        style={{ background: `${pm.color}15`, color: pm.color, borderColor: `${pm.color}30` }}>
+                                        {changingPlan === u.id ? "..." : pm.label}
+                                      </button>
+                                    )
+                                  })}
+                                  <div className="ml-auto flex gap-2">
+                                    {/* Suspend/Reactivate */}
+                                    <button onClick={() => handleSuspendPlan(u.id, u.subscription?.status ?? "active")}
+                                      disabled={suspendingUser === u.id}
+                                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${u.subscription?.status !== "active" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-400"}`}>
+                                      {suspendingUser === u.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : u.subscription?.status !== "active" ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                                      {u.subscription?.status !== "active" ? "Reactivate" : "Suspend"}
+                                    </button>
+                                    <button onClick={() => handleToggleAdmin(u.id, u.isAdmin)} disabled={togglingAdmin === u.id || u.id === user?.id}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/15 transition-all disabled:opacity-40">
+                                      <Shield className="h-3 w-3" />
+                                      {togglingAdmin === u.id ? "..." : u.isAdmin ? "Remove Admin" : "Make Admin"}
+                                    </button>
+                                    {confirmDelete === u.id ? (
+                                      <div className="flex gap-1">
+                                        <button onClick={() => handleDelete(u.id)} disabled={deletingUser === u.id}
+                                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-500 text-white hover:bg-red-600 transition-all">
+                                          {deletingUser === u.id ? "Deleting..." : "Confirm Delete"}
+                                        </button>
+                                        <button onClick={() => setConfirmDelete(null)} className="px-2 py-1.5 rounded-lg text-xs font-bold text-muted-foreground hover:text-foreground">Cancel</button>
+                                      </div>
+                                    ) : (
+                                      <button onClick={() => setConfirmDelete(u.id)} disabled={u.id === user?.id}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 border border-white/10 text-muted-foreground hover:text-red-400 hover:border-red-500/20 transition-all disabled:opacity-30">
+                                        <Trash2 className="h-3 w-3" />Delete
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </motion.div>
                           )}
@@ -625,12 +1026,6 @@ export default function AdminPage() {
                       </motion.div>
                     )
                   })}
-                  {filtered.length === 0 && (
-                    <div className="text-center py-16 text-muted-foreground">
-                      <Users className="h-8 w-8 mx-auto mb-3 opacity-30" />
-                      <p className="text-sm">No users found</p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -639,357 +1034,214 @@ export default function AdminPage() {
           {/* ── Events Tab ────────────────────────────────────────────────── */}
           {activeTab === "events" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {["all", "user_signup", "user_login", "user_logout", "project_created", "project_opened", "bi_generated", "website_generated", "chatbot_generated", "automation_created", "orchestrator_generated", "marcus_message", "marcus_task_created"].map(t => (
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-full border ${sseConnected ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" : "text-muted-foreground border-white/8 bg-white/3"}`}>
+                  <div className={`h-1.5 w-1.5 rounded-full ${sseConnected ? "bg-emerald-400 animate-pulse" : "bg-muted-foreground"}`} />
+                  {sseConnected ? "Live" : "Disconnected"}
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {["all", ...Object.keys(EVENT_TYPE_META)].map(t => (
                     <button key={t} onClick={() => setEventTypeFilter(t)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
-                        eventTypeFilter === t ? "bg-red-500/15 border-red-500/25 text-red-400" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"
-                      }`}>
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all capitalize ${eventTypeFilter === t ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
                       {t === "all" ? "All" : (EVENT_TYPE_META[t]?.label ?? t)}
                     </button>
                   ))}
                 </div>
-                <div className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-full ${sseConnected ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-white/5 text-muted-foreground border border-white/8"}`}>
-                  <motion.div className={`h-1.5 w-1.5 rounded-full ${sseConnected ? "bg-emerald-400" : "bg-muted-foreground"}`}
-                    animate={sseConnected ? { opacity: [1, 0.3, 1] } : {}} transition={{ duration: 1, repeat: Infinity }} />
-                  {sseConnected ? "Live" : "Offline"}
-                </div>
               </div>
 
               {liveEvents.length > 0 && (
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3">
-                  <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                    <Radio className="h-3 w-3" /> Live Feed ({liveEvents.length} new)
-                  </p>
-                  <div className="space-y-1.5">
-                    {liveEvents.slice(0, 5).map(ev => (
-                      <div key={ev.id} className="flex items-center gap-3 text-xs">
-                        <EventTypeBadge type={ev.type} />
-                        <span className="text-muted-foreground truncate">{ev.userEmail ?? "anonymous"}</span>
-                        {ev.country && <span className="text-muted-foreground/50 text-[10px]">{ev.country}</span>}
-                        <span className="ml-auto text-muted-foreground/50 shrink-0">{timeAgo(ev.createdAt)}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Live</p>
+                  {liveEvents.slice(0, 5).map((e, i) => (
+                    <motion.div key={`live-${i}`} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-emerald-500/15 bg-emerald-500/5">
+                      <EventTypeBadge type={e.type} />
+                      <span className="text-xs text-muted-foreground truncate flex-1">{e.userEmail ?? "anonymous"}</span>
+                      <span className="text-[10px] text-muted-foreground/50">{timeAgo(e.createdAt)}</span>
+                    </motion.div>
+                  ))}
                 </div>
               )}
 
-              <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-white/5">
-                        <th className="text-left px-4 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Type</th>
-                        <th className="text-left px-4 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest">User</th>
-                        <th className="text-left px-4 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest hidden md:table-cell">Location</th>
-                        <th className="text-right px-4 py-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest">When</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {events.map((ev, i) => (
-                        <motion.tr key={ev.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.01 }}
-                          className="border-b border-white/3 hover:bg-white/2 transition-colors">
-                          <td className="px-4 py-3"><EventTypeBadge type={ev.type} /></td>
-                          <td className="px-4 py-3 text-muted-foreground max-w-[160px] truncate">{ev.userEmail ?? "—"}</td>
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            {ev.country ? (
-                              <span className="text-muted-foreground/70 flex items-center gap-1">
-                                <MapPin className="h-2.5 w-2.5" />
-                                {ev.city ? `${ev.city}, ` : ""}{ev.country}
-                              </span>
-                            ) : <span className="text-muted-foreground/30">—</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right text-muted-foreground/60 whitespace-nowrap">{timeAgo(ev.createdAt)}</td>
-                        </motion.tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {events.length === 0 && (
-                    <div className="py-16 text-center text-muted-foreground">
-                      <Activity className="h-8 w-8 mx-auto mb-3 opacity-30" />
-                      <p className="text-sm">No events recorded yet</p>
-                    </div>
-                  )}
-                </div>
+              <div className="space-y-1.5">
+                {events.map((e, i) => (
+                  <motion.div key={e.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
+                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-white/6 bg-white/2">
+                    <EventTypeBadge type={e.type} />
+                    <span className="text-xs font-semibold text-foreground truncate flex-1">{e.userName ?? e.userEmail ?? "anonymous"}</span>
+                    {(e.city || e.country) && (
+                      <span className="text-[10px] text-muted-foreground/60 hidden md:flex items-center gap-0.5">
+                        <MapPin className="h-2.5 w-2.5" />{[e.city, e.country].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground/50 shrink-0">{timeAgo(e.createdAt)}</span>
+                  </motion.div>
+                ))}
               </div>
             </div>
           )}
 
           {/* ── Analytics Tab ─────────────────────────────────────────────── */}
-          {activeTab === "analytics" && (
+          {activeTab === "analytics" && analytics && (
             <div className="space-y-5">
-              {!analytics ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Total Users", value: analytics.overview.totalUsers, icon: Users, color: "#6366F1" },
+                  { label: "Active (24h)", value: analytics.overview.activeUsers24h, icon: Activity, color: "#10B981" },
+                  { label: "Active (30d)", value: analytics.overview.activeUsers30d, icon: Globe, color: "#D4AF37" },
+                  { label: "Marcus Messages", value: analytics.overview.totalMarcusMessages, icon: Bot, color: "#8B5CF6" },
+                ].map(c => <StatCard key={c.label} {...c} />)}
+              </div>
+              <div className="grid grid-cols-2 gap-5">
+                <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                  <h3 className="text-sm font-black text-foreground mb-4">Daily Signups (30d)</h3>
+                  {analytics.dailySignups.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {(() => {
+                        const max = Math.max(...analytics.dailySignups.map(d => d.signups), 1)
+                        return analytics.dailySignups.slice(-14).map((d, i) => (
+                          <div key={i} className="flex items-center gap-3">
+                            <span className="text-[10px] text-muted-foreground/60 w-16 shrink-0 font-mono">{d.date.slice(5)}</span>
+                            <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
+                              <motion.div initial={{ width: 0 }} animate={{ width: `${(d.signups / max) * 100}%` }}
+                                transition={{ delay: i * 0.03 }} className="h-full rounded-full bg-primary/70" />
+                            </div>
+                            <span className="text-[10px] font-black text-foreground w-4 text-right">{d.signups}</span>
+                          </div>
+                        ))
+                      })()}
+                    </div>
+                  ) : <p className="text-xs text-muted-foreground">No data</p>}
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                  <h3 className="text-sm font-black text-foreground mb-4">Conversion Funnel</h3>
+                  <div className="space-y-3">
+                    {analytics.funnel.map((f, i) => (
+                      <div key={i}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-muted-foreground">{f.stage}</span>
+                          <span className="text-xs font-bold text-foreground">{f.count} <span className="text-muted-foreground font-normal">({f.pct}%)</span></span>
+                        </div>
+                        <MiniBar pct={f.pct} color="#D4AF37" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-5">
+                <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                  <h3 className="text-sm font-black text-foreground mb-4">Top Countries</h3>
+                  <div className="space-y-2">
+                    {analytics.geo.slice(0, 8).map((g, i) => {
+                      const max = analytics.geo[0]?.users ?? 1
+                      return (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground w-24 truncate">{g.country ?? "Unknown"}</span>
+                          <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${(g.users / max) * 100}%` }}
+                              transition={{ delay: i * 0.04 }} className="h-full rounded-full bg-primary/60" />
+                          </div>
+                          <span className="text-xs font-bold text-foreground">{g.users}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                  <h3 className="text-sm font-black text-foreground mb-4">Top Users by Activity</h3>
+                  <div className="space-y-2">
+                    {analytics.topUsers.slice(0, 8).map((u, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="h-5 w-5 rounded-full bg-white/8 flex items-center justify-center text-[9px] font-black text-muted-foreground">{i + 1}</span>
+                        <span className="text-xs text-muted-foreground truncate flex-1">{u.email ?? "—"}</span>
+                        <span className="text-xs font-black text-foreground">{u.total}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Intelligence Tab ───────────────────────────────────────────── */}
+          {activeTab === "intelligence" && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input type="text" placeholder="Search..." value={intelligenceSearch} onChange={e => setIntelligenceSearch(e.target.value)}
+                    className="w-full rounded-xl border border-white/8 bg-white/3 pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none" />
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {(["all", "active", "power", "paid", "new", "inactive"] as const).map(f => (
+                    <button key={f} onClick={() => setIntelligenceFilter(f)}
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all capitalize ${intelligenceFilter === f ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {intelligence ? (
+                <div className="space-y-2">
+                  {intelligence
+                    .filter(u => {
+                      if (intelligenceSearch) {
+                        const q = intelligenceSearch.toLowerCase()
+                        return u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)
+                      }
+                      if (intelligenceFilter === "active") return u.activityScore > 5
+                      if (intelligenceFilter === "power") return u.activityScore > 20
+                      if (intelligenceFilter === "paid") return u.plan !== "free"
+                      if (intelligenceFilter === "new") return Date.now() - new Date(u.createdAt).getTime() < 7 * 86400000
+                      if (intelligenceFilter === "inactive") return u.activityScore === 0
+                      return true
+                    })
+                    .sort((a, b) => b[intelligenceSort] - a[intelligenceSort])
+                    .slice(0, 50)
+                    .map((u, i) => (
+                      <motion.div key={u.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
+                        className="flex items-center gap-4 px-5 py-3.5 rounded-2xl border border-white/8 bg-white/2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-foreground truncate">{u.name}</span>
+                            <PlanBadge plan={u.plan as Plan} />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">{u.email}</p>
+                        </div>
+                        <div className="hidden md:flex items-center gap-4 text-[10px] text-muted-foreground">
+                          <span title="BI"><span className="text-foreground font-bold">{u.biGenerations}</span> BI</span>
+                          <span title="Website"><span className="text-foreground font-bold">{u.websiteGenerations}</span> Web</span>
+                          <span title="Marcus"><span className="text-foreground font-bold">{u.marcusMessages}</span> MRK</span>
+                          <span title="Projects"><span className="text-foreground font-bold">{u.projectCount}</span> Proj</span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-black" style={{ color: u.activityScore > 20 ? "#D4AF37" : u.activityScore > 5 ? "#10B981" : "#6B7280" }}>{u.activityScore}</p>
+                          <p className="text-[9px] text-muted-foreground">score</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                </div>
+              ) : (
                 <div className="flex items-center justify-center py-20">
                   <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin" />
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <StatCard label="Total Users" value={analytics.overview.totalUsers} icon={Users} color="#6366F1" />
-                    <StatCard label="Total Projects" value={analytics.overview.totalProjects ?? 0} icon={FolderOpen} color="#F59E0B" />
-                    <StatCard label="Total Generations" value={analytics.overview.totalGenerations ?? 0} icon={Zap} color="#D4AF37" />
-                    <StatCard label="Marcus Messages" value={analytics.overview.totalMarcusMessages ?? 0} icon={Bot} color="#06B6D4" />
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <StatCard label="Active Today" value={analytics.overview.activeUsers24h} icon={Activity} color="#10B981" sub="unique users" />
-                    <StatCard label="Active (7d)" value={analytics.overview.activeUsers7d} icon={TrendingUp} color="#8B5CF6" sub="unique users" />
-                    <StatCard label="Active (30d)" value={analytics.overview.activeUsers30d ?? 0} icon={Globe} color="#EC4899" sub="unique users" />
-                    <StatCard label="Total Events" value={analytics.overview.totalEvents} icon={Radio} color="#6B7280" />
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                      <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
-                        <Funnel className="h-4 w-4 text-primary" /> Conversion Funnel
-                      </h3>
-                      <div className="space-y-3">
-                        {analytics.funnel.map((stage, i) => (
-                          <div key={stage.stage}>
-                            <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-xs font-bold text-foreground">{stage.stage}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">{stage.count.toLocaleString()}</span>
-                                {i > 0 && (
-                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${stage.pct >= 50 ? "bg-emerald-500/10 text-emerald-400" : stage.pct >= 25 ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400"}`}>
-                                    {stage.pct}%
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="h-2 rounded-full bg-white/5 overflow-hidden">
-                              <motion.div initial={{ width: 0 }} animate={{ width: `${stage.pct}%` }}
-                                transition={{ duration: 0.8, delay: i * 0.1 }}
-                                className="h-full rounded-full"
-                                style={{ background: i === 0 ? "#6366F1" : "#D4AF37" }} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                      <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
-                        <Globe className="h-4 w-4 text-primary" /> Top Countries
-                      </h3>
-                      {analytics.geo.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-8 text-center">No geo data yet</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {analytics.geo.slice(0, 8).map((g, i) => {
-                            const maxUsers = analytics.geo[0]?.users ?? 1
-                            const pct = Math.round((g.users / maxUsers) * 100)
-                            return (
-                              <div key={g.country ?? i}>
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="text-xs text-foreground">{g.country ?? "Unknown"}</span>
-                                  <span className="text-[10px] text-muted-foreground">{g.users} users</span>
-                                </div>
-                                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                  <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
-                                    transition={{ duration: 0.6, delay: i * 0.05 }}
-                                    className="h-full rounded-full bg-primary/60" />
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                      <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-primary" /> Top Cities
-                      </h3>
-                      {!analytics.topCities || analytics.topCities.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-8 text-center">No city data yet</p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {analytics.topCities.slice(0, 8).map((c, i) => (
-                            <div key={c.city ?? i} className="flex items-center justify-between">
-                              <span className="text-xs text-foreground">{c.city ?? "Unknown"}</span>
-                              <span className="text-[10px] text-muted-foreground bg-white/5 rounded-full px-2 py-0.5">{c.users}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                      <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
-                        <Users className="h-4 w-4 text-primary" /> Top Users
-                      </h3>
-                      {!analytics.topUsers || analytics.topUsers.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-8 text-center">No activity yet</p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {analytics.topUsers.map((u, i) => (
-                            <div key={u.userId ?? i} className="flex items-center justify-between">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs text-foreground truncate">{u.email ?? "Unknown"}</p>
-                              </div>
-                              <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-full px-2 py-0.5 ml-2 shrink-0">{Number(u.total).toLocaleString()} events</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                    <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-primary" /> Event Breakdown
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {analytics.eventTypes.map(et => (
-                        <div key={et.type} className="rounded-xl border border-white/8 bg-white/2 p-3">
-                          <EventTypeBadge type={et.type} />
-                          <p className="text-lg font-black text-foreground mt-2">{et.total.toLocaleString()}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
               )}
             </div>
           )}
 
-          {/* ── User Intelligence Tab ─────────────────────────────────────── */}
-          {activeTab === "intelligence" && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input type="text" placeholder="Search by email or name..."
-                    value={intelligenceSearch} onChange={e => setIntelligenceSearch(e.target.value)}
-                    className="w-full rounded-xl border border-white/8 bg-white/3 pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors" />
-                </div>
-                <div className="flex gap-1.5 flex-wrap">
-                  {(["all", "active", "inactive", "power", "paid", "new"] as const).map(f => (
-                    <button key={f} onClick={() => setIntelligenceFilter(f)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize ${intelligenceFilter === f ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
-                      {f === "all" ? "All Users" : f === "active" ? "Active (7d)" : f === "inactive" ? "Dormant" : f === "power" ? "Power Users" : f === "paid" ? "Paid" : "New (<7d)"}
-                    </button>
-                  ))}
-                </div>
-                <select value={intelligenceSort} onChange={e => setIntelligenceSort(e.target.value as typeof intelligenceSort)}
-                  className="rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-xs text-foreground outline-none">
-                  <option value="activityScore">Sort: Activity Score</option>
-                  <option value="biGenerations">Sort: BI Gens</option>
-                  <option value="projectCount">Sort: Projects</option>
-                  <option value="createdAt">Sort: Newest</option>
-                </select>
-              </div>
-
-              {!intelligence ? (
-                <div className="flex items-center justify-center py-20">
-                  <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin" />
-                </div>
-              ) : (() => {
-                const now = Date.now()
-                const day7 = 7 * 24 * 60 * 60 * 1000
-                const filtered = intelligence
-                  .filter(u => {
-                    const q = intelligenceSearch.toLowerCase()
-                    if (q && !u.email.toLowerCase().includes(q) && !u.name.toLowerCase().includes(q)) return false
-                    if (intelligenceFilter === "active") return u.lastSeenAt && (now - new Date(u.lastSeenAt).getTime()) < day7
-                    if (intelligenceFilter === "inactive") return !u.lastSeenAt || (now - new Date(u.lastSeenAt).getTime()) > day7 * 4
-                    if (intelligenceFilter === "power") return u.activityScore >= 20
-                    if (intelligenceFilter === "paid") return u.plan !== "free"
-                    if (intelligenceFilter === "new") return (now - new Date(u.createdAt).getTime()) < day7
-                    return true
-                  })
-                  .sort((a, b) => {
-                    if (intelligenceSort === "activityScore") return b.activityScore - a.activityScore
-                    if (intelligenceSort === "biGenerations") return b.biGenerations - a.biGenerations
-                    if (intelligenceSort === "projectCount") return b.projectCount - a.projectCount
-                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                  })
-
-                return (
-                  <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-white/8 bg-white/3">
-                            <th className="text-left px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">User</th>
-                            <th className="text-left px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Location</th>
-                            <th className="text-left px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Plan</th>
-                            <th className="text-left px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Last Active</th>
-                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Projects</th>
-                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">BI</th>
-                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Web</th>
-                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Chat</th>
-                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Auto</th>
-                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Orch</th>
-                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Marcus</th>
-                            <th className="text-right px-4 py-3 font-black text-muted-foreground uppercase tracking-widest text-[10px]">Score</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filtered.length === 0 ? (
-                            <tr><td colSpan={12} className="text-center py-12 text-muted-foreground">No users match this filter</td></tr>
-                          ) : filtered.map(u => (
-                            <tr key={u.id} className="border-b border-white/5 hover:bg-white/2 transition-colors">
-                              <td className="px-4 py-3">
-                                <p className="font-bold text-foreground truncate max-w-[160px]">{u.email}</p>
-                                <p className="text-muted-foreground text-[10px]">{u.name}</p>
-                              </td>
-                              <td className="px-4 py-3 text-muted-foreground">
-                                {u.country ? `${u.city ? u.city + ", " : ""}${u.country}` : "—"}
-                              </td>
-                              <td className="px-4 py-3"><PlanBadge plan={u.plan as Plan} /></td>
-                              <td className="px-4 py-3 text-muted-foreground">
-                                {u.lastSeenAt ? new Date(u.lastSeenAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Never"}
-                              </td>
-                              <td className="px-4 py-3 text-right font-bold text-foreground">{u.projectCount}</td>
-                              <td className="px-4 py-3 text-right text-muted-foreground">{u.biGenerations}</td>
-                              <td className="px-4 py-3 text-right text-muted-foreground">{u.websiteGenerations}</td>
-                              <td className="px-4 py-3 text-right text-muted-foreground">{u.chatbotGenerations}</td>
-                              <td className="px-4 py-3 text-right text-muted-foreground">{u.automationGenerations}</td>
-                              <td className="px-4 py-3 text-right text-muted-foreground">{u.orchestratorGenerations}</td>
-                              <td className="px-4 py-3 text-right text-muted-foreground">{u.marcusMessages}</td>
-                              <td className="px-4 py-3 text-right">
-                                <span className={`font-black text-sm ${u.activityScore >= 50 ? "text-primary" : u.activityScore >= 20 ? "text-amber-400" : "text-muted-foreground"}`}>
-                                  {u.activityScore}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="px-4 py-2 border-t border-white/5 text-[10px] text-muted-foreground">
-                      {filtered.length} of {intelligence.length} users
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-          )}
-
-          {/* ── Message Center Tab ────────────────────────────────────────── */}
+          {/* ── Messages Tab ───────────────────────────────────────────────── */}
           {activeTab === "messages" && (
             <div className="space-y-5">
               <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                <h3 className="text-sm font-black text-foreground flex items-center gap-2 mb-4">
-                  <Send className="h-4 w-4 text-primary" /> Send In-App Message
+                <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                  <Send className="h-4 w-4 text-primary" /> Message Center
                 </h3>
                 <div className="space-y-3">
-                  <input type="text" placeholder="Message title..."
-                    value={msgForm.title} onChange={e => setMsgForm(f => ({ ...f, title: e.target.value }))}
-                    className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors" />
-                  <textarea placeholder="Message body..."
-                    value={msgForm.body} onChange={e => setMsgForm(f => ({ ...f, body: e.target.value }))}
-                    rows={4}
-                    className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors resize-none" />
-                  <div className="flex gap-5 flex-wrap">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Type</p>
                       <div className="flex gap-2 flex-wrap">
-                        {(["announcement", "feature", "tip", "warning", "maintenance"] as const).map(t => (
+                        {(["announcement", "feature", "warning", "maintenance", "tip"] as const).map(t => (
                           <button key={t} onClick={() => setMsgForm(f => ({ ...f, type: t }))}
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize ${msgForm.type === t ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
                             {t}
@@ -1010,20 +1262,19 @@ export default function AdminPage() {
                     </div>
                   </div>
                   {msgForm.target === "individual" && (
-                    <input type="text" placeholder="User ID (UUID)..."
-                      value={msgForm.targetUserId} onChange={e => setMsgForm(f => ({ ...f, targetUserId: e.target.value }))}
-                      className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors font-mono text-xs" />
+                    <input type="text" placeholder="User ID (UUID)..." value={msgForm.targetUserId} onChange={e => setMsgForm(f => ({ ...f, targetUserId: e.target.value }))}
+                      className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none font-mono text-xs" />
                   )}
-                  <div className="flex items-center gap-3 pt-1">
+                  <input type="text" placeholder="Title..." value={msgForm.title} onChange={e => setMsgForm(f => ({ ...f, title: e.target.value }))}
+                    className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none" />
+                  <textarea placeholder="Message body..." value={msgForm.body} onChange={e => setMsgForm(f => ({ ...f, body: e.target.value }))}
+                    rows={3} className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none resize-none" />
+                  <div className="flex items-center gap-3">
                     <button onClick={async () => {
                       if (!msgForm.title.trim() || !msgForm.body.trim()) return
                       setSendingMsg(true)
                       try {
-                        await fetch("/api/admin/message-center", {
-                          method: "POST", credentials: "include",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ ...msgForm }),
-                        })
+                        await fetch("/api/admin/message-center", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...msgForm }) })
                         setMsgSent(true)
                         setMsgForm({ target: "all", targetUserId: "", type: "announcement", title: "", body: "" })
                         setTimeout(() => setMsgSent(false), 3000)
@@ -1032,7 +1283,7 @@ export default function AdminPage() {
                     }} disabled={sendingMsg || !msgForm.title.trim() || !msgForm.body.trim()}
                       className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold bg-primary text-black hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                       {sendingMsg ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      {sendingMsg ? "Sending..." : `Send to ${msgForm.target === "individual" ? "user" : msgForm.target} (in-app)`}
+                      {sendingMsg ? "Sending..." : "Send Message"}
                     </button>
                     <AnimatePresence>
                       {msgSent && (
@@ -1045,19 +1296,12 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
-                <p className="text-xs text-muted-foreground">
-                  Messages are delivered to users' notification bell in real-time. Target segments use the same plan groupings as broadcasts. Use "individual" + User ID to send a direct in-app message to a specific user.
-                </p>
-              </div>
             </div>
           )}
 
-          {/* ── Broadcasts Tab ────────────────────────────────────────────── */}
+          {/* ── Broadcasts Tab ─────────────────────────────────────────────── */}
           {activeTab === "broadcasts" && (
             <div className="space-y-5">
-
-              {/* Compose card */}
               <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-black text-foreground flex items-center gap-2">
@@ -1068,24 +1312,13 @@ export default function AdminPage() {
                       <Check className="h-2.5 w-2.5" /> Email delivery enabled
                     </span>
                   )}
-                  {segmentCounts && !segmentCounts.emailEnabled && (
-                    <span className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground/60 bg-white/3 border border-white/8 rounded-full px-2.5 py-1">
-                      In-app only · Configure SMTP to enable email
-                    </span>
-                  )}
                 </div>
-
                 <div className="space-y-3">
-                  <input type="text" placeholder="Subject / title..."
-                    value={broadcastForm.title} onChange={e => setBroadcastForm(f => ({ ...f, title: e.target.value }))}
+                  <input type="text" placeholder="Subject / title..." value={broadcastForm.title} onChange={e => setBroadcastForm(f => ({ ...f, title: e.target.value }))}
                     className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors" />
-                  <textarea placeholder="Write your message to users..."
-                    value={broadcastForm.message} onChange={e => setBroadcastForm(f => ({ ...f, message: e.target.value }))}
-                    rows={4}
-                    className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors resize-none" />
-
+                  <textarea placeholder="Write your message to users..." value={broadcastForm.message} onChange={e => setBroadcastForm(f => ({ ...f, message: e.target.value }))}
+                    rows={4} className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-white/20 transition-colors resize-none" />
                   <div className="flex gap-5 flex-wrap">
-                    {/* Type picker */}
                     <div>
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Type</p>
                       <div className="flex gap-2">
@@ -1101,8 +1334,6 @@ export default function AdminPage() {
                         })}
                       </div>
                     </div>
-
-                    {/* Target picker with user counts */}
                     <div>
                       <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Segment</p>
                       <div className="flex gap-2 flex-wrap">
@@ -1112,30 +1343,22 @@ export default function AdminPage() {
                             <button key={t} onClick={() => setBroadcastForm(f => ({ ...f, target: t }))}
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all capitalize ${broadcastForm.target === t ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
                               {t}
-                              {cnt !== null && (
-                                <span className={`text-[9px] font-black rounded-full px-1.5 py-0.5 ${broadcastForm.target === t ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground/60"}`}>
-                                  {cnt}
-                                </span>
-                              )}
+                              {cnt !== null && <span className={`text-[9px] font-black rounded-full px-1.5 py-0.5 ${broadcastForm.target === t ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground/60"}`}>{cnt}</span>}
                             </button>
                           )
                         })}
                       </div>
                     </div>
                   </div>
-
-                  {/* Email toggle + preview */}
                   {segmentCounts?.emailEnabled && (
                     <div className="flex items-center gap-3 pt-1">
-                      <button
-                        onClick={() => setSendEmail(v => !v)}
+                      <button onClick={() => setSendEmail(v => !v)}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${sendEmail ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-400" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
                         <Mail className="h-3.5 w-3.5" />
                         {sendEmail ? "Email delivery ON" : "Also send via email"}
                       </button>
                       {(broadcastForm.title.trim() || broadcastForm.message.trim()) && (
-                        <button
-                          onClick={() => setShowEmailPreview(v => !v)}
+                        <button onClick={() => setShowEmailPreview(v => !v)}
                           className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
                           <Eye className="h-3.5 w-3.5" />
                           {showEmailPreview ? "Hide preview" : "Preview email"}
@@ -1143,51 +1366,34 @@ export default function AdminPage() {
                       )}
                     </div>
                   )}
-
-                  {/* Email preview iframe */}
                   <AnimatePresence>
                     {showEmailPreview && (broadcastForm.title.trim() || broadcastForm.message.trim()) && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                         className="overflow-hidden rounded-xl border border-white/8">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-3 py-2 border-b border-white/5 bg-white/3">
-                          Email Preview
-                        </p>
-                        <iframe
-                          key={`${broadcastForm.title}|${broadcastForm.message}|${broadcastForm.type}`}
+                        <iframe key={`${broadcastForm.title}|${broadcastForm.message}|${broadcastForm.type}`}
                           src={`/api/admin/broadcasts/preview-email?title=${encodeURIComponent(broadcastForm.title || "Broadcast Title")}&message=${encodeURIComponent(broadcastForm.message || "Your message here.")}&type=${broadcastForm.type}`}
-                          className="w-full border-0"
-                          style={{ height: 460, background: "#0a0a0f" }}
-                          title="Email preview"
-                        />
+                          className="w-full border-0" style={{ height: 460, background: "#0a0a0f" }} title="Email preview" />
                       </motion.div>
                     )}
                   </AnimatePresence>
-
-                  {/* Send bar */}
                   <div className="flex items-center gap-3 pt-1">
                     <button onClick={handleSendBroadcast}
                       disabled={sendingBroadcast || !broadcastForm.title.trim() || !broadcastForm.message.trim()}
                       className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold bg-primary text-black hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                       {sendingBroadcast ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      {sendingBroadcast
-                        ? "Sending..."
-                        : sendEmail
-                          ? `Send to ${segmentCounts?.[broadcastForm.target as keyof SegmentCounts] ?? "?"} users (in-app + email)`
-                          : `Send to ${segmentCounts?.[broadcastForm.target as keyof SegmentCounts] ?? "?"} users`}
+                      {sendingBroadcast ? "Sending..." : `Send to ${segmentCounts?.[broadcastForm.target as keyof SegmentCounts] ?? "?"} users`}
                     </button>
                     <AnimatePresence>
                       {broadcastSent && (
                         <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
                           className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
-                          <Check className="h-3.5 w-3.5" /> Sent successfully!
+                          <Check className="h-3.5 w-3.5" /> Sent!
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
                 </div>
               </div>
-
-              {/* Recent broadcasts */}
               <div className="space-y-2">
                 <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest">Broadcast History</h3>
                 {broadcasts.length === 0 ? (
@@ -1204,12 +1410,8 @@ export default function AdminPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
-                              style={{ background: `${meta.color}15`, color: meta.color, border: `1px solid ${meta.color}30` }}>
-                              {meta.label}
-                            </span>
-                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-white/5 text-muted-foreground border border-white/8 capitalize">
-                              → {b.target}
-                            </span>
+                              style={{ background: `${meta.color}15`, color: meta.color, border: `1px solid ${meta.color}30` }}>{meta.label}</span>
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-white/5 text-muted-foreground border border-white/8 capitalize">→ {b.target}</span>
                             {(b.deliveredCount ?? 0) > 0 && (
                               <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                 <Users className="h-2.5 w-2.5" /> {b.deliveredCount} delivered
@@ -1229,7 +1431,7 @@ export default function AdminPage() {
                           </p>
                         </div>
                         <button onClick={() => handleDeleteBroadcast(b.id)}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-colors shrink-0">
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-colors">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -1237,6 +1439,275 @@ export default function AdminPage() {
                   )
                 })}
               </div>
+            </div>
+          )}
+
+          {/* ── Waitlist Tab ───────────────────────────────────────────────── */}
+          {activeTab === "waitlist" && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-sm font-black text-foreground flex-1">Waitlist</h2>
+                <div className="flex gap-1">
+                  {(["all", "enterprise", "beta"] as const).map(f => (
+                    <button key={f} onClick={() => setWaitlistFilter(f)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all capitalize ${waitlistFilter === f ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                      {f === "all" ? "All" : `${f.charAt(0).toUpperCase()}${f.slice(1)}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-3 gap-4">
+                <StatCard label="Total Entries" value={waitlist.length} icon={UserCheck} color="#6366F1" />
+                <StatCard label="Enterprise" value={waitlist.filter(w => w.plan === "enterprise").length} icon={Building2} color="#8B5CF6" />
+                <StatCard label="Beta" value={waitlist.filter(w => w.plan === "beta").length} icon={Zap} color="#D4AF37" />
+              </div>
+
+              {waitlist.length === 0 ? (
+                <div className="rounded-2xl border border-white/8 bg-white/2 py-20 text-center">
+                  <UserCheck className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-30" />
+                  <p className="text-sm text-muted-foreground">No waitlist entries</p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                  <div className="grid grid-cols-5 gap-4 px-5 py-3 border-b border-white/5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                    <span className="col-span-2">Name / Email</span>
+                    <span>Company</span>
+                    <span>List</span>
+                    <span>Joined</span>
+                  </div>
+                  {waitlist.map((w, i) => (
+                    <motion.div key={w.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                      className="grid grid-cols-5 gap-4 items-center px-5 py-3.5 border-b border-white/4 last:border-0 hover:bg-white/2 transition-colors group">
+                      <div className="col-span-2">
+                        <p className="text-xs font-bold text-foreground">{w.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{w.email}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">—</span>
+                      <span>
+                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold capitalize"
+                          style={{ background: w.plan === "enterprise" ? "#8B5CF615" : "#D4AF3715", color: w.plan === "enterprise" ? "#8B5CF6" : "#D4AF37", border: `1px solid ${w.plan === "enterprise" ? "#8B5CF630" : "#D4AF3730"}` }}>
+                          {w.plan}
+                        </span>
+                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground">{timeAgo(w.createdAt)}</span>
+                        <button onClick={() => handleDeleteWaitlist(w.id)} disabled={deletingWaitlist === w.id}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-all">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Coupons Tab ────────────────────────────────────────────────── */}
+          {activeTab === "coupons" && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-sm font-black text-foreground flex-1">Coupon System</h2>
+                <AnimatePresence>
+                  {couponSuccess && (
+                    <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
+                      <Check className="h-3.5 w-3.5" /> Coupon created!
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+                <button onClick={() => setShowCouponForm(v => !v)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-black hover:bg-primary/90 transition-all">
+                  <Plus className="h-3.5 w-3.5" /> New Coupon
+                </button>
+              </div>
+
+              {/* Create form */}
+              <AnimatePresence>
+                {showCouponForm && (
+                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                    className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-4">
+                    <h3 className="text-sm font-black text-foreground">Create Coupon</h3>
+                    {couponError && (
+                      <div className="flex items-center gap-2 text-red-400 text-xs font-bold bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+                        <AlertTriangle className="h-3.5 w-3.5" /> {couponError}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Code</p>
+                        <input type="text" placeholder="SAVE20" value={couponForm.code}
+                          onChange={e => setCouponForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                          className="w-full rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-sm font-mono font-bold text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/30" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Type</p>
+                        <div className="flex gap-2">
+                          {(["percentage", "fixed"] as const).map(t => (
+                            <button key={t} onClick={() => setCouponForm(f => ({ ...f, type: t }))}
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border transition-all ${couponForm.type === t ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                              {t === "percentage" ? <Percent className="h-3 w-3" /> : <Hash className="h-3 w-3" />}
+                              {t === "percentage" ? "%" : "$"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Value</p>
+                        <input type="number" placeholder={couponForm.type === "percentage" ? "20" : "10"} value={couponForm.value}
+                          onChange={e => setCouponForm(f => ({ ...f, value: e.target.value }))}
+                          className="w-full rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/30" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Max Uses (optional)</p>
+                        <input type="number" placeholder="Unlimited" value={couponForm.maxUses}
+                          onChange={e => setCouponForm(f => ({ ...f, maxUses: e.target.value }))}
+                          className="w-full rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/30" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Expires (optional)</p>
+                        <input type="date" value={couponForm.expiresAt}
+                          onChange={e => setCouponForm(f => ({ ...f, expiresAt: e.target.value }))}
+                          className="w-full rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/30" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Description</p>
+                        <input type="text" placeholder="e.g. Launch promo" value={couponForm.description}
+                          onChange={e => setCouponForm(f => ({ ...f, description: e.target.value }))}
+                          className="w-full rounded-xl border border-white/8 bg-white/3 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/30" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleCreateCoupon} disabled={creatingCoupon}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-primary text-black hover:bg-primary/90 transition-all disabled:opacity-40">
+                        {creatingCoupon ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                        Create Coupon
+                      </button>
+                      <button onClick={() => { setShowCouponForm(false); setCouponError(null) }}
+                        className="px-4 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:text-foreground border border-white/8 bg-white/3 transition-all">
+                        Cancel
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Coupon list */}
+              {coupons.length === 0 ? (
+                <div className="rounded-2xl border border-white/8 bg-white/2 py-20 text-center">
+                  <Tag className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-30" />
+                  <p className="text-sm text-muted-foreground">No coupons created yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {coupons.map((c, i) => {
+                    const expired = c.expiresAt && new Date(c.expiresAt) < new Date()
+                    const exhausted = c.maxUses !== null && c.uses >= c.maxUses
+                    const active = !c.disabled && !expired && !exhausted
+                    return (
+                      <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                        className={`rounded-2xl border bg-white/2 px-5 py-4 ${active ? "border-white/8" : "border-white/4 opacity-60"}`}>
+                        <div className="flex items-center gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <code className="text-sm font-black text-primary tracking-wider">{c.code}</code>
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                style={{ background: active ? "#10B98115" : "#6B728015", color: active ? "#10B981" : "#6B7280", border: `1px solid ${active ? "#10B98130" : "#6B728030"}` }}>
+                                {c.disabled ? "Disabled" : expired ? "Expired" : exhausted ? "Exhausted" : "Active"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                              <span className="font-bold text-foreground">
+                                {c.type === "percentage" ? `${c.value}% off` : `$${c.value} off`}
+                              </span>
+                              <span>{c.uses} uses{c.maxUses ? ` / ${c.maxUses} max` : ""}</span>
+                              {c.expiresAt && <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" />Expires {new Date(c.expiresAt).toLocaleDateString()}</span>}
+                              {c.description && <span className="italic">{c.description}</span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => handleToggleCoupon(c.id, c.disabled)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${c.disabled ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-white/5 border-white/10 text-muted-foreground hover:text-foreground"}`}>
+                              {c.disabled ? <><Play className="h-3 w-3" /> Enable</> : <><Pause className="h-3 w-3" /> Disable</>}
+                            </button>
+                            <button onClick={() => handleDeleteCoupon(c.id)}
+                              className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-colors">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Audit Log Tab ──────────────────────────────────────────────── */}
+          {activeTab === "audit" && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-sm font-black text-foreground">Audit Log</h2>
+                <div className="relative flex-1 min-w-40">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input type="text" placeholder="Filter by action, user, resource..." value={auditSearch}
+                    onChange={e => setAuditSearch(e.target.value)}
+                    className="w-full rounded-xl border border-white/8 bg-white/3 pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none" />
+                </div>
+                <select value={auditAction} onChange={e => setAuditAction(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-foreground px-3 py-2 outline-none cursor-pointer">
+                  <option value="all" className="bg-[#1a1a1a]">All Actions</option>
+                  {Object.entries(ACTION_META).map(([k, v]) => (
+                    <option key={k} value={k} className="bg-[#1a1a1a]">{v.label}</option>
+                  ))}
+                </select>
+                <select value={auditSeverity} onChange={e => setAuditSeverity(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-foreground px-3 py-2 outline-none cursor-pointer">
+                  <option value="all" className="bg-[#1a1a1a]">All Severities</option>
+                  {Object.entries(SEVERITY_META).map(([k, v]) => (
+                    <option key={k} value={k} className="bg-[#1a1a1a]">{v.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {filteredAudit.length === 0 ? (
+                <div className="rounded-2xl border border-white/8 bg-white/2 py-20 text-center">
+                  <FileText className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-30" />
+                  <p className="text-sm text-muted-foreground">No audit log entries</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {filteredAudit.map((l, i) => (
+                    <motion.div key={l.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
+                      className="rounded-xl border border-white/6 bg-white/2 px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <ActionBadge action={l.action} />
+                        <SeverityBadge severity={l.severity} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-foreground truncate">
+                              {l.userName ?? l.userEmail ?? "System"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">→ {l.resource}{l.resourceId ? ` #${l.resourceId.slice(0, 8)}` : ""}</span>
+                          </div>
+                          {l.changes && Object.keys(l.changes).length > 0 && (
+                            <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5 truncate">
+                              {JSON.stringify(l.changes).slice(0, 80)}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground/50 shrink-0">{timeAgo(l.createdAt)}</span>
+                        <span className={`text-[10px] font-bold shrink-0 ${l.outcome === "success" ? "text-emerald-400" : "text-red-400"}`}>
+                          {l.outcome}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

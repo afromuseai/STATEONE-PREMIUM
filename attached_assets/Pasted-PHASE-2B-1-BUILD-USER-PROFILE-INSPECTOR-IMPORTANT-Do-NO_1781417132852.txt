@@ -1,0 +1,196 @@
+PHASE 2B.1 — BUILD USER PROFILE INSPECTOR
+
+IMPORTANT:
+
+Do NOT modify:
+
+* authentication
+* billing logic
+* project architecture
+* generation systems
+* admin permissions
+
+This is an ADMIN PANEL enhancement only.
+
+==================================================
+
+GOAL
+
+When an admin clicks a user inside Admin → Users or Admin → Intelligence,
+
+open a dedicated User Profile Inspector panel.
+
+The inspector should display a complete operational view of the user.
+
+==================================================
+
+USER PROFILE DATA
+
+Display:
+
+Identity
+
+* Email
+* User ID
+* Plan
+* Role
+* Signup date
+* Last active
+
+Location
+
+* Country
+* City
+* Region
+* Timezone
+
+Device Intelligence
+
+* Browser
+* OS
+* Device type
+* Last IP hash
+
+Usage Metrics
+
+* Total projects
+* BI generations
+* Website generations
+* Chatbot generations
+* Automation generations
+* Orchestrator generations
+* Marcus messages
+* Total AI generations
+
+Activity
+
+* Last page visited
+* Last action performed
+* Session count
+* Average session duration
+
+Notifications
+
+* Total notifications received
+* Last notification received
+
+==================================================
+
+PROJECT INTELLIGENCE
+
+Show all projects owned by the user.
+
+Display:
+
+* project name
+* type
+* created date
+* updated date
+* status
+
+Allow admin to open project directly.
+
+==================================================
+
+ADMIN ACTIONS
+
+Create action buttons:
+
+* Promote to Admin
+* Remove Admin
+* Change Plan
+* Suspend User
+* Reactivate User
+* Reset Monthly Usage
+* Send Direct Notification
+
+All actions must require confirmation.
+
+==================================================
+
+PLAN MANAGEMENT
+
+Admin can change:
+
+* Free
+* Pro
+* Startup
+* Enterprise
+
+Store change in audit log.
+
+==================================================
+
+USAGE RESET
+
+Admin can reset:
+
+* monthly generation count
+* usage counters
+
+Store action in audit log.
+
+==================================================
+
+DIRECT NOTIFICATION
+
+Admin can send notification directly to user.
+
+Fields:
+
+* title
+* message
+* type
+
+Types:
+
+* announcement
+* feature
+* warning
+* maintenance
+
+Notification appears in user notification bell.
+
+==================================================
+
+UI
+
+Style:
+
+* premium STAGEONE black/gold aesthetic
+* admin-grade interface
+* responsive
+* clean cards
+* fast loading
+
+Layout:
+
+Left:
+
+* profile information
+
+Center:
+
+* usage analytics
+
+Right:
+
+* admin actions
+
+Bottom:
+
+* projects table
+
+==================================================
+
+IMPORTANT
+
+This is the first major operational admin tool.
+
+The goal is:
+
+Admin should understand everything about a user from one screen.
+
+No architecture rewrites.
+No billing changes.
+Admin layer only.
