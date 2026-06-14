@@ -50,7 +50,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/stageone && BASE_PATH=/ pnpm run dev"
+args = "cd artifacts/stageone && PORT=5000 BASE_PATH=/ pnpm run dev"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -81,11 +81,7 @@ localPort = 3001
 
 [[ports]]
 localPort = 5000
-externalPort = 3000
-
-[[ports]]
-localPort = 8000
-externalPort = 8000
+externalPort = 80
 
 [[ports]]
 localPort = 8080
