@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, userMonitorSessionsTable, usersTable, subscriptionsTable, eventsTable } from "@workspace/db";
-import { eq, desc, gte, and } from "drizzle-orm";
+import { eq, desc, gte, and, count, sql } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { hashToken } from "../lib/log-event";
 
@@ -138,6 +138,123 @@ router.get("/admin/sessions/activity", requireAdmin, async (_req, res): Promise<
     .limit(50);
 
   res.json({ events: events.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })) });
+});
+
+// ─── Admin: Geo Intelligence ──────────────────────────────────────────────────
+// Transforms raw session + user geo data into actionable geographic intelligence.
+// Designed for future extension: heatmaps, regional conversions, regional revenue.
+
+router.get("/admin/geo-intelligence", requireAdmin, async (_req, res): Promise<void> => {
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  const sevenDaysAgo  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [
+    countryUsersRows,
+    cityUsersRows,
+    timezoneRows,
+    growthRows,
+    activeSessionRows,
+    countrySessionRows,
+    citySessionRows,
+  ] = await Promise.all([
+    db.select({
+      country: sql<string>`COALESCE(${usersTable.country}, 'UNKNOWN')`.as("country"),
+      users: count(),
+    }).from(usersTable)
+      .groupBy(sql`COALESCE(${usersTable.country}, 'UNKNOWN')`)
+      .orderBy(desc(count())),
+
+    db.select({
+      city:    sql<string>`COALESCE(${usersTable.city},    'UNKNOWN')`.as("city"),
+      country: sql<string>`COALESCE(${usersTable.country}, 'UNKNOWN')`.as("country"),
+      users: count(),
+    }).from(usersTable)
+      .groupBy(sql`COALESCE(${usersTable.city}, 'UNKNOWN')`, sql`COALESCE(${usersTable.country}, 'UNKNOWN')`)
+      .orderBy(desc(count())),
+
+    db.select({
+      timezone: sql<string>`COALESCE(${usersTable.timezone}, 'UNKNOWN')`.as("timezone"),
+      users: count(),
+    }).from(usersTable)
+      .groupBy(sql`COALESCE(${usersTable.timezone}, 'UNKNOWN')`)
+      .orderBy(desc(count())),
+
+    db.select({
+      country: sql<string>`COALESCE(${usersTable.country}, 'UNKNOWN')`.as("country"),
+      newUsers: count(),
+    }).from(usersTable)
+      .where(gte(usersTable.createdAt, sevenDaysAgo))
+      .groupBy(sql`COALESCE(${usersTable.country}, 'UNKNOWN')`)
+      .orderBy(desc(count())),
+
+    db.select({
+      country: sql<string>`COALESCE(${userMonitorSessionsTable.country}, 'UNKNOWN')`.as("country"),
+      activeUsers: count(),
+    }).from(userMonitorSessionsTable)
+      .where(gte(userMonitorSessionsTable.lastSeenAt, twoMinutesAgo))
+      .groupBy(sql`COALESCE(${userMonitorSessionsTable.country}, 'UNKNOWN')`),
+
+    db.select({
+      country: sql<string>`COALESCE(${userMonitorSessionsTable.country}, 'UNKNOWN')`.as("country"),
+      sessions: count(),
+    }).from(userMonitorSessionsTable)
+      .groupBy(sql`COALESCE(${userMonitorSessionsTable.country}, 'UNKNOWN')`)
+      .orderBy(desc(count())),
+
+    db.select({
+      city:    sql<string>`COALESCE(${userMonitorSessionsTable.city},    'UNKNOWN')`.as("city"),
+      country: sql<string>`COALESCE(${userMonitorSessionsTable.country}, 'UNKNOWN')`.as("country"),
+      sessions: count(),
+    }).from(userMonitorSessionsTable)
+      .groupBy(sql`COALESCE(${userMonitorSessionsTable.city}, 'UNKNOWN')`, sql`COALESCE(${userMonitorSessionsTable.country}, 'UNKNOWN')`)
+      .orderBy(desc(count())),
+  ]);
+
+  // Build lookup maps for fast merging
+  const activeByCountry   = Object.fromEntries(activeSessionRows.map(r  => [r.country, Number(r.activeUsers)]));
+  const sessionsByCountry = Object.fromEntries(countrySessionRows.map(r => [r.country, Number(r.sessions)]));
+  const sessionsByCity    = Object.fromEntries(citySessionRows.map(r    => [`${r.city}||${r.country}`, Number(r.sessions)]));
+
+  const countries = countryUsersRows
+    .map(r => ({
+      country:     r.country,
+      users:       Number(r.users),
+      sessions:    sessionsByCountry[r.country] ?? 0,
+      activeUsers: activeByCountry[r.country]   ?? 0,
+    }))
+    .sort((a, b) => b.users - a.users);
+
+  const cities = cityUsersRows
+    .map(r => ({
+      city:        r.city,
+      country:     r.country,
+      users:       Number(r.users),
+      sessions:    sessionsByCity[`${r.city}||${r.country}`] ?? 0,
+      activeUsers: 0,
+    }))
+    .sort((a, b) => b.users - a.users);
+
+  const timezones = timezoneRows
+    .map(r => ({ timezone: r.timezone, users: Number(r.users), sessions: 0 }))
+    .sort((a, b) => b.users - a.users);
+
+  const growth = growthRows.map(r => ({ country: r.country, newUsers: Number(r.newUsers) }));
+
+  // Strip UNKNOWN from display lists but retain for completeness in totals
+  const knownCountries = countries.filter(c => c.country !== "UNKNOWN");
+  const knownCities    = cities.filter(c => c.city !== "UNKNOWN");
+  const knownTimezones = timezones.filter(t => t.timezone !== "UNKNOWN");
+
+  const overview = {
+    totalCountries: knownCountries.length,
+    totalCities:    knownCities.length,
+    topCountry:     knownCountries[0]?.country  ?? "N/A",
+    topCity:        knownCities[0]?.city        ?? "N/A",
+    topTimezone:    knownTimezones[0]?.timezone ?? "N/A",
+  };
+
+  // Return full lists — future: heatmaps, regional revenue, conversion funnels
+  res.json({ overview, countries: knownCountries, cities: knownCities, timezones: knownTimezones, growth });
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

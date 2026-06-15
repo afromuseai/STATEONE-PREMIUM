@@ -18,7 +18,7 @@ import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs"
+type AdminTab = "users" | "stats" | "billing" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo"
 
 interface AdminUser {
   id: string
@@ -78,6 +78,20 @@ interface Analytics {
   recentEvents: AdminEvent[]
   dailySignups: Array<{ date: string; signups: number }>
   topUsers: Array<{ userId: string | null; email: string | null; name: string | null; total: number }>
+}
+
+interface GeoIntelligence {
+  overview: {
+    totalCountries: number
+    totalCities: number
+    topCountry: string
+    topCity: string
+    topTimezone: string
+  }
+  countries: Array<{ country: string; users: number; sessions: number; activeUsers: number }>
+  cities: Array<{ city: string; country: string; users: number; sessions: number; activeUsers: number }>
+  timezones: Array<{ timezone: string; users: number; sessions: number }>
+  growth: Array<{ country: string; newUsers: number }>
 }
 
 interface IntelligenceUser {
@@ -430,6 +444,11 @@ export default function AdminPage() {
   const [sessionPlanFilter, setSessionPlanFilter] = useState("all")
   const [sessionActivity, setSessionActivity] = useState<AdminEvent[]>([])
 
+  // Geo Intelligence
+  const [geoData, setGeoData] = useState<GeoIntelligence | null>(null)
+  const [geoSearch, setGeoSearch] = useState("")
+  const [geoView, setGeoView] = useState<"countries" | "cities" | "timezones" | "growth">("countries")
+
   useEffect(() => {
     if (!user) { setLocation("/login"); return }
     if (!user.isAdmin) { setLocation("/dashboard"); return }
@@ -540,6 +559,13 @@ export default function AdminPage() {
     } catch (_) {}
   }, [auditAction, auditSeverity])
 
+  const loadGeoIntelligence = useCallback(async () => {
+    try {
+      const data = await fetch("/api/admin/geo-intelligence", { credentials: "include" }).then(r => r.json())
+      if (data?.overview) setGeoData(data)
+    } catch (_) {}
+  }, [])
+
   useEffect(() => { loadData() }, [loadData])
 
   useEffect(() => {
@@ -552,7 +578,8 @@ export default function AdminPage() {
     else if (activeTab === "coupons") loadCoupons()
     else if (activeTab === "audit") loadAudit()
     else if (activeTab === "audit-logs") loadAdminAuditLogs()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs])
+    else if (activeTab === "geo") loadGeoIntelligence()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence])
 
   // Session Monitor: auto-refresh every 30s while tab is active
   useEffect(() => {
@@ -747,6 +774,7 @@ export default function AdminPage() {
     { id: "coupons",      label: "Coupons",      icon: Tag },
     { id: "sessions",     label: "Sessions",     icon: Monitor },
     { id: "audit-logs",   label: "Admin Audit",  icon: ClipboardList },
+    { id: "geo",          label: "Geo Intel",    icon: Globe },
   ]
 
   if (!user?.isAdmin) return null
@@ -790,6 +818,7 @@ export default function AdminPage() {
               if (activeTab === "coupons") loadCoupons()
               if (activeTab === "audit") loadAudit()
               if (activeTab === "sessions") loadSessions()
+              if (activeTab === "geo") loadGeoIntelligence()
             }} disabled={loading}
               className="p-2 rounded-lg border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -2385,6 +2414,314 @@ export default function AdminPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )
+          })()}
+
+          {/* ── Geo Intelligence Tab ──────────────────────────────────────────── */}
+          {activeTab === "geo" && (() => {
+            const geo = geoData
+            const q = geoSearch.toLowerCase()
+
+            const filteredCountries = (geo?.countries ?? []).filter(c =>
+              !q || c.country.toLowerCase().includes(q)
+            )
+            const filteredCities = (geo?.cities ?? []).filter(c =>
+              !q || c.city.toLowerCase().includes(q) || c.country.toLowerCase().includes(q)
+            )
+            const filteredTimezones = (geo?.timezones ?? []).filter(t =>
+              !q || t.timezone.toLowerCase().includes(q)
+            )
+            const filteredGrowth = (geo?.growth ?? []).filter(g =>
+              !q || g.country.toLowerCase().includes(q)
+            )
+
+            const topCountries = (geo?.countries ?? []).slice(0, 10)
+            const topCities    = (geo?.cities ?? []).slice(0, 10)
+            const maxCountryUsers = topCountries[0]?.users ?? 1
+            const maxCityUsers    = topCities[0]?.users    ?? 1
+
+            const flagEmoji = (country: string) => {
+              const map: Record<string, string> = {
+                "United States": "🇺🇸", "USA": "🇺🇸", "US": "🇺🇸",
+                "United Kingdom": "🇬🇧", "UK": "🇬🇧", "GB": "🇬🇧",
+                "Canada": "🇨🇦", "CA": "🇨🇦",
+                "Germany": "🇩🇪", "DE": "🇩🇪",
+                "France": "🇫🇷", "FR": "🇫🇷",
+                "Australia": "🇦🇺", "AU": "🇦🇺",
+                "India": "🇮🇳", "IN": "🇮🇳",
+                "Brazil": "🇧🇷", "BR": "🇧🇷",
+                "Japan": "🇯🇵", "JP": "🇯🇵",
+                "Netherlands": "🇳🇱", "NL": "🇳🇱",
+                "Sweden": "🇸🇪", "SE": "🇸🇪",
+                "Spain": "🇪🇸", "ES": "🇪🇸",
+                "Italy": "🇮🇹", "IT": "🇮🇹",
+                "Mexico": "🇲🇽", "MX": "🇲🇽",
+                "Singapore": "🇸🇬", "SG": "🇸🇬",
+                "South Korea": "🇰🇷", "KR": "🇰🇷",
+                "Poland": "🇵🇱", "PL": "🇵🇱",
+                "Norway": "🇳🇴", "NO": "🇳🇴",
+                "Denmark": "🇩🇰", "DK": "🇩🇰",
+                "Switzerland": "🇨🇭", "CH": "🇨🇭",
+              }
+              return map[country] ?? "🌐"
+            }
+
+            return (
+              <div className="space-y-5">
+
+                {/* Overview Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {([
+                    { label: "Countries Reached", value: String(geo?.overview.totalCountries ?? 0), icon: Globe,       color: "#6366F1" },
+                    { label: "Cities Reached",    value: String(geo?.overview.totalCities    ?? 0), icon: MapPin,      color: "#10B981" },
+                    { label: "Top Country",       value: geo?.overview.topCountry  ?? "—",          icon: TrendingUp,  color: "#D4AF37" },
+                    { label: "Top City",          value: geo?.overview.topCity     ?? "—",          icon: MapPin,      color: "#8B5CF6" },
+                    { label: "Top Timezone",      value: geo?.overview.topTimezone ?? "—",          icon: Clock,       color: "#EF4444" },
+                  ] as { label: string; value: string; icon: React.ElementType; color: string }[]).map(({ label, value, icon: Icon, color }) => (
+                    <motion.div key={label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                      className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-1.5 rounded-lg" style={{ background: `${color}15` }}>
+                          <Icon className="h-3.5 w-3.5" style={{ color }} />
+                        </div>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{label}</span>
+                      </div>
+                      <p className="text-xl font-black text-foreground truncate">{value}</p>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Charts row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Top Countries Bar Chart */}
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                    <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-[#6366F1]" /> Top Countries
+                    </h3>
+                    <div className="space-y-2.5">
+                      {topCountries.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-4">No geo data yet</p>
+                      ) : topCountries.map((c, i) => (
+                        <div key={c.country} className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-foreground flex items-center gap-1.5">
+                              <span>{flagEmoji(c.country)}</span>
+                              <span className="font-medium">{c.country}</span>
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">{c.users} users</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                            <motion.div className="h-full rounded-full"
+                              style={{ background: i === 0 ? "#6366F1" : i === 1 ? "#8B5CF6" : "#A78BFA" }}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.round((c.users / maxCountryUsers) * 100)}%` }}
+                              transition={{ duration: 0.6, delay: i * 0.05 }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+
+                  {/* Top Cities Bar Chart */}
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                    <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-[#10B981]" /> Top Cities
+                    </h3>
+                    <div className="space-y-2.5">
+                      {topCities.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-4">No geo data yet</p>
+                      ) : topCities.map((c, i) => (
+                        <div key={`${c.city}-${c.country}`} className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-foreground flex items-center gap-1.5">
+                              <span>{flagEmoji(c.country)}</span>
+                              <span className="font-medium">{c.city}</span>
+                              <span className="text-muted-foreground text-[10px]">{c.country}</span>
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">{c.users} users</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                            <motion.div className="h-full rounded-full"
+                              style={{ background: i === 0 ? "#10B981" : i === 1 ? "#34D399" : "#6EE7B7" }}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.round((c.users / maxCityUsers) * 100)}%` }}
+                              transition={{ duration: 0.6, delay: i * 0.05 }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Data tables */}
+                <div className="rounded-2xl border border-white/8 bg-white/2 p-5 space-y-4">
+                  {/* Header + Search + View toggle */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="flex gap-1 flex-wrap">
+                      {(["countries", "cities", "timezones", "growth"] as const).map(v => (
+                        <button key={v} onClick={() => setGeoView(v)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors capitalize ${
+                            geoView === v ? "bg-[#6366F1]/20 text-[#6366F1] border border-[#6366F1]/30" : "bg-white/5 text-muted-foreground hover:text-foreground border border-white/8"
+                          }`}>
+                          {v === "countries" ? `Countries (${geo?.countries.length ?? 0})` :
+                           v === "cities"    ? `Cities (${geo?.cities.length ?? 0})`       :
+                           v === "timezones" ? `Timezones (${geo?.timezones.length ?? 0})` :
+                                              `Growth 7d (${geo?.growth.length ?? 0})`}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="relative flex-1 max-w-xs ml-auto">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <input value={geoSearch} onChange={e => setGeoSearch(e.target.value)}
+                        placeholder="Search…"
+                        className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[#6366F1]/50" />
+                    </div>
+                  </div>
+
+                  {/* Countries table */}
+                  {geoView === "countries" && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/8">
+                            <th className="text-left pb-2 text-muted-foreground font-semibold">#</th>
+                            <th className="text-left pb-2 text-muted-foreground font-semibold">Country</th>
+                            <th className="text-right pb-2 text-muted-foreground font-semibold">Users</th>
+                            <th className="text-right pb-2 text-muted-foreground font-semibold">Sessions</th>
+                            <th className="text-right pb-2 text-muted-foreground font-semibold">Active Now</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredCountries.length === 0 && (
+                            <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No data</td></tr>
+                          )}
+                          {filteredCountries.map((c, i) => (
+                            <tr key={c.country} className="border-b border-white/4 hover:bg-white/2 transition-colors">
+                              <td className="py-2.5 text-muted-foreground">{i + 1}</td>
+                              <td className="py-2.5">
+                                <span className="flex items-center gap-2">
+                                  <span className="text-base leading-none">{flagEmoji(c.country)}</span>
+                                  <span className="font-medium text-foreground">{c.country}</span>
+                                </span>
+                              </td>
+                              <td className="py-2.5 text-right font-bold text-foreground">{c.users.toLocaleString()}</td>
+                              <td className="py-2.5 text-right text-muted-foreground">{c.sessions.toLocaleString()}</td>
+                              <td className="py-2.5 text-right">
+                                {c.activeUsers > 0
+                                  ? <span className="inline-flex items-center gap-1 text-[#10B981]"><span className="h-1.5 w-1.5 rounded-full bg-[#10B981] inline-block animate-pulse" />{c.activeUsers}</span>
+                                  : <span className="text-muted-foreground">—</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Cities table */}
+                  {geoView === "cities" && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/8">
+                            <th className="text-left pb-2 text-muted-foreground font-semibold">#</th>
+                            <th className="text-left pb-2 text-muted-foreground font-semibold">City</th>
+                            <th className="text-left pb-2 text-muted-foreground font-semibold">Country</th>
+                            <th className="text-right pb-2 text-muted-foreground font-semibold">Users</th>
+                            <th className="text-right pb-2 text-muted-foreground font-semibold">Sessions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredCities.length === 0 && (
+                            <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No data</td></tr>
+                          )}
+                          {filteredCities.map((c, i) => (
+                            <tr key={`${c.city}-${c.country}`} className="border-b border-white/4 hover:bg-white/2 transition-colors">
+                              <td className="py-2.5 text-muted-foreground">{i + 1}</td>
+                              <td className="py-2.5 font-medium text-foreground">{c.city}</td>
+                              <td className="py-2.5">
+                                <span className="flex items-center gap-1.5">
+                                  <span>{flagEmoji(c.country)}</span>
+                                  <span className="text-muted-foreground">{c.country}</span>
+                                </span>
+                              </td>
+                              <td className="py-2.5 text-right font-bold text-foreground">{c.users.toLocaleString()}</td>
+                              <td className="py-2.5 text-right text-muted-foreground">{c.sessions.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Timezones table */}
+                  {geoView === "timezones" && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/8">
+                            <th className="text-left pb-2 text-muted-foreground font-semibold">#</th>
+                            <th className="text-left pb-2 text-muted-foreground font-semibold">Timezone</th>
+                            <th className="text-right pb-2 text-muted-foreground font-semibold">Users</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredTimezones.length === 0 && (
+                            <tr><td colSpan={3} className="py-8 text-center text-muted-foreground">No timezone data — set during signup</td></tr>
+                          )}
+                          {filteredTimezones.map((t, i) => (
+                            <tr key={t.timezone} className="border-b border-white/4 hover:bg-white/2 transition-colors">
+                              <td className="py-2.5 text-muted-foreground">{i + 1}</td>
+                              <td className="py-2.5 font-medium text-foreground font-mono">{t.timezone}</td>
+                              <td className="py-2.5 text-right font-bold text-foreground">{t.users.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Growth table */}
+                  {geoView === "growth" && (
+                    <div className="space-y-3">
+                      <p className="text-[10px] text-muted-foreground">New users signed up in the last 7 days, grouped by country.</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-white/8">
+                              <th className="text-left pb-2 text-muted-foreground font-semibold">#</th>
+                              <th className="text-left pb-2 text-muted-foreground font-semibold">Country</th>
+                              <th className="text-right pb-2 text-muted-foreground font-semibold">New Users (7d)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredGrowth.length === 0 && (
+                              <tr><td colSpan={3} className="py-8 text-center text-muted-foreground">No new users in the last 7 days</td></tr>
+                            )}
+                            {filteredGrowth.map((g, i) => (
+                              <tr key={g.country} className="border-b border-white/4 hover:bg-white/2 transition-colors">
+                                <td className="py-2.5 text-muted-foreground">{i + 1}</td>
+                                <td className="py-2.5">
+                                  <span className="flex items-center gap-2">
+                                    <span>{flagEmoji(g.country)}</span>
+                                    <span className="font-medium text-foreground">{g.country}</span>
+                                  </span>
+                                </td>
+                                <td className="py-2.5 text-right">
+                                  <span className="font-bold text-[#10B981]">+{g.newUsers}</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
               </div>
             )
           })()}

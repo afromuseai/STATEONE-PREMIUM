@@ -1,0 +1,229 @@
+PHASE 2B.4 — GEO INTELLIGENCE LAYER
+
+IMPORTANT
+
+Do NOT modify:
+
+* authentication
+* session monitoring
+* audit logs
+* billing logic
+* plan enforcement
+* AI generation systems
+
+Build on top of the existing session-monitoring infrastructure.
+
+==================================================
+GOAL
+====
+
+Transform raw session location data into actionable geographic intelligence.
+
+I want to understand:
+
+* where users come from
+* where growth is occurring
+* which regions convert
+* where marketing should focus
+
+==================================================
+DATA MODEL
+==========
+
+Use existing session-monitoring records.
+
+Capture and normalize:
+
+country
+countryCode
+city
+region
+timezone
+
+Store UNKNOWN when unavailable.
+
+Do NOT break existing session tracking.
+
+==================================================
+ADMIN API
+=========
+
+Create:
+
+GET /api/admin/geo-intelligence
+
+Return:
+
+overview
+
+countries
+
+cities
+
+timezones
+
+growth
+
+==================================================
+OVERVIEW
+========
+
+Return:
+
+totalCountries
+totalCities
+topCountry
+topCity
+topTimezone
+
+==================================================
+COUNTRIES
+=========
+
+For each country:
+
+country
+users
+sessions
+activeUsers
+
+Sort descending.
+
+==================================================
+CITIES
+======
+
+For each city:
+
+city
+country
+users
+sessions
+activeUsers
+
+Sort descending.
+
+==================================================
+TIMEZONE ANALYTICS
+==================
+
+Show:
+
+timezone
+users
+sessions
+
+This becomes useful later for:
+
+* notifications
+* email campaigns
+* launches
+
+==================================================
+GROWTH ANALYTICS
+================
+
+Return:
+
+newUsersLast7Days
+
+grouped by country
+
+Example:
+
+USA: +12
+Canada: +4
+Germany: +3
+
+==================================================
+ADMIN PANEL
+===========
+
+Add new tab:
+
+Geo Intelligence
+
+==================================================
+TOP SECTION
+===========
+
+Show cards:
+
+Countries
+Cities
+Top Country
+Top City
+Top Timezone
+
+==================================================
+COUNTRY TABLE
+=============
+
+Columns:
+
+Country
+Users
+Sessions
+Active Users
+
+==================================================
+CITY TABLE
+==========
+
+Columns:
+
+City
+Country
+Users
+Sessions
+Active Users
+
+==================================================
+VISUALIZATION
+=============
+
+Add:
+
+Top Countries chart
+
+Top Cities chart
+
+Use existing admin chart styling.
+
+No external map libraries.
+
+Keep lightweight.
+
+==================================================
+SEARCH
+======
+
+Search:
+
+country
+city
+
+==================================================
+FUTURE PREPARATION
+==================
+
+Design API so future additions can support:
+
+* heatmaps
+* regional conversions
+* regional revenue
+
+without refactoring.
+
+==================================================
+GOAL
+====
+
+STAGEONE should begin understanding where its user base exists geographically.
+
+This becomes the foundation for:
+
+* marketing intelligence
+* growth intelligence
+* future billing intelligence
+* future expansion planning
