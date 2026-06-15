@@ -9,7 +9,7 @@ import {
   Send, Clock, ArrowDown, ArrowUp, Mail, Eye, FolderOpen,
   DollarSign, CreditCard, Tag, FileText, ListFilter,
   Pause, Play, Plus, Percent, Hash, Calendar, ChevronUp,
-  BadgeCheck, UserX, ToggleLeft, ToggleRight,
+  BadgeCheck, UserX, ToggleLeft, ToggleRight, Monitor, Wifi,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
@@ -17,7 +17,7 @@ import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit"
+type AdminTab = "users" | "stats" | "billing" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions"
 
 interface AdminUser {
   id: string
@@ -96,6 +96,37 @@ interface IntelligenceUser {
   orchestratorGenerations: number
   marcusMessages: number
   activityScore: number
+}
+
+interface MonitorSession {
+  id: string
+  userId: string
+  startedAt: string
+  lastSeenAt: string
+  endedAt: string | null
+  isActive: boolean
+  isOnline: boolean
+  durationMs: number
+  country: string | null
+  city: string | null
+  device: string | null
+  browser: string | null
+  os: string | null
+  currentPage: string | null
+  lastAction: string | null
+  userEmail: string | null
+  userName: string | null
+  plan: string | null
+}
+
+interface SessionData {
+  sessions: MonitorSession[]
+  stats: {
+    activeNow: number
+    sessionsToday: number
+    avgDurationMs: number
+    peakConcurrent: number
+  }
 }
 
 interface Broadcast {
@@ -264,6 +295,13 @@ function ActionBadge({ action }: { action: string }) {
   )
 }
 
+function formatDuration(ms: number): string {
+  if (ms <= 0) return "—"
+  if (ms < 60000) return `${Math.floor(ms / 1000)}s`
+  if (ms < 3600000) return `${Math.floor(ms / 60000)}m`
+  return `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`
+}
+
 function timeAgo(date: string): string {
   const diff = Date.now() - new Date(date).getTime()
   if (diff < 60000) return "just now"
@@ -357,6 +395,13 @@ export default function AdminPage() {
   const [auditSeverity, setAuditSeverity] = useState("all")
   const [auditSearch, setAuditSearch] = useState("")
 
+  // Session Monitor
+  const [sessionData, setSessionData] = useState<SessionData | null>(null)
+  const [sessionSearch, setSessionSearch] = useState("")
+  const [sessionStatusFilter, setSessionStatusFilter] = useState("all")
+  const [sessionPlanFilter, setSessionPlanFilter] = useState("all")
+  const [sessionActivity, setSessionActivity] = useState<AdminEvent[]>([])
+
   useEffect(() => {
     if (!user) { setLocation("/login"); return }
     if (!user.isAdmin) { setLocation("/dashboard"); return }
@@ -431,6 +476,17 @@ export default function AdminPage() {
     } catch (_) {}
   }, [])
 
+  const loadSessions = useCallback(async () => {
+    try {
+      const [sData, aData] = await Promise.all([
+        fetch("/api/admin/sessions", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/events?limit=30", { credentials: "include" }).then(r => r.json()),
+      ])
+      if (sData?.sessions) setSessionData(sData)
+      if (aData?.events) setSessionActivity(aData.events)
+    } catch (_) {}
+  }, [])
+
   const loadAudit = useCallback(async () => {
     try {
       const params = new URLSearchParams()
@@ -453,6 +509,14 @@ export default function AdminPage() {
     else if (activeTab === "coupons") loadCoupons()
     else if (activeTab === "audit") loadAudit()
   }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadWaitlist, loadCoupons, loadAudit])
+
+  // Session Monitor: auto-refresh every 30s while tab is active
+  useEffect(() => {
+    if (activeTab !== "sessions") return
+    loadSessions()
+    const id = setInterval(loadSessions, 30000)
+    return () => clearInterval(id)
+  }, [activeTab, loadSessions])
 
   useEffect(() => { if (activeTab === "billing") loadBilling() }, [billingRange])
   useEffect(() => { if (activeTab === "waitlist") loadWaitlist() }, [waitlistFilter])
@@ -607,6 +671,18 @@ export default function AdminPage() {
     u.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  const filteredSessions = (sessionData?.sessions ?? []).filter(s => {
+    const q = sessionSearch.toLowerCase()
+    const matchSearch = !sessionSearch ||
+      (s.userEmail ?? "").toLowerCase().includes(q) ||
+      (s.userName ?? "").toLowerCase().includes(q)
+    const matchStatus = sessionStatusFilter === "all" ||
+      (sessionStatusFilter === "online" && s.isOnline) ||
+      (sessionStatusFilter === "offline" && !s.isOnline)
+    const matchPlan = sessionPlanFilter === "all" || s.plan === sessionPlanFilter
+    return matchSearch && matchStatus && matchPlan
+  })
+
   const filteredAudit = auditLogs.filter(l =>
     !auditSearch ||
     l.action.includes(auditSearch.toLowerCase()) ||
@@ -626,6 +702,7 @@ export default function AdminPage() {
     { id: "waitlist",     label: "Waitlist",     icon: UserCheck },
     { id: "coupons",      label: "Coupons",      icon: Tag },
     { id: "audit",        label: "Audit",        icon: FileText },
+    { id: "sessions",     label: "Sessions",     icon: Monitor },
   ]
 
   if (!user?.isAdmin) return null
@@ -668,6 +745,7 @@ export default function AdminPage() {
               if (activeTab === "waitlist") loadWaitlist()
               if (activeTab === "coupons") loadCoupons()
               if (activeTab === "audit") loadAudit()
+              if (activeTab === "sessions") loadSessions()
             }} disabled={loading}
               className="p-2 rounded-lg border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -1707,6 +1785,185 @@ export default function AdminPage() {
                     </motion.div>
                   ))}
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Session Monitor Tab ─────────────────────────────────────────── */}
+          {activeTab === "sessions" && (
+            <div className="space-y-5">
+              {/* Header + live indicator */}
+              <div className="flex items-center gap-3">
+                <h2 className="text-sm font-black text-foreground flex items-center gap-2">
+                  <Monitor className="h-4 w-4 text-emerald-400" />
+                  Real-Time Session Monitor
+                </h2>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  LIVE · refreshes every 30s
+                </span>
+              </div>
+
+              {!sessionData ? (
+                <div className="flex items-center justify-center py-24">
+                  <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin" />
+                </div>
+              ) : (
+                <>
+                  {/* Stat Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <StatCard label="Active Users Now" value={sessionData.stats.activeNow} icon={Wifi} color="#10B981"
+                      sub="heartbeat < 2 min ago" />
+                    <StatCard label="Sessions Today" value={sessionData.stats.sessionsToday} icon={Activity} color="#6366F1" />
+                    <StatCard label="Avg Session Length" value={formatDuration(sessionData.stats.avgDurationMs)} icon={Clock} color="#D4AF37" />
+                    <StatCard label="Total Tracked" value={sessionData.sessions.length} icon={Monitor} color="#8B5CF6" />
+                  </div>
+
+                  {/* Filters */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative flex-1 min-w-40">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search by email or name..."
+                        value={sessionSearch}
+                        onChange={e => setSessionSearch(e.target.value)}
+                        className="w-full rounded-xl border border-white/8 bg-white/3 pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none"
+                      />
+                    </div>
+                    <select value={sessionStatusFilter} onChange={e => setSessionStatusFilter(e.target.value)}
+                      className="bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-foreground px-3 py-2 outline-none cursor-pointer">
+                      <option value="all" className="bg-[#1a1a1a]">All Status</option>
+                      <option value="online" className="bg-[#1a1a1a]">● Online</option>
+                      <option value="offline" className="bg-[#1a1a1a]">○ Offline</option>
+                    </select>
+                    <select value={sessionPlanFilter} onChange={e => setSessionPlanFilter(e.target.value)}
+                      className="bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-foreground px-3 py-2 outline-none cursor-pointer">
+                      <option value="all" className="bg-[#1a1a1a]">All Plans</option>
+                      <option value="free" className="bg-[#1a1a1a]">Free</option>
+                      <option value="pro" className="bg-[#1a1a1a]">Pro</option>
+                      <option value="startup" className="bg-[#1a1a1a]">Startup</option>
+                      <option value="enterprise" className="bg-[#1a1a1a]">Enterprise</option>
+                    </select>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{filteredSessions.length} session{filteredSessions.length !== 1 ? "s" : ""}</span>
+                  </div>
+
+                  {/* Sessions Table */}
+                  <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                    {filteredSessions.length === 0 ? (
+                      <div className="py-20 text-center">
+                        <Monitor className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-30" />
+                        <p className="text-sm text-muted-foreground">No sessions found</p>
+                        <p className="text-[10px] text-muted-foreground/50 mt-1">Sessions appear after users log in</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="border-b border-white/6">
+                            <tr className="text-muted-foreground text-[10px] uppercase tracking-wider">
+                              <th className="text-left px-4 py-3 font-semibold">Status</th>
+                              <th className="text-left px-4 py-3 font-semibold">User</th>
+                              <th className="text-left px-4 py-3 font-semibold">Plan</th>
+                              <th className="text-left px-4 py-3 font-semibold">Location</th>
+                              <th className="text-left px-4 py-3 font-semibold">Browser / OS</th>
+                              <th className="text-left px-4 py-3 font-semibold">Current Page</th>
+                              <th className="text-left px-4 py-3 font-semibold">Duration</th>
+                              <th className="text-left px-4 py-3 font-semibold">Last Seen</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredSessions.map((s, i) => (
+                              <motion.tr
+                                key={s.id}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: i * 0.01 }}
+                                className="border-b border-white/4 hover:bg-white/2 transition-colors"
+                              >
+                                <td className="px-4 py-3">
+                                  <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold ${s.isOnline ? "text-emerald-400" : "text-muted-foreground/60"}`}>
+                                    <span className={`h-1.5 w-1.5 rounded-full ${s.isOnline ? "bg-emerald-400 animate-pulse" : "bg-muted-foreground/40"}`} />
+                                    {s.isOnline ? "Online" : "Offline"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div>
+                                    <p className="font-bold text-foreground truncate max-w-[140px]">{s.userName ?? "—"}</p>
+                                    <p className="text-muted-foreground/60 text-[10px] truncate max-w-[140px]">{s.userEmail ?? "—"}</p>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <PlanBadge plan={(s.plan ?? "free") as Plan} />
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="text-muted-foreground">
+                                    {[s.city, s.country].filter(Boolean).join(", ") || "—"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="text-muted-foreground">
+                                    <p className="font-medium">{s.browser ?? "Unknown"}</p>
+                                    <p className="text-[10px] opacity-60">{[s.os, s.device].filter(Boolean).join(" · ") || "—"}</p>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <code className="text-[10px] font-mono text-muted-foreground bg-white/5 px-1.5 py-0.5 rounded">
+                                    {s.currentPage ?? "—"}
+                                  </code>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="text-muted-foreground tabular-nums">{formatDuration(s.durationMs)}</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="text-muted-foreground/60 text-[10px] tabular-nums">{timeAgo(s.lastSeenAt)}</span>
+                                </td>
+                              </motion.tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Activity Feed */}
+                  <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                    <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-indigo-400" />
+                      Recent Activity Feed
+                      <span className="text-[10px] font-normal text-muted-foreground ml-1">last 24h</span>
+                    </h3>
+                    {sessionActivity.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">No recent activity</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {sessionActivity.slice(0, 25).map((ev, i) => (
+                          <motion.div
+                            key={ev.id}
+                            initial={{ opacity: 0, x: -6 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.015 }}
+                            className="flex items-center gap-3 py-2 border-b border-white/4 last:border-0"
+                          >
+                            <EventTypeBadge type={ev.type} />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs text-foreground font-medium truncate">
+                                {ev.userName ?? ev.userEmail ?? "Anonymous"}
+                              </span>
+                              {ev.city && (
+                                <span className="text-[10px] text-muted-foreground/60 ml-2">
+                                  {[ev.city, ev.country].filter(Boolean).join(", ")}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground/50 shrink-0 tabular-nums">
+                              {timeAgo(ev.createdAt)}
+                            </span>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}

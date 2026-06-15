@@ -2,8 +2,9 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-import { db, usersTable, passwordResetTokensTable, sessionsTable } from "@workspace/db";
+import { db, usersTable, passwordResetTokensTable, sessionsTable, userMonitorSessionsTable } from "@workspace/db";
 import { eq, and, gt, isNull } from "drizzle-orm";
+import { parseUserAgent } from "../lib/parse-ua";
 import { signToken, verifyToken } from "../middleware/auth";
 import { logEventFireForget, hashToken } from "../lib/log-event";
 import { z } from "zod";
@@ -83,6 +84,19 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     userAgent: req.headers["user-agent"] ?? null,
     country: (req.headers["cf-ipcountry"] as string) ?? null,
   }).catch(() => {});
+
+  const _suaSignup = parseUserAgent(req.headers["user-agent"]);
+  db.insert(userMonitorSessionsTable).values({
+    userId: user.id,
+    sessionToken: hashToken(token),
+    country: (req.headers["cf-ipcountry"] as string) ?? null,
+    browser: _suaSignup.browser,
+    os: _suaSignup.os,
+    device: _suaSignup.device,
+    currentPage: "/dashboard",
+    lastAction: "Signed up",
+  }).catch(() => {});
+
   logEventFireForget({ userId: user.id, type: "user_signup", data: { email: user.email }, req });
 
   res.status(201).json({
@@ -120,6 +134,19 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     userAgent: req.headers["user-agent"] ?? null,
     country: (req.headers["cf-ipcountry"] as string) ?? null,
   }).catch(() => {});
+
+  const _suaLogin = parseUserAgent(req.headers["user-agent"]);
+  db.insert(userMonitorSessionsTable).values({
+    userId: user.id,
+    sessionToken: hashToken(token),
+    country: (req.headers["cf-ipcountry"] as string) ?? null,
+    browser: _suaLogin.browser,
+    os: _suaLogin.os,
+    device: _suaLogin.device,
+    currentPage: "/dashboard",
+    lastAction: "Logged in",
+  }).catch(() => {});
+
   logEventFireForget({ userId: user.id, type: "user_login", data: { email: user.email }, req });
 
   res.json({
@@ -132,6 +159,13 @@ router.post("/auth/logout", (req, res): void => {
   if (token) {
     const payload = verifyToken(token);
     if (payload?.userId) {
+      db.update(userMonitorSessionsTable)
+        .set({ isActive: false, endedAt: new Date() })
+        .where(and(
+          eq(userMonitorSessionsTable.sessionToken, hashToken(token)),
+          eq(userMonitorSessionsTable.isActive, true),
+        ))
+        .catch(() => {});
       logEventFireForget({ userId: payload.userId, type: "user_logout", data: {}, req });
     }
   }

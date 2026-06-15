@@ -62,7 +62,7 @@ export function Navbar() {
           <img
             src="/agent-marcus-badge-nobg.png"
             alt="Agent Marcus"
-            className="h-10 w-auto object-contain"
+            className="h-25 w-auto object-contain"
           />
         </Link>
 

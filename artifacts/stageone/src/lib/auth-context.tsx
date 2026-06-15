@@ -41,6 +41,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     prevUserIdRef.current = currentId;
   }, [user?.id]);
 
+  // Session presence heartbeat — updates lastSeenAt + currentPage every 30s.
+  useEffect(() => {
+    if (!user) return;
+    const beat = () => {
+      fetch("/api/session/heartbeat", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page: window.location.pathname }),
+      }).catch(() => {});
+    };
+    beat(); // fire immediately on login
+    const id = setInterval(beat, 30000);
+    return () => clearInterval(id);
+  }, [user?.id]);
+
   const login = async (email: string, password: string) => {
     try {
       // Clear before setting new user so the incoming user sees a clean slate

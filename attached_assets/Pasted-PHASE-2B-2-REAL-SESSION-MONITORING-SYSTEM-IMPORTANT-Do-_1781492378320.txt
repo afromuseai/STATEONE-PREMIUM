@@ -1,0 +1,241 @@
+PHASE 2B.2 — REAL SESSION MONITORING SYSTEM
+
+IMPORTANT:
+
+Do NOT modify:
+
+* authentication logic
+* billing logic
+* project architecture
+* usage tracking
+* notifications system
+* plan enforcement
+* admin role system
+
+Build this as a new admin capability.
+
+====================================
+GOAL
+====
+
+Allow administrators to see:
+
+* who is currently online
+* active sessions
+* session duration
+* last activity
+* current page
+* user activity feed
+
+The admin should understand platform usage in real time.
+
+====================================
+DATABASE
+========
+
+Create:
+
+user_sessions
+
+Fields:
+
+id
+userId
+sessionId
+startedAt
+lastSeenAt
+endedAt
+isActive
+country
+city
+device
+browser
+os
+currentPage
+lastAction
+
+Indexes:
+
+userId
+sessionId
+isActive
+lastSeenAt
+
+====================================
+SESSION TRACKING
+================
+
+When user logs in:
+
+Create session record.
+
+Update:
+
+startedAt
+lastSeenAt
+isActive=true
+
+Every 30–60 seconds:
+
+Heartbeat updates:
+
+lastSeenAt
+currentPage
+
+When user logs out:
+
+isActive=false
+endedAt=timestamp
+
+====================================
+ONLINE STATUS
+=============
+
+User is ONLINE if:
+
+lastSeenAt < 2 minutes
+
+User is OFFLINE if:
+
+lastSeenAt > 2 minutes
+
+Do NOT rely on browser close events.
+
+Heartbeat controls status.
+
+====================================
+CAPTURE
+=======
+
+Store:
+
+browser
+device
+os
+country
+city
+timezone
+
+Use existing geo infrastructure.
+
+====================================
+ADMIN DASHBOARD
+===============
+
+Create new tab:
+
+Session Monitor
+
+Show:
+
+Active Users Now
+Sessions Today
+Average Session Length
+Peak Concurrent Users
+
+====================================
+LIVE USER TABLE
+===============
+
+Columns:
+
+User
+Plan
+Country
+City
+Current Page
+Last Action
+Session Duration
+Status
+
+Status:
+
+● Online
+● Offline
+
+====================================
+CURRENT PAGE TRACKING
+=====================
+
+Examples:
+
+/dashboard
+/project/123
+/chatbot-generator
+/website-generator
+/orchestrator
+
+Admin can see exactly where users are.
+
+====================================
+ACTIVITY FEED
+=============
+
+Show latest actions:
+
+User opened project
+Generated BI
+Generated website
+Generated chatbot
+Generated automation
+Used Marcus
+Logged in
+Logged out
+
+Chronological stream.
+
+====================================
+FILTERS
+=======
+
+Filter by:
+
+Online
+Offline
+Plan
+Country
+
+Search by:
+
+email
+user name
+
+====================================
+PERFORMANCE
+===========
+
+Do NOT poll excessively.
+
+Use:
+
+30–60 second refresh
+
+or
+
+existing realtime infrastructure.
+
+====================================
+SECURITY
+========
+
+Only admins may access.
+
+Never expose:
+
+raw IP
+tokens
+auth secrets
+
+====================================
+SUCCESS CRITERIA
+================
+
+Admin can answer:
+
+* How many users are online?
+* Who is online right now?
+* What page are they using?
+* How long have they been active?
+* What was their last action?
+
+from a single dashboard.

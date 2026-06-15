@@ -37,6 +37,7 @@ import workspaceControllerRouter from "./workspace-controller";
 import aiBuilderRouter from "./ai-builder";
 import businessGraphRouter from "./business-graph";
 import adminBillingRouter from "./admin-billing";
+import sessionMonitorRouter from "./session-monitor";
 
 const router: IRouter = Router();
 
@@ -78,5 +79,6 @@ router.use(workspaceControllerRouter);
 router.use(aiBuilderRouter);
 router.use(businessGraphRouter);
 router.use(adminBillingRouter);
+router.use(sessionMonitorRouter);
 
 export default router;

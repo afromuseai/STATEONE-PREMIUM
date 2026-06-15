@@ -34,3 +34,4 @@ export * from "./sessions";
 export * from "./broadcasts";
 export * from "./user-usage";
 export * from "./coupons";
+export * from "./user-monitor-sessions";
