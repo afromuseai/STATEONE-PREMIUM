@@ -140,6 +140,7 @@ function SidebarContent({
           return (
             <Link href="/dashboard">
               <div
+                data-tour="nav-dashboard"
                 className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all cursor-pointer group relative mb-1 ${
                   dashActive
                     ? "bg-primary/10 text-primary border border-primary/20 shadow-[inset_0_0_12px_rgba(212,175,55,0.05)]"
@@ -191,9 +192,21 @@ function SidebarContent({
             <div className="space-y-0.5">
               {section.items.map(({ href, icon: Icon, label }) => {
                 const active = isActive(href)
+                const TOUR_MAP: Record<string, string> = {
+                  "/dashboard?tab=new": "nav-business-intelligence",
+                  "/website-generator": "nav-website-generator",
+                  "/chatbot-generator": "nav-chatbot-generator",
+                  "/automation-builder": "nav-automation-builder",
+                  "/orchestrator": "nav-orchestrator",
+                  "/analytics": "nav-analytics",
+                  "/dashboard?tab=projects": "nav-projects",
+                  "/settings": "nav-settings",
+                }
+                const tourId = TOUR_MAP[href] ?? href.replace(/\//g, "nav-").replace(/\?.*/, "")
                 return (
                   <Link key={href + label} href={href}>
                     <div
+                      data-tour={tourId}
                       className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all cursor-pointer group relative ${
                         active
                           ? "bg-primary/10 text-primary border border-primary/20 shadow-[inset_0_0_12px_rgba(212,175,55,0.05)]"
@@ -276,6 +289,7 @@ function SidebarContent({
       {effectiveCollapsed ? (
         <div className="px-2 pb-2">
           <button
+            data-tour="copilot"
             onClick={() => setCopilotOpen(v => !v)}
             className={`w-full flex items-center justify-center rounded-xl border py-2.5 transition-all cursor-pointer group relative ${
               copilotOpen
@@ -303,6 +317,7 @@ function SidebarContent({
       ) : (
         <div className="px-3 pb-2">
           <button
+            data-tour="copilot"
             onClick={() => setCopilotOpen(v => !v)}
             className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-all cursor-pointer ${
               copilotOpen

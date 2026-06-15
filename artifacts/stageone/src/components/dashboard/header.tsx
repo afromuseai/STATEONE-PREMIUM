@@ -239,6 +239,7 @@ export function DashboardHeader({ onMenuToggle }: DashboardHeaderProps) {
         {/* Center: Search */}
         <div className="flex-1 max-w-xs">
           <button
+            data-tour="search"
             onClick={() => setSearchOpen(true)}
             className="w-full flex items-center gap-2.5 rounded-xl border border-white/6 bg-white/3 hover:bg-white/6 px-3 py-1.5 text-left transition-all"
           >
@@ -251,15 +252,16 @@ export function DashboardHeader({ onMenuToggle }: DashboardHeaderProps) {
         {/* Right: Actions */}
         <div className="flex items-center gap-2 shrink-0">
           <button
+            data-tour="new-analysis"
             onClick={() => navigate("/dashboard?tab=new&_r=" + Date.now())}
             className="hidden sm:flex items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/8 hover:bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-all cursor-pointer"
           >
             <Sparkles className="h-3 w-3" />
             <span>New Analysis</span>
           </button>
-          <LangMenu />
-          <NotificationBell />
-          <UserMenu user={user} logout={logout} />
+          <div data-tour="lang-menu"><LangMenu /></div>
+          <div data-tour="notifications"><NotificationBell /></div>
+          <div data-tour="user-menu"><UserMenu user={user} logout={logout} /></div>
         </div>
       </header>
     </>
