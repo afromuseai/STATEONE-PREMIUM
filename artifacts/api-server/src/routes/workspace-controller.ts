@@ -60,7 +60,7 @@ router.get("/workspace/tasks", requireAuth, async (req, res): Promise<void> => {
 // ─── Update task ─────────────────────────────────────────────────────────────
 router.patch("/workspace/tasks/:id", requireAuth, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
-  const { id } = req.params;
+  const id = req.params["id"] as string;
 
   const Body = z.object({
     status: z.enum(["pending", "done"]).optional(),
@@ -104,7 +104,7 @@ router.patch("/workspace/tasks/:id", requireAuth, async (req, res): Promise<void
 // ─── Delete task ─────────────────────────────────────────────────────────────
 router.delete("/workspace/tasks/:id", requireAuth, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
-  const { id } = req.params;
+  const id = req.params["id"] as string;
 
   const [deleted] = await db.delete(workspaceTasksTable)
     .where(and(eq(workspaceTasksTable.id, id), eq(workspaceTasksTable.userId, userId)))
@@ -121,7 +121,7 @@ router.delete("/workspace/tasks/:id", requireAuth, async (req, res): Promise<voi
 // ─── Full project structure ───────────────────────────────────────────────────
 router.get("/workspace/project-structure/:projectId", requireAuth, async (req, res): Promise<void> => {
   const userId = req.user!.userId;
-  const { projectId } = req.params;
+  const projectId = req.params["projectId"] as string;
 
   const [project] = await db.select().from(projectsTable)
     .where(and(eq(projectsTable.id, projectId), eq(projectsTable.userId, userId)))

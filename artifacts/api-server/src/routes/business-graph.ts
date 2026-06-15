@@ -31,7 +31,7 @@ async function ownsProject(projectId: string, userId: string): Promise<boolean> 
 // GET /api/business-graph/:projectId
 router.get("/business-graph/:projectId", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { projectId } = req.params;
+    const projectId = req.params["projectId"] as string;
     const userId = req.user!.userId;
 
     if (!await ownsProject(projectId, userId)) {
@@ -54,7 +54,7 @@ router.get("/business-graph/:projectId", requireAuth, async (req, res): Promise<
 // GET /api/business-graph/:projectId/timeline
 router.get("/business-graph/:projectId/timeline", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { projectId } = req.params;
+    const projectId = req.params["projectId"] as string;
     const userId = req.user!.userId;
     const limit = Math.min(Number(req.query.limit ?? 50), 100);
 
@@ -73,7 +73,7 @@ router.get("/business-graph/:projectId/timeline", requireAuth, async (req, res):
 // POST /api/business-graph/:projectId/snapshot
 router.post("/business-graph/:projectId/snapshot", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { projectId } = req.params;
+    const projectId = req.params["projectId"] as string;
     const userId = req.user!.userId;
     const { changeSummary } = req.body;
 

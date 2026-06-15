@@ -386,7 +386,7 @@ export default function OrchestratorPage() {
             </p>
             <div className="flex flex-col gap-3 items-center">
               <button
-                onClick={openUpgradeModal}
+                onClick={() => openUpgradeModal()}
                 className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-7 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow"
               >
                 <Rocket className="h-4 w-4" /> Upgrade Plan

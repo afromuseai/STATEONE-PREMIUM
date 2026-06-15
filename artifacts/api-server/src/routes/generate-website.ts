@@ -1670,7 +1670,10 @@ Identify the winner and rank all candidates from strongest to weakest.`;
 
     const raw = await callNvidia({
       model: MODELS.ORCHESTRATION,
-      systemPrompt, userMessage: userMsg,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: userMsg },
+      ],
       temperature: 0.3, maxTokens: 900,
     });
 

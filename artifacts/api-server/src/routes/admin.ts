@@ -64,7 +64,7 @@ router.get("/admin/users", requireAdmin, async (_req, res): Promise<void> => {
 });
 
 router.patch("/admin/users/:id", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const { isAdmin, name } = req.body as { isAdmin?: boolean; name?: string };
 
   const updates: Partial<{ isAdmin: boolean; name: string }> = {};
@@ -99,7 +99,7 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res): Promise<void> =
 });
 
 router.patch("/admin/users/:id/subscription", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const { plan } = req.body as { plan?: string };
   if (!plan || !["free", "pro", "startup", "enterprise"].includes(plan)) {
     res.status(400).json({ error: "Invalid plan" });
@@ -138,7 +138,7 @@ router.patch("/admin/users/:id/subscription", requireAdmin, async (req, res): Pr
 });
 
 router.delete("/admin/users/:id", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const requestingUserId = req.user!.userId;
   if (id === requestingUserId) {
     res.status(400).json({ error: "Cannot delete your own account" });
@@ -570,7 +570,7 @@ router.post("/admin/broadcasts", requireAdmin, async (req, res): Promise<void> =
 });
 
 router.delete("/admin/broadcasts/:id", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const adminId = req.user!.userId;
   const [[bc], [admin]] = await Promise.all([
     db.select({ title: broadcastsTable.title }).from(broadcastsTable).where(eq(broadcastsTable.id, id)),
@@ -823,7 +823,7 @@ router.get("/admin/message-center", requireAdmin, async (req, res): Promise<void
 });
 
 router.delete("/admin/message-center/:id", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   await db.delete(messageCenterSendsTable).where(eq(messageCenterSendsTable.id, id));
   res.json({ ok: true });
 });
@@ -918,7 +918,7 @@ router.post("/admin/notification-schedules", requireAdmin, async (req, res): Pro
 });
 
 router.patch("/admin/notification-schedules/:id/cancel", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const [updated] = await db.update(notificationSchedulesTable)
     .set({ status: "cancelled" })
     .where(and(eq(notificationSchedulesTable.id, id), eq(notificationSchedulesTable.status, "pending")))
@@ -929,7 +929,7 @@ router.patch("/admin/notification-schedules/:id/cancel", requireAdmin, async (re
 });
 
 router.delete("/admin/notification-schedules/:id", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   await db.delete(notificationSchedulesTable)
     .where(and(eq(notificationSchedulesTable.id, id), ne(notificationSchedulesTable.status, "sent")));
   res.json({ ok: true });

@@ -133,7 +133,7 @@ router.get("/admin/billing/charts", requireAdmin, async (req, res): Promise<void
 // ─── Suspend / Reactivate Plan ────────────────────────────────────────────────
 
 router.patch("/admin/users/:id/subscription/status", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const { status } = req.body as { status?: string };
   const adminId = req.user!.userId;
 
@@ -167,7 +167,7 @@ router.patch("/admin/users/:id/subscription/status", requireAdmin, async (req, r
 // ─── Admin Plan Change (with audit logging) ───────────────────────────────────
 
 router.patch("/admin/users/:id/plan", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const { plan } = req.body as { plan?: string };
   const adminId = req.user!.userId;
 
@@ -258,7 +258,7 @@ router.get("/admin/waitlist", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.delete("/admin/waitlist/:id", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const adminId = req.user!.userId;
   await db.delete(waitlistTable).where(eq(waitlistTable.id, id));
   logAuditFireForget({ userId: adminId, action: "waitlist_remove", resource: "waitlist", resourceId: id, severity: "low" });
@@ -335,7 +335,7 @@ router.post("/admin/coupons", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.patch("/admin/coupons/:id/disable", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const adminId = req.user!.userId;
   const [coupon] = await db
     .update(couponsTable)
@@ -348,7 +348,7 @@ router.patch("/admin/coupons/:id/disable", requireAdmin, async (req, res): Promi
 });
 
 router.patch("/admin/coupons/:id/enable", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const adminId = req.user!.userId;
   const [coupon] = await db
     .update(couponsTable)
@@ -361,7 +361,7 @@ router.patch("/admin/coupons/:id/enable", requireAdmin, async (req, res): Promis
 });
 
 router.delete("/admin/coupons/:id", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const adminId = req.user!.userId;
   await db.delete(couponsTable).where(eq(couponsTable.id, id));
   logAuditFireForget({ userId: adminId, action: "coupon_delete", resource: "coupons", resourceId: id, severity: "high" });
@@ -371,7 +371,7 @@ router.delete("/admin/coupons/:id", requireAdmin, async (req, res): Promise<void
 // ─── User Billing Profile ─────────────────────────────────────────────────────
 
 router.get("/admin/users/:id/billing-profile", requireAdmin, async (req, res): Promise<void> => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 

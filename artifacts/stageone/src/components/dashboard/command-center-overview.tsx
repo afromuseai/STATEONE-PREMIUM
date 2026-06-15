@@ -248,7 +248,7 @@ export function CommandCenterOverview({
               </p>
             </div>
             <button
-              onClick={openUpgradeModal}
+              onClick={() => openUpgradeModal()}
               className="ml-4 shrink-0 text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1"
             >
               {wo.upgrade} <ChevronRight className="h-3 w-3" />

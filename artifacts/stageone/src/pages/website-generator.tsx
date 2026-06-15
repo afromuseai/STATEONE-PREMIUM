@@ -644,7 +644,7 @@ export default function WebsiteGeneratorPage() {
                 </div>
               ))}
             </div>
-            <button onClick={openUpgradeModal} className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
+            <button onClick={() => openUpgradeModal()} className="flex w-full h-10 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow">
               <Crown className="h-3.5 w-3.5" />
               Upgrade to Pro
             </button>

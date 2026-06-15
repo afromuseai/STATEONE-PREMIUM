@@ -254,7 +254,7 @@ router.get("/autonomous/signals", requireAuth, async (req, res) => {
 router.patch("/autonomous/signals/:id/resolve", requireAuth, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const { id } = req.params;
+    const id = req.params["id"] as string;
     const { wasActedOn } = req.body;
 
     const [updated] = await db

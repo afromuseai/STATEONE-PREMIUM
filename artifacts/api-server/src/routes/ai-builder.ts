@@ -403,10 +403,11 @@ router.get("/api/ai-builder/generations", requireAuth, async (req, res) => {
 
 router.get("/api/ai-builder/generations/:id", requireAuth, async (req, res) => {
   try {
+    const genId = req.params["id"] as string;
     const [generation] = await db
       .select()
       .from(builderGenerationsTable)
-      .where(eq(builderGenerationsTable.id, req.params.id))
+      .where(eq(builderGenerationsTable.id, genId))
       .limit(1);
     if (!generation || generation.userId !== req.user!.userId) {
       res.status(404).json({ error: "Generation not found" });
@@ -420,16 +421,17 @@ router.get("/api/ai-builder/generations/:id", requireAuth, async (req, res) => {
 
 router.delete("/api/ai-builder/generations/:id", requireAuth, async (req, res) => {
   try {
+    const genId = req.params["id"] as string;
     const [generation] = await db
       .select({ id: builderGenerationsTable.id, userId: builderGenerationsTable.userId })
       .from(builderGenerationsTable)
-      .where(eq(builderGenerationsTable.id, req.params.id))
+      .where(eq(builderGenerationsTable.id, genId))
       .limit(1);
     if (!generation || generation.userId !== req.user!.userId) {
       res.status(404).json({ error: "Generation not found" });
       return;
     }
-    await db.delete(builderGenerationsTable).where(eq(builderGenerationsTable.id, req.params.id));
+    await db.delete(builderGenerationsTable).where(eq(builderGenerationsTable.id, genId));
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: "Failed to delete generation" });
@@ -462,10 +464,11 @@ router.get("/api/ai-builder/projects", requireAuth, async (req, res) => {
 
 router.get("/api/ai-builder/projects/:id", requireAuth, async (req, res) => {
   try {
+    const projId = req.params["id"] as string;
     const [project] = await db
       .select()
       .from(builderProjectsTable)
-      .where(eq(builderProjectsTable.id, req.params.id))
+      .where(eq(builderProjectsTable.id, projId))
       .limit(1);
     if (!project || project.userId !== req.user!.userId) {
       res.status(404).json({ error: "Project not found" });
@@ -479,16 +482,17 @@ router.get("/api/ai-builder/projects/:id", requireAuth, async (req, res) => {
 
 router.delete("/api/ai-builder/projects/:id", requireAuth, async (req, res) => {
   try {
+    const projId = req.params["id"] as string;
     const [project] = await db
       .select({ id: builderProjectsTable.id, userId: builderProjectsTable.userId })
       .from(builderProjectsTable)
-      .where(eq(builderProjectsTable.id, req.params.id))
+      .where(eq(builderProjectsTable.id, projId))
       .limit(1);
     if (!project || project.userId !== req.user!.userId) {
       res.status(404).json({ error: "Project not found" });
       return;
     }
-    await db.delete(builderProjectsTable).where(eq(builderProjectsTable.id, req.params.id));
+    await db.delete(builderProjectsTable).where(eq(builderProjectsTable.id, projId));
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: "Failed to delete project" });

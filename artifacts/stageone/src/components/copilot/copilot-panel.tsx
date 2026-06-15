@@ -44,6 +44,7 @@ import {
   saveProjectContext,
 } from "@/lib/generation-context";
 import { useWorkspaceController } from "@/lib/workspace-controller-context";
+import { useUpgradeModal } from "@/lib/upgrade-modal-context";
 import { ListChecks, Trash2 } from "lucide-react";
 import { Orbit } from "lucide-react";
 
@@ -589,6 +590,7 @@ function saveMessages(msgs: Message[], userId: string) {
 export function CopilotPanel() {
   const { user, isLoading } = useAuth();
   const { open, setOpen } = useCopilot();
+  const { openUpgradeModal } = useUpgradeModal();
   const { lang } = useLang();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -1233,7 +1235,7 @@ export function CopilotPanel() {
         );
       } catch (e: unknown) {
         if (e instanceof Error && e.message === "UPGRADE_REQUIRED") {
-          setShowUpgradeModal(true)
+          openUpgradeModal()
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {

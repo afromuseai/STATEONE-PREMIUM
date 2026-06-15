@@ -1062,7 +1062,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <button
-                  onClick={openUpgradeModal}
+                  onClick={() => openUpgradeModal()}
                   className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-400 hover:text-amber-300 transition-colors border border-amber-500/30 rounded-full px-3 py-1 bg-amber-500/6 hover:bg-amber-500/12 shrink-0"
                 >
                   <Crown className="h-2.5 w-2.5" />

@@ -112,7 +112,7 @@ router.get("/revenue/signals", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/revenue/summary", requireAuth, async (req, res) => {
+router.get("/revenue/summary", requireAuth, async (req, res): Promise<void> => {
   try {
     const userId = req.user!.userId;
     const signals = await db
@@ -122,7 +122,7 @@ router.get("/revenue/summary", requireAuth, async (req, res) => {
       .orderBy(desc(revenueSignalsTable.createdAt));
 
     if (signals.length === 0) {
-      return res.json({
+      res.json({
         totalSignals: 0,
         avgRevenueScore: 0,
         totalEstimatedArrUplift: 0,
@@ -137,6 +137,7 @@ router.get("/revenue/summary", requireAuth, async (req, res) => {
         recentSignals: [],
         priorityBreakdown: { critical: 0, high: 0, medium: 0, low: 0 },
       });
+      return;
     }
 
     const avgRevenueScore = Math.round(
