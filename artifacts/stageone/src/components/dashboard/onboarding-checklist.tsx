@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Link } from "wouter"
-import { CheckCircle2, Circle, ChevronUp, ChevronDown, X, Sparkles, ArrowRight } from "lucide-react"
+import { CheckCircle2, Circle, X, Sparkles, ArrowRight, ChevronDown } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { api, type Project } from "@/lib/api"
 
@@ -9,7 +9,7 @@ interface Step {
   id: string
   label: string
   description: string
-  href?: string
+  href: string
   done: boolean
 }
 
@@ -19,16 +19,13 @@ const VISITED_KEY = (uid: string, page: string) => `onboarding:visited:${uid}:${
 export function OnboardingChecklist() {
   const { user } = useAuth()
   const [expanded, setExpanded] = useState(true)
-  const [dismissed, setDismissed] = useState(true) // default true until loaded
-  const [visitedAgent, setVisitedAgent] = useState(false)
-  const [visitedDev, setVisitedDev] = useState(false)
+  const [dismissed, setDismissed] = useState(true)
+  const [visitedAgents, setVisitedAgents] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
 
-  // Load state and projects once user is known
   useEffect(() => {
     if (!user) return
 
-    // Only show checklist for users created within the last 30 days
     const daysSinceSignup = (Date.now() - new Date(user.createdAt).getTime()) / 86400000
     if (daysSinceSignup > 30) return
 
@@ -36,8 +33,7 @@ export function OnboardingChecklist() {
     setDismissed(isDismissed)
     if (isDismissed) return
 
-    setVisitedAgent(localStorage.getItem(VISITED_KEY(user.id, "agents")) === "1")
-    setVisitedDev(localStorage.getItem(VISITED_KEY(user.id, "developer")) === "1")
+    setVisitedAgents(localStorage.getItem(VISITED_KEY(user.id, "agents")) === "1")
 
     api.projects.list()
       .then(({ projects }) => setProjects(projects))
@@ -49,59 +45,43 @@ export function OnboardingChecklist() {
     const hasWebsite = projects.some(p => p.websiteOutput && Object.keys(p.websiteOutput).length > 0)
     return [
       {
-        id: "account",
-        label: "Create your account",
-        description: "You're in. Your AI Operating System is live.",
-        done: true,
-      },
-      {
         id: "project",
-        label: "Describe your first business idea",
-        description: "Run the AI analysis to get your full business blueprint.",
+        label: "Run your first analysis",
+        description: "Describe your idea and get a full AI business blueprint.",
         href: "/dashboard?tab=new",
         done: hasProject,
       },
       {
         id: "website",
         label: "Generate a website",
-        description: "Turn your business idea into a live, editable website.",
-        href: hasProject ? "/dashboard?tab=projects" : "/dashboard?tab=new",
+        description: "Turn your blueprint into a live, editable website.",
+        href: "/website-generator",
         done: hasWebsite,
       },
       {
         id: "agents",
-        label: "Visit the Agent Store",
-        description: "Browse and install AI agents for sales, support, and more.",
+        label: "Install an AI Agent",
+        description: "Browse the Agent Store and install your first agent.",
         href: "/agents",
-        done: visitedAgent,
-      },
-      {
-        id: "developer",
-        label: "Get your API key",
-        description: "Access the developer platform and connect external tools.",
-        href: "/developer",
-        done: visitedDev,
+        done: visitedAgents,
       },
     ]
-  }, [projects, visitedAgent, visitedDev])
+  }, [projects, visitedAgents])
 
   const doneCount = steps.filter(s => s.done).length
   const allDone = doneCount === steps.length
+  const pct = Math.round((doneCount / steps.length) * 100)
 
   const handleDismiss = () => {
     if (user) localStorage.setItem(DISMISS_KEY(user.id), "1")
     setDismissed(true)
   }
 
-  const handleStepClick = (stepId: string) => {
+  const markVisited = (stepId: string) => {
     if (!user) return
     if (stepId === "agents") {
       localStorage.setItem(VISITED_KEY(user.id, "agents"), "1")
-      setVisitedAgent(true)
-    }
-    if (stepId === "developer") {
-      localStorage.setItem(VISITED_KEY(user.id, "developer"), "1")
-      setVisitedDev(true)
+      setVisitedAgents(true)
     }
   }
 
@@ -109,139 +89,163 @@ export function OnboardingChecklist() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24, scale: 0.97 }}
+      initial={{ opacity: 0, y: 20, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 16, scale: 0.97 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed bottom-6 right-6 z-40 w-80"
-      style={{ filter: "drop-shadow(0 8px 32px rgba(0,0,0,0.5))" }}
+      exit={{ opacity: 0, y: 12, scale: 0.96 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      className="fixed bottom-5 right-5 z-40 w-72"
     >
-      {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 rounded-t-2xl cursor-pointer select-none"
-        style={{ background: "var(--card)", borderBottom: "1px solid var(--border)" }}
-        onClick={() => setExpanded(e => !e)}
+        className="rounded-2xl overflow-hidden"
+        style={{
+          background: "linear-gradient(145deg, #1a1a1a 0%, #111 100%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(201,162,39,0.08)",
+        }}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-foreground leading-none">Getting started</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {allDone ? "All done — you're a pro!" : `${doneCount} of ${steps.length} complete`}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          {/* Progress ring */}
-          <div className="relative w-8 h-8 shrink-0">
-            <svg className="w-8 h-8 -rotate-90" viewBox="0 0 32 32">
-              <circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" strokeWidth="2.5"
-                className="text-border" />
-              <circle cx="16" cy="16" r="12" fill="none" stroke="currentColor" strokeWidth="2.5"
-                strokeDasharray={`${2 * Math.PI * 12}`}
-                strokeDashoffset={`${2 * Math.PI * 12 * (1 - doneCount / steps.length)}`}
-                strokeLinecap="round"
-                className="text-primary transition-all duration-700" />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-foreground">
-              {doneCount}/{steps.length}
-            </span>
-          </div>
-
-          {expanded
-            ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            : <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
-          }
-          <button
-            onClick={e => { e.stopPropagation(); handleDismiss() }}
-            className="ml-1 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/8 transition-colors"
-          >
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
-
-      {/* Steps */}
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            key="steps"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: "easeInOut" }}
-            className="overflow-hidden rounded-b-2xl"
-            style={{ background: "var(--card)" }}
-          >
-            <div className="px-3 pb-3 pt-1 space-y-0.5">
-              {steps.map((step, i) => {
-                const content = (
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
+          onClick={() => setExpanded(e => !e)}
+          style={{ borderBottom: expanded ? "1px solid rgba(255,255,255,0.06)" : "none" }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: "rgba(201,162,39,0.12)", border: "1px solid rgba(201,162,39,0.2)" }}
+            >
+              <Sparkles className="w-3.5 h-3.5" style={{ color: "#c9a227" }} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold leading-none" style={{ color: "#f0f0f0" }}>
+                {allDone ? "Setup complete!" : "Getting started"}
+              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
                   <motion.div
-                    key={step.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.04, duration: 0.2 }}
-                    className={`group flex items-start gap-3 px-2 py-2.5 rounded-xl transition-colors ${
-                      !step.done && step.href
-                        ? "cursor-pointer hover:bg-white/5"
-                        : step.done
-                        ? "opacity-60"
-                        : "opacity-90"
-                    }`}
-                    onClick={() => !step.done && handleStepClick(step.id)}
-                  >
-                    <div className="mt-0.5 shrink-0">
-                      {step.done ? (
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-border group-hover:text-muted-foreground transition-colors" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-medium leading-none mb-0.5 ${step.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                        {step.label}
-                      </p>
-                      {!step.done && (
-                        <p className="text-[10px] text-muted-foreground leading-snug">{step.description}</p>
-                      )}
-                    </div>
-                    {!step.done && step.href && (
-                      <ArrowRight className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-0.5" />
-                    )}
-                  </motion.div>
-                )
+                    className="h-full rounded-full"
+                    style={{ background: "linear-gradient(90deg, #c9a227, #e8c547)" }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                  />
+                </div>
+                <span className="text-[10px] shrink-0 tabular-nums" style={{ color: "#666" }}>
+                  {doneCount}/{steps.length}
+                </span>
+              </div>
+            </div>
+          </div>
 
-                return !step.done && step.href ? (
-                  <Link key={step.id} href={step.href} onClick={() => handleStepClick(step.id)}>
-                    {content}
+          <div className="flex items-center gap-0.5 ml-2 shrink-0">
+            <motion.div animate={{ rotate: expanded ? 0 : -90 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="w-3.5 h-3.5" style={{ color: "#555" }} />
+            </motion.div>
+            <button
+              onClick={e => { e.stopPropagation(); handleDismiss() }}
+              className="ml-1 p-1 rounded-md transition-colors"
+              style={{ color: "#555" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#999")}
+              onMouseLeave={e => (e.currentTarget.style.color = "#555")}
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Steps */}
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              key="steps"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="px-3 py-2 space-y-0.5">
+                {steps.map((step, i) => (
+                  <Link
+                    key={step.id}
+                    href={step.done ? "#" : step.href}
+                    onClick={() => !step.done && markVisited(step.id)}
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05, duration: 0.18 }}
+                      className="group flex items-center gap-3 px-2.5 py-2.5 rounded-xl transition-all"
+                      style={{
+                        opacity: step.done ? 0.45 : 1,
+                        cursor: step.done ? "default" : "pointer",
+                      }}
+                      onMouseEnter={e => {
+                        if (!step.done) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.background = "transparent"
+                      }}
+                    >
+                      <div className="shrink-0">
+                        {step.done ? (
+                          <CheckCircle2 className="w-4 h-4" style={{ color: "#c9a227" }} />
+                        ) : (
+                          <Circle className="w-4 h-4" style={{ color: "rgba(255,255,255,0.2)" }} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-xs font-medium leading-none truncate"
+                          style={{
+                            color: step.done ? "#555" : "#d0d0d0",
+                            textDecoration: step.done ? "line-through" : "none",
+                          }}
+                        >
+                          {step.label}
+                        </p>
+                        {!step.done && (
+                          <p className="text-[10px] mt-0.5 leading-snug truncate" style={{ color: "#555" }}>
+                            {step.description}
+                          </p>
+                        )}
+                      </div>
+                      {!step.done && (
+                        <ArrowRight
+                          className="w-3 h-3 shrink-0 transition-transform group-hover:translate-x-0.5"
+                          style={{ color: "#444" }}
+                        />
+                      )}
+                    </motion.div>
                   </Link>
-                ) : (
-                  <div key={step.id}>{content}</div>
-                )
-              })}
+                ))}
+              </div>
 
               {allDone && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="mt-2 px-2 py-2 rounded-xl bg-primary/8 border border-primary/20 text-center"
+                  className="mx-3 mb-3 px-3 py-2.5 rounded-xl text-center"
+                  style={{ background: "rgba(201,162,39,0.07)", border: "1px solid rgba(201,162,39,0.15)" }}
                 >
-                  <p className="text-[11px] font-semibold text-primary">You've completed onboarding!</p>
+                  <p className="text-[11px] font-semibold" style={{ color: "#c9a227" }}>
+                    You're all set — let's build something great.
+                  </p>
                   <button
                     onClick={handleDismiss}
-                    className="text-[10px] text-muted-foreground hover:text-foreground mt-1 transition-colors"
+                    className="text-[10px] mt-1 transition-colors"
+                    style={{ color: "#555" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "#888")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "#555")}
                   >
-                    Dismiss this widget
+                    Dismiss
                   </button>
                 </motion.div>
               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   )
 }
