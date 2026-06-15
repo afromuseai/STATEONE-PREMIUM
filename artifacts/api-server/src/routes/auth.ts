@@ -2,11 +2,12 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-import { db, usersTable, passwordResetTokensTable, sessionsTable, userMonitorSessionsTable } from "@workspace/db";
-import { eq, and, gt, isNull } from "drizzle-orm";
+import { db, usersTable, passwordResetTokensTable, sessionsTable, userMonitorSessionsTable, referralsTable, subscriptionsTable } from "@workspace/db";
+import { eq, and, gt, isNull, count } from "drizzle-orm";
 import { parseUserAgent } from "../lib/parse-ua";
 import { signToken, verifyToken } from "../middleware/auth";
 import { logEventFireForget, hashToken } from "../lib/log-event";
+import { sendWelcomeEmail, sendReferralRewardEmail } from "../lib/email";
 import { z } from "zod";
 
 const router = Router();
@@ -15,6 +16,7 @@ const SignupBody = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(1),
+  referralCode: z.string().optional(),
 });
 
 const LoginBody = z.object({
@@ -52,13 +54,23 @@ function getMailer() {
   });
 }
 
+function generateReferralCode(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  const bytes = crypto.randomBytes(8);
+  for (let i = 0; i < 8; i++) {
+    code += chars[bytes[i]! % chars.length];
+  }
+  return code;
+}
+
 router.post("/auth/signup", async (req, res): Promise<void> => {
   const parsed = SignupBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
     return;
   }
-  const { email, password, name } = parsed.data;
+  const { email, password, name, referralCode: incomingCode } = parsed.data;
 
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
   if (existing) {
@@ -66,13 +78,72 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     return;
   }
 
+  // Resolve referrer (if referral code provided)
+  let referrer: { id: string; email: string; name: string } | null = null;
+  if (incomingCode) {
+    const [referrerUser] = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.referralCode, incomingCode.toUpperCase()));
+    if (referrerUser) referrer = referrerUser;
+  }
+
+  // Generate a unique referral code for the new user
+  let newReferralCode = generateReferralCode();
+  // Retry once on collision (astronomically rare)
+  const [collision] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.referralCode, newReferralCode));
+  if (collision) newReferralCode = generateReferralCode();
+
   const passwordHash = await bcrypt.hash(password, 12);
   const [user] = await db.insert(usersTable).values({
     email: email.toLowerCase(),
     passwordHash,
     name,
     isAdmin: false,
+    referralCode: newReferralCode,
+    referredBy: referrer?.id ?? undefined,
   }).returning();
+
+  // Process referral reward
+  if (referrer) {
+    // Record the referral
+    await db.insert(referralsTable).values({
+      referrerId: referrer.id,
+      referredUserId: user.id,
+      bonusGenerations: 5,
+    }).catch(() => {});
+
+    // Add +5 aiGenerationsLimit to referrer's subscription
+    const [referrerSub] = await db
+      .select()
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.userId, referrer.id));
+    if (referrerSub) {
+      await db
+        .update(subscriptionsTable)
+        .set({ aiGenerationsLimit: referrerSub.aiGenerationsLimit + 5 })
+        .where(eq(subscriptionsTable.userId, referrer.id))
+        .catch(() => {});
+    }
+
+    // Count total referrals by this referrer
+    const [{ value: totalReferrals }] = await db
+      .select({ value: count() })
+      .from(referralsTable)
+      .where(eq(referralsTable.referrerId, referrer.id));
+
+    // Send reward email to referrer (fire-and-forget)
+    sendReferralRewardEmail({
+      to: referrer.email,
+      name: referrer.name,
+      referredName: name,
+      bonusGenerations: 5,
+      totalReferrals: Number(totalReferrals ?? 1),
+    }).catch(() => {});
+  }
 
   const token = signToken({ userId: user.id, email: user.email, isAdmin: user.isAdmin });
   res.cookie("token", token, COOKIE_OPTS);
@@ -98,6 +169,9 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
   }).catch(() => {});
 
   logEventFireForget({ userId: user.id, type: "user_signup", data: { email: user.email }, req });
+
+  // Send welcome email (fire-and-forget)
+  sendWelcomeEmail({ to: user.email, name: user.name, referralCode: newReferralCode }).catch(() => {});
 
   res.status(201).json({
     user: { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin, createdAt: user.createdAt },

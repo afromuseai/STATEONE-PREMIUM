@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { db, subscriptionsTable } from "@workspace/db";
+import { db, subscriptionsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
+import { sendUsageWarningEmail, isEmailConfigured } from "../lib/email";
 
 const router = Router();
 
@@ -87,6 +88,32 @@ router.post("/subscriptions/increment-usage", requireAuth, async (req, res): Pro
     .set({ [col]: (sub[col] as number) + 1 })
     .where(eq(subscriptionsTable.userId, userId))
     .returning();
+
+  // ── Usage warning email at 80% threshold (fire-and-forget) ─────────────────
+  if (field === "aiGenerationsUsed" && !isAdmin && isEmailConfigured() && updated) {
+    const newUsed = updated.aiGenerationsUsed;
+    const limit = updated.aiGenerationsLimit;
+    const threshold80 = Math.floor(limit * 0.8);
+    // Send exactly once: when crossing the 80% mark
+    if (newUsed === threshold80) {
+      db.select({ email: usersTable.email, name: usersTable.name })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .then(([userRow]) => {
+          if (userRow) {
+            sendUsageWarningEmail({
+              to: userRow.email,
+              name: userRow.name,
+              used: newUsed,
+              limit,
+              plan: updated.plan,
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
   res.json({ subscription: updated });
 });
 

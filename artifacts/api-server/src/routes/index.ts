@@ -48,6 +48,10 @@ import adminAiModelsRouter from "./admin-ai-models";
 import adminSecurityRouter from "./admin-security";
 import adminIncidentsRouter from "./admin-incidents";
 import adminBackupsRouter from "./admin-backups";
+import onboardingRouter from "./onboarding";
+import referralsRouter from "./referrals";
+import adminErrorsRouter from "./admin-errors";
+import adminRetentionRouter from "./admin-retention";
 
 const router: IRouter = Router();
 
@@ -100,5 +104,9 @@ router.use(adminAiModelsRouter);
 router.use(adminSecurityRouter);
 router.use(adminIncidentsRouter);
 router.use(adminBackupsRouter);
+router.use(onboardingRouter);
+router.use(referralsRouter);
+router.use(adminErrorsRouter);
+router.use(adminRetentionRouter);
 
 export default router;

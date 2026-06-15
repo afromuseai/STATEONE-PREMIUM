@@ -1,0 +1,164 @@
+PHASE 2C.5 — EXECUTION WORKER INFRASTRUCTURE
+
+IMPORTANT
+
+Do NOT rewrite:
+
+* execution engine UI
+* agent store
+* automation builder
+* orchestrator
+* business intelligence
+* project architecture
+* memory systems
+
+The goal is:
+
+activate execution.
+
+====================================
+
+CURRENT PROBLEM
+
+The platform contains:
+
+* executions table
+* agent_tasks table
+* agents
+* automation workflows
+* orchestration systems
+
+But nothing actually processes queued work.
+
+The system records execution requests.
+
+It does not execute them.
+
+====================================
+
+GOAL
+
+Create a background execution worker layer.
+
+Workers should process:
+
+* execution jobs
+* agent tasks
+* automation tasks
+* scheduled operations
+
+from database queues.
+
+====================================
+
+EXECUTION STATES
+
+Support:
+
+* queued
+* running
+* completed
+* failed
+* cancelled
+
+====================================
+
+WORKER LOOP
+
+Create a worker service that:
+
+1. polls pending executions
+2. locks a job
+3. marks running
+4. executes handler
+5. stores logs
+6. stores outputs
+7. marks complete
+
+====================================
+
+EXECUTION TYPES
+
+Support:
+
+* business_intelligence
+* website_generation
+* chatbot_generation
+* automation_generation
+* agent_task
+* workflow_execution
+
+Use a handler registry.
+
+Example:
+
+handlers = {
+business_intelligence,
+website_generation,
+chatbot_generation,
+automation_generation,
+agent_task
+}
+
+====================================
+
+FAILURE HANDLING
+
+Add:
+
+* retry count
+* retry limit
+* error logs
+* failure reason
+
+====================================
+
+OBSERVABILITY
+
+Track:
+
+* startedAt
+* completedAt
+* durationMs
+* retryCount
+* outputSummary
+
+====================================
+
+ADMIN
+
+Expose worker metrics:
+
+* queued jobs
+* running jobs
+* completed jobs
+* failed jobs
+
+====================================
+
+IMPORTANT
+
+Do NOT create fake execution.
+
+Actually process queued records.
+
+The goal is:
+
+transform STAGEONE from
+"records execution"
+
+into
+
+"executes work."
+
+====================================
+
+SUCCESS CRITERIA
+
+An execution record inserted into the queue is automatically:
+
+queued
+→ running
+→ completed
+
+without manual intervention.

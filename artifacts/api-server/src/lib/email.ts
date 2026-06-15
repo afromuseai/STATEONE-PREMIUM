@@ -147,6 +147,80 @@ export async function sendBroadcastEmail(opts: {
   });
 }
 
+// ─── Transactional: Welcome email ─────────────────────────────────────────────
+export async function sendWelcomeEmail(opts: { to: string; name: string; referralCode?: string }): Promise<void> {
+  if (!isEmailConfigured()) return;
+  const appUrl = process.env.APP_URL ?? "https://app.stageone.ai";
+  const referralSection = opts.referralCode
+    ? `\n\nShare your personal referral link and earn +5 free AI generations per signup:\n${appUrl}/signup?ref=${opts.referralCode}`
+    : "";
+  await sendBroadcastEmail({
+    to: opts.to,
+    recipientName: opts.name,
+    title: "Welcome to STAGEONE 🚀",
+    type: "feature",
+    message: `You're in! Your AI Business Operating System is ready.\n\nStart by entering your business idea — STAGEONE will generate a full strategic blueprint, live website preview, competitive analysis, and exportable React code in under 60 seconds.\n\nHere's what to explore first:\n• Business Intelligence Generator — deep-dive market analysis\n• AI Website Builder — live preview + full Next.js export\n• Marcus Copilot — your always-on AI business partner\n• Agent Store — 12 pre-built agents to automate your workflow${referralSection}`,
+  });
+}
+
+// ─── Transactional: Usage warning (80% of plan limit) ─────────────────────────
+export async function sendUsageWarningEmail(opts: {
+  to: string;
+  name: string;
+  used: number;
+  limit: number;
+  plan: string;
+}): Promise<void> {
+  if (!isEmailConfigured()) return;
+  const appUrl = process.env.APP_URL ?? "https://app.stageone.ai";
+  const pct = Math.round((opts.used / opts.limit) * 100);
+  await sendBroadcastEmail({
+    to: opts.to,
+    recipientName: opts.name,
+    title: `You've used ${pct}% of your AI generations`,
+    type: "warning",
+    message: `You've used ${opts.used} of ${opts.limit} AI generations on your ${opts.plan} plan.\n\nWhen you reach the limit, new generation requests will be paused until your next billing cycle or you upgrade your plan.\n\nUpgrade now to keep the momentum going and unlock higher limits:\n${appUrl}/pricing`,
+  });
+}
+
+// ─── Transactional: Upgrade prompt (feature gate hit) ─────────────────────────
+export async function sendUpgradePromptEmail(opts: {
+  to: string;
+  name: string;
+  feature: string;
+  requiredPlan: string;
+  currentPlan: string;
+}): Promise<void> {
+  if (!isEmailConfigured()) return;
+  const appUrl = process.env.APP_URL ?? "https://app.stageone.ai";
+  await sendBroadcastEmail({
+    to: opts.to,
+    recipientName: opts.name,
+    title: `Unlock ${opts.feature} with ${opts.requiredPlan}`,
+    type: "info",
+    message: `You tried to access "${opts.feature}" on your ${opts.currentPlan} plan — this feature requires ${opts.requiredPlan} or higher.\n\nUpgrade your plan to unlock this feature plus higher AI generation limits, more workspaces, and priority support:\n${appUrl}/pricing`,
+  });
+}
+
+// ─── Transactional: Referral reward notification ──────────────────────────────
+export async function sendReferralRewardEmail(opts: {
+  to: string;
+  name: string;
+  referredName: string;
+  bonusGenerations: number;
+  totalReferrals: number;
+}): Promise<void> {
+  if (!isEmailConfigured()) return;
+  const appUrl = process.env.APP_URL ?? "https://app.stageone.ai";
+  await sendBroadcastEmail({
+    to: opts.to,
+    recipientName: opts.name,
+    title: `${opts.referredName} just joined STAGEONE! +${opts.bonusGenerations} generations added`,
+    type: "update",
+    message: `Great news! ${opts.referredName} signed up using your referral link.\n\nAs a reward, ${opts.bonusGenerations} free AI generations have been added to your account. You've now referred ${opts.totalReferrals} ${opts.totalReferrals === 1 ? "person" : "people"} and earned ${opts.totalReferrals * opts.bonusGenerations} total bonus generations.\n\nKeep sharing your link at ${appUrl}/settings to earn more!`,
+  });
+}
+
 // ─── Bulk send with concurrency cap ───────────────────────────────────────────
 export async function sendBulkEmails(
   recipients: Array<{ email: string; name: string }>,

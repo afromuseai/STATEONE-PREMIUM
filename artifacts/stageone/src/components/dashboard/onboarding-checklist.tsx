@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Link } from "wouter"
 import { CheckCircle2, Circle, ChevronUp, ChevronDown, X, Sparkles, ArrowRight } from "lucide-react"
-import type { Project } from "@/lib/api"
+import { useAuth } from "@/lib/auth-context"
+import { api, type Project } from "@/lib/api"
 
 interface Step {
   id: string
@@ -12,26 +13,36 @@ interface Step {
   done: boolean
 }
 
-interface Props {
-  userId: string
-  projects: Project[]
-}
-
 const DISMISS_KEY = (uid: string) => `onboarding:dismissed:${uid}`
 const VISITED_KEY = (uid: string, page: string) => `onboarding:visited:${uid}:${page}`
 
-export function OnboardingChecklist({ userId, projects }: Props) {
+export function OnboardingChecklist() {
+  const { user } = useAuth()
   const [expanded, setExpanded] = useState(true)
-  const [dismissed, setDismissed] = useState(false)
+  const [dismissed, setDismissed] = useState(true) // default true until loaded
   const [visitedAgent, setVisitedAgent] = useState(false)
   const [visitedDev, setVisitedDev] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
 
-  // Load persisted state
+  // Load state and projects once user is known
   useEffect(() => {
-    setDismissed(localStorage.getItem(DISMISS_KEY(userId)) === "1")
-    setVisitedAgent(localStorage.getItem(VISITED_KEY(userId, "agents")) === "1")
-    setVisitedDev(localStorage.getItem(VISITED_KEY(userId, "developer")) === "1")
-  }, [userId])
+    if (!user) return
+
+    // Only show checklist for users created within the last 30 days
+    const daysSinceSignup = (Date.now() - new Date(user.createdAt).getTime()) / 86400000
+    if (daysSinceSignup > 30) return
+
+    const isDismissed = localStorage.getItem(DISMISS_KEY(user.id)) === "1"
+    setDismissed(isDismissed)
+    if (isDismissed) return
+
+    setVisitedAgent(localStorage.getItem(VISITED_KEY(user.id, "agents")) === "1")
+    setVisitedDev(localStorage.getItem(VISITED_KEY(user.id, "developer")) === "1")
+
+    api.projects.list()
+      .then(({ projects }) => setProjects(projects))
+      .catch(() => {})
+  }, [user?.id])
 
   const steps = useMemo<Step[]>(() => {
     const hasProject = projects.length > 0
@@ -78,22 +89,23 @@ export function OnboardingChecklist({ userId, projects }: Props) {
   const allDone = doneCount === steps.length
 
   const handleDismiss = () => {
-    localStorage.setItem(DISMISS_KEY(userId), "1")
+    if (user) localStorage.setItem(DISMISS_KEY(user.id), "1")
     setDismissed(true)
   }
 
   const handleStepClick = (stepId: string) => {
+    if (!user) return
     if (stepId === "agents") {
-      localStorage.setItem(VISITED_KEY(userId, "agents"), "1")
+      localStorage.setItem(VISITED_KEY(user.id, "agents"), "1")
       setVisitedAgent(true)
     }
     if (stepId === "developer") {
-      localStorage.setItem(VISITED_KEY(userId, "developer"), "1")
+      localStorage.setItem(VISITED_KEY(user.id, "developer"), "1")
       setVisitedDev(true)
     }
   }
 
-  if (dismissed) return null
+  if (!user || dismissed) return null
 
   return (
     <motion.div

@@ -18,6 +18,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Send,
+  Gift,
+  Copy,
+  ExternalLink,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
@@ -78,6 +81,15 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [emailUpdates, setEmailUpdates] = useState(true)
 
+  // Referral state
+  const [referralData, setReferralData] = useState<{
+    referralCode: string
+    referralLink: string
+    referralCount: number
+    totalBonusGenerations: number
+  } | null>(null)
+  const [referralCopied, setReferralCopied] = useState(false)
+
   // Support Center state
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [selectedTicket, setSelectedTicket] = useState<TicketDetail | null>(null)
@@ -99,6 +111,7 @@ export default function SettingsPage() {
       } catch { /* ignore */ }
     }
     api.projects.list().then(({ projects }) => setProjectCount(projects.length)).catch(() => {})
+    api.referrals.getMyLink().then(setReferralData).catch(() => {})
     loadTickets()
   }, [])
 
@@ -267,6 +280,64 @@ export default function SettingsPage() {
             {/* Notifications */}
             <SettingSection icon={Bell} title="Notifications" description="Control your notification preferences">
               <Toggle checked={emailUpdates} onChange={setEmailUpdates} label="Email updates about new features" />
+            </SettingSection>
+
+            {/* Referral Program */}
+            <SettingSection icon={Gift} title="Refer Friends" description="Earn +5 free AI generations for every signup">
+              <div className="space-y-3">
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      {referralData ? (
+                        <>
+                          <span className="text-primary text-lg">{referralData.referralCount}</span>
+                          {" "}referral{referralData.referralCount !== 1 ? "s" : ""}
+                        </>
+                      ) : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {referralData
+                        ? `+${referralData.totalBonusGenerations} bonus generations earned`
+                        : "Loading…"}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted-foreground">Your code</p>
+                    <p className="text-sm font-mono font-bold text-primary tracking-widest">
+                      {referralData?.referralCode ?? "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {referralData && (
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase tracking-wider">Your referral link</label>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <div className="flex-1 px-3 py-2.5 rounded-lg bg-secondary/30 border border-border text-foreground text-xs font-mono truncate">
+                        {referralData.referralLink}
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(referralData.referralLink).catch(() => {})
+                          setReferralCopied(true)
+                          setTimeout(() => setReferralCopied(false), 2000)
+                        }}
+                        className={`shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-xs font-semibold transition-all ${
+                          referralCopied
+                            ? "bg-green-500/10 border-green-500/30 text-green-400"
+                            : "bg-secondary/30 border-border text-muted-foreground hover:text-foreground hover:border-primary/30"
+                        }`}
+                      >
+                        {referralCopied ? <><Check className="h-3.5 w-3.5" /> Copied!</> : <><Copy className="h-3.5 w-3.5" /> Copy</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Share your link with friends. When they sign up, you both benefit — they get access to STAGEONE and you earn +5 free AI generations per referral, credited immediately.
+                </p>
+              </div>
             </SettingSection>
 
             {/* Data */}

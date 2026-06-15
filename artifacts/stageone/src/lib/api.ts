@@ -130,6 +130,21 @@ export const api = {
         body: JSON.stringify({ message }),
       }),
   },
+  onboarding: {
+    getProgress: () =>
+      request<{ progress: { id: string; isDismissed: boolean; steps: Array<{ key: string; completed: boolean }> } }>("/onboarding"),
+    completeStep: (step: "first_bi_generation" | "first_website" | "install_agent" | "chat_with_marcus" | "first_project_saved") =>
+      request<{ progress: unknown }>("/onboarding/step", {
+        method: "POST",
+        body: JSON.stringify({ step }),
+      }),
+    dismiss: () =>
+      request<{ progress: unknown }>("/onboarding/dismiss", { method: "POST" }),
+  },
+  referrals: {
+    getMyLink: () =>
+      request<{ referralCode: string; referralLink: string; referralCount: number; totalBonusGenerations: number }>("/referrals/me"),
+  },
   admin: {
     getUsers: () => request<{ users: Array<UserInfo & { subscription: unknown }>, total: number }>("/admin/users"),
     updateUser: (id: string, data: { isAdmin?: boolean; name?: string }) =>

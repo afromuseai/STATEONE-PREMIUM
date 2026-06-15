@@ -19,6 +19,9 @@ export const usersTable = pgTable("users", {
   suspendedReason:  text("suspended_reason"),
   suspendedAt:      timestamp("suspended_at", { withTimezone: true }),
   suspendedBy:      uuid("suspended_by"),
+  // ── Referral ─────────────────────────────────────────────────────────────
+  referralCode:     text("referral_code").unique(),
+  referredBy:       uuid("referred_by"),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({

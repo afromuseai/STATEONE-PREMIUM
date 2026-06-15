@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, auditLogsTable, rolesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
+import { requirePermission } from "../middleware/rbac";
 import { z } from "zod";
 
 const router = Router();
@@ -40,7 +41,7 @@ const AuditLogBody = z.object({
   metadata: z.record(z.unknown()).optional().default({}),
 });
 
-router.get("/enterprise/audit", requireAuth, async (req, res): Promise<void> => {
+router.get("/enterprise/audit", requireAuth, requirePermission("enterprise:read"), async (req, res): Promise<void> => {
   const userId = req.user!.userId;
   const { severity, resource, limit } = req.query as Record<string, string>;
   const logs = await db
@@ -130,7 +131,7 @@ router.get("/enterprise/roles", requireAuth, async (req, res): Promise<void> => 
   res.json({ roles, availablePermissions: AVAILABLE_PERMISSIONS, rolePresets: ROLE_PRESETS });
 });
 
-router.post("/enterprise/roles", requireAuth, async (req, res): Promise<void> => {
+router.post("/enterprise/roles", requireAuth, requirePermission("enterprise:write"), async (req, res): Promise<void> => {
   const parsed = CreateRoleBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
@@ -145,7 +146,7 @@ router.post("/enterprise/roles", requireAuth, async (req, res): Promise<void> =>
   res.status(201).json({ role });
 });
 
-router.patch("/enterprise/roles/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/enterprise/roles/:id", requireAuth, requirePermission("enterprise:write"), async (req, res): Promise<void> => {
   const id = req.params.id as string;
   const userId = req.user!.userId;
   const parsed = CreateRoleBody.safeParse(req.body);
@@ -162,7 +163,7 @@ router.patch("/enterprise/roles/:id", requireAuth, async (req, res): Promise<voi
   res.json({ role });
 });
 
-router.delete("/enterprise/roles/:id", requireAuth, async (req, res): Promise<void> => {
+router.delete("/enterprise/roles/:id", requireAuth, requirePermission("enterprise:write"), async (req, res): Promise<void> => {
   const id = req.params.id as string;
   const userId = req.user!.userId;
   const [deleted] = await db
@@ -173,7 +174,7 @@ router.delete("/enterprise/roles/:id", requireAuth, async (req, res): Promise<vo
   res.sendStatus(204);
 });
 
-router.get("/enterprise/compliance", requireAuth, async (req, res): Promise<void> => {
+router.get("/enterprise/compliance", requireAuth, requirePermission("enterprise:read"), async (req, res): Promise<void> => {
   const userId = req.user!.userId;
   const [auditLogs, roles] = await Promise.all([
     db.select().from(auditLogsTable).where(eq(auditLogsTable.userId, userId)).limit(500),

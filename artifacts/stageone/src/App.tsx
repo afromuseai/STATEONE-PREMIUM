@@ -1,4 +1,6 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { AuthProvider } from "@/lib/auth-context";
@@ -171,13 +173,16 @@ export default function App() {
                     <CopilotProvider>
                       <WorkspaceControllerProvider>
                         <UpgradeModalProvider>
-                          <ImpersonationBanner />
-                          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                            <AnimatedRoutes />
-                            <CopilotPanel />
-                          </WouterRouter>
-                          <UpgradeModal />
-                          <Toaster position="bottom-right" richColors theme="dark" />
+                          <ErrorBoundary>
+                            <ImpersonationBanner />
+                            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                              <AnimatedRoutes />
+                              <CopilotPanel />
+                              <OnboardingChecklist />
+                            </WouterRouter>
+                            <UpgradeModal />
+                            <Toaster position="bottom-right" richColors theme="dark" />
+                          </ErrorBoundary>
                         </UpgradeModalProvider>
                       </WorkspaceControllerProvider>
                     </CopilotProvider>
