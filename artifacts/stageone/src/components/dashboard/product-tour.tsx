@@ -162,10 +162,13 @@ function computeBubblePos(rect: Rect, placement: TourStep["placement"]): BubbleP
   return { x, y, arrowSide }
 }
 
+const CORNER = 12
+
 function SpotlightOverlay({ rect }: { rect: Rect }) {
-  const r = Math.max(rect.width, rect.height) / 2 + PADDING
-  const cx = rect.left + rect.width / 2
-  const cy = rect.top + rect.height / 2
+  const x = rect.left - PADDING
+  const y = rect.top - PADDING
+  const w = rect.width + PADDING * 2
+  const h = rect.height + PADDING * 2
 
   return (
     <svg
@@ -175,13 +178,13 @@ function SpotlightOverlay({ rect }: { rect: Rect }) {
       <defs>
         <mask id="tour-mask">
           <rect width="100%" height="100%" fill="white" />
-          <circle cx={cx} cy={cy} r={r} fill="black" />
+          <rect x={x} y={y} width={w} height={h} rx={CORNER} ry={CORNER} fill="black" />
         </mask>
       </defs>
       <rect
         width="100%"
         height="100%"
-        fill="rgba(0,0,0,0.72)"
+        fill="rgba(0,0,0,0.75)"
         mask="url(#tour-mask)"
       />
     </svg>
@@ -189,37 +192,38 @@ function SpotlightOverlay({ rect }: { rect: Rect }) {
 }
 
 function GlowRing({ rect }: { rect: Rect }) {
-  const r = Math.max(rect.width, rect.height) / 2 + PADDING
-  const cx = rect.left + rect.width / 2
-  const cy = rect.top + rect.height / 2
+  const x = rect.left - PADDING
+  const y = rect.top - PADDING
+  const w = rect.width + PADDING * 2
+  const h = rect.height + PADDING * 2
 
   return (
     <motion.div
-      key={`${cx}-${cy}`}
       className="fixed pointer-events-none"
       style={{
-        left: cx - r - 6,
-        top: cy - r - 6,
-        width: (r + 6) * 2,
-        height: (r + 6) * 2,
+        left: x - 3,
+        top: y - 3,
+        width: w + 6,
+        height: h + 6,
         zIndex: 9999,
-        borderRadius: "50%",
-        border: "2px solid rgba(212,175,55,0.9)",
-        boxShadow: "0 0 0 4px rgba(212,175,55,0.15), 0 0 24px 8px rgba(212,175,55,0.25), inset 0 0 18px rgba(212,175,55,0.06)",
+        borderRadius: CORNER + 3,
+        border: "1.5px solid rgba(212,175,55,0.85)",
+        boxShadow:
+          "0 0 0 3px rgba(212,175,55,0.12), 0 0 18px 6px rgba(212,175,55,0.22), inset 0 0 12px rgba(212,175,55,0.05)",
       }}
-      initial={{ opacity: 0, scale: 0.88 }}
+      initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.88 }}
-      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
     >
       <motion.div
-        className="absolute inset-0 rounded-full"
+        className="absolute inset-0"
         style={{
-          border: "1.5px solid rgba(212,175,55,0.35)",
-          borderRadius: "50%",
+          borderRadius: CORNER + 3,
+          border: "1px solid rgba(212,175,55,0.25)",
         }}
-        animate={{ scale: [1, 1.08, 1], opacity: [0.7, 0.3, 0.7] }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+        animate={{ scale: [1, 1.04, 1], opacity: [0.6, 0.2, 0.6] }}
+        transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
       />
     </motion.div>
   )
