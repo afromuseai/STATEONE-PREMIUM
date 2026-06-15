@@ -1,0 +1,220 @@
+PHASE 2C.1 — BUILD SUPPORT DESK SYSTEM
+
+IMPORTANT:
+
+Do NOT modify:
+
+* authentication
+* billing
+* project architecture
+* AI generators
+* admin analytics
+* geo intelligence
+* audit logs
+* notification infrastructure
+
+This is an additive admin feature.
+
+==================================================
+
+GOAL
+
+Build a complete internal Support Desk system for STAGEONE.
+
+The Support Desk should allow:
+
+* users to submit support tickets
+* admins to manage tickets
+* ticket conversations
+* ticket status tracking
+* future support operations
+
+==================================================
+
+DATABASE
+
+Create:
+
+support_tickets
+
+Fields:
+
+* id
+* userId
+* subject
+* category
+* priority
+* status
+* createdAt
+* updatedAt
+* assignedAdminId
+
+Status:
+
+* open
+* in_progress
+* waiting_user
+* resolved
+* closed
+
+Priority:
+
+* low
+* medium
+* high
+* urgent
+
+Categories:
+
+* billing
+* account
+* bug
+* feature_request
+* technical
+* other
+
+---
+
+support_messages
+
+Fields:
+
+* id
+* ticketId
+* senderId
+* senderType (user/admin)
+* message
+* createdAt
+
+==================================================
+
+USER EXPERIENCE
+
+Inside Settings:
+
+Add:
+
+Support Center
+
+User can:
+
+* create ticket
+* view tickets
+* reply to ticket
+* view status
+
+==================================================
+
+ADMIN PANEL
+
+Add new tab:
+
+Support
+
+Show:
+
+* total open tickets
+* urgent tickets
+* resolved tickets
+* average resolution time
+
+---
+
+Ticket Table
+
+Columns:
+
+* Ticket ID
+* User
+* Subject
+* Category
+* Priority
+* Status
+* Created
+* Assigned Admin
+
+Filters:
+
+* status
+* priority
+* category
+
+Search:
+
+* email
+* subject
+
+==================================================
+
+TICKET VIEW
+
+Clicking a ticket opens:
+
+Left:
+
+ticket details
+
+Right:
+
+conversation thread
+
+Admins can:
+
+* reply
+* change status
+* assign admin
+* change priority
+
+==================================================
+
+AUDIT LOGGING
+
+Every action should generate:
+
+support_ticket_created
+support_ticket_assigned
+support_ticket_status_changed
+support_ticket_resolved
+support_message_sent
+
+Integrate with existing Admin Audit system.
+
+==================================================
+
+NOTIFICATIONS
+
+When:
+
+* ticket created
+* admin replies
+* status changes
+
+Send in-app notification.
+
+Use existing notification infrastructure.
+
+==================================================
+
+METRICS
+
+Expose:
+
+* tickets opened
+* tickets resolved
+* avg resolution time
+* response time
+* tickets by category
+
+For future analytics.
+
+==================================================
+
+IMPORTANT
+
+Use centralized services.
+
+Do NOT duplicate logic.
+
+Maintain STAGEONE architecture consistency.
+
+This should become the foundation for future customer support operations.
