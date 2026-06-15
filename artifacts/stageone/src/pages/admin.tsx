@@ -12,6 +12,7 @@ import {
   BadgeCheck, UserX, ToggleLeft, ToggleRight, Monitor, Wifi,
   ClipboardList, ChevronRight, Target, Layers, Star, Cpu, TrendingDown,
   Database, CheckCircle2, Circle, AlertCircle, Flame,
+  Download, Edit,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
@@ -20,7 +21,7 @@ import stageoneIcon from "@/assets/stageone-icon.png"
 import { useImpersonation } from "@/lib/impersonation-context"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm"
+type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition"
 
 interface AdminUser {
   id: string
@@ -255,6 +256,55 @@ interface WaitlistEntry {
   email: string
   plan: string
   createdAt: string
+}
+
+interface AcquisitionProfile {
+  id: string
+  email: string
+  name: string | null
+  company: string | null
+  source: string
+  referralCode: string | null
+  referredBy: string | null
+  status: "waitlisted" | "invited" | "signed_up" | "converted"
+  notes: string | null
+  conversionScore: number
+  userId: string | null
+  invitedAt: string | null
+  signedUpAt: string | null
+  convertedAt: string | null
+  createdAt: string
+}
+
+interface AcquisitionOverview {
+  total: number
+  waitlisted: number
+  invited: number
+  signedUp: number
+  converted: number
+  conversionRate: number
+  signupRate: number
+}
+
+interface AcquisitionSource {
+  source: string
+  total: number
+  signedUp: number
+  converted: number
+}
+
+interface AcquisitionFunnelStage {
+  stage: string
+  count: number
+  pct: number
+  dropOff: number
+}
+
+interface AcquisitionReferrer {
+  email: string
+  referralCount: number
+  signupCount: number
+  conversionCount: number
 }
 
 interface Coupon {
@@ -667,6 +717,27 @@ export default function AdminPage() {
   const [waitlistFilter, setWaitlistFilter] = useState<string>("all")
   const [deletingWaitlist, setDeletingWaitlist] = useState<string | null>(null)
 
+  // Acquisition Intelligence
+  const [acqOverview, setAcqOverview] = useState<AcquisitionOverview | null>(null)
+  const [acqSources, setAcqSources] = useState<AcquisitionSource[]>([])
+  const [acqFunnel, setAcqFunnel] = useState<AcquisitionFunnelStage[]>([])
+  const [acqReferrers, setAcqReferrers] = useState<AcquisitionReferrer[]>([])
+  const [acqUsers, setAcqUsers] = useState<AcquisitionProfile[]>([])
+  const [acqLoading, setAcqLoading] = useState(false)
+  const [acqSyncing, setAcqSyncing] = useState(false)
+  const [acqStatusFilter, setAcqStatusFilter] = useState("all")
+  const [acqSourceFilter, setAcqSourceFilter] = useState("all")
+  const [acqSearch, setAcqSearch] = useState("")
+  const [acqSort, setAcqSort] = useState<"createdAt" | "conversionScore">("createdAt")
+  const [acqSortDir, setAcqSortDir] = useState<"desc" | "asc">("desc")
+  const [acqEditUser, setAcqEditUser] = useState<AcquisitionProfile | null>(null)
+  const [acqEditNotes, setAcqEditNotes] = useState("")
+  const [acqEditStatus, setAcqEditStatus] = useState("")
+  const [acqEditSource, setAcqEditSource] = useState("")
+  const [acqSaving, setAcqSaving] = useState(false)
+  const [acqInviting, setAcqInviting] = useState<string | null>(null)
+  const [acqSection, setAcqSection] = useState<"overview" | "funnel" | "sources" | "referrals" | "users">("overview")
+
   // Coupons
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [couponForm, setCouponForm] = useState({ code: "", type: "percentage", value: "", maxUses: "", expiresAt: "", description: "" })
@@ -840,6 +911,57 @@ export default function AdminPage() {
       setWaitlist(data.entries ?? [])
     } catch (_) {}
   }, [waitlistFilter])
+
+  const loadAcquisition = useCallback(async () => {
+    setAcqLoading(true)
+    try {
+      const [ov, src, fn, ref, us] = await Promise.all([
+        fetch("/api/admin/acquisition/overview", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/acquisition/sources", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/acquisition/funnel", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/acquisition/referrals", { credentials: "include" }).then(r => r.json()),
+        fetch(`/api/admin/acquisition/users?status=${acqStatusFilter}&source=${acqSourceFilter}&search=${encodeURIComponent(acqSearch)}`, { credentials: "include" }).then(r => r.json()),
+      ])
+      setAcqOverview(ov ?? null)
+      setAcqSources(src.sources ?? [])
+      setAcqFunnel(fn.stages ?? [])
+      setAcqReferrers(ref.referrers ?? [])
+      setAcqUsers(us.users ?? [])
+    } catch (_) {}
+    setAcqLoading(false)
+  }, [acqStatusFilter, acqSourceFilter, acqSearch])
+
+  const handleAcqSync = async () => {
+    setAcqSyncing(true)
+    try {
+      await fetch("/api/admin/acquisition/sync", { method: "POST", credentials: "include" })
+      await loadAcquisition()
+    } catch (_) {}
+    setAcqSyncing(false)
+  }
+
+  const handleAcqInvite = async (id: string) => {
+    setAcqInviting(id)
+    try {
+      await fetch(`/api/admin/acquisition/users/${id}/invite`, { method: "POST", credentials: "include" })
+      await loadAcquisition()
+    } catch (_) {}
+    setAcqInviting(null)
+  }
+
+  const handleAcqSave = async () => {
+    if (!acqEditUser) return
+    setAcqSaving(true)
+    try {
+      await fetch(`/api/admin/acquisition/users/${acqEditUser.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ notes: acqEditNotes, status: acqEditStatus || undefined, source: acqEditSource || undefined }),
+      })
+      await loadAcquisition()
+      setAcqEditUser(null)
+    } catch (_) {}
+    setAcqSaving(false)
+  }
 
   const loadCoupons = useCallback(async () => {
     try {
@@ -1049,7 +1171,8 @@ export default function AdminPage() {
     else if (activeTab === "support") loadSupport()
     else if (activeTab === "impersonation-logs") loadImpersonationLogs(1)
     else if (activeTab === "crm") loadCrm()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages, loadSupport, loadImpersonationLogs, loadCrm])
+    else if (activeTab === "acquisition") loadAcquisition()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages, loadSupport, loadImpersonationLogs, loadCrm, loadAcquisition])
 
   // Session Monitor: auto-refresh every 30s while tab is active
   useEffect(() => {
@@ -1249,6 +1372,7 @@ export default function AdminPage() {
     { id: "support",       label: "Support",        icon: FileText },
     { id: "impersonation-logs", label: "Impersonation", icon: Eye },
     { id: "crm",              label: "CRM Intel",      icon: Target },
+    { id: "acquisition",      label: "Acquisition",    icon: TrendingUp },
   ]
 
   if (!user?.isAdmin) return null
@@ -4912,6 +5036,349 @@ export default function AdminPage() {
                             </button>
                           </div>
                         ) : null}
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )
+          })()}
+
+          {/* ── Acquisition Intelligence Tab ──────────────────────────────── */}
+          {activeTab === "acquisition" && (() => {
+            const STATUS_COLORS: Record<string, string> = {
+              waitlisted: "#6B7280", invited: "#F59E0B", signed_up: "#6366F1", converted: "#10B981"
+            }
+            const STATUS_LABELS: Record<string, string> = {
+              waitlisted: "Waitlisted", invited: "Invited", signed_up: "Signed Up", converted: "Converted"
+            }
+            const SOURCE_COLORS: Record<string, string> = {
+              linkedin: "#0A66C2", twitter: "#1DA1F2", "twitter/x": "#1DA1F2", x: "#1DA1F2",
+              referral: "#8B5CF6", direct: "#6B7280", "product hunt": "#DA552F", producthunt: "#DA552F",
+              unknown: "#374151"
+            }
+            const sourceColor = (s: string) => SOURCE_COLORS[s.toLowerCase()] ?? "#6366F1"
+
+            const sortedUsers = [...acqUsers].sort((a, b) => {
+              const dir = acqSortDir === "desc" ? -1 : 1
+              if (acqSort === "conversionScore") return dir * (a.conversionScore - b.conversionScore)
+              return dir * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            })
+
+            const maxSource = acqSources.reduce((m, s) => Math.max(m, s.total), 0)
+
+            return (
+              <div className="space-y-4">
+                {/* Header */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-sm font-black text-foreground flex-1">Acquisition Intelligence</h2>
+                  <button onClick={handleAcqSync} disabled={acqSyncing || acqLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-all disabled:opacity-40">
+                    <RefreshCw className={`h-3 w-3 ${acqSyncing ? "animate-spin" : ""}`} />
+                    {acqSyncing ? "Syncing…" : "Sync"}
+                  </button>
+                  <a href="/api/admin/acquisition/export" target="_blank"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-all">
+                    <Download className="h-3 w-3" /> Export CSV
+                  </a>
+                </div>
+
+                {/* Sub-nav */}
+                <div className="flex gap-1 flex-wrap">
+                  {(["overview", "funnel", "sources", "referrals", "users"] as const).map(s => (
+                    <button key={s} onClick={() => setAcqSection(s)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all capitalize ${acqSection === s ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                      {s === "users" ? "Waitlist Table" : s === "funnel" ? "Funnel" : s === "sources" ? "Sources" : s === "referrals" ? "Referrals" : "Overview"}
+                    </button>
+                  ))}
+                </div>
+
+                {acqLoading && (
+                  <div className="rounded-2xl border border-white/8 bg-white/2 py-16 text-center">
+                    <RefreshCw className="h-5 w-5 mx-auto mb-2 text-muted-foreground animate-spin" />
+                    <p className="text-xs text-muted-foreground">Loading acquisition data…</p>
+                  </div>
+                )}
+
+                {!acqLoading && acqSection === "overview" && (
+                  <div className="space-y-4">
+                    {/* Overview cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[
+                        { label: "Total", value: acqOverview?.total ?? 0, color: "#6366F1" },
+                        { label: "Invited", value: acqOverview?.invited ?? 0, color: "#F59E0B" },
+                        { label: "Signed Up", value: acqOverview?.signedUp ?? 0, color: "#818CF8" },
+                        { label: "Converted", value: acqOverview?.converted ?? 0, color: "#10B981" },
+                      ].map(c => (
+                        <div key={c.label} className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">{c.label}</p>
+                          <p className="text-2xl font-black" style={{ color: c.color }}>{c.value.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Conversion Rate</p>
+                        <p className="text-3xl font-black text-emerald-400">{acqOverview?.conversionRate ?? 0}%</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">waitlist → paid</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Signup Rate</p>
+                        <p className="text-3xl font-black text-indigo-400">{acqOverview?.signupRate ?? 0}%</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">waitlist → account</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!acqLoading && acqSection === "funnel" && (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                      <div className="px-5 py-4 border-b border-white/5">
+                        <p className="text-xs font-black text-foreground">Acquisition Funnel</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Drop-off at each stage</p>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        {acqFunnel.map((stage, i) => (
+                          <div key={stage.stage}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-xs font-bold text-foreground">{stage.stage}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-black text-foreground">{stage.count.toLocaleString()}</span>
+                                <span className="text-[10px] font-bold text-muted-foreground">{stage.pct}%</span>
+                              </div>
+                            </div>
+                            <div className="h-2.5 rounded-full bg-white/5 overflow-hidden">
+                              <motion.div initial={{ width: 0 }} animate={{ width: `${stage.pct}%` }} transition={{ delay: i * 0.1, duration: 0.6, ease: "easeOut" }}
+                                className="h-full rounded-full"
+                                style={{ background: i === 0 ? "#6366F1" : i === 1 ? "#8B5CF6" : i === 2 ? "#818CF8" : "#10B981" }} />
+                            </div>
+                            {stage.dropOff > 0 && i < acqFunnel.length - 1 && (
+                              <p className="text-[9px] text-red-400/70 mt-1">↓ {stage.dropOff}% drop-off to next stage</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!acqLoading && acqSection === "sources" && (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                      <div className="grid grid-cols-4 gap-4 px-5 py-3 border-b border-white/5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                        <span className="col-span-2">Source</span><span>Signups</span><span>Converted</span>
+                      </div>
+                      {acqSources.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-10">No source data yet</p>
+                      ) : acqSources.map((s, i) => (
+                        <motion.div key={s.source} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                          className="px-5 py-3.5 border-b border-white/4 last:border-0">
+                          <div className="grid grid-cols-4 gap-4 items-center mb-2">
+                            <div className="col-span-2 flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: sourceColor(s.source) }} />
+                              <span className="text-xs font-bold text-foreground capitalize">{s.source}</span>
+                              <span className="text-[10px] text-muted-foreground">({s.total})</span>
+                            </div>
+                            <span className="text-xs font-bold text-indigo-400">{s.signedUp}</span>
+                            <span className="text-xs font-bold text-emerald-400">{s.converted}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${maxSource > 0 ? (s.total / maxSource) * 100 : 0}%` }} transition={{ delay: i * 0.05, duration: 0.5 }}
+                              className="h-full rounded-full" style={{ background: sourceColor(s.source) }} />
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!acqLoading && acqSection === "referrals" && (
+                  <div className="space-y-3">
+                    {acqReferrers.length === 0 ? (
+                      <div className="rounded-2xl border border-white/8 bg-white/2 py-16 text-center">
+                        <p className="text-xs text-muted-foreground">No referral data yet</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                        <div className="grid grid-cols-4 gap-4 px-5 py-3 border-b border-white/5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                          <span className="col-span-2">Referrer</span><span>Referrals</span><span>Converted</span>
+                        </div>
+                        {acqReferrers.map((r, i) => (
+                          <motion.div key={r.email} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                            className="grid grid-cols-4 gap-4 items-center px-5 py-3.5 border-b border-white/4 last:border-0">
+                            <div className="col-span-2">
+                              <p className="text-xs font-bold text-foreground truncate">{r.email}</p>
+                              <p className="text-[10px] text-muted-foreground">{r.signupCount} signed up</p>
+                            </div>
+                            <span className="text-xs font-black text-purple-400">{r.referralCount}</span>
+                            <span className="text-xs font-black text-emerald-400">{r.conversionCount}</span>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!acqLoading && acqSection === "users" && (
+                  <div className="space-y-3">
+                    {/* Filters */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="relative flex-1 min-w-[160px]">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                        <input value={acqSearch} onChange={e => setAcqSearch(e.target.value)}
+                          placeholder="Search email or name…"
+                          className="w-full pl-7 pr-3 py-1.5 rounded-lg text-xs bg-white/4 border border-white/8 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-white/20" />
+                      </div>
+                      <select value={acqStatusFilter} onChange={e => setAcqStatusFilter(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-lg text-xs bg-white/4 border border-white/8 text-foreground focus:outline-none">
+                        <option value="all">All Status</option>
+                        <option value="waitlisted">Waitlisted</option>
+                        <option value="invited">Invited</option>
+                        <option value="signed_up">Signed Up</option>
+                        <option value="converted">Converted</option>
+                      </select>
+                      <select value={acqSourceFilter} onChange={e => setAcqSourceFilter(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-lg text-xs bg-white/4 border border-white/8 text-foreground focus:outline-none">
+                        <option value="all">All Sources</option>
+                        {[...new Set(acqUsers.map(u => u.source))].map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                      <button onClick={() => {
+                        if (acqSort === "conversionScore") { setAcqSortDir(d => d === "desc" ? "asc" : "desc") }
+                        else { setAcqSort("conversionScore"); setAcqSortDir("desc") }
+                      }} className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${acqSort === "conversionScore" ? "border-primary/30 bg-primary/10 text-primary" : "border-white/8 bg-white/3 text-muted-foreground"}`}>
+                        Score {acqSort === "conversionScore" ? (acqSortDir === "desc" ? "↓" : "↑") : ""}
+                      </button>
+                      <button onClick={() => {
+                        if (acqSort === "createdAt") { setAcqSortDir(d => d === "desc" ? "asc" : "desc") }
+                        else { setAcqSort("createdAt"); setAcqSortDir("desc") }
+                      }} className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${acqSort === "createdAt" ? "border-primary/30 bg-primary/10 text-primary" : "border-white/8 bg-white/3 text-muted-foreground"}`}>
+                        Date {acqSort === "createdAt" ? (acqSortDir === "desc" ? "↓" : "↑") : ""}
+                      </button>
+                      <button onClick={loadAcquisition} className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-all">
+                        Apply
+                      </button>
+                    </div>
+
+                    {sortedUsers.length === 0 ? (
+                      <div className="rounded-2xl border border-white/8 bg-white/2 py-16 text-center">
+                        <UserCheck className="h-7 w-7 mx-auto mb-2 text-muted-foreground opacity-30" />
+                        <p className="text-xs text-muted-foreground">No acquisition records yet — click Sync to import data</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                        <div className="grid grid-cols-7 gap-3 px-4 py-3 border-b border-white/5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                          <span className="col-span-2">Name / Email</span>
+                          <span>Source</span>
+                          <span>Status</span>
+                          <span>Referral</span>
+                          <span>Score</span>
+                          <span>Joined</span>
+                        </div>
+                        {sortedUsers.map((u, i) => (
+                          <motion.div key={u.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                            className="grid grid-cols-7 gap-3 items-center px-4 py-3 border-b border-white/4 last:border-0 hover:bg-white/2 transition-colors group">
+                            <div className="col-span-2 min-w-0">
+                              <p className="text-xs font-bold text-foreground truncate">{u.name ?? "—"}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                              {u.company && <p className="text-[9px] text-muted-foreground/60 truncate">{u.company}</p>}
+                            </div>
+                            <div>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold truncate">
+                                <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: sourceColor(u.source) }} />
+                                <span className="capitalize truncate" style={{ color: sourceColor(u.source) }}>{u.source}</span>
+                              </span>
+                            </div>
+                            <div>
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black border"
+                                style={{
+                                  background: STATUS_COLORS[u.status] + "15",
+                                  color: STATUS_COLORS[u.status],
+                                  borderColor: STATUS_COLORS[u.status] + "30",
+                                }}>
+                                {STATUS_LABELS[u.status]}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground truncate">
+                              {u.referredBy ? <span className="text-purple-400 truncate">{u.referredBy}</span> : "—"}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden max-w-[48px]">
+                                <div className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${u.conversionScore}%`, background: u.conversionScore >= 80 ? "#10B981" : u.conversionScore >= 50 ? "#F59E0B" : "#6B7280" }} />
+                              </div>
+                              <span className="text-[10px] font-black" style={{ color: u.conversionScore >= 80 ? "#10B981" : u.conversionScore >= 50 ? "#F59E0B" : "#6B7280" }}>
+                                {u.conversionScore}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] text-muted-foreground">{timeAgo(u.createdAt)}</span>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                {u.status === "waitlisted" && (
+                                  <button onClick={() => handleAcqInvite(u.id)} disabled={acqInviting === u.id}
+                                    title="Send invite"
+                                    className="p-1 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-40">
+                                    <Mail className="h-3 w-3" />
+                                  </button>
+                                )}
+                                <button onClick={() => { setAcqEditUser(u); setAcqEditNotes(u.notes ?? ""); setAcqEditStatus(u.status); setAcqEditSource(u.source) }}
+                                  className="p-1 rounded-lg bg-white/5 text-muted-foreground hover:text-foreground transition-all">
+                                  <Edit className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Edit drawer */}
+                <AnimatePresence>
+                  {acqEditUser && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+                      onClick={e => { if (e.target === e.currentTarget) setAcqEditUser(null) }}>
+                      <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+                        className="w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0a0a0a] p-5 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-black text-foreground">Edit Profile</p>
+                          <button onClick={() => setAcqEditUser(null)} className="p-1 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                        </div>
+                        <div className="rounded-xl border border-white/8 bg-white/3 p-3">
+                          <p className="text-xs font-bold text-foreground">{acqEditUser.name ?? acqEditUser.email}</p>
+                          <p className="text-[10px] text-muted-foreground">{acqEditUser.email}</p>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Status</p>
+                            <div className="flex gap-1.5 flex-wrap">
+                              {(["waitlisted", "invited", "signed_up", "converted"] as const).map(s => (
+                                <button key={s} onClick={() => setAcqEditStatus(s)}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${acqEditStatus === s ? "border-white/20 bg-white/8 text-foreground" : "border-white/8 bg-white/3 text-muted-foreground"}`}>
+                                  {STATUS_LABELS[s]}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Source</p>
+                            <input value={acqEditSource} onChange={e => setAcqEditSource(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg text-xs bg-white/4 border border-white/8 text-foreground focus:outline-none focus:border-white/20" />
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Notes</p>
+                            <textarea value={acqEditNotes} onChange={e => setAcqEditNotes(e.target.value)} rows={3}
+                              className="w-full px-3 py-2 rounded-lg text-xs bg-white/4 border border-white/8 text-foreground resize-none focus:outline-none focus:border-white/20" />
+                          </div>
+                        </div>
+                        <button onClick={handleAcqSave} disabled={acqSaving}
+                          className="w-full py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 text-xs font-black hover:bg-indigo-500/20 transition-all disabled:opacity-50">
+                          {acqSaving ? "Saving…" : "Save Changes"}
+                        </button>
                       </motion.div>
                     </motion.div>
                   )}

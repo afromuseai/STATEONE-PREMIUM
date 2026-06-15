@@ -44,3 +44,5 @@ export * from "./billing-events";
 export * from "./support-tickets";
 export * from "./impersonation-logs";
 export * from "./crm-profiles";
+export * from "./acquisition-profiles";
+export * from "./acquisition-events";

@@ -1,0 +1,218 @@
+Build Phase 2C.4 — Waitlist & Acquisition Intelligence System.
+
+IMPORTANT RULES:
+
+DO NOT modify CRM layer
+DO NOT modify impersonation
+DO NOT modify billing
+DO NOT modify support desk
+DO NOT modify authentication
+ONLY extend acquisition and growth intelligence
+🎯 GOAL
+
+Create a system that tracks:
+
+waitlist users
+acquisition sources
+referral sources
+signup funnels
+conversion likelihood
+growth intelligence
+
+This must work before Stripe exists.
+
+1. DATABASE
+
+Create:
+
+waitlist_entries
+
+Fields:
+
+id
+email
+name
+company
+source
+referralCode
+referredBy
+status
+
+Status:
+
+waitlisted
+invited
+signed_up
+converted
+notes
+createdAt
+updatedAt
+
+Indexes:
+
+email
+source
+status
+acquisition_events
+
+Fields:
+
+id
+userId (nullable)
+waitlistEntryId (nullable)
+eventType
+
+Examples:
+
+landing_page_view
+waitlist_join
+invite_sent
+signup
+upgrade
+referral
+source
+campaign
+country
+city
+createdAt
+
+Indexes:
+
+source
+eventType
+createdAt
+2. BACKEND API
+GET /api/admin/acquisition/overview
+
+Returns:
+
+total waitlist
+invited
+signed up
+converted
+conversion rates
+GET /api/admin/acquisition/sources
+
+Returns:
+
+Users grouped by source.
+
+Examples:
+
+LinkedIn
+Twitter/X
+Direct
+Referral
+Product Hunt
+Unknown
+GET /api/admin/acquisition/funnel
+
+Returns:
+
+Landing →
+Waitlist →
+Signup →
+Paid
+
+Counts + percentages
+
+GET /api/admin/acquisition/referrals
+
+Returns:
+
+Top referrers
+
+email
+referral count
+signup count
+conversion count
+3. ADMIN PANEL
+
+Add tab:
+
+Acquisition Intelligence
+A. Overview Cards
+Waitlist
+Invited
+Signed Up
+Converted
+Conversion %
+B. Funnel Visualization
+
+Stages:
+
+Landing
+↓
+Waitlist
+↓
+Signup
+↓
+Paid
+
+Show drop-off percentages.
+
+C. Source Breakdown
+
+Charts:
+
+LinkedIn
+X
+Referral
+Direct
+Other
+D. Referral Leaderboard
+
+Show:
+
+top referrers
+invites sent
+conversions generated
+E. Waitlist Table
+
+Columns:
+
+Name
+Email
+Source
+Status
+Referral
+Date
+
+Actions:
+
+Invite
+Add Note
+Change Status
+4. ACQUISITION SCORING
+
+Create:
+
+Conversion Likelihood Score
+
+Range:
+
+0–100
+
+Factors:
+
+referral activity
+engagement
+waitlist age
+invite response
+5. INTEGRATION
+
+Read-only integration with:
+
+CRM
+Billing
+Sessions
+Audit
+
+Do NOT duplicate user data.
+
+6. UX
+Search
+Filters
+Export CSV
+Sortable tables
+Dark STAGEONE admin style
