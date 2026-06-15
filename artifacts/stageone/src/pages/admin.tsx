@@ -745,7 +745,6 @@ export default function AdminPage() {
     { id: "broadcasts",   label: "Broadcast",    icon: Megaphone },
     { id: "waitlist",     label: "Waitlist",     icon: UserCheck },
     { id: "coupons",      label: "Coupons",      icon: Tag },
-    { id: "audit",        label: "Audit",        icon: FileText },
     { id: "sessions",     label: "Sessions",     icon: Monitor },
     { id: "audit-logs",   label: "Admin Audit",  icon: ClipboardList },
   ]
@@ -869,7 +868,7 @@ export default function AdminPage() {
                     {(["free", "pro", "startup", "enterprise"] as Plan[]).map(plan => {
                       const meta = PLAN_META[plan]
                       const Icon = meta.icon
-                      const cnt = billing.planCounts[plan] ?? 0
+                      const cnt = (billing.planCounts ?? {})[plan] ?? 0
                       const pct = billing.activeSubs > 0 ? Math.round((cnt / billing.activeSubs) * 100) : 0
                       const MRR_MAP: Record<string, number> = { free: 0, pro: 29, startup: 99, enterprise: 299 }
                       return (
