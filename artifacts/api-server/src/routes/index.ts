@@ -43,6 +43,7 @@ import adminImpersonationRouter from "./admin-impersonation";
 import adminCrmRouter from "./admin-crm";
 import adminAcquisitionRouter from "./admin-acquisition";
 import adminFeatureFlagsRouter from "./admin-feature-flags";
+import adminHealthRouter from "./admin-health";
 
 const router: IRouter = Router();
 
@@ -90,5 +91,6 @@ router.use(adminImpersonationRouter);
 router.use(adminCrmRouter);
 router.use(adminAcquisitionRouter);
 router.use(adminFeatureFlagsRouter);
+router.use(adminHealthRouter);
 
 export default router;

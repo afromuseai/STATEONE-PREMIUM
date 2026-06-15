@@ -21,9 +21,10 @@ import stageoneIcon from "@/assets/stageone-icon.png"
 import { useImpersonation } from "@/lib/impersonation-context"
 import { GeoGlobe } from "@/components/dashboard/geo-globe"
 import { AdminFeatureFlags } from "@/components/dashboard/admin-feature-flags"
+import { AdminSystemHealth } from "@/components/dashboard/admin-system-health"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition" | "feature-flags"
+type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition" | "feature-flags" | "system-health"
 
 interface AdminUser {
   id: string
@@ -1376,6 +1377,7 @@ export default function AdminPage() {
     { id: "crm",                label: "CRM Intel",      icon: Target },
     { id: "acquisition",        label: "Acquisition",    icon: Funnel },
     { id: "feature-flags",      label: "Feature Flags",  icon: Flag },
+    { id: "system-health",      label: "System Health",  icon: Activity },
   ]
 
   if (!user?.isAdmin) return null
@@ -5430,6 +5432,11 @@ export default function AdminPage() {
           {/* ── Feature Flags Tab ──────────────────────────────────────── */}
           {activeTab === "feature-flags" && (
             <AdminFeatureFlags />
+          )}
+
+          {/* ── System Health Tab ───────────────────────────────────────── */}
+          {activeTab === "system-health" && (
+            <AdminSystemHealth />
           )}
 
         </div>
