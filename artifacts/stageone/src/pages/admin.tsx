@@ -10,6 +10,7 @@ import {
   DollarSign, CreditCard, Tag, FileText, ListFilter,
   Pause, Play, Plus, Percent, Hash, Calendar, ChevronUp,
   BadgeCheck, UserX, ToggleLeft, ToggleRight, Monitor, Wifi,
+  ClipboardList, ChevronRight, Info,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
@@ -17,7 +18,7 @@ import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions"
+type AdminTab = "users" | "stats" | "billing" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs"
 
 interface AdminUser {
   id: string
@@ -188,6 +189,18 @@ interface Coupon {
   description: string | null
   createdAt: string
   creatorName: string | null
+}
+
+interface AdminAuditLog {
+  id: string
+  adminId: string
+  adminEmail: string
+  action: string
+  targetUserId: string | null
+  targetUserEmail: string | null
+  details: Record<string, unknown>
+  ipHash: string | null
+  createdAt: string
 }
 
 interface AuditLog {
@@ -400,6 +413,16 @@ export default function AdminPage() {
   const [auditSeverity, setAuditSeverity] = useState("all")
   const [auditSearch, setAuditSearch] = useState("")
 
+  // Admin Audit Logs
+  const [adminAuditLogs, setAdminAuditLogs] = useState<AdminAuditLog[]>([])
+  const [adminAuditTotal, setAdminAuditTotal] = useState(0)
+  const [adminAuditPage, setAdminAuditPage] = useState(0)
+  const [adminAuditSearch, setAdminAuditSearch] = useState("")
+  const [adminAuditAction, setAdminAuditAction] = useState("all")
+  const [adminAuditFrom, setAdminAuditFrom] = useState("")
+  const [adminAuditTo, setAdminAuditTo] = useState("")
+  const [expandedAuditLog, setExpandedAuditLog] = useState<string | null>(null)
+
   // Session Monitor
   const [sessionData, setSessionData] = useState<SessionData | null>(null)
   const [sessionSearch, setSessionSearch] = useState("")
@@ -492,6 +515,21 @@ export default function AdminPage() {
     } catch (_) {}
   }, [])
 
+  const loadAdminAuditLogs = useCallback(async () => {
+    try {
+      const params = new URLSearchParams()
+      params.set("page", String(adminAuditPage))
+      params.set("limit", "50")
+      if (adminAuditAction !== "all") params.set("action", adminAuditAction)
+      if (adminAuditSearch.trim()) params.set("search", adminAuditSearch.trim())
+      if (adminAuditFrom) params.set("from", adminAuditFrom)
+      if (adminAuditTo) params.set("to", adminAuditTo)
+      const data = await fetch(`/api/admin/audit-logs?${params}`, { credentials: "include" }).then(r => r.json())
+      setAdminAuditLogs(data.logs ?? [])
+      setAdminAuditTotal(data.total ?? 0)
+    } catch (_) {}
+  }, [adminAuditPage, adminAuditAction, adminAuditSearch, adminAuditFrom, adminAuditTo])
+
   const loadAudit = useCallback(async () => {
     try {
       const params = new URLSearchParams()
@@ -513,7 +551,8 @@ export default function AdminPage() {
     else if (activeTab === "waitlist") loadWaitlist()
     else if (activeTab === "coupons") loadCoupons()
     else if (activeTab === "audit") loadAudit()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadWaitlist, loadCoupons, loadAudit])
+    else if (activeTab === "audit-logs") loadAdminAuditLogs()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs])
 
   // Session Monitor: auto-refresh every 30s while tab is active
   useEffect(() => {
@@ -708,6 +747,7 @@ export default function AdminPage() {
     { id: "coupons",      label: "Coupons",      icon: Tag },
     { id: "audit",        label: "Audit",        icon: FileText },
     { id: "sessions",     label: "Sessions",     icon: Monitor },
+    { id: "audit-logs",   label: "Admin Audit",  icon: ClipboardList },
   ]
 
   if (!user?.isAdmin) return null
@@ -2145,6 +2185,205 @@ export default function AdminPage() {
               )}
             </div>
           )}
+
+          {/* ── Admin Audit Logs Tab ────────────────────────────────────────── */}
+          {activeTab === "audit-logs" && (() => {
+            const AUDIT_ACTION_META: Record<string, { label: string; color: string; category: "create" | "update" | "destructive" | "notification" }> = {
+              promote_admin:     { label: "Promote Admin",       color: "#10B981", category: "create" },
+              demote_admin:      { label: "Demote Admin",        color: "#F59E0B", category: "update" },
+              change_plan:       { label: "Change Plan",         color: "#D4AF37", category: "update" },
+              delete_user:       { label: "Delete User",         color: "#EF4444", category: "destructive" },
+              suspend_account:   { label: "Suspend Account",     color: "#EF4444", category: "destructive" },
+              reactivate_account:{ label: "Reactivate Account",  color: "#10B981", category: "create" },
+              reset_usage:       { label: "Reset Usage",         color: "#F97316", category: "update" },
+              send_notification: { label: "Send Notification",   color: "#6366F1", category: "notification" },
+              delete_notification:{ label: "Delete Notification",color: "#EF4444", category: "destructive" },
+              send_broadcast:    { label: "Send Broadcast",      color: "#6366F1", category: "notification" },
+              delete_broadcast:  { label: "Delete Broadcast",    color: "#F97316", category: "destructive" },
+            }
+            const CATEGORY_COLOR: Record<string, string> = {
+              create:       "#10B981",
+              update:       "#D4AF37",
+              destructive:  "#EF4444",
+              notification: "#6366F1",
+            }
+            const meta = (action: string) => AUDIT_ACTION_META[action] ?? { label: action, color: "#6B7280", category: "update" as const }
+            const totalPages = Math.ceil(adminAuditTotal / 50)
+
+            return (
+              <div className="space-y-5">
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <h2 className="text-sm font-black text-foreground flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-amber-400" />
+                    Admin Audit Logs
+                  </h2>
+                  <span className="text-[10px] font-semibold text-muted-foreground bg-white/5 border border-white/10 rounded-full px-2.5 py-0.5">
+                    {adminAuditTotal} total entries
+                  </span>
+                  <button onClick={loadAdminAuditLogs}
+                    className="ml-auto text-[10px] font-bold text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+                    <RefreshCw className="h-3 w-3" /> Refresh
+                  </button>
+                </div>
+
+                {/* Color legend */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {(["create", "update", "destructive", "notification"] as const).map(cat => (
+                    <div key={cat} className="flex items-center gap-1.5">
+                      <div className="h-2 w-2 rounded-full" style={{ background: CATEGORY_COLOR[cat] }} />
+                      <span className="text-[10px] capitalize text-muted-foreground font-medium">{cat}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <div className="relative flex-1 min-w-48">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <input value={adminAuditSearch} onChange={e => { setAdminAuditSearch(e.target.value); setAdminAuditPage(0) }}
+                      placeholder="Search by email or action…"
+                      className="w-full pl-8 pr-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-amber-500/40 transition-colors" />
+                  </div>
+                  <select value={adminAuditAction} onChange={e => { setAdminAuditAction(e.target.value); setAdminAuditPage(0) }}
+                    className="bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-foreground px-3 py-2 outline-none cursor-pointer">
+                    <option value="all" className="bg-[#1a1a1a]">All Actions</option>
+                    {Object.entries(AUDIT_ACTION_META).map(([k, v]) => (
+                      <option key={k} value={k} className="bg-[#1a1a1a]">{v.label}</option>
+                    ))}
+                  </select>
+                  <input type="date" value={adminAuditFrom} onChange={e => { setAdminAuditFrom(e.target.value); setAdminAuditPage(0) }}
+                    className="bg-white/5 border border-white/10 rounded-xl text-xs text-foreground px-3 py-2 outline-none cursor-pointer" />
+                  <span className="text-[10px] text-muted-foreground">→</span>
+                  <input type="date" value={adminAuditTo} onChange={e => { setAdminAuditTo(e.target.value); setAdminAuditPage(0) }}
+                    className="bg-white/5 border border-white/10 rounded-xl text-xs text-foreground px-3 py-2 outline-none cursor-pointer" />
+                  {(adminAuditSearch || adminAuditAction !== "all" || adminAuditFrom || adminAuditTo) && (
+                    <button onClick={() => { setAdminAuditSearch(""); setAdminAuditAction("all"); setAdminAuditFrom(""); setAdminAuditTo(""); setAdminAuditPage(0) }}
+                      className="text-[10px] font-bold text-muted-foreground hover:text-red-400 flex items-center gap-1 transition-colors">
+                      <X className="h-3 w-3" /> Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Log entries */}
+                {adminAuditLogs.length === 0 ? (
+                  <div className="rounded-2xl border border-white/8 bg-white/2 py-20 text-center">
+                    <ClipboardList className="h-8 w-8 mx-auto mb-3 text-muted-foreground opacity-30" />
+                    <p className="text-sm text-muted-foreground">No audit log entries yet</p>
+                    <p className="text-[11px] text-muted-foreground/50 mt-1">Admin actions will appear here as they are performed</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {adminAuditLogs.map((log, i) => {
+                      const m = meta(log.action)
+                      const isExpanded = expandedAuditLog === log.id
+                      const hasDetails = log.details && Object.keys(log.details).length > 0
+                      return (
+                        <motion.div key={log.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
+                          className="rounded-xl border border-white/6 bg-white/2 overflow-hidden">
+                          {/* Row */}
+                          <div
+                            className={`flex items-center gap-3 px-4 py-3 ${hasDetails ? "cursor-pointer hover:bg-white/3" : ""} transition-colors`}
+                            onClick={() => hasDetails ? setExpandedAuditLog(isExpanded ? null : log.id) : undefined}>
+                            {/* Color dot */}
+                            <div className="h-2 w-2 rounded-full shrink-0" style={{ background: CATEGORY_COLOR[m.category] }} />
+
+                            {/* Action badge */}
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-md shrink-0"
+                              style={{ color: m.color, background: `${m.color}18`, border: `1px solid ${m.color}30` }}>
+                              {m.label}
+                            </span>
+
+                            {/* Admin → target */}
+                            <div className="flex-1 min-w-0 flex items-center gap-1.5 text-xs">
+                              <span className="font-semibold text-foreground truncate">{log.adminEmail}</span>
+                              {log.targetUserEmail && (
+                                <>
+                                  <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                  <span className="text-muted-foreground truncate">{log.targetUserEmail}</span>
+                                </>
+                              )}
+                            </div>
+
+                            {/* IP hash */}
+                            {log.ipHash && (
+                              <code className="text-[9px] font-mono text-muted-foreground/40 hidden md:block shrink-0">
+                                {log.ipHash.slice(0, 8)}…
+                              </code>
+                            )}
+
+                            {/* Timestamp */}
+                            <span className="text-[10px] text-muted-foreground/50 shrink-0 tabular-nums">{timeAgo(log.createdAt)}</span>
+
+                            {/* Expand chevron */}
+                            {hasDetails && (
+                              <ChevronDown className={`h-3 w-3 text-muted-foreground shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                            )}
+                          </div>
+
+                          {/* Expanded detail view */}
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
+                                className="overflow-hidden border-t border-white/6">
+                                <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {/* Meta fields */}
+                                  <div className="space-y-2">
+                                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Record</p>
+                                    {[
+                                      { label: "Admin ID",    value: log.adminId },
+                                      { label: "Admin Email", value: log.adminEmail },
+                                      { label: "Action",      value: log.action },
+                                      { label: "Target ID",   value: log.targetUserId ?? "—" },
+                                      { label: "Target",      value: log.targetUserEmail ?? "—" },
+                                      { label: "IP Hash",     value: log.ipHash ?? "—" },
+                                      { label: "Timestamp",   value: new Date(log.createdAt).toLocaleString() },
+                                    ].map(({ label, value }) => (
+                                      <div key={label} className="flex items-start gap-2">
+                                        <span className="text-[10px] text-muted-foreground/60 w-20 shrink-0 font-medium">{label}</span>
+                                        <code className="text-[10px] font-mono text-foreground/80 break-all">{value}</code>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {/* Details JSON */}
+                                  <div>
+                                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Metadata</p>
+                                    <pre className="text-[10px] font-mono text-foreground/70 bg-white/4 border border-white/8 rounded-lg p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all">
+                                      {JSON.stringify(log.details, null, 2)}
+                                    </pre>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-[10px] text-muted-foreground">
+                      Page {adminAuditPage + 1} of {totalPages} · {adminAuditTotal} entries
+                    </span>
+                    <div className="flex gap-1">
+                      <button onClick={() => setAdminAuditPage(p => Math.max(0, p - 1))} disabled={adminAuditPage === 0}
+                        className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-foreground disabled:opacity-30 hover:bg-white/8 transition-colors">
+                        ← Prev
+                      </button>
+                      <button onClick={() => setAdminAuditPage(p => Math.min(totalPages - 1, p + 1))} disabled={adminAuditPage >= totalPages - 1}
+                        className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-foreground disabled:opacity-30 hover:bg-white/8 transition-colors">
+                        Next →
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
         </div>
       </div>

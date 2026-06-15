@@ -1,8 +1,9 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, subscriptionsTable, eventsTable, broadcastsTable, notificationsTable, sessionsTable, projectsTable, userUsageTable } from "@workspace/db";
-import { eq, desc, gte, lt, and, count, sql, isNotNull, ne, inArray } from "drizzle-orm";
+import { db, usersTable, subscriptionsTable, eventsTable, broadcastsTable, notificationsTable, sessionsTable, projectsTable, userUsageTable, adminAuditLogsTable } from "@workspace/db";
+import { eq, desc, gte, lt, and, count, sql, isNotNull, ne, inArray, ilike, or } from "drizzle-orm";
 import { logAuditFireForget } from "../lib/audit";
+import { logAdminAuditFireForget } from "../lib/admin-audit";
 import { requireAdmin, requireAuth } from "../middleware/auth";
 import { PLAN_LIMITS, getOrCreateSubscription } from "./subscriptions";
 import { setAdminBroadcast } from "../lib/log-event";
@@ -80,6 +81,20 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res): Promise<void> =
     res.status(404).json({ error: "User not found" });
     return;
   }
+
+  if (typeof isAdmin === "boolean") {
+    const [admin] = await db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, req.user!.userId));
+    logAdminAuditFireForget({
+      adminId:        req.user!.userId,
+      adminEmail:     admin?.email ?? "unknown",
+      action:         isAdmin ? "promote_admin" : "demote_admin",
+      targetUserId:   user.id,
+      targetUserEmail: user.email,
+      details:        { previousIsAdmin: !isAdmin },
+      req,
+    });
+  }
+
   res.json({ user: { id: user.id, email: user.email, name: user.name, isAdmin: user.isAdmin, createdAt: user.createdAt } });
 });
 
@@ -108,6 +123,17 @@ router.patch("/admin/users/:id/subscription", requireAdmin, async (req, res): Pr
     .where(eq(subscriptionsTable.userId, id))
     .returning();
 
+  const [admin] = await db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, req.user!.userId));
+  logAdminAuditFireForget({
+    adminId:         req.user!.userId,
+    adminEmail:      admin?.email ?? "unknown",
+    action:          "change_plan",
+    targetUserId:    user.id,
+    targetUserEmail: user.email,
+    details:         { previousPlan: existing.plan, newPlan: plan },
+    req,
+  });
+
   res.json({ subscription: sub ?? existing });
 });
 
@@ -118,7 +144,20 @@ router.delete("/admin/users/:id", requireAdmin, async (req, res): Promise<void> 
     res.status(400).json({ error: "Cannot delete your own account" });
     return;
   }
+  const [[target], [admin]] = await Promise.all([
+    db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, id)),
+    db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, requestingUserId)),
+  ]);
   await db.delete(usersTable).where(eq(usersTable.id, id));
+  logAdminAuditFireForget({
+    adminId:         requestingUserId,
+    adminEmail:      admin?.email ?? "unknown",
+    action:          "delete_user",
+    targetUserId:    id,
+    targetUserEmail: target?.email ?? null,
+    details:         {},
+    req,
+  });
   res.json({ ok: true });
 });
 
@@ -517,12 +556,34 @@ router.post("/admin/broadcasts", requireAdmin, async (req, res): Promise<void> =
     })
     .catch(() => {});
 
+  db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, adminId)).then(([admin]) => {
+    logAdminAuditFireForget({
+      adminId,
+      adminEmail:  admin?.email ?? "unknown",
+      action:      "send_broadcast",
+      details:     { title: title.trim(), type: broadcastType, target: broadcastTarget, recipientCount: recipients.length },
+      req,
+    });
+  }).catch(() => {});
+
   res.status(201).json({ broadcast: { ...broadcast, deliveredCount: recipients.length } });
 });
 
 router.delete("/admin/broadcasts/:id", requireAdmin, async (req, res): Promise<void> => {
   const { id } = req.params;
+  const adminId = req.user!.userId;
+  const [[bc], [admin]] = await Promise.all([
+    db.select({ title: broadcastsTable.title }).from(broadcastsTable).where(eq(broadcastsTable.id, id)),
+    db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, adminId)),
+  ]);
   await db.delete(broadcastsTable).where(eq(broadcastsTable.id, id));
+  logAdminAuditFireForget({
+    adminId,
+    adminEmail: admin?.email ?? "unknown",
+    action:     "delete_broadcast",
+    details:    { broadcastId: id, title: bc?.title ?? null },
+    req,
+  });
   res.json({ ok: true });
 });
 
@@ -708,7 +769,59 @@ router.post("/admin/message-center", requireAdmin, async (req, res): Promise<voi
     severity: "medium",
   });
 
+  db.select({ email: usersTable.email }).from(usersTable).where(eq(usersTable.id, adminId)).then(([admin]) => {
+    let tUserId: string | null = null;
+    let tUserEmail: string | null = null;
+    if (msgTarget === "individual" && targetUserId) {
+      tUserId = targetUserId;
+    }
+    logAdminAuditFireForget({
+      adminId,
+      adminEmail:      admin?.email ?? "unknown",
+      action:          "send_notification",
+      targetUserId:    tUserId,
+      targetUserEmail: tUserEmail,
+      details:         { target: msgTarget, type, title, recipientCount: rows.length },
+      req,
+    });
+  }).catch(() => {});
+
   res.status(201).json({ ok: true, sent: rows.length });
+});
+
+// ─── Admin Audit Logs ─────────────────────────────────────────────────────────
+
+router.get("/admin/audit-logs", requireAdmin, async (req, res): Promise<void> => {
+  const page    = Math.max(0, Number(req.query.page   ?? 0));
+  const limit   = Math.min(100, Math.max(1, Number(req.query.limit ?? 50)));
+  const offset  = page * limit;
+  const action  = req.query.action  as string | undefined;
+  const adminId = req.query.adminId as string | undefined;
+  const search  = req.query.search  as string | undefined;  // email search (admin or target)
+  const from    = req.query.from    as string | undefined;
+  const to      = req.query.to      as string | undefined;
+
+  const conditions = [];
+  if (action)  conditions.push(eq(adminAuditLogsTable.action, action));
+  if (adminId) conditions.push(eq(adminAuditLogsTable.adminId, adminId));
+  if (from)    conditions.push(gte(adminAuditLogsTable.createdAt, new Date(from)));
+  if (to)      conditions.push(lt(adminAuditLogsTable.createdAt, new Date(to)));
+  if (search) {
+    conditions.push(or(
+      ilike(adminAuditLogsTable.adminEmail,       `%${search}%`),
+      ilike(adminAuditLogsTable.targetUserEmail,  `%${search}%`),
+      ilike(adminAuditLogsTable.action,           `%${search}%`),
+    ));
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [logs, [{ total }]] = await Promise.all([
+    db.select().from(adminAuditLogsTable).where(where).orderBy(desc(adminAuditLogsTable.createdAt)).limit(limit).offset(offset),
+    db.select({ total: count() }).from(adminAuditLogsTable).where(where),
+  ]);
+
+  res.json({ logs, total, page, limit });
 });
 
 async function fanOutBroadcast(

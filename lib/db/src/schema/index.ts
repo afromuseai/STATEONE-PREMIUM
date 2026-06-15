@@ -35,3 +35,4 @@ export * from "./broadcasts";
 export * from "./user-usage";
 export * from "./coupons";
 export * from "./user-monitor-sessions";
+export * from "./admin-audit-logs";

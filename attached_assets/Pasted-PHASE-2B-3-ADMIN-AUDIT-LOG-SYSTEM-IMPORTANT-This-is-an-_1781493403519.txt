@@ -1,0 +1,167 @@
+PHASE 2B.3 — ADMIN AUDIT LOG SYSTEM
+
+IMPORTANT:
+
+This is an administration visibility layer.
+
+DO NOT modify:
+
+* authentication
+* billing
+* plan enforcement
+* AI generation systems
+* project architecture
+* session monitoring
+
+Build a dedicated Audit Log system.
+
+==================================================
+GOAL
+====
+
+Every important admin action must be permanently recorded.
+
+Administrators must be able to answer:
+
+* who did it
+* what happened
+* when it happened
+* which user was affected
+* from where
+
+==================================================
+DATABASE
+========
+
+Create table:
+
+admin_audit_logs
+
+Fields:
+
+id
+adminId
+adminEmail
+action
+targetUserId
+targetUserEmail
+details (json)
+ipHash
+createdAt
+
+Indexes:
+
+adminId
+targetUserId
+action
+createdAt
+
+==================================================
+TRACK EVENTS
+============
+
+Record audit entries for:
+
+User Management
+
+* promote user to admin
+* remove admin role
+* suspend account
+* reactivate account
+* change plan
+* reset usage
+
+Notifications
+
+* send notification
+* delete notification
+* schedule notification
+
+Future Billing
+
+* manual subscription changes
+* manual credits
+
+==================================================
+API
+===
+
+Create:
+
+GET /api/admin/audit-logs
+
+Filters:
+
+date range
+admin
+action
+target user
+
+Pagination
+
+==================================================
+ADMIN PANEL
+===========
+
+Add new tab:
+
+Audit Logs
+
+Show:
+
+timestamp
+admin
+action
+target user
+details
+
+Color coding:
+
+green = create
+yellow = update
+red = destructive
+blue = notifications
+
+==================================================
+SEARCH
+======
+
+Support:
+
+search by email
+search by action
+search by user
+
+==================================================
+DETAIL VIEW
+===========
+
+Clicking a row opens:
+
+full audit payload
+
+show:
+
+admin
+target
+ip hash
+timestamp
+metadata
+
+==================================================
+SECURITY
+========
+
+Only admins can access.
+
+Never expose raw IP.
+
+Store only IP hash.
+
+==================================================
+GOAL
+====
+
+STAGEONE should now have enterprise-grade accountability.
+
+Every administrative action must be traceable.
