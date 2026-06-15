@@ -108,7 +108,7 @@ const STEPS: TourStep[] = [
 interface Rect { top: number; left: number; width: number; height: number }
 interface BubblePos { x: number; y: number; arrowSide: "left" | "right" | "top" | "bottom" }
 
-const PADDING = 14
+const PADDING = 4
 const BUBBLE_W = 300
 const BUBBLE_H = 170
 
@@ -162,7 +162,7 @@ function computeBubblePos(rect: Rect, placement: TourStep["placement"]): BubbleP
   return { x, y, arrowSide }
 }
 
-const CORNER = 12
+const CORNER = 8
 
 function SpotlightOverlay({ rect }: { rect: Rect }) {
   const x = rect.left - PADDING
