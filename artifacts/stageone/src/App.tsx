@@ -14,6 +14,8 @@ import { UpgradeModal } from "@/components/upgrade-modal";
 import { ThemeProvider } from "@/lib/theme-context";
 import { LangProvider } from "@/lib/i18n";
 import { Toaster } from "sonner";
+import { ImpersonationProvider } from "@/lib/impersonation-context";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
 import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
@@ -162,24 +164,27 @@ export default function App() {
       <LangProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <BusinessContextProvider>
-              <OSProvider>
-                <NotificationsProvider>
-                  <CopilotProvider>
-                    <WorkspaceControllerProvider>
-                    <UpgradeModalProvider>
-                      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                        <AnimatedRoutes />
-                        <CopilotPanel />
-                      </WouterRouter>
-                      <UpgradeModal />
-                      <Toaster position="bottom-right" richColors theme="dark" />
-                    </UpgradeModalProvider>
-                    </WorkspaceControllerProvider>
-                  </CopilotProvider>
-                </NotificationsProvider>
-              </OSProvider>
-            </BusinessContextProvider>
+            <ImpersonationProvider>
+              <BusinessContextProvider>
+                <OSProvider>
+                  <NotificationsProvider>
+                    <CopilotProvider>
+                      <WorkspaceControllerProvider>
+                        <UpgradeModalProvider>
+                          <ImpersonationBanner />
+                          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                            <AnimatedRoutes />
+                            <CopilotPanel />
+                          </WouterRouter>
+                          <UpgradeModal />
+                          <Toaster position="bottom-right" richColors theme="dark" />
+                        </UpgradeModalProvider>
+                      </WorkspaceControllerProvider>
+                    </CopilotProvider>
+                  </NotificationsProvider>
+                </OSProvider>
+              </BusinessContextProvider>
+            </ImpersonationProvider>
           </AuthProvider>
         </QueryClientProvider>
       </LangProvider>

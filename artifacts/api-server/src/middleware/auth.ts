@@ -9,6 +9,16 @@ export interface JwtPayload {
   isAdmin?: boolean;
 }
 
+export interface ImpersonationPayload {
+  adminId: string;
+  adminEmail: string;
+  targetUserId: string;
+  targetEmail: string;
+  targetName: string;
+  isImpersonation: true;
+  exp: number;
+}
+
 export function signToken(payload: JwtPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
@@ -16,6 +26,16 @@ export function signToken(payload: JwtPayload): string {
 export function verifyToken(token: string): JwtPayload | null {
   try {
     return jwt.verify(token, JWT_SECRET) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
+function verifyImpersonationToken(token: string): ImpersonationPayload | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as ImpersonationPayload;
+    if (!decoded.isImpersonation) return null;
+    return decoded;
   } catch {
     return null;
   }
@@ -32,6 +52,19 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
+
+  // Impersonation overlay: admin may pass X-Impersonation-Token to act as another user
+  const impersonationToken = req.headers["x-impersonation-token"] as string | undefined;
+  if (impersonationToken && payload.isAdmin) {
+    const imp = verifyImpersonationToken(impersonationToken);
+    if (imp && imp.adminId === payload.userId) {
+      req.adminIdentity = payload;
+      req.user = { userId: imp.targetUserId, email: imp.targetEmail, isAdmin: false };
+      next();
+      return;
+    }
+  }
+
   req.user = payload;
   next();
 }
@@ -59,6 +92,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: JwtPayload;
+      adminIdentity?: JwtPayload;
     }
   }
 }

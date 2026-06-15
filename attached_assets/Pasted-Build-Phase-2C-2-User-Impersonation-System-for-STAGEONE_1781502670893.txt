@@ -1,0 +1,141 @@
+Build Phase 2C.2 — User Impersonation System for STAGEONE Admin.
+
+IMPORTANT RULES:
+
+DO NOT modify billing, support desk, sessions, audit, or CRM systems
+DO NOT change authentication logic
+DO NOT modify Marcus or BI systems
+DO NOT alter plan enforcement
+ONLY extend admin capabilities safely
+🎯 GOAL
+
+Enable admins to temporarily view and interact with STAGEONE as a specific user without needing their password.
+
+This is for:
+
+debugging user issues
+support investigation
+reproducing bugs
+understanding UX problems
+1. DATABASE (OPTIONAL LOGGING ONLY)
+
+Create table:
+
+user_impersonation_logs
+
+Fields:
+
+id (uuid)
+adminId
+targetUserId
+action: "start" | "stop"
+startedAt
+endedAt (nullable)
+ipHash
+reason (nullable text)
+
+Indexes:
+
+adminId
+targetUserId
+startedAt
+2. BACKEND API (admin-impersonation.ts)
+
+Create endpoints:
+
+POST /api/admin/impersonate/start
+
+Input:
+
+targetUserId
+optional reason
+
+Output:
+
+impersonation token (signed JWT or session token)
+target user profile snapshot
+POST /api/admin/impersonate/stop
+
+Ends impersonation session safely
+
+GET /api/admin/impersonate/session
+
+Returns:
+
+current impersonation state
+target user context
+expiry time
+3. SESSION MECHANISM
+
+Implement:
+
+temporary impersonation session overlay
+does NOT replace admin login session
+runs as a “layered identity”
+
+Rules:
+
+Admin identity always preserved
+Impersonation is just a context switch
+Must expire automatically (e.g. 30 min)
+4. FRONTEND ADMIN PANEL
+
+Inside User Detail Drawer:
+
+Add button:
+
+“Impersonate User”
+5. IMPERSONATION UI BEHAVIOR
+
+When activated:
+
+Show persistent banner:
+
+“You are impersonating: {user.email}”
+
+Include:
+
+red border indicator
+“Exit Impersonation” button
+6. CONTEXT SWITCH LOGIC
+
+When impersonation starts:
+
+Frontend must:
+
+reload app context with target user data
+switch API calls to impersonated userId (ONLY via header or token)
+update all views (sessions, billing, support, etc.)
+
+BUT:
+
+admin access remains active in background
+no data is overwritten
+7. SAFETY RULES (CRITICAL)
+
+Impersonation must NEVER:
+
+modify real user credentials
+persist beyond session
+bypass audit logging
+hide admin identity
+
+EVERY action must log:
+
+adminId
+targetUserId
+timestamp
+action type
+8. AUDIT INTEGRATION
+
+Reuse existing admin audit system:
+
+Log:
+
+impersonation_start
+impersonation_stop
+9. UX REQUIREMENTS
+Always visible banner while active
+One-click exit
+No hidden impersonation state
+Clear visual distinction between admin vs user view

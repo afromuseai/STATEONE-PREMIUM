@@ -17,6 +17,7 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
+import { useImpersonation } from "@/lib/impersonation-context"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
 type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support"
@@ -611,6 +612,25 @@ export default function AdminPage() {
   const [sessionStatusFilter, setSessionStatusFilter] = useState("all")
   const [sessionPlanFilter, setSessionPlanFilter] = useState("all")
   const [sessionActivity, setSessionActivity] = useState<AdminEvent[]>([])
+
+  const { startImpersonation } = useImpersonation()
+  const [impersonatingUserId, setImpersonatingUserId] = useState<string | null>(null)
+  const [impersonationReason, setImpersonationReason] = useState<Record<string, string>>({})
+  const [impersonationError, setImpersonationError] = useState<string | null>(null)
+
+  const handleImpersonate = async (targetUserId: string) => {
+    setImpersonatingUserId(targetUserId)
+    setImpersonationError(null)
+    const reason = impersonationReason[targetUserId] ?? ""
+    const result = await startImpersonation(targetUserId, reason)
+    if (result.error) {
+      setImpersonationError(result.error)
+      setImpersonatingUserId(null)
+    } else {
+      setImpersonatingUserId(null)
+      setLocation("/dashboard")
+    }
+  }
 
   // Geo Intelligence
   const [geoData, setGeoData] = useState<GeoIntelligence | null>(null)
@@ -1922,6 +1942,32 @@ export default function AdminPage() {
                                     )}
                                   </div>
                                 </div>
+
+                                {/* Impersonation */}
+                                {u.id !== user?.id && (
+                                  <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                                    <Eye className="h-3 w-3 text-amber-400/70 shrink-0" />
+                                    <p className="text-[10px] font-black text-amber-400/70 uppercase tracking-widest shrink-0">Impersonate</p>
+                                    <input
+                                      type="text"
+                                      value={impersonationReason[u.id] ?? ""}
+                                      onChange={e => setImpersonationReason(prev => ({ ...prev, [u.id]: e.target.value }))}
+                                      placeholder="Reason (optional)"
+                                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-[10px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-amber-500/30 transition-colors"
+                                    />
+                                    <button
+                                      onClick={() => handleImpersonate(u.id)}
+                                      disabled={impersonatingUserId === u.id}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-40 shrink-0">
+                                      {impersonatingUserId === u.id
+                                        ? <><RefreshCw className="h-3 w-3 animate-spin" /> Starting…</>
+                                        : <><Eye className="h-3 w-3" /> Impersonate User</>}
+                                    </button>
+                                    {impersonationError && impersonatingUserId === null && (
+                                      <span className="text-[10px] text-red-400">{impersonationError}</span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </motion.div>
                           )}

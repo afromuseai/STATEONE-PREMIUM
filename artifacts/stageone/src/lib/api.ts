@@ -1,9 +1,16 @@
+import { getActiveImpersonationToken } from "./impersonation-context";
+
 const BASE = "/api";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const impersonationToken = getActiveImpersonationToken();
+  const extraHeaders: Record<string, string> = {};
+  if (impersonationToken) {
+    extraHeaders["X-Impersonation-Token"] = impersonationToken;
+  }
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { "Content-Type": "application/json", ...extraHeaders, ...init?.headers },
     ...init,
   });
   if (!res.ok) {
