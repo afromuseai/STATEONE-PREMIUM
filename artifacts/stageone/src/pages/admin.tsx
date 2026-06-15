@@ -10,7 +10,7 @@ import {
   DollarSign, CreditCard, Tag, FileText, ListFilter,
   Pause, Play, Plus, Percent, Hash, Calendar, ChevronUp,
   BadgeCheck, UserX, ToggleLeft, ToggleRight, Monitor, Wifi,
-  ClipboardList, ChevronRight, Info,
+  ClipboardList, ChevronRight,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
@@ -857,8 +857,8 @@ export default function AdminPage() {
                         <DollarSign className="h-4 w-4 text-[#D4AF37]" />
                         <span className="text-xs font-black text-[#D4AF37] uppercase tracking-widest">Monthly Recurring Revenue</span>
                       </div>
-                      <p className="text-4xl font-black text-foreground">${billing.mrr.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground mt-1">ARR: ${billing.arr.toLocaleString()} / year</p>
+                      <p className="text-4xl font-black text-foreground">${(billing.mrr ?? 0).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground mt-1">ARR: ${(billing.arr ?? 0).toLocaleString()} / year</p>
                     </motion.div>
                     <StatCard label="Active Subscriptions" value={billing.activeSubs} icon={CreditCard} color="#6366F1" />
                     <StatCard label="Conversion Rate" value={`${billing.conversionRate}%`} icon={TrendingUp} color="#10B981" sub="free → paid" />
@@ -1319,7 +1319,12 @@ export default function AdminPage() {
                       if (intelligenceFilter === "inactive") return u.activityScore === 0
                       return true
                     })
-                    .sort((a, b) => b[intelligenceSort] - a[intelligenceSort])
+                    .sort((a, b) => {
+                      if (intelligenceSort === "createdAt") {
+                        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                      }
+                      return (b[intelligenceSort] as number) - (a[intelligenceSort] as number)
+                    })
                     .slice(0, 50)
                     .map((u, i) => (
                       <motion.div key={u.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
