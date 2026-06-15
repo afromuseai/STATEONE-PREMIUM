@@ -22,9 +22,10 @@ import { useImpersonation } from "@/lib/impersonation-context"
 import { GeoGlobe } from "@/components/dashboard/geo-globe"
 import { AdminFeatureFlags } from "@/components/dashboard/admin-feature-flags"
 import { AdminSystemHealth } from "@/components/dashboard/admin-system-health"
+import { AdminAiModels } from "@/components/dashboard/admin-ai-models"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition" | "feature-flags" | "system-health"
+type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition" | "feature-flags" | "system-health" | "ai-models"
 
 interface AdminUser {
   id: string
@@ -1378,6 +1379,7 @@ export default function AdminPage() {
     { id: "acquisition",        label: "Acquisition",    icon: Funnel },
     { id: "feature-flags",      label: "Feature Flags",  icon: Flag },
     { id: "system-health",      label: "System Health",  icon: Activity },
+    { id: "ai-models",          label: "AI Models",      icon: Cpu },
   ]
 
   if (!user?.isAdmin) return null
@@ -5437,6 +5439,11 @@ export default function AdminPage() {
           {/* ── System Health Tab ───────────────────────────────────────── */}
           {activeTab === "system-health" && (
             <AdminSystemHealth />
+          )}
+
+          {/* ── AI Models Tab ───────────────────────────────────────────── */}
+          {activeTab === "ai-models" && (
+            <AdminAiModels />
           )}
 
         </div>

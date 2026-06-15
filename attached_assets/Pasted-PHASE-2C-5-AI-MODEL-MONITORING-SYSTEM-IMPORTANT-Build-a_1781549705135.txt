@@ -1,0 +1,280 @@
+PHASE 2C.5 — AI MODEL MONITORING SYSTEM
+
+IMPORTANT:
+
+Build a complete AI Model Monitoring layer for STAGEONE.
+
+DO NOT:
+
+* modify generation logic
+* modify orchestration logic
+* modify model routing behavior
+* modify authentication
+* modify billing
+
+This is monitoring and observability only.
+
+====================================
+
+GOAL
+
+Provide complete visibility into:
+
+* model usage
+* token usage
+* latency
+* failures
+* estimated cost
+* routing behavior
+
+Admins should understand exactly how the AI infrastructure is performing.
+
+====================================
+
+MODEL REQUEST TRACKING
+
+Track every model invocation.
+
+Store:
+
+* userId
+* projectId
+* model name
+* provider
+* route
+* feature
+* timestamp
+
+Examples:
+
+Business Intelligence
+Website Generator
+Chatbot Generator
+Automation Builder
+Marcus
+Orchestrator
+
+====================================
+
+TOKEN ANALYTICS
+
+Track:
+
+* input tokens
+* output tokens
+* total tokens
+
+Store per request.
+
+Aggregate:
+
+* per user
+* per project
+* per model
+* per feature
+
+====================================
+
+LATENCY MONITORING
+
+Track:
+
+* request start time
+* request end time
+* latency
+
+Calculate:
+
+* avg latency
+* p95 latency
+* p99 latency
+
+Per model.
+
+====================================
+
+RELIABILITY METRICS
+
+Track:
+
+* total requests
+* successful requests
+* failed requests
+* retries
+* timeout failures
+
+Calculate:
+
+* success rate
+* failure rate
+* timeout rate
+
+Per model.
+
+====================================
+
+COST ESTIMATION
+
+Build provider-agnostic cost tracking.
+
+Store configurable pricing.
+
+Calculate:
+
+* estimated request cost
+* estimated user cost
+* estimated project cost
+* estimated daily cost
+* estimated monthly cost
+
+Do NOT connect real billing providers.
+
+Simulation only.
+
+====================================
+
+MODEL ROUTING VISIBILITY
+
+Display routing map.
+
+Example:
+
+Business Intelligence
+→ Qwen
+
+Marcus
+→ Nemotron
+
+Website Generator
+→ Mistral
+
+Automation
+→ DeepSeek
+
+Show:
+
+* active model
+* request volume
+* latency
+* failures
+
+====================================
+
+DATABASE
+
+Create tables:
+
+ai_model_requests
+
+Fields:
+
+* id
+* userId
+* projectId
+* model
+* provider
+* feature
+* inputTokens
+* outputTokens
+* totalTokens
+* latencyMs
+* success
+* errorType
+* estimatedCost
+* createdAt
+
+====================================
+
+ADMIN PANEL
+
+Add new tab:
+
+AI Models
+
+Sections:
+
+1. Overview
+
+Cards:
+
+* Total AI Requests
+* Tokens Today
+* Estimated Cost
+* Active Models
+
+====================================
+
+2. Model Performance
+
+Table:
+
+* model
+* requests
+* success %
+* avg latency
+* tokens
+* estimated cost
+
+====================================
+
+3. Token Analytics
+
+Charts:
+
+* daily tokens
+* weekly tokens
+* by model
+* by feature
+
+====================================
+
+4. Cost Intelligence
+
+Display:
+
+* estimated monthly spend
+* most expensive users
+* most expensive projects
+* most expensive models
+
+====================================
+
+5. Routing Map
+
+Visual system map showing:
+
+feature
+→ model
+
+with request counts.
+
+====================================
+
+6. AI Alerts
+
+Generate alerts when:
+
+* latency spikes
+* failure rate spikes
+* timeout spikes
+* token usage spikes
+* estimated cost spikes
+
+Allow dismissal.
+
+====================================
+
+REQUIREMENTS
+
+* admin-only
+* scalable
+* provider agnostic
+* future billing compatible
+
+IMPORTANT
+
+This system must monitor AI infrastructure.
+
+Do NOT alter generation behavior.
+
+Observability only.

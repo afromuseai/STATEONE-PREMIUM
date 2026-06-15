@@ -44,6 +44,7 @@ import adminCrmRouter from "./admin-crm";
 import adminAcquisitionRouter from "./admin-acquisition";
 import adminFeatureFlagsRouter from "./admin-feature-flags";
 import adminHealthRouter from "./admin-health";
+import adminAiModelsRouter from "./admin-ai-models";
 
 const router: IRouter = Router();
 
@@ -92,5 +93,6 @@ router.use(adminCrmRouter);
 router.use(adminAcquisitionRouter);
 router.use(adminFeatureFlagsRouter);
 router.use(adminHealthRouter);
+router.use(adminAiModelsRouter);
 
 export default router;

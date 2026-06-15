@@ -48,3 +48,4 @@ export * from "./acquisition-profiles";
 export * from "./acquisition-events";
 export * from "./feature-flags";
 export * from "./health-alerts";
+export * from "./ai-model-requests";

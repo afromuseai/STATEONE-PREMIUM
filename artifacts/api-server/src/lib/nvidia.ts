@@ -5,6 +5,7 @@
 import { jsonrepair } from "jsonrepair";
 import { logger } from "./logger";
 import { MODEL_KWARGS, type ModelId } from "./models";
+import { trackCall, trackStream } from "./model-monitor";
 
 const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
 
@@ -21,6 +22,10 @@ export interface NvidiaCallOptions {
   maxTokens?: number;
   chatTemplateKwargs?: Record<string, unknown>;
   signal?: AbortSignal;
+  // ── Observability metadata (optional, does not affect generation) ──────────
+  _feature?: string;
+  _userId?: string;
+  _projectId?: string;
 }
 
 function getApiKey(): string {
@@ -66,11 +71,18 @@ export async function callNvidia(options: NvidiaCallOptions): Promise<string> {
     `[AI:${model}] Calling (non-stream)`
   );
 
-  const response = await fetch(`${NVIDIA_BASE}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify(buildBody(options, false)),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${NVIDIA_BASE}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(buildBody(options, false)),
+    });
+  } catch (err) {
+    const ms = Date.now() - start;
+    trackCall({ model, feature: options._feature, userId: options._userId, projectId: options._projectId, latencyMs: ms, success: false, errorType: "network_error" });
+    throw err;
+  }
 
   const ms = Date.now() - start;
 
@@ -80,6 +92,7 @@ export async function callNvidia(options: NvidiaCallOptions): Promise<string> {
       { layer: "nvidia", model, status: response.status, ms, errorText: errorText.slice(0, 400) },
       `[AI:${model}] FAILED (${response.status}) after ${ms}ms`
     );
+    trackCall({ model, feature: options._feature, userId: options._userId, projectId: options._projectId, latencyMs: ms, success: false, errorType: `http_${response.status}` });
     throw new Error(
       `[AI:${model}] Request failed — HTTP ${response.status}: ${errorText.slice(0, 200)}`
     );
@@ -103,6 +116,19 @@ export async function callNvidia(options: NvidiaCallOptions): Promise<string> {
     },
     `[AI:${model}] Complete in ${ms}ms (${usage?.total_tokens ?? "?"} tokens)`
   );
+
+  // ── Fire-and-forget observability record (does not affect return value) ────
+  trackCall({
+    model,
+    feature:      options._feature,
+    userId:       options._userId,
+    projectId:    options._projectId,
+    inputTokens:  usage?.prompt_tokens,
+    outputTokens: usage?.completion_tokens,
+    totalTokens:  usage?.total_tokens,
+    latencyMs:    ms,
+    success:      true,
+  });
 
   return json.choices?.[0]?.message?.content ?? "";
 }
@@ -156,7 +182,8 @@ export async function streamNvidia(
 export async function forwardStream(
   body: ReadableStream<Uint8Array>,
   res: import("express").Response,
-  model: string
+  model: string,
+  _meta?: { feature?: string; userId?: string; projectId?: string }
 ): Promise<string> {
   const decoder = new TextDecoder();
   const reader = body.getReader();
@@ -166,6 +193,8 @@ export async function forwardStream(
   const start = Date.now();
   let thinkingSignalSent = false;
   let thinkingEndSignalSent = false;
+  let streamFailed = false;
+  let streamError: string | undefined;
 
   try {
     while (true) {
@@ -233,12 +262,27 @@ export async function forwardStream(
         } catch { /* ignore */ }
       }
     }
+  } catch (err) {
+    streamFailed = true;
+    streamError = err instanceof Error ? err.constructor.name : "stream_error";
   } finally {
     const ms = Date.now() - start;
     logger.info(
       { layer: "nvidia", model, stage: "stream_done", ms, chunks: tokenCount },
       `[AI:${model}] Stream complete in ${ms}ms (${tokenCount} chunks)`
     );
+
+    // ── Fire-and-forget observability record ─────────────────────────────────
+    trackStream({
+      model,
+      feature:      _meta?.feature,
+      userId:       _meta?.userId,
+      projectId:    _meta?.projectId,
+      bufferLength: buffer.length,
+      latencyMs:    ms,
+      success:      !streamFailed,
+      errorType:    streamError,
+    });
   }
 
   return buffer;
