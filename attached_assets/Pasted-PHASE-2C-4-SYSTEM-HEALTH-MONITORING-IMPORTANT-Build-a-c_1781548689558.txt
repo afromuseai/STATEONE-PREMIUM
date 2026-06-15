@@ -1,0 +1,142 @@
+PHASE 2C.4 — SYSTEM HEALTH MONITORING
+
+IMPORTANT:
+
+Build a complete System Health Monitoring layer for STAGEONE.
+
+DO NOT:
+
+* modify generation logic
+* modify authentication
+* modify billing
+* modify feature flags
+* modify project architecture
+
+This is monitoring only.
+
+====================================
+
+GOAL
+
+Provide real-time visibility into platform health.
+
+Admins should immediately know:
+
+* what is healthy
+* what is failing
+* where bottlenecks exist
+
+====================================
+
+SYSTEM OVERVIEW
+
+Create monitoring for:
+
+* API Server
+* Database
+* Notification System
+* SSE Streaming System
+* Generation Pipelines
+
+====================================
+
+METRICS
+
+Track:
+
+* API uptime
+* API response times
+* request volume
+* error volume
+* database connectivity
+* active sessions
+* active users
+* active projects
+* active SSE streams
+* generation count
+* generation failures
+* generation success rate
+
+====================================
+
+GENERATION HEALTH
+
+Break down by:
+
+* Business Intelligence
+* Website Generator
+* Chatbot Generator
+* Automation Builder
+* Marcus
+
+Show:
+
+* requests
+* success count
+* failure count
+* success %
+* avg execution time
+
+====================================
+
+LIVE ACTIVITY
+
+Display:
+
+* users online
+* active generations
+* active SSE streams
+* current platform load
+
+Refresh automatically.
+
+====================================
+
+ALERTS
+
+Create alert system.
+
+Examples:
+
+* API unhealthy
+* Database unavailable
+* Error rate above threshold
+* Failed generations spike
+* SSE failures increase
+
+Store alerts.
+
+Allow admins to dismiss alerts.
+
+====================================
+
+ADMIN PANEL
+
+Add new tab:
+
+System Health
+
+Sections:
+
+1. Overview
+2. Performance
+3. Generation Health
+4. Live Activity
+5. Alerts
+
+Use cards, charts, and status indicators.
+
+====================================
+
+REQUIREMENTS
+
+* admin-only
+* real-time refresh
+* efficient queries
+* scalable architecture
+
+IMPORTANT:
+
+This is observability only.
+
+Do not modify existing business logic.

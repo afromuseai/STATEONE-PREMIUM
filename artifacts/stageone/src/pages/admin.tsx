@@ -12,7 +12,7 @@ import {
   BadgeCheck, UserX, ToggleLeft, ToggleRight, Monitor, Wifi,
   ClipboardList, ChevronRight, Target, Layers, Star, Cpu, TrendingDown,
   Database, CheckCircle2, Circle, AlertCircle, Flame,
-  Download, Edit,
+  Download, Edit, Flag,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
