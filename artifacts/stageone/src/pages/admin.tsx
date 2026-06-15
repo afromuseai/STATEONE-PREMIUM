@@ -19,7 +19,7 @@ import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import { useImpersonation } from "@/lib/impersonation-context"
-import { GeoGlobe } from "@/components/dashboard/geo-globe"
+import { GeoWorldMap } from "@/components/dashboard/geo-world-map"
 import { AdminFeatureFlags } from "@/components/dashboard/admin-feature-flags"
 import { AdminSystemHealth } from "@/components/dashboard/admin-system-health"
 import { AdminAiModels } from "@/components/dashboard/admin-ai-models"
@@ -683,6 +683,7 @@ export default function AdminPage() {
   const [liveEvents, setLiveEvents] = useState<AdminEvent[]>([])
   const [sseConnected, setSseConnected] = useState(false)
   const sseRef = useRef<EventSource | null>(null)
+  const tabBarRef = useRef<HTMLDivElement>(null)
   const [broadcastForm, setBroadcastForm] = useState({ title: "", message: "", type: "info", target: "all" })
   const [sendingBroadcast, setSendingBroadcast] = useState(false)
   const [broadcastSent, setBroadcastSent] = useState(false)
@@ -895,12 +896,13 @@ export default function AdminPage() {
   const loadBillingIntelligence = useCallback(async () => {
     setBiIntelLoading(true)
     try {
+      const sig = () => AbortSignal.timeout(12000)
       const [rev, funnel, usage, power, readiness] = await Promise.all([
-        fetch("/api/admin/billing/revenue", { credentials: "include" }).then(r => r.json()),
-        fetch("/api/admin/billing/upgrade-funnel", { credentials: "include" }).then(r => r.json()),
-        fetch("/api/admin/billing/usage-economics", { credentials: "include" }).then(r => r.json()),
-        fetch("/api/admin/billing/power-users", { credentials: "include" }).then(r => r.json()),
-        fetch("/api/admin/billing/readiness", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/billing/revenue",         { credentials: "include", signal: sig() }).then(r => r.json()),
+        fetch("/api/admin/billing/upgrade-funnel",  { credentials: "include", signal: sig() }).then(r => r.json()),
+        fetch("/api/admin/billing/usage-economics", { credentials: "include", signal: sig() }).then(r => r.json()),
+        fetch("/api/admin/billing/power-users",     { credentials: "include", signal: sig() }).then(r => r.json()),
+        fetch("/api/admin/billing/readiness",       { credentials: "include", signal: sig() }).then(r => r.json()),
       ])
       setBiRevenue(rev)
       setBiFunnel(funnel)
@@ -922,12 +924,13 @@ export default function AdminPage() {
   const loadAcquisition = useCallback(async () => {
     setAcqLoading(true)
     try {
+      const sig = () => AbortSignal.timeout(12000)
       const [ov, src, fn, ref, us] = await Promise.all([
-        fetch("/api/admin/acquisition/overview", { credentials: "include" }).then(r => r.json()),
-        fetch("/api/admin/acquisition/sources", { credentials: "include" }).then(r => r.json()),
-        fetch("/api/admin/acquisition/funnel", { credentials: "include" }).then(r => r.json()),
-        fetch("/api/admin/acquisition/referrals", { credentials: "include" }).then(r => r.json()),
-        fetch(`/api/admin/acquisition/users?status=${acqStatusFilter}&source=${acqSourceFilter}&search=${encodeURIComponent(acqSearch)}`, { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/acquisition/overview",  { credentials: "include", signal: sig() }).then(r => r.json()),
+        fetch("/api/admin/acquisition/sources",   { credentials: "include", signal: sig() }).then(r => r.json()),
+        fetch("/api/admin/acquisition/funnel",    { credentials: "include", signal: sig() }).then(r => r.json()),
+        fetch("/api/admin/acquisition/referrals", { credentials: "include", signal: sig() }).then(r => r.json()),
+        fetch(`/api/admin/acquisition/users?status=${acqStatusFilter}&source=${acqSourceFilter}&search=${encodeURIComponent(acqSearch)}`, { credentials: "include", signal: sig() }).then(r => r.json()),
       ])
       setAcqOverview(ov ?? null)
       setAcqSources(src.sources ?? [])
@@ -1406,11 +1409,16 @@ export default function AdminPage() {
               <p className="text-[9px] text-muted-foreground tracking-widest uppercase">System Management</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <div className="flex gap-1 bg-white/3 border border-white/8 rounded-xl p-1 shrink-0">
+          <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+            <div
+              ref={tabBarRef}
+              onWheel={e => { e.preventDefault(); if (tabBarRef.current) tabBarRef.current.scrollLeft += e.deltaY * 0.8 }}
+              className="flex gap-1 bg-white/3 border border-white/8 rounded-xl p-1 overflow-x-auto flex-1 min-w-0"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
               {TABS.map(({ id, label, icon: Icon }) => (
                 <button key={id} onClick={() => setActiveTab(id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
                     activeTab === id ? "bg-red-500/15 text-red-400 border border-red-500/25" : "text-muted-foreground hover:text-foreground"
                   }`}>
                   <Icon className="h-3 w-3" />
@@ -3861,7 +3869,7 @@ export default function AdminPage() {
                       <p className="text-xs">No geo data yet — data appears as users sign up</p>
                     </div>
                   ) : (
-                    <GeoGlobe countries={geo.countries} size={340} />
+                    <GeoWorldMap countries={geo.countries} />
                   )}
                   {geo?.countries && geo.countries.length > 0 && (
                     <div className="flex flex-wrap gap-4 self-start">
