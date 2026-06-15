@@ -107,6 +107,22 @@ export const api = {
         credentials: "include",
       }),
   },
+  support: {
+    listTickets: () =>
+      request<{ tickets: Array<Record<string, unknown>> }>("/support/tickets"),
+    createTicket: (data: { subject: string; category: string; priority: string; message: string }) =>
+      request<{ ticket: Record<string, unknown> }>("/support/tickets", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getTicket: (id: string) =>
+      request<{ ticket: Record<string, unknown>; messages: Array<Record<string, unknown>>; owner: unknown; assignedAdmin: unknown }>(`/support/tickets/${id}`),
+    replyToTicket: (id: string, message: string) =>
+      request<{ message: Record<string, unknown> }>(`/support/tickets/${id}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      }),
+  },
   admin: {
     getUsers: () => request<{ users: Array<UserInfo & { subscription: unknown }>, total: number }>("/admin/users"),
     updateUser: (id: string, data: { isAdmin?: boolean; name?: string }) =>

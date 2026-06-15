@@ -19,7 +19,7 @@ import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo"
+type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support"
 
 interface AdminUser {
   id: string
@@ -280,6 +280,49 @@ interface AdminAuditLog {
   details: Record<string, unknown>
   ipHash: string | null
   createdAt: string
+}
+
+interface SupportTicket {
+  id: string
+  subject: string
+  category: string
+  priority: string
+  status: string
+  userId: string
+  assignedAdminId: string | null
+  createdAt: string
+  updatedAt: string
+  userEmail: string | null
+  userName: string | null
+}
+
+interface SupportMessageRow {
+  id: string
+  ticketId: string
+  senderId: string
+  senderType: string
+  message: string
+  createdAt: string
+  senderName: string | null
+  senderEmail: string | null
+}
+
+interface SupportTicketDetail {
+  ticket: SupportTicket
+  messages: SupportMessageRow[]
+  owner: { name: string; email: string } | null
+  assignedAdmin: { name: string; email: string } | null
+}
+
+interface SupportMetrics {
+  open: number
+  urgent: number
+  resolved: number
+  closed: number
+  total: number
+  recentOpen30d: number
+  byCategory: Array<{ category: string; count: number }>
+  byPriority: Array<{ priority: string; count: number }>
 }
 
 interface AuditLog {
@@ -574,6 +617,20 @@ export default function AdminPage() {
   const [geoSearch, setGeoSearch] = useState("")
   const [geoView, setGeoView] = useState<"countries" | "cities" | "timezones" | "growth">("countries")
 
+  // Support Desk
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([])
+  const [supportMetrics, setSupportMetrics] = useState<SupportMetrics | null>(null)
+  const [supportStatusFilter, setSupportStatusFilter] = useState("all")
+  const [supportPriorityFilter, setSupportPriorityFilter] = useState("all")
+  const [supportCategoryFilter, setSupportCategoryFilter] = useState("all")
+  const [supportSearch, setSupportSearch] = useState("")
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicketDetail | null>(null)
+  const [ticketMessages, setTicketMessages] = useState<SupportMessageRow[]>([])
+  const [supportReply, setSupportReply] = useState("")
+  const [sendingReply, setSendingReply] = useState(false)
+  const [updatingTicket, setUpdatingTicket] = useState(false)
+  const [loadingTicket, setLoadingTicket] = useState(false)
+
   useEffect(() => {
     if (!user) { setLocation("/login"); return }
     if (!user.isAdmin) { setLocation("/dashboard"); return }
@@ -710,6 +767,62 @@ export default function AdminPage() {
     } catch (_) {}
   }, [])
 
+  const loadSupport = useCallback(async () => {
+    try {
+      const params = new URLSearchParams()
+      if (supportStatusFilter !== "all") params.set("status", supportStatusFilter)
+      if (supportPriorityFilter !== "all") params.set("priority", supportPriorityFilter)
+      if (supportCategoryFilter !== "all") params.set("category", supportCategoryFilter)
+      const [ticketsData, metricsData] = await Promise.all([
+        fetch(`/api/admin/support/tickets?${params}`, { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/support/metrics", { credentials: "include" }).then(r => r.json()),
+      ])
+      setSupportTickets(ticketsData.tickets ?? [])
+      setSupportMetrics(metricsData)
+    } catch (_) {}
+  }, [supportStatusFilter, supportPriorityFilter, supportCategoryFilter])
+
+  const loadTicketDetail = async (ticketId: string) => {
+    setLoadingTicket(true)
+    try {
+      const data = await fetch(`/api/support/tickets/${ticketId}`, { credentials: "include" }).then(r => r.json())
+      setSelectedTicket(data)
+      setTicketMessages(data.messages ?? [])
+    } catch (_) {}
+    setLoadingTicket(false)
+  }
+
+  const handleSupportReply = async () => {
+    if (!supportReply.trim() || !selectedTicket?.ticket) return
+    setSendingReply(true)
+    try {
+      await fetch(`/api/support/tickets/${selectedTicket.ticket.id}/messages`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: supportReply }),
+      })
+      setSupportReply("")
+      await loadTicketDetail(selectedTicket.ticket.id)
+      await loadSupport()
+    } catch (_) {}
+    setSendingReply(false)
+  }
+
+  const handleUpdateTicket = async (updates: { status?: string; priority?: string; assignedAdminId?: string | null }) => {
+    if (!selectedTicket?.ticket) return
+    setUpdatingTicket(true)
+    try {
+      await fetch(`/api/admin/support/tickets/${selectedTicket.ticket.id}`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      })
+      await loadTicketDetail(selectedTicket.ticket.id)
+      await loadSupport()
+    } catch (_) {}
+    setUpdatingTicket(false)
+  }
+
   const loadMessages = useCallback(async () => {
     try {
       const [sendsData, analyticsData, schedulesData] = await Promise.all([
@@ -738,7 +851,8 @@ export default function AdminPage() {
     else if (activeTab === "audit-logs") loadAdminAuditLogs()
     else if (activeTab === "geo") loadGeoIntelligence()
     else if (activeTab === "messages") loadMessages()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages])
+    else if (activeTab === "support") loadSupport()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages, loadSupport])
 
   // Session Monitor: auto-refresh every 30s while tab is active
   useEffect(() => {
@@ -935,6 +1049,7 @@ export default function AdminPage() {
     { id: "sessions",      label: "Sessions",       icon: Monitor },
     { id: "audit-logs",    label: "Admin Audit",    icon: ClipboardList },
     { id: "geo",           label: "Geo Intel",      icon: Globe },
+    { id: "support",       label: "Support",        icon: FileText },
   ]
 
   if (!user?.isAdmin) return null
@@ -979,6 +1094,7 @@ export default function AdminPage() {
               if (activeTab === "audit") loadAudit()
               if (activeTab === "sessions") loadSessions()
               if (activeTab === "geo") loadGeoIntelligence()
+              if (activeTab === "support") loadSupport()
             }} disabled={loading}
               className="p-2 rounded-lg border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -3616,6 +3732,236 @@ export default function AdminPage() {
                   )}
                 </div>
 
+              </div>
+            )
+          })()}
+
+          {/* ── Support Desk Tab ────────────────────────────────────────── */}
+          {activeTab === "support" && (() => {
+            const PRIORITY_META: Record<string, { color: string; label: string }> = {
+              low:    { color: "#6B7280", label: "Low" },
+              medium: { color: "#6366F1", label: "Medium" },
+              high:   { color: "#F97316", label: "High" },
+              urgent: { color: "#EF4444", label: "Urgent" },
+            }
+            const STATUS_META: Record<string, { color: string; label: string }> = {
+              open:         { color: "#6366F1", label: "Open" },
+              in_progress:  { color: "#F59E0B", label: "In Progress" },
+              waiting_user: { color: "#8B5CF6", label: "Waiting User" },
+              resolved:     { color: "#10B981", label: "Resolved" },
+              closed:       { color: "#6B7280", label: "Closed" },
+            }
+            const CATEGORY_LABELS: Record<string, string> = {
+              billing: "Billing", account: "Account", bug: "Bug",
+              feature_request: "Feature", technical: "Technical", other: "Other",
+            }
+
+            const filteredTickets = supportTickets.filter(t => {
+              const q = supportSearch.toLowerCase()
+              return !q || t.subject.toLowerCase().includes(q) || (t.userEmail ?? "").toLowerCase().includes(q)
+            })
+
+            return (
+              <div className="space-y-5">
+                {/* Metrics row */}
+                {supportMetrics && (
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {[
+                      { label: "Open",     value: supportMetrics.open,     color: "#6366F1", icon: AlertCircle },
+                      { label: "Urgent",   value: supportMetrics.urgent,   color: "#EF4444", icon: Flame },
+                      { label: "In Progress", value: (supportMetrics as unknown as Record<string, number>).in_progress ?? 0, color: "#F59E0B", icon: Clock },
+                      { label: "Resolved", value: supportMetrics.resolved, color: "#10B981", icon: CheckCircle2 },
+                      { label: "Total",    value: supportMetrics.total,    color: "#6B7280", icon: FileText },
+                    ].map(({ label, value, color, icon: Icon }) => (
+                      <div key={label} className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="p-1.5 rounded-lg" style={{ background: `${color}15` }}>
+                            <Icon className="h-3.5 w-3.5" style={{ color }} />
+                          </div>
+                        </div>
+                        <p className="text-2xl font-black text-foreground">{value}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-col lg:flex-row gap-4" style={{ minHeight: "60vh" }}>
+                  {/* Ticket list */}
+                  <div className="flex-1 rounded-2xl border border-white/8 bg-white/2 flex flex-col overflow-hidden">
+                    {/* Filters */}
+                    <div className="p-4 border-b border-white/8 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <input
+                          type="text" placeholder="Search tickets..."
+                          value={supportSearch} onChange={e => setSupportSearch(e.target.value)}
+                          className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <select value={supportStatusFilter} onChange={e => { setSupportStatusFilter(e.target.value); loadSupport() }}
+                          className="bg-white/5 border border-white/10 rounded-lg text-xs px-2 py-1 text-foreground">
+                          <option value="all">All Status</option>
+                          {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                        </select>
+                        <select value={supportPriorityFilter} onChange={e => { setSupportPriorityFilter(e.target.value); loadSupport() }}
+                          className="bg-white/5 border border-white/10 rounded-lg text-xs px-2 py-1 text-foreground">
+                          <option value="all">All Priority</option>
+                          {Object.entries(PRIORITY_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                        </select>
+                        <select value={supportCategoryFilter} onChange={e => { setSupportCategoryFilter(e.target.value); loadSupport() }}
+                          className="bg-white/5 border border-white/10 rounded-lg text-xs px-2 py-1 text-foreground">
+                          <option value="all">All Category</option>
+                          {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    {/* Ticket rows */}
+                    <div className="flex-1 overflow-y-auto">
+                      {filteredTickets.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                          <FileText className="h-8 w-8 mb-2 opacity-30" />
+                          <p className="text-sm">No tickets found</p>
+                        </div>
+                      ) : filteredTickets.map(ticket => {
+                        const sm = STATUS_META[ticket.status] ?? STATUS_META.open
+                        const pm = PRIORITY_META[ticket.priority] ?? PRIORITY_META.medium
+                        const isSelected = selectedTicket?.ticket?.id === ticket.id
+                        return (
+                          <button key={ticket.id} onClick={() => loadTicketDetail(ticket.id)}
+                            className={`w-full text-left px-4 py-3 border-b border-white/5 hover:bg-white/3 transition-colors ${isSelected ? "bg-white/5" : ""}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-foreground truncate">{ticket.subject}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{ticket.userEmail ?? ticket.userName ?? "Unknown"}</p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+                                  style={{ background: `${sm.color}15`, color: sm.color, border: `1px solid ${sm.color}30` }}>
+                                  {sm.label}
+                                </span>
+                                <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+                                  style={{ background: `${pm.color}15`, color: pm.color, border: `1px solid ${pm.color}30` }}>
+                                  {pm.label}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className="text-[9px] text-muted-foreground/60 uppercase tracking-wider">{CATEGORY_LABELS[ticket.category] ?? ticket.category}</span>
+                              <span className="text-[9px] text-muted-foreground/40">{timeAgo(ticket.updatedAt)}</span>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Ticket Detail */}
+                  <div className="flex-1 lg:max-w-xl rounded-2xl border border-white/8 bg-white/2 flex flex-col overflow-hidden">
+                    {!selectedTicket ? (
+                      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                        <FileText className="h-10 w-10 mb-3 opacity-20" />
+                        <p className="text-sm">Select a ticket to view details</p>
+                      </div>
+                    ) : loadingTicket ? (
+                      <div className="flex items-center justify-center h-full">
+                        <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <>
+                        {/* Ticket header */}
+                        <div className="p-4 border-b border-white/8 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h3 className="text-sm font-bold text-foreground">{selectedTicket.ticket.subject}</h3>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {selectedTicket.owner?.email ?? "Unknown"} · {new Date(selectedTicket.ticket.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <button onClick={() => { setSelectedTicket(null); setTicketMessages([]) }}
+                              className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {/* Controls */}
+                          <div className="flex flex-wrap gap-2">
+                            <select
+                              value={selectedTicket.ticket.status}
+                              onChange={e => handleUpdateTicket({ status: e.target.value })}
+                              disabled={updatingTicket}
+                              className="bg-white/5 border border-white/10 rounded-lg text-xs px-2 py-1 text-foreground disabled:opacity-50">
+                              {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                            </select>
+                            <select
+                              value={selectedTicket.ticket.priority}
+                              onChange={e => handleUpdateTicket({ priority: e.target.value })}
+                              disabled={updatingTicket}
+                              className="bg-white/5 border border-white/10 rounded-lg text-xs px-2 py-1 text-foreground disabled:opacity-50">
+                              {Object.entries(PRIORITY_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                            </select>
+                            <span className="inline-flex items-center rounded-lg px-2 py-1 text-[10px] font-medium bg-white/5 border border-white/10 text-muted-foreground">
+                              {CATEGORY_LABELS[selectedTicket.ticket.category] ?? selectedTicket.ticket.category}
+                            </span>
+                          </div>
+                          {selectedTicket.assignedAdmin && (
+                            <p className="text-[10px] text-muted-foreground">
+                              Assigned: <span className="text-foreground">{selectedTicket.assignedAdmin.name}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                          {ticketMessages.map(msg => {
+                            const isAdmin = msg.senderType === "admin"
+                            return (
+                              <div key={msg.id} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
+                                <div className={`max-w-[85%] rounded-xl p-3 text-xs ${
+                                  isAdmin
+                                    ? "bg-red-500/10 border border-red-500/20 text-foreground"
+                                    : "bg-white/5 border border-white/10 text-foreground"
+                                }`}>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <span className={`text-[9px] font-bold uppercase tracking-wider ${isAdmin ? "text-red-400" : "text-primary"}`}>
+                                      {isAdmin ? "Admin" : (msg.senderName ?? "User")}
+                                    </span>
+                                    <span className="text-[9px] text-muted-foreground/50">{timeAgo(msg.createdAt)}</span>
+                                  </div>
+                                  <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          {ticketMessages.length === 0 && (
+                            <div className="text-center text-xs text-muted-foreground py-8">No messages yet</div>
+                          )}
+                        </div>
+
+                        {/* Reply box */}
+                        {selectedTicket.ticket.status !== "closed" && (
+                          <div className="p-4 border-t border-white/8">
+                            <div className="flex gap-2">
+                              <textarea
+                                value={supportReply}
+                                onChange={e => setSupportReply(e.target.value)}
+                                placeholder="Type your reply..."
+                                rows={2}
+                                className="flex-1 bg-white/5 border border-white/10 rounded-lg text-xs p-2.5 text-foreground placeholder:text-muted-foreground outline-none resize-none focus:border-red-500/40 transition-colors"
+                              />
+                              <button
+                                onClick={handleSupportReply}
+                                disabled={sendingReply || !supportReply.trim()}
+                                className="px-3 rounded-lg bg-red-500/15 border border-red-500/25 text-red-400 hover:bg-red-500/25 transition-colors disabled:opacity-40 shrink-0">
+                                <Send className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             )
           })()}

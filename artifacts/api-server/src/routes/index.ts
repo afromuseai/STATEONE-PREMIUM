@@ -38,6 +38,7 @@ import aiBuilderRouter from "./ai-builder";
 import businessGraphRouter from "./business-graph";
 import adminBillingRouter from "./admin-billing";
 import sessionMonitorRouter from "./session-monitor";
+import supportRouter from "./support";
 
 const router: IRouter = Router();
 
@@ -80,5 +81,6 @@ router.use(aiBuilderRouter);
 router.use(businessGraphRouter);
 router.use(adminBillingRouter);
 router.use(sessionMonitorRouter);
+router.use(supportRouter);
 
 export default router;
