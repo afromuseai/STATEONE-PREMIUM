@@ -20,7 +20,7 @@ import stageoneIcon from "@/assets/stageone-icon.png"
 import { useImpersonation } from "@/lib/impersonation-context"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs"
+type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm"
 
 interface AdminUser {
   id: string
@@ -366,6 +366,66 @@ interface ImpersonationStats {
   avgDurationMs: number | null
 }
 
+type CrmLifecycle = "new" | "activated" | "engaged" | "power_user" | "at_risk" | "churned"
+
+interface CrmProfile {
+  id: string
+  userId: string
+  lifecycleStage: CrmLifecycle
+  engagementScore: number
+  activityScore: number
+  valueScore: number
+  churnRiskScore: number
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  lastGenerationAt: string | null
+  tags: string[]
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface CrmUser {
+  id: string
+  email: string
+  name: string
+  country: string | null
+  createdAt: string
+  lastSeenAt: string | null
+  plan: string
+  crm: CrmProfile | null
+}
+
+interface CrmOverview {
+  totalUsers: number
+  newUsers: number
+  activatedUsers: number
+  engagedUsers: number
+  powerUsers: number
+  atRiskUsers: number
+  churnedUsers: number
+  profiledUsers: number
+}
+
+interface CrmUserDetail {
+  user: { id: string; email: string; name: string; country: string | null; city: string | null; createdAt: string; lastSeenAt: string | null }
+  subscription: { plan: string; status: string } | null
+  crm: CrmProfile | null
+  stats: {
+    totalGenerations: number
+    biGenerations: number
+    websiteGenerations: number
+    chatbotGenerations: number
+    automationGenerations: number
+    marcusMessages: number
+    projectCount: number
+    sessionCount: number
+    supportTickets: number
+  }
+  timeline: Array<{ id: string; type: string; createdAt: string }>
+  insights: string[]
+}
+
 interface MessageCenterSend {
   id: string
   adminId: string
@@ -676,6 +736,25 @@ export default function AdminPage() {
   const [updatingTicket, setUpdatingTicket] = useState(false)
   const [loadingTicket, setLoadingTicket] = useState(false)
 
+  // CRM Intelligence
+  const [crmOverview, setCrmOverview] = useState<CrmOverview | null>(null)
+  const [crmUsers, setCrmUsers] = useState<CrmUser[]>([])
+  const [crmLoading, setCrmLoading] = useState(false)
+  const [crmRecalculating, setCrmRecalculating] = useState(false)
+  const [crmLifecycleFilter, setCrmLifecycleFilter] = useState<CrmLifecycle | "all">("all")
+  const [crmPlanFilter, setCrmPlanFilter] = useState("all")
+  const [crmSearch, setCrmSearch] = useState("")
+  const [crmSort, setCrmSort] = useState<"churnRiskScore" | "engagementScore" | "valueScore" | "lastSeenAt">("churnRiskScore")
+  const [crmSortDir, setCrmSortDir] = useState<"desc" | "asc">("desc")
+  const [selectedCrmUser, setSelectedCrmUser] = useState<CrmUserDetail | null>(null)
+  const [crmDrawerOpen, setCrmDrawerOpen] = useState(false)
+  const [loadingCrmDetail, setLoadingCrmDetail] = useState(false)
+  const [crmEditTags, setCrmEditTags] = useState<string[]>([])
+  const [crmEditNotes, setCrmEditNotes] = useState("")
+  const [crmEditLifecycle, setCrmEditLifecycle] = useState<CrmLifecycle>("new")
+  const [crmSaving, setCrmSaving] = useState(false)
+  const [crmTagInput, setCrmTagInput] = useState("")
+
   useEffect(() => {
     if (!user) { setLocation("/login"); return }
     if (!user.isAdmin) { setLocation("/dashboard"); return }
@@ -908,6 +987,50 @@ export default function AdminPage() {
     } catch (_) {}
   }, [])
 
+  const loadCrm = useCallback(async () => {
+    setCrmLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (crmLifecycleFilter !== "all") params.set("lifecycle", crmLifecycleFilter)
+      if (crmPlanFilter !== "all") params.set("plan", crmPlanFilter)
+      if (crmSearch.trim()) params.set("search", crmSearch.trim())
+      const [overviewData, usersData] = await Promise.all([
+        fetch("/api/admin/crm/overview", { credentials: "include" }).then(r => r.json()),
+        fetch(`/api/admin/crm/users?${params}`, { credentials: "include" }).then(r => r.json()),
+      ])
+      setCrmOverview(overviewData)
+      setCrmUsers(usersData.users ?? [])
+    } catch (_) {}
+    setCrmLoading(false)
+  }, [crmLifecycleFilter, crmPlanFilter, crmSearch])
+
+  const loadCrmUserDetail = async (userId: string) => {
+    setLoadingCrmDetail(true)
+    try {
+      const data = await fetch(`/api/admin/crm/users/${userId}`, { credentials: "include" }).then(r => r.json())
+      setSelectedCrmUser(data)
+      setCrmEditTags(data.crm?.tags ?? [])
+      setCrmEditNotes(data.crm?.notes ?? "")
+      setCrmEditLifecycle(data.crm?.lifecycleStage ?? "new")
+    } catch (_) {}
+    setLoadingCrmDetail(false)
+  }
+
+  const saveCrmProfile = async () => {
+    if (!selectedCrmUser) return
+    setCrmSaving(true)
+    try {
+      await fetch(`/api/admin/crm/users/${selectedCrmUser.user.id}`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lifecycleStage: crmEditLifecycle, tags: crmEditTags, notes: crmEditNotes }),
+      })
+      await loadCrmUserDetail(selectedCrmUser.user.id)
+      await loadCrm()
+    } catch (_) {}
+    setCrmSaving(false)
+  }
+
   useEffect(() => { loadData() }, [loadData])
 
   useEffect(() => {
@@ -925,7 +1048,8 @@ export default function AdminPage() {
     else if (activeTab === "messages") loadMessages()
     else if (activeTab === "support") loadSupport()
     else if (activeTab === "impersonation-logs") loadImpersonationLogs(1)
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages, loadSupport, loadImpersonationLogs])
+    else if (activeTab === "crm") loadCrm()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages, loadSupport, loadImpersonationLogs, loadCrm])
 
   // Session Monitor: auto-refresh every 30s while tab is active
   useEffect(() => {
@@ -1124,6 +1248,7 @@ export default function AdminPage() {
     { id: "geo",           label: "Geo Intel",      icon: Globe },
     { id: "support",       label: "Support",        icon: FileText },
     { id: "impersonation-logs", label: "Impersonation", icon: Eye },
+    { id: "crm",              label: "CRM Intel",      icon: Target },
   ]
 
   if (!user?.isAdmin) return null
@@ -1169,6 +1294,7 @@ export default function AdminPage() {
               if (activeTab === "sessions") loadSessions()
               if (activeTab === "geo") loadGeoIntelligence()
               if (activeTab === "support") loadSupport()
+              if (activeTab === "crm") loadCrm()
             }} disabled={loading}
               className="p-2 rounded-lg border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -4335,6 +4461,461 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )
+          })()}
+
+          {/* ── CRM Intelligence Tab ───────────────────────────────────── */}
+          {activeTab === "crm" && (() => {
+            const CRM_LIFECYCLE_META: Record<CrmLifecycle, { label: string; color: string; bg: string; border: string }> = {
+              new:        { label: "New",        color: "#6366F1", bg: "bg-indigo-500/10",  border: "border-indigo-500/20" },
+              activated:  { label: "Activated",  color: "#3B82F6", bg: "bg-blue-500/10",   border: "border-blue-500/20" },
+              engaged:    { label: "Engaged",    color: "#10B981", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+              power_user: { label: "Power User", color: "#D4AF37", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+              at_risk:    { label: "At Risk",    color: "#F59E0B", bg: "bg-amber-500/10",  border: "border-amber-500/20" },
+              churned:    { label: "Churned",    color: "#EF4444", bg: "bg-red-500/10",    border: "border-red-500/20" },
+            }
+
+            const scoreColor = (v: number, invert = false) => {
+              const high = invert ? v >= 60 : v >= 70
+              const mid  = invert ? v >= 30 : v >= 40
+              return high ? (invert ? "text-red-400" : "text-emerald-400")
+                   : mid  ? "text-amber-400"
+                   : (invert ? "text-emerald-400" : "text-red-400")
+            }
+
+            const ScoreBar = ({ value, invert = false }: { value: number; invert?: boolean }) => {
+              const color = invert
+                ? value >= 60 ? "bg-red-500" : value >= 30 ? "bg-amber-500" : "bg-emerald-500"
+                : value >= 70 ? "bg-emerald-500" : value >= 40 ? "bg-amber-500" : "bg-red-500"
+              return (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 rounded-full bg-white/8 overflow-hidden">
+                    <div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} />
+                  </div>
+                  <span className={`text-[10px] font-black tabular-nums w-6 ${scoreColor(value, invert)}`}>{value}</span>
+                </div>
+              )
+            }
+
+            const timeAgo = (d: string | null) => {
+              if (!d) return "never"
+              const diff = Date.now() - new Date(d).getTime()
+              const days = Math.floor(diff / 86400000)
+              if (days === 0) return "today"
+              if (days === 1) return "yesterday"
+              if (days < 30) return `${days}d ago`
+              return `${Math.floor(days / 30)}mo ago`
+            }
+
+            const sorted = [...crmUsers].sort((a, b) => {
+              const av = crmSort === "lastSeenAt"
+                ? (a.lastSeenAt ? new Date(a.lastSeenAt).getTime() : 0)
+                : (a.crm?.[crmSort] ?? 0)
+              const bv = crmSort === "lastSeenAt"
+                ? (b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0)
+                : (b.crm?.[crmSort] ?? 0)
+              return crmSortDir === "desc" ? bv - av : av - bv
+            })
+
+            const SortBtn = ({ field, label }: { field: typeof crmSort; label: string }) => (
+              <button onClick={() => {
+                if (crmSort === field) setCrmSortDir(d => d === "desc" ? "asc" : "desc")
+                else { setCrmSort(field); setCrmSortDir("desc") }
+              }} className="flex items-center gap-1 text-[10px] font-black text-muted-foreground hover:text-foreground transition-colors">
+                {label}
+                {crmSort === field ? (crmSortDir === "desc" ? <ArrowDown className="h-2.5 w-2.5" /> : <ArrowUp className="h-2.5 w-2.5" />) : null}
+              </button>
+            )
+
+            return (
+              <div className="space-y-5">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-black text-foreground">CRM Intelligence</h2>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Behavioral scoring · Lifecycle tracking · Churn signals</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setCrmRecalculating(true)
+                      try {
+                        await fetch("/api/admin/crm/recalculate", { method: "POST", credentials: "include" })
+                        await loadCrm()
+                      } catch (_) {}
+                      setCrmRecalculating(false)
+                    }}
+                    disabled={crmRecalculating}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-indigo-500/25 bg-indigo-500/10 text-indigo-400 text-xs font-bold hover:bg-indigo-500/15 transition-all disabled:opacity-50">
+                    <RefreshCw className={`h-3 w-3 ${crmRecalculating ? "animate-spin" : ""}`} />
+                    {crmRecalculating ? "Recalculating…" : "Recalculate Scores"}
+                  </button>
+                </div>
+
+                {/* Overview Cards */}
+                {crmOverview && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                    {([
+                      { label: "Total",       value: crmOverview.totalUsers,    icon: Users,        color: "#6366F1" },
+                      { label: "New",         value: crmOverview.newUsers,      icon: Circle,       color: "#6366F1" },
+                      { label: "Activated",   value: crmOverview.activatedUsers,icon: CheckCircle2, color: "#3B82F6" },
+                      { label: "Engaged",     value: crmOverview.engagedUsers,  icon: Activity,     color: "#10B981" },
+                      { label: "Power User",  value: crmOverview.powerUsers,    icon: Flame,        color: "#D4AF37" },
+                      { label: "At Risk",     value: crmOverview.atRiskUsers,   icon: AlertCircle,  color: "#F59E0B" },
+                      { label: "Churned",     value: crmOverview.churnedUsers,  icon: TrendingDown, color: "#EF4444" },
+                    ] as Array<{ label: string; value: number; icon: React.ElementType; color: string }>).map(({ label, value, icon: Icon, color }) => (
+                      <div key={label}
+                        onClick={() => {
+                          const map: Record<string, CrmLifecycle | "all"> = {
+                            Total: "all", New: "new", Activated: "activated", Engaged: "engaged",
+                            "Power User": "power_user", "At Risk": "at_risk", Churned: "churned"
+                          }
+                          setCrmLifecycleFilter(map[label] ?? "all")
+                        }}
+                        className={`rounded-xl border p-3 cursor-pointer transition-all hover:bg-white/4 ${
+                          crmLifecycleFilter === (label === "Total" ? "all" : label.toLowerCase().replace(" ", "_"))
+                            ? "bg-white/5 border-white/15" : "bg-white/2 border-white/8"
+                        }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{label}</p>
+                          <div className="h-5 w-5 rounded-md flex items-center justify-center" style={{ background: `${color}18` }}>
+                            <Icon className="h-3 w-3" style={{ color }} />
+                          </div>
+                        </div>
+                        <p className="text-xl font-black text-foreground tabular-nums">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Filters & Search */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-white/3 border border-white/8 rounded-lg px-3 h-8 flex-1 min-w-[180px]">
+                    <Search className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <input value={crmSearch} onChange={e => setCrmSearch(e.target.value)}
+                      placeholder="Search users…"
+                      className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/50 outline-none" />
+                  </div>
+                  <select value={crmLifecycleFilter}
+                    onChange={e => setCrmLifecycleFilter(e.target.value as CrmLifecycle | "all")}
+                    className="h-8 px-2 rounded-lg border border-white/8 bg-white/3 text-xs text-foreground outline-none">
+                    <option value="all">All Stages</option>
+                    {(Object.keys(CRM_LIFECYCLE_META) as CrmLifecycle[]).map(k => (
+                      <option key={k} value={k}>{CRM_LIFECYCLE_META[k].label}</option>
+                    ))}
+                  </select>
+                  <select value={crmPlanFilter}
+                    onChange={e => setCrmPlanFilter(e.target.value)}
+                    className="h-8 px-2 rounded-lg border border-white/8 bg-white/3 text-xs text-foreground outline-none">
+                    <option value="all">All Plans</option>
+                    <option value="free">Free</option>
+                    <option value="pro">Pro</option>
+                    <option value="startup">Startup</option>
+                    <option value="enterprise">Enterprise</option>
+                  </select>
+                  <button onClick={loadCrm} disabled={crmLoading}
+                    className="h-8 px-3 rounded-lg border border-white/8 bg-white/3 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <RefreshCw className={`h-3 w-3 ${crmLoading ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+
+                {/* CRM Table */}
+                <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-white/8 bg-white/2">
+                          <th className="text-left px-4 py-3 text-[9px] font-black text-muted-foreground uppercase tracking-widest">User</th>
+                          <th className="text-left px-4 py-3 text-[9px] font-black text-muted-foreground uppercase tracking-widest">Plan</th>
+                          <th className="text-left px-4 py-3 text-[9px] font-black text-muted-foreground uppercase tracking-widest">Lifecycle</th>
+                          <th className="px-4 py-3">
+                            <SortBtn field="engagementScore" label="Engagement" />
+                          </th>
+                          <th className="px-4 py-3">
+                            <SortBtn field="valueScore" label="Value" />
+                          </th>
+                          <th className="px-4 py-3">
+                            <SortBtn field="churnRiskScore" label="Churn Risk" />
+                          </th>
+                          <th className="px-4 py-3">
+                            <SortBtn field="lastSeenAt" label="Last Active" />
+                          </th>
+                          <th className="px-4 py-3" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {crmLoading ? (
+                          <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground text-xs">Loading…</td></tr>
+                        ) : sorted.length === 0 ? (
+                          <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground text-xs">
+                            No users found. Click <strong>Recalculate Scores</strong> to generate CRM profiles.
+                          </td></tr>
+                        ) : sorted.map(u => {
+                          const meta = u.crm ? CRM_LIFECYCLE_META[u.crm.lifecycleStage as CrmLifecycle] : null
+                          return (
+                            <tr key={u.id} className="border-b border-white/5 hover:bg-white/2 transition-colors">
+                              <td className="px-4 py-3">
+                                <div>
+                                  <p className="font-semibold text-foreground truncate max-w-[160px]">{u.name}</p>
+                                  <p className="text-muted-foreground truncate max-w-[160px]">{u.email}</p>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                  u.plan === "enterprise" ? "bg-purple-500/15 text-purple-400 border border-purple-500/20" :
+                                  u.plan === "startup"    ? "bg-blue-500/15 text-blue-400 border border-blue-500/20" :
+                                  u.plan === "pro"        ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/20" :
+                                  "bg-white/8 text-muted-foreground border border-white/10"
+                                }`}>{u.plan}</span>
+                              </td>
+                              <td className="px-4 py-3">
+                                {meta ? (
+                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${meta.bg} ${meta.border} border`} style={{ color: meta.color }}>
+                                    {meta.label}
+                                  </span>
+                                ) : <span className="text-muted-foreground/40 text-[9px]">unscored</span>}
+                              </td>
+                              <td className="px-4 py-3 w-28">
+                                {u.crm ? <ScoreBar value={u.crm.engagementScore} /> : <span className="text-muted-foreground/30">—</span>}
+                              </td>
+                              <td className="px-4 py-3 w-28">
+                                {u.crm ? <ScoreBar value={u.crm.valueScore} /> : <span className="text-muted-foreground/30">—</span>}
+                              </td>
+                              <td className="px-4 py-3 w-28">
+                                {u.crm ? <ScoreBar value={u.crm.churnRiskScore} invert /> : <span className="text-muted-foreground/30">—</span>}
+                              </td>
+                              <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                                {timeAgo(u.lastSeenAt)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <button
+                                  onClick={async () => {
+                                    setCrmDrawerOpen(true)
+                                    setSelectedCrmUser(null)
+                                    await loadCrmUserDetail(u.id)
+                                  }}
+                                  className="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/5 border border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/8 transition-all">
+                                  View
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {sorted.length > 0 && (
+                    <div className="px-4 py-2 border-t border-white/8">
+                      <p className="text-[10px] text-muted-foreground">{sorted.length} users</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* User Detail Drawer */}
+                <AnimatePresence>
+                  {crmDrawerOpen && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-50 flex items-start justify-end bg-black/60 backdrop-blur-sm"
+                      onClick={e => { if (e.target === e.currentTarget) setCrmDrawerOpen(false) }}>
+                      <motion.div
+                        initial={{ x: "100%" }}
+                        animate={{ x: 0 }}
+                        exit={{ x: "100%" }}
+                        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                        className="h-full w-full max-w-xl bg-[#0a0a0a] border-l border-white/8 overflow-y-auto">
+
+                        {loadingCrmDetail ? (
+                          <div className="flex items-center justify-center h-full">
+                            <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin" />
+                          </div>
+                        ) : selectedCrmUser ? (
+                          <div className="p-6 space-y-5">
+                            {/* Drawer Header */}
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h3 className="text-sm font-black text-foreground">{selectedCrmUser.user.name}</h3>
+                                <p className="text-xs text-muted-foreground">{selectedCrmUser.user.email}</p>
+                                {selectedCrmUser.user.country && (
+                                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">{selectedCrmUser.user.city ? `${selectedCrmUser.user.city}, ` : ""}{selectedCrmUser.user.country}</p>
+                                )}
+                              </div>
+                              <button onClick={() => setCrmDrawerOpen(false)}
+                                className="p-1.5 rounded-lg hover:bg-white/8 text-muted-foreground hover:text-foreground transition-colors">
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            {/* Plan + Joined */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="rounded-xl border border-white/8 bg-white/3 p-3">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Plan</p>
+                                <p className="text-sm font-black text-foreground capitalize">{selectedCrmUser.subscription?.plan ?? "free"}</p>
+                              </div>
+                              <div className="rounded-xl border border-white/8 bg-white/3 p-3">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Member Since</p>
+                                <p className="text-sm font-black text-foreground">{new Date(selectedCrmUser.user.createdAt).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+
+                            {/* Scores */}
+                            <div className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-3">
+                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Behavioral Scores</p>
+                              {selectedCrmUser.crm ? (
+                                <>
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between mb-0.5">
+                                      <span className="text-[10px] font-bold text-muted-foreground">Engagement</span>
+                                    </div>
+                                    <ScoreBar value={selectedCrmUser.crm.engagementScore} />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <span className="text-[10px] font-bold text-muted-foreground">Value</span>
+                                    <ScoreBar value={selectedCrmUser.crm.valueScore} />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <span className="text-[10px] font-bold text-muted-foreground">Activity</span>
+                                    <ScoreBar value={selectedCrmUser.crm.activityScore} />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <span className="text-[10px] font-bold text-muted-foreground">Churn Risk</span>
+                                    <ScoreBar value={selectedCrmUser.crm.churnRiskScore} invert />
+                                  </div>
+                                </>
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">Not yet scored — run Recalculate</p>
+                              )}
+                            </div>
+
+                            {/* Usage Stats */}
+                            <div className="rounded-xl border border-white/8 bg-white/3 p-4">
+                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-3">Usage Breakdown</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { label: "BI",         value: selectedCrmUser.stats.biGenerations },
+                                  { label: "Website",    value: selectedCrmUser.stats.websiteGenerations },
+                                  { label: "Chatbot",    value: selectedCrmUser.stats.chatbotGenerations },
+                                  { label: "Automation", value: selectedCrmUser.stats.automationGenerations },
+                                  { label: "Marcus",     value: selectedCrmUser.stats.marcusMessages },
+                                  { label: "Projects",   value: selectedCrmUser.stats.projectCount },
+                                  { label: "Sessions",   value: selectedCrmUser.stats.sessionCount },
+                                  { label: "Tickets",    value: selectedCrmUser.stats.supportTickets },
+                                  { label: "Total Gen",  value: selectedCrmUser.stats.totalGenerations },
+                                ].map(({ label, value }) => (
+                                  <div key={label} className="rounded-lg bg-white/4 p-2 text-center">
+                                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">{label}</p>
+                                    <p className="text-sm font-black text-foreground tabular-nums">{value}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* AI Insights */}
+                            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+                              <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-3">AI Insights</p>
+                              <div className="space-y-2">
+                                {selectedCrmUser.insights.map((insight, i) => (
+                                  <div key={i} className="flex items-start gap-2">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0 mt-1.5" />
+                                    <p className="text-xs text-foreground/80">{insight}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Activity Timeline */}
+                            {selectedCrmUser.timeline.length > 0 && (
+                              <div className="rounded-xl border border-white/8 bg-white/3 p-4">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-3">Recent Activity</p>
+                                <div className="relative pl-4 space-y-3 max-h-48 overflow-y-auto">
+                                  <div className="absolute left-1.5 top-0 bottom-0 w-px bg-white/10" />
+                                  {selectedCrmUser.timeline.slice(0, 15).map((ev, i) => (
+                                    <div key={i} className="flex items-start gap-2">
+                                      <div className="h-2 w-2 rounded-full bg-indigo-500/60 border border-indigo-500/40 shrink-0 mt-0.5" style={{ marginLeft: "-3px" }} />
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-[10px] font-mono text-muted-foreground/70 truncate block">{ev.type}</span>
+                                        <span className="text-[9px] text-muted-foreground/40">{new Date(ev.createdAt).toLocaleString()}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Edit: Lifecycle */}
+                            <div className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-3">
+                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Edit Lifecycle Stage</p>
+                              <div className="flex flex-wrap gap-2">
+                                {(Object.keys(CRM_LIFECYCLE_META) as CrmLifecycle[]).map(k => (
+                                  <button key={k}
+                                    onClick={() => setCrmEditLifecycle(k)}
+                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                                      crmEditLifecycle === k
+                                        ? `${CRM_LIFECYCLE_META[k].bg} ${CRM_LIFECYCLE_META[k].border}`
+                                        : "bg-white/4 border-white/10 text-muted-foreground hover:text-foreground"
+                                    }`}
+                                    style={crmEditLifecycle === k ? { color: CRM_LIFECYCLE_META[k].color } : {}}>
+                                    {CRM_LIFECYCLE_META[k].label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Edit: Tags */}
+                            <div className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-3">
+                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Tags</p>
+                              <div className="flex flex-wrap gap-1.5 mb-2">
+                                {crmEditTags.map(tag => (
+                                  <span key={tag}
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                    {tag}
+                                    <button onClick={() => setCrmEditTags(t => t.filter(x => x !== tag))}
+                                      className="hover:text-red-400 transition-colors"><X className="h-2.5 w-2.5" /></button>
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="flex gap-2">
+                                <input value={crmTagInput} onChange={e => setCrmTagInput(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter" && crmTagInput.trim()) {
+                                      const tag = crmTagInput.trim().toLowerCase().replace(/\s+/g, "-")
+                                      if (!crmEditTags.includes(tag)) setCrmEditTags(t => [...t, tag])
+                                      setCrmTagInput("")
+                                    }
+                                  }}
+                                  placeholder="Add tag (Enter)"
+                                  className="flex-1 h-7 px-2.5 rounded-lg border border-white/10 bg-white/5 text-xs text-foreground placeholder:text-muted-foreground/40 outline-none" />
+                                <button onClick={() => {
+                                  const suggested = ["early-adopter", "high-usage", "high-potential", "inactive", "vip", "churning"]
+                                  const unused = suggested.filter(t => !crmEditTags.includes(t))
+                                  if (unused[0]) setCrmEditTags(t => [...t, unused[0]])
+                                }} className="px-2 rounded-lg border border-white/10 bg-white/4 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                                  Suggest
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Edit: Notes */}
+                            <div className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-2">
+                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Admin Notes</p>
+                              <textarea value={crmEditNotes} onChange={e => setCrmEditNotes(e.target.value)}
+                                rows={4} placeholder="Internal notes about this user…"
+                                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-xs text-foreground placeholder:text-muted-foreground/40 outline-none resize-none" />
+                            </div>
+
+                            {/* Save */}
+                            <button onClick={saveCrmProfile} disabled={crmSaving}
+                              className="w-full py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 text-xs font-black hover:bg-indigo-500/20 transition-all disabled:opacity-50">
+                              {crmSaving ? "Saving…" : "Save Changes"}
+                            </button>
+                          </div>
+                        ) : null}
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )
           })()}

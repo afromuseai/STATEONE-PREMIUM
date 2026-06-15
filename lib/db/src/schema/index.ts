@@ -43,3 +43,4 @@ export * from "./billing-subscriptions";
 export * from "./billing-events";
 export * from "./support-tickets";
 export * from "./impersonation-logs";
+export * from "./crm-profiles";

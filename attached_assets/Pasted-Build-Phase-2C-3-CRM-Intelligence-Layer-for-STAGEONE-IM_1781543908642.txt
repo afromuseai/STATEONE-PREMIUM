@@ -1,0 +1,285 @@
+Build Phase 2C.3 — CRM Intelligence Layer for STAGEONE.
+
+IMPORTANT RULES:
+
+DO NOT modify authentication
+DO NOT modify impersonation
+DO NOT modify billing logic
+DO NOT modify support desk
+DO NOT modify sessions system
+DO NOT modify audit logs
+
+This phase ONLY extends admin intelligence capabilities.
+
+🎯 GOAL
+
+Create a CRM system inside STAGEONE Admin that tracks:
+
+user lifecycle
+engagement
+value
+churn risk
+growth potential
+
+This is NOT a contacts database.
+
+This is a behavioral intelligence system.
+
+1. DATABASE
+
+Create:
+
+crm_profiles
+
+Fields:
+
+id
+userId
+
+Lifecycle:
+
+new
+activated
+engaged
+power_user
+at_risk
+churned
+
+Scores:
+
+engagementScore
+activityScore
+valueScore
+churnRiskScore
+
+Dates:
+
+firstSeenAt
+lastSeenAt
+lastGenerationAt
+
+Tags:
+
+tags (json)
+
+Examples:
+
+["early-adopter"]
+["high-usage"]
+["high-potential"]
+["inactive"]
+
+Admin Notes:
+
+notes
+
+Timestamps:
+
+createdAt
+updatedAt
+
+Indexes:
+
+userId
+lifecycleStage
+churnRiskScore
+2. CRM SCORE ENGINE
+
+Create deterministic scoring.
+
+Engagement Score
+
+Based on:
+
+logins
+sessions
+support activity
+generation activity
+
+Range:
+
+0–100
+
+Value Score
+
+Weighted:
+
+BI × 3
+Website × 3
+Chatbot × 2
+Automation × 2
+Marcus × 1
+
+Range:
+
+0–100
+
+Churn Risk
+
+Increase score when:
+
+no login 7+ days
+no generation activity
+usage drops
+
+Range:
+
+0–100
+
+Higher = more likely to churn.
+
+3. BACKEND API
+
+Create:
+
+GET /api/admin/crm/overview
+
+Returns:
+
+total users
+power users
+engaged users
+at risk users
+churned users
+GET /api/admin/crm/users
+
+Returns CRM-enriched users.
+
+Filters:
+
+lifecycle stage
+plan
+churn risk
+engagement score
+GET /api/admin/crm/users/:id
+
+Returns:
+
+Full CRM profile.
+
+Includes:
+
+user
+scores
+tags
+notes
+timeline
+PATCH /api/admin/crm/users/:id
+
+Allows:
+
+lifecycle updates
+tags
+notes
+POST /api/admin/crm/recalculate
+
+Rebuilds all CRM scores.
+
+Admin-only.
+
+4. ADMIN PANEL
+
+Add tab:
+
+CRM Intelligence
+A. Overview Cards
+
+Show:
+
+Total Users
+Engaged Users
+Power Users
+At Risk Users
+Churned Users
+B. User Segments
+
+Clickable:
+
+New
+Activated
+Engaged
+Power User
+At Risk
+Churned
+
+Show counts.
+
+C. CRM Table
+
+Columns:
+
+User
+Plan
+Lifecycle
+Engagement
+Value
+Churn Risk
+Last Active
+D. User Drawer
+
+When opened:
+
+Show:
+
+Scores
+Engagement
+Value
+Churn Risk
+Activity Timeline
+
+Pull from:
+
+sessions
+support
+usage
+billing
+Tags
+
+Editable.
+
+Notes
+
+Editable.
+
+E. AI INSIGHTS PANEL
+
+Generate deterministic insights.
+
+Examples:
+
+User inactive 9 days
+High BI usage but no Website usage
+Strong upgrade candidate
+Churn risk increasing
+
+No LLM required.
+
+Rule-based.
+
+5. INTEGRATION SOURCES
+
+Read-only integration with:
+
+sessions
+billing intelligence
+support desk
+usage tracking
+audit logs
+
+Do NOT duplicate data.
+
+6. UX
+
+Must support:
+
+search
+filtering
+sorting
+
+Maintain STAGEONE admin styling.
+
+Dark theme.
+
+Fast loading.
+
+Drawer-based details.

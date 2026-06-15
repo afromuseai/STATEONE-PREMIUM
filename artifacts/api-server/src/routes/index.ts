@@ -40,6 +40,7 @@ import adminBillingRouter from "./admin-billing";
 import sessionMonitorRouter from "./session-monitor";
 import supportRouter from "./support";
 import adminImpersonationRouter from "./admin-impersonation";
+import adminCrmRouter from "./admin-crm";
 
 const router: IRouter = Router();
 
@@ -84,5 +85,6 @@ router.use(adminBillingRouter);
 router.use(sessionMonitorRouter);
 router.use(supportRouter);
 router.use(adminImpersonationRouter);
+router.use(adminCrmRouter);
 
 export default router;
