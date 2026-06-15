@@ -1,7 +1,8 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { db, userImpersonationLogsTable, usersTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, count, isNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { requireAdmin } from "../middleware/auth";
 import { logAdminAuditFireForget } from "../lib/admin-audit";
 import crypto from "crypto";
@@ -50,13 +51,11 @@ router.post("/admin/impersonate/start", requireAdmin, async (req, res): Promise<
   const adminId = req.user!.userId;
   const adminEmail = req.user!.email;
 
-  // Don't allow admins to impersonate themselves
   if (adminId === targetUserId) {
     res.status(400).json({ error: "Cannot impersonate yourself" });
     return;
   }
 
-  // Load target user
   const [target] = await db
     .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, isAdmin: usersTable.isAdmin })
     .from(usersTable)
@@ -67,7 +66,6 @@ router.post("/admin/impersonate/start", requireAdmin, async (req, res): Promise<
     return;
   }
 
-  // Issue short-lived impersonation token
   const impersonationToken = signImpersonationToken({
     adminId,
     adminEmail,
@@ -77,7 +75,6 @@ router.post("/admin/impersonate/start", requireAdmin, async (req, res): Promise<
     isImpersonation: true,
   });
 
-  // Log to DB
   const ip = req.headers["x-forwarded-for"]?.toString() ?? req.socket.remoteAddress ?? "";
   await db.insert(userImpersonationLogsTable).values({
     adminId,
@@ -87,7 +84,6 @@ router.post("/admin/impersonate/start", requireAdmin, async (req, res): Promise<
     ipHash: hashIp(ip),
   });
 
-  // Audit log
   logAdminAuditFireForget({
     adminId,
     adminEmail,
@@ -115,7 +111,6 @@ router.post("/admin/impersonate/stop", requireAdmin, async (req, res): Promise<v
   const adminEmail = req.user!.email;
 
   if (targetUserId) {
-    // Mark the most recent open session as ended
     const [log] = await db
       .select()
       .from(userImpersonationLogsTable)
@@ -166,8 +161,91 @@ router.get("/admin/impersonate/session", requireAdmin, async (req, res): Promise
   });
 });
 
-// ── GET /api/admin/impersonate/logs ───────────────────────────────────────────
+// ── GET /api/admin/impersonation/logs  (paginated, filtered, joined) ──────────
+router.get("/admin/impersonation/logs", requireAdmin, async (req, res): Promise<void> => {
+  const adminUsers  = alias(usersTable, "admin_users");
+  const targetUsers = alias(usersTable, "target_users");
+
+  const {
+    adminId: adminIdFilter,
+    targetUserId: targetUserIdFilter,
+    action: actionFilter,
+    dateFrom,
+    dateTo,
+    page = "1",
+  } = req.query as Record<string, string | undefined>;
+
+  const PAGE_SIZE = 50;
+  const pageNum   = Math.max(1, parseInt(page ?? "1", 10));
+  const offset    = (pageNum - 1) * PAGE_SIZE;
+
+  const conditions = [];
+  if (adminIdFilter)      conditions.push(eq(userImpersonationLogsTable.adminId, adminIdFilter));
+  if (targetUserIdFilter) conditions.push(eq(userImpersonationLogsTable.targetUserId, targetUserIdFilter));
+  if (actionFilter && actionFilter !== "all") conditions.push(eq(userImpersonationLogsTable.action, actionFilter));
+  if (dateFrom)           conditions.push(gte(userImpersonationLogsTable.startedAt, new Date(dateFrom)));
+  if (dateTo)             conditions.push(lte(userImpersonationLogsTable.startedAt, new Date(dateTo)));
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const [logs, [{ total }], stats] = await Promise.all([
+    db
+      .select({
+        id:            userImpersonationLogsTable.id,
+        adminId:       userImpersonationLogsTable.adminId,
+        adminEmail:    adminUsers.email,
+        adminName:     adminUsers.name,
+        targetUserId:  userImpersonationLogsTable.targetUserId,
+        targetEmail:   targetUsers.email,
+        targetName:    targetUsers.name,
+        action:        userImpersonationLogsTable.action,
+        reason:        userImpersonationLogsTable.reason,
+        ipHash:        userImpersonationLogsTable.ipHash,
+        startedAt:     userImpersonationLogsTable.startedAt,
+        endedAt:       userImpersonationLogsTable.endedAt,
+      })
+      .from(userImpersonationLogsTable)
+      .leftJoin(adminUsers,  eq(userImpersonationLogsTable.adminId,       adminUsers.id))
+      .leftJoin(targetUsers, eq(userImpersonationLogsTable.targetUserId,  targetUsers.id))
+      .where(where)
+      .orderBy(desc(userImpersonationLogsTable.startedAt))
+      .limit(PAGE_SIZE)
+      .offset(offset),
+
+    db
+      .select({ total: count() })
+      .from(userImpersonationLogsTable)
+      .where(where),
+
+    // Overview stats (unfiltered)
+    db
+      .select({
+        totalSessions:    sql<number>`cast(count(*) as int)`,
+        activeSessions:   sql<number>`cast(count(*) filter (where ${userImpersonationLogsTable.endedAt} is null and ${userImpersonationLogsTable.action} = 'start') as int)`,
+        uniqueAdmins:     sql<number>`cast(count(distinct ${userImpersonationLogsTable.adminId}) as int)`,
+        uniqueTargets:    sql<number>`cast(count(distinct ${userImpersonationLogsTable.targetUserId}) as int)`,
+        avgDurationMs:    sql<number>`cast(avg(extract(epoch from (${userImpersonationLogsTable.endedAt} - ${userImpersonationLogsTable.startedAt})) * 1000) filter (where ${userImpersonationLogsTable.endedAt} is not null) as bigint)`,
+      })
+      .from(userImpersonationLogsTable),
+  ]);
+
+  const enriched = logs.map(l => ({
+    ...l,
+    durationMs: l.endedAt ? (new Date(l.endedAt).getTime() - new Date(l.startedAt).getTime()) : null,
+    isActive:   !l.endedAt && l.action === "start",
+    ipHashMasked: l.ipHash ? l.ipHash.slice(0, 8) + "…" : null,
+  }));
+
+  res.json({
+    logs: enriched,
+    pagination: { page: pageNum, pageSize: PAGE_SIZE, total: Number(total), pages: Math.ceil(Number(total) / PAGE_SIZE) },
+    stats: stats[0] ?? null,
+  });
+});
+
+// ── GET /api/admin/impersonate/logs (legacy — keep for backward compat) ────────
 router.get("/admin/impersonate/logs", requireAdmin, async (req, res): Promise<void> => {
+  const adminUsers  = alias(usersTable, "admin_users");
   const logs = await db
     .select({
       id: userImpersonationLogsTable.id,
@@ -177,10 +255,10 @@ router.get("/admin/impersonate/logs", requireAdmin, async (req, res): Promise<vo
       reason: userImpersonationLogsTable.reason,
       startedAt: userImpersonationLogsTable.startedAt,
       endedAt: userImpersonationLogsTable.endedAt,
-      adminEmail: usersTable.email,
+      adminEmail: adminUsers.email,
     })
     .from(userImpersonationLogsTable)
-    .leftJoin(usersTable, eq(userImpersonationLogsTable.adminId, usersTable.id))
+    .leftJoin(adminUsers, eq(userImpersonationLogsTable.adminId, adminUsers.id))
     .orderBy(desc(userImpersonationLogsTable.startedAt))
     .limit(100);
 

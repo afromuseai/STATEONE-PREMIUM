@@ -1,0 +1,122 @@
+Build Impersonation Logs Tab for STAGEONE Admin Panel.
+
+IMPORTANT RULES:
+
+DO NOT modify impersonation system logic
+DO NOT change auth middleware
+DO NOT change API token handling
+ONLY extend admin UI + add read-only API view
+DO NOT affect billing, support, sessions, CRM, or audit systems
+🎯 GOAL
+
+Add a full admin visibility layer for impersonation history so admins can:
+
+see who impersonated which user
+track when impersonation started/ended
+view reason for impersonation
+audit session duration
+monitor misuse or debugging activity
+1. BACKEND API EXTENSION
+GET /api/admin/impersonation/logs
+
+Return:
+
+adminId
+admin email
+targetUserId
+target user email
+action (start / stop)
+reason
+startedAt
+endedAt
+durationMs
+ipHash
+
+Sorting:
+
+newest first
+
+Filters:
+
+adminId
+targetUserId
+date range
+
+Pagination:
+
+50 per page
+2. FRONTEND ADMIN PANEL TAB
+
+Add new tab:
+
+“Impersonation Logs”
+3. UI DESIGN
+A. Overview Cards
+Total impersonations
+Active impersonations
+Unique admins using impersonation
+Unique users impersonated
+Avg impersonation duration
+B. LOG TABLE
+
+Columns:
+
+Admin
+Target User
+Action (start/stop badge)
+Reason
+Duration
+Timestamp
+IP Hash (masked)
+C. DETAIL DRAWER
+
+Click row → expand:
+
+Show:
+
+Full admin identity
+Full target user identity
+Impersonation session timeline
+Start → stop duration graph (simple timeline view)
+Reason text
+IP hash
+D. FILTER SYSTEM
+
+Add filters:
+
+Admin
+Target user
+Action type
+Date range
+E. VISUAL RULES
+Start = green badge
+Stop = red badge
+Active = amber highlight
+Sensitive data always masked (IP hash truncated)
+4. INTEGRATION RULE
+
+Must reuse existing table:
+
+user_impersonation_logs
+
+DO NOT create new schema unless missing fields exist.
+
+5. PERFORMANCE RULE
+Paginated API (never load full logs)
+Lazy load detail drawer
+No impact on impersonation runtime system
+6. IMPORTANT CONSTRAINTS
+
+Do NOT:
+
+modify impersonation token logic
+modify request header injection
+modify user identity switching
+modify auth middleware
+modify audit system
+
+ONLY:
+
+READ logs
+DISPLAY logs
+FILTER logs

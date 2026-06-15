@@ -20,7 +20,7 @@ import stageoneIcon from "@/assets/stageone-icon.png"
 import { useImpersonation } from "@/lib/impersonation-context"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support"
+type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs"
 
 interface AdminUser {
   id: string
@@ -339,6 +339,31 @@ interface AuditLog {
   createdAt: string
   userEmail: string | null
   userName: string | null
+}
+
+interface ImpersonationLog {
+  id: string
+  adminId: string
+  adminEmail: string | null
+  adminName: string | null
+  targetUserId: string
+  targetEmail: string | null
+  targetName: string | null
+  action: string
+  reason: string | null
+  ipHash: string | null
+  ipHashMasked: string | null
+  startedAt: string
+  endedAt: string | null
+  durationMs: number | null
+  isActive: boolean
+}
+interface ImpersonationStats {
+  totalSessions: number
+  activeSessions: number
+  uniqueAdmins: number
+  uniqueTargets: number
+  avgDurationMs: number | null
 }
 
 interface MessageCenterSend {
@@ -802,6 +827,33 @@ export default function AdminPage() {
     } catch (_) {}
   }, [supportStatusFilter, supportPriorityFilter, supportCategoryFilter])
 
+  const [impLogs, setImpLogs] = useState<ImpersonationLog[]>([])
+  const [impLogsLoading, setImpLogsLoading] = useState(false)
+  const [impLogsPage, setImpLogsPage] = useState(1)
+  const [impLogsTotalPages, setImpLogsTotalPages] = useState(1)
+  const [impLogsStats, setImpLogsStats] = useState<ImpersonationStats | null>(null)
+  const [expandedImpLog, setExpandedImpLog] = useState<string | null>(null)
+  const [impAdminFilter, setImpAdminFilter] = useState("")
+  const [impTargetFilter, setImpTargetFilter] = useState("")
+  const [impActionFilter, setImpActionFilter] = useState("all")
+  const [impDateFrom, setImpDateFrom] = useState("")
+  const [impDateTo, setImpDateTo] = useState("")
+
+  const loadImpersonationLogs = useCallback(async (pg = impLogsPage) => {
+    setImpLogsLoading(true)
+    try {
+      const params = new URLSearchParams({ page: String(pg) })
+      if (impActionFilter !== "all") params.set("action", impActionFilter)
+      if (impDateFrom) params.set("dateFrom", impDateFrom)
+      if (impDateTo) params.set("dateTo", impDateTo)
+      const data = await fetch(`/api/admin/impersonation/logs?${params}`, { credentials: "include" }).then(r => r.json())
+      setImpLogs(data.logs ?? [])
+      setImpLogsTotalPages(data.pagination?.pages ?? 1)
+      setImpLogsStats(data.stats ?? null)
+    } catch (_) {}
+    setImpLogsLoading(false)
+  }, [impLogsPage, impActionFilter, impDateFrom, impDateTo])
+
   const loadTicketDetail = async (ticketId: string) => {
     setLoadingTicket(true)
     try {
@@ -872,7 +924,8 @@ export default function AdminPage() {
     else if (activeTab === "geo") loadGeoIntelligence()
     else if (activeTab === "messages") loadMessages()
     else if (activeTab === "support") loadSupport()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages, loadSupport])
+    else if (activeTab === "impersonation-logs") loadImpersonationLogs(1)
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages, loadSupport, loadImpersonationLogs])
 
   // Session Monitor: auto-refresh every 30s while tab is active
   useEffect(() => {
@@ -1070,6 +1123,7 @@ export default function AdminPage() {
     { id: "audit-logs",    label: "Admin Audit",    icon: ClipboardList },
     { id: "geo",           label: "Geo Intel",      icon: Globe },
     { id: "support",       label: "Support",        icon: FileText },
+    { id: "impersonation-logs", label: "Impersonation", icon: Eye },
   ]
 
   if (!user?.isAdmin) return null
@@ -4007,6 +4061,279 @@ export default function AdminPage() {
                       </>
                     )}
                   </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {activeTab === "impersonation-logs" && (() => {
+            const fmtDuration = (ms: number | null) => {
+              if (ms === null) return "—"
+              const s = Math.floor(ms / 1000)
+              if (s < 60) return `${s}s`
+              const m = Math.floor(s / 60)
+              if (m < 60) return `${m}m ${s % 60}s`
+              return `${Math.floor(m / 60)}h ${m % 60}m`
+            }
+            const fmtAvgDuration = (ms: number | null) => {
+              if (!ms) return "—"
+              return fmtDuration(ms)
+            }
+            const filtered = impLogs.filter(l => {
+              const qa = impAdminFilter.toLowerCase()
+              const qt = impTargetFilter.toLowerCase()
+              return (
+                (!qa || (l.adminEmail ?? "").toLowerCase().includes(qa) || (l.adminName ?? "").toLowerCase().includes(qa)) &&
+                (!qt || (l.targetEmail ?? "").toLowerCase().includes(qt) || (l.targetName ?? "").toLowerCase().includes(qt))
+              )
+            })
+
+            const STAT_CARDS = [
+              { label: "Total Sessions",    value: impLogsStats?.totalSessions  ?? 0, color: "#6366F1", icon: ClipboardList },
+              { label: "Active Now",        value: impLogsStats?.activeSessions ?? 0, color: "#F59E0B", icon: Eye },
+              { label: "Unique Admins",     value: impLogsStats?.uniqueAdmins   ?? 0, color: "#10B981", icon: Shield },
+              { label: "Users Impersonated",value: impLogsStats?.uniqueTargets  ?? 0, color: "#8B5CF6", icon: Users },
+              { label: "Avg Duration",      value: fmtAvgDuration(impLogsStats?.avgDurationMs ?? null), color: "#6B7280", icon: Clock, isString: true },
+            ] as const
+
+            return (
+              <div className="space-y-5">
+                {/* Overview cards */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {STAT_CARDS.map(({ label, value, color, icon: Icon }) => (
+                    <div key={label} className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="p-1.5 rounded-lg" style={{ background: `${color}15` }}>
+                          <Icon className="h-3.5 w-3.5" style={{ color }} />
+                        </div>
+                      </div>
+                      <p className="text-2xl font-black text-foreground">{value}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Filters */}
+                <div className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
+                      <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Admin</label>
+                      <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5">
+                        <Search className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <input type="text" value={impAdminFilter} onChange={e => setImpAdminFilter(e.target.value)}
+                          placeholder="Filter by admin…" className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/50 outline-none flex-1 min-w-0" />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
+                      <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Target User</label>
+                      <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5">
+                        <Search className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <input type="text" value={impTargetFilter} onChange={e => setImpTargetFilter(e.target.value)}
+                          placeholder="Filter by user…" className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/50 outline-none flex-1 min-w-0" />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Action</label>
+                      <select value={impActionFilter} onChange={e => setImpActionFilter(e.target.value)}
+                        className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-foreground outline-none">
+                        <option value="all">All</option>
+                        <option value="start">Start</option>
+                        <option value="stop">Stop</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">From</label>
+                      <input type="date" value={impDateFrom} onChange={e => setImpDateFrom(e.target.value)}
+                        className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-foreground outline-none" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">To</label>
+                      <input type="date" value={impDateTo} onChange={e => setImpDateTo(e.target.value)}
+                        className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-foreground outline-none" />
+                    </div>
+                    <button onClick={() => { setImpLogsPage(1); loadImpersonationLogs(1) }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-all shrink-0">
+                      <RefreshCw className={`h-3 w-3 ${impLogsLoading ? "animate-spin" : ""}`} /> Apply
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="rounded-2xl border border-white/8 bg-white/2 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-white/8">
+                          {["Admin", "Target User", "Action", "Reason", "Duration", "Time", "IP Hash"].map(h => (
+                            <th key={h} className="px-4 py-3 text-left text-[9px] font-black text-muted-foreground uppercase tracking-widest whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {impLogsLoading && (
+                          <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                            <RefreshCw className="h-4 w-4 animate-spin mx-auto" />
+                          </td></tr>
+                        )}
+                        {!impLogsLoading && filtered.length === 0 && (
+                          <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground text-xs">No impersonation sessions found</td></tr>
+                        )}
+                        {!impLogsLoading && filtered.map(log => {
+                          const isExpanded = expandedImpLog === log.id
+                          return (
+                            <React.Fragment key={log.id}>
+                              <tr
+                                onClick={() => setExpandedImpLog(isExpanded ? null : log.id)}
+                                className={`border-b border-white/5 cursor-pointer transition-colors ${
+                                  log.isActive ? "bg-amber-500/5 hover:bg-amber-500/8" : "hover:bg-white/3"
+                                } ${isExpanded ? "bg-white/5" : ""}`}>
+                                <td className="px-4 py-3 font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-6 w-6 rounded-full bg-red-500/15 border border-red-500/20 flex items-center justify-center shrink-0">
+                                      <Shield className="h-3 w-3 text-red-400" />
+                                    </div>
+                                    <div>
+                                      <p className="text-foreground truncate max-w-[140px]">{log.adminEmail ?? log.adminId.slice(0, 8)}</p>
+                                      {log.adminName && <p className="text-muted-foreground text-[10px] truncate max-w-[140px]">{log.adminName}</p>}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-6 w-6 rounded-full bg-white/8 flex items-center justify-center shrink-0">
+                                      <Users className="h-3 w-3 text-muted-foreground" />
+                                    </div>
+                                    <div>
+                                      <p className="text-foreground truncate max-w-[140px]">{log.targetEmail ?? log.targetUserId.slice(0, 8)}</p>
+                                      {log.targetName && <p className="text-muted-foreground text-[10px] truncate max-w-[140px]">{log.targetName}</p>}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {log.isActive ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />Active
+                                    </span>
+                                  ) : log.action === "start" ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">Start</span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-400 border border-red-500/20">Stop</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-muted-foreground">
+                                  <span className="truncate max-w-[180px] block">{log.reason ?? <span className="italic opacity-50">no reason</span>}</span>
+                                </td>
+                                <td className="px-4 py-3 text-muted-foreground font-mono">{fmtDuration(log.durationMs)}</td>
+                                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{timeAgo(log.startedAt)}</td>
+                                <td className="px-4 py-3 font-mono text-muted-foreground/60 text-[10px]">{log.ipHashMasked ?? "—"}</td>
+                              </tr>
+
+                              {/* Detail drawer */}
+                              <AnimatePresence>
+                                {isExpanded && (
+                                  <tr>
+                                    <td colSpan={7} className="px-0 py-0">
+                                      <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="overflow-hidden border-b border-amber-500/15 bg-amber-500/3">
+                                        <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+                                          {/* Left: Identities */}
+                                          <div className="space-y-3">
+                                            <p className="text-[9px] font-black text-amber-400/70 uppercase tracking-widest mb-3">Session Identities</p>
+                                            <div className="rounded-xl border border-white/8 bg-white/3 p-3 space-y-1.5">
+                                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Admin</p>
+                                              <p className="text-sm font-bold text-foreground">{log.adminEmail ?? "—"}</p>
+                                              {log.adminName && <p className="text-xs text-muted-foreground">{log.adminName}</p>}
+                                              <p className="text-[9px] font-mono text-muted-foreground/50">{log.adminId}</p>
+                                            </div>
+                                            <div className="rounded-xl border border-white/8 bg-white/3 p-3 space-y-1.5">
+                                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Target User</p>
+                                              <p className="text-sm font-bold text-foreground">{log.targetEmail ?? "—"}</p>
+                                              {log.targetName && <p className="text-xs text-muted-foreground">{log.targetName}</p>}
+                                              <p className="text-[9px] font-mono text-muted-foreground/50">{log.targetUserId}</p>
+                                            </div>
+                                          </div>
+
+                                          {/* Right: Timeline + metadata */}
+                                          <div className="space-y-3">
+                                            <p className="text-[9px] font-black text-amber-400/70 uppercase tracking-widest mb-3">Session Timeline</p>
+                                            <div className="relative pl-4">
+                                              <div className="absolute left-1.5 top-2 bottom-2 w-px bg-white/10" />
+                                              <div className="space-y-4">
+                                                <div className="flex items-start gap-3">
+                                                  <div className="h-3 w-3 rounded-full bg-emerald-500 border-2 border-background shrink-0 mt-0.5" style={{ marginLeft: "-5px" }} />
+                                                  <div>
+                                                    <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Started</p>
+                                                    <p className="text-xs text-foreground">{new Date(log.startedAt).toLocaleString()}</p>
+                                                  </div>
+                                                </div>
+                                                {log.endedAt ? (
+                                                  <div className="flex items-start gap-3">
+                                                    <div className="h-3 w-3 rounded-full bg-red-500 border-2 border-background shrink-0 mt-0.5" style={{ marginLeft: "-5px" }} />
+                                                    <div>
+                                                      <p className="text-[9px] font-black text-red-400 uppercase tracking-widest">Ended</p>
+                                                      <p className="text-xs text-foreground">{new Date(log.endedAt).toLocaleString()}</p>
+                                                      <p className="text-[10px] text-muted-foreground mt-0.5">Duration: <span className="font-mono text-amber-400">{fmtDuration(log.durationMs)}</span></p>
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  <div className="flex items-start gap-3">
+                                                    <div className="h-3 w-3 rounded-full bg-amber-500 border-2 border-background shrink-0 mt-0.5 animate-pulse" style={{ marginLeft: "-5px" }} />
+                                                    <div>
+                                                      <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Active</p>
+                                                      <p className="text-xs text-muted-foreground">Session still in progress</p>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                              <div className="rounded-xl border border-white/8 bg-white/3 p-3">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">Reason</p>
+                                                <p className="text-xs text-foreground">{log.reason ?? <span className="italic text-muted-foreground/50">not provided</span>}</p>
+                                              </div>
+                                              <div className="rounded-xl border border-white/8 bg-white/3 p-3">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">IP Hash</p>
+                                                <p className="text-[10px] font-mono text-muted-foreground/70">{log.ipHash ? log.ipHash.slice(0, 16) + "…" : "—"}</p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </motion.div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </AnimatePresence>
+                            </React.Fragment>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  {impLogsTotalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-white/8">
+                      <p className="text-[10px] text-muted-foreground">Page {impLogsPage} of {impLogsTotalPages}</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { const p = Math.max(1, impLogsPage - 1); setImpLogsPage(p); loadImpersonationLogs(p) }}
+                          disabled={impLogsPage <= 1}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 border border-white/10 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all">
+                          ←
+                        </button>
+                        <button
+                          onClick={() => { const p = Math.min(impLogsTotalPages, impLogsPage + 1); setImpLogsPage(p); loadImpersonationLogs(p) }}
+                          disabled={impLogsPage >= impLogsTotalPages}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 border border-white/10 text-muted-foreground hover:text-foreground disabled:opacity-30 transition-all">
+                          →
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )
