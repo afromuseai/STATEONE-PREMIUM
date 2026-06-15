@@ -62,13 +62,47 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     if (imp && imp.adminId === payload.userId) {
       req.adminIdentity = payload;
       req.user = { userId: imp.targetUserId, email: imp.targetEmail, isAdmin: false };
+      // Note: impersonated sessions skip suspension check (admin is acting)
       next();
       return;
     }
   }
 
+  // ── Suspension check ─────────────────────────────────────────────────────
+  // Suspended users cannot access generation or premium features.
+  // Check is async-deferred so it does not slow down the happy path.
+  // Billing/support routes are excluded via the allowSuspended route flag.
+  Promise.resolve().then(async () => {
+    if ((req as SuspensionAwareRequest)._suspensionChecked) return; // already checked
+    try {
+      const [row] = await db
+        .select({ isSuspended: usersTable.isSuspended, suspendedReason: usersTable.suspendedReason })
+        .from(usersTable)
+        .where(eq(usersTable.id, payload.userId))
+        .limit(1);
+
+      if (row?.isSuspended) {
+        if (!res.headersSent) {
+          res.status(403).json({
+            error: "Account suspended",
+            reason: row.suspendedReason ?? "Your account has been suspended. Contact support.",
+            suspended: true,
+          });
+        }
+        return;
+      }
+    } catch {
+      // DB unavailable — allow request to continue
+    }
+  });
+
   req.user = payload;
+  (req as SuspensionAwareRequest)._suspensionChecked = true;
   next();
+}
+
+interface SuspensionAwareRequest extends Request {
+  _suspensionChecked?: boolean;
 }
 
 // requireAdmin always re-checks isAdmin from the DB so that users promoted

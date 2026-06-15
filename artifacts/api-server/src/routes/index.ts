@@ -45,6 +45,9 @@ import adminAcquisitionRouter from "./admin-acquisition";
 import adminFeatureFlagsRouter from "./admin-feature-flags";
 import adminHealthRouter from "./admin-health";
 import adminAiModelsRouter from "./admin-ai-models";
+import adminSecurityRouter from "./admin-security";
+import adminIncidentsRouter from "./admin-incidents";
+import adminBackupsRouter from "./admin-backups";
 
 const router: IRouter = Router();
 
@@ -94,5 +97,8 @@ router.use(adminAcquisitionRouter);
 router.use(adminFeatureFlagsRouter);
 router.use(adminHealthRouter);
 router.use(adminAiModelsRouter);
+router.use(adminSecurityRouter);
+router.use(adminIncidentsRouter);
+router.use(adminBackupsRouter);
 
 export default router;

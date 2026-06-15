@@ -14,6 +14,11 @@ export const usersTable = pgTable("users", {
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  // ── Suspension ──────────────────────────────────────────────────────────────
+  isSuspended:      boolean("is_suspended").notNull().default(false),
+  suspendedReason:  text("suspended_reason"),
+  suspendedAt:      timestamp("suspended_at", { withTimezone: true }),
+  suspendedBy:      uuid("suspended_by"),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({

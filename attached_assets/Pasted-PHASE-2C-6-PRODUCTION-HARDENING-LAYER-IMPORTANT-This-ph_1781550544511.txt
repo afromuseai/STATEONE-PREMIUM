@@ -1,0 +1,273 @@
+PHASE 2C.6 — PRODUCTION HARDENING LAYER
+
+IMPORTANT:
+
+This phase focuses on:
+
+* security
+* reliability
+* abuse prevention
+* recovery
+* operational resilience
+
+DO NOT:
+
+* redesign UI
+* change product logic
+* change generation pipelines
+* modify AI orchestration
+
+This is infrastructure hardening only.
+
+====================================
+
+GOAL
+
+Prepare STAGEONE for real users.
+
+Build the systems necessary to safely operate a production SaaS.
+
+====================================
+
+1. RATE LIMITING
+
+Implement centralized rate limiting.
+
+Track:
+
+* requests per minute
+* requests per hour
+* requests per day
+
+Per:
+
+* user
+* IP
+* endpoint
+
+Limits:
+
+Free:
+
+* strict
+
+Pro:
+
+* moderate
+
+Startup:
+
+* high
+
+Enterprise:
+
+* configurable
+
+Admin must see:
+
+* rate-limit violations
+* blocked users
+* top requesters
+
+====================================
+
+2. ABUSE DETECTION
+
+Create abuse monitoring.
+
+Detect:
+
+* excessive generations
+* spam requests
+* suspicious automation
+* rapid account creation
+* excessive login failures
+
+Generate alerts.
+
+Admin can:
+
+* review
+* dismiss
+* suspend user
+
+====================================
+
+3. ACCOUNT SUSPENSION SYSTEM
+
+Add:
+
+users.isSuspended
+
+Store:
+
+* reason
+* suspendedAt
+* suspendedBy
+
+Suspended users:
+
+* cannot generate
+* cannot access premium features
+* can still access billing/support
+
+Admin actions:
+
+* suspend
+* reactivate
+
+Audit log every action.
+
+====================================
+
+4. BACKUP MANAGEMENT
+
+Create backup registry.
+
+Track:
+
+* backup type
+* createdAt
+* status
+* size
+
+Support:
+
+* database backup records
+* project export records
+* configuration snapshots
+
+Admin dashboard:
+
+* latest backup
+* backup history
+* restore readiness
+
+Do NOT implement real restoration.
+
+Tracking only.
+
+====================================
+
+5. INCIDENT MANAGEMENT
+
+Create incident system.
+
+Severity:
+
+* info
+* warning
+* critical
+
+Store:
+
+* title
+* description
+* affected systems
+* status
+* createdAt
+* resolvedAt
+
+Admin can:
+
+* create
+* update
+* resolve
+
+====================================
+
+6. SECURITY DASHBOARD
+
+Admin tab:
+
+Security
+
+Display:
+
+* failed logins
+* suspended accounts
+* abuse alerts
+* rate-limit violations
+* recent admin actions
+
+====================================
+
+7. SYSTEM RECOVERY READINESS
+
+Track:
+
+* backup coverage
+* restore readiness
+* DB availability
+* API availability
+* notification availability
+
+Show readiness score.
+
+====================================
+
+8. AUDIT EXPANSION
+
+Ensure all actions log:
+
+* actor
+* target
+* action
+* timestamp
+
+Include:
+
+* suspension
+* reactivation
+* incident changes
+* abuse actions
+* rate-limit overrides
+
+====================================
+
+9. ADMIN PANEL
+
+Add new tabs:
+
+Security
+Incidents
+Backups
+
+Security:
+
+* abuse alerts
+* failed logins
+* suspensions
+
+Incidents:
+
+* create/update incidents
+* status tracking
+
+Backups:
+
+* backup history
+* readiness metrics
+
+====================================
+
+10. REQUIREMENTS
+
+Everything:
+
+* admin only
+* scalable
+* provider agnostic
+* production safe
+
+IMPORTANT
+
+Do NOT implement real infrastructure destruction,
+real restores,
+or destructive admin actions.
+
+Tracking,
+monitoring,
+and control systems only.
+
+The goal is to make STAGEONE operationally ready for real users.
