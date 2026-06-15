@@ -23,9 +23,12 @@ import { GeoGlobe } from "@/components/dashboard/geo-globe"
 import { AdminFeatureFlags } from "@/components/dashboard/admin-feature-flags"
 import { AdminSystemHealth } from "@/components/dashboard/admin-system-health"
 import { AdminAiModels } from "@/components/dashboard/admin-ai-models"
+import { AdminSecurity } from "@/components/dashboard/admin-security"
+import { AdminIncidents } from "@/components/dashboard/admin-incidents"
+import { AdminBackups } from "@/components/dashboard/admin-backups"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition" | "feature-flags" | "system-health" | "ai-models"
+type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition" | "feature-flags" | "system-health" | "ai-models" | "security" | "incidents" | "backups"
 
 interface AdminUser {
   id: string
@@ -1380,6 +1383,9 @@ export default function AdminPage() {
     { id: "feature-flags",      label: "Feature Flags",  icon: Flag },
     { id: "system-health",      label: "System Health",  icon: Activity },
     { id: "ai-models",          label: "AI Models",      icon: Cpu },
+    { id: "security",           label: "Security",       icon: Shield },
+    { id: "incidents",          label: "Incidents",      icon: AlertTriangle },
+    { id: "backups",            label: "Backups",        icon: Database },
   ]
 
   if (!user?.isAdmin) return null
@@ -5444,6 +5450,21 @@ export default function AdminPage() {
           {/* ── AI Models Tab ───────────────────────────────────────────── */}
           {activeTab === "ai-models" && (
             <AdminAiModels />
+          )}
+
+          {/* ── Security Tab ────────────────────────────────────────────── */}
+          {activeTab === "security" && (
+            <AdminSecurity />
+          )}
+
+          {/* ── Incidents Tab ───────────────────────────────────────────── */}
+          {activeTab === "incidents" && (
+            <AdminIncidents />
+          )}
+
+          {/* ── Backups Tab ─────────────────────────────────────────────── */}
+          {activeTab === "backups" && (
+            <AdminBackups />
           )}
 
         </div>
