@@ -19,6 +19,21 @@ export function removeSseClient(res: Response) {
   if (idx !== -1) sseClients.splice(idx, 1);
 }
 
+// Push an already-persisted notification object to an active SSE connection.
+// Call this after a bulk DB insert to avoid double-writing the row.
+export function pushNotificationToUser(userId: string, notification: Record<string, unknown>) {
+  const payload = JSON.stringify({ notification });
+  for (const client of sseClients) {
+    if (client.userId === userId) {
+      try {
+        client.res.write(`data: ${payload}\n\n`);
+      } catch {
+        removeSseClient(client.res);
+      }
+    }
+  }
+}
+
 export async function emitNotification(
   userId: string,
   type: string,

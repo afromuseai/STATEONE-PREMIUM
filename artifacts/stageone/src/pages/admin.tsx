@@ -976,7 +976,7 @@ export default function AdminPage() {
         fetch("/api/admin/sessions", { credentials: "include" }).then(r => r.json()),
         fetch("/api/admin/events?limit=30", { credentials: "include" }).then(r => r.json()),
       ])
-      if (sData?.sessions) setSessionData(sData)
+      if (sData?.sessions && sData?.stats) setSessionData(sData)
       if (aData?.events) setSessionActivity(aData.events)
     } catch (_) {}
   }, [])
@@ -3250,11 +3250,11 @@ export default function AdminPage() {
                 <>
                   {/* Stat Cards */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <StatCard label="Active Users Now" value={sessionData.stats.activeNow} icon={Wifi} color="#10B981"
+                    <StatCard label="Active Users Now" value={sessionData.stats?.activeNow ?? 0} icon={Wifi} color="#10B981"
                       sub="heartbeat < 2 min ago" />
-                    <StatCard label="Sessions Today" value={sessionData.stats.sessionsToday} icon={Activity} color="#6366F1" />
-                    <StatCard label="Avg Session Length" value={formatDuration(sessionData.stats.avgDurationMs)} icon={Clock} color="#D4AF37" />
-                    <StatCard label="Total Tracked" value={sessionData.sessions.length} icon={Monitor} color="#8B5CF6" />
+                    <StatCard label="Sessions Today" value={sessionData.stats?.sessionsToday ?? 0} icon={Activity} color="#6366F1" />
+                    <StatCard label="Avg Session Length" value={formatDuration(sessionData.stats?.avgDurationMs ?? 0)} icon={Clock} color="#D4AF37" />
+                    <StatCard label="Total Tracked" value={sessionData.sessions?.length ?? 0} icon={Monitor} color="#8B5CF6" />
                   </div>
 
                   {/* Filters */}

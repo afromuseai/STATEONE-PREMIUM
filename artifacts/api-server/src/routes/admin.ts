@@ -8,6 +8,7 @@ import { requireAdmin, requireAuth } from "../middleware/auth";
 import { PLAN_LIMITS, getOrCreateSubscription } from "./subscriptions";
 import { setAdminBroadcast } from "../lib/log-event";
 import { isEmailConfigured, sendBulkEmails, buildEmailHtml } from "../lib/email";
+import { pushNotificationToUser } from "./notifications";
 import type { Response } from "express";
 
 const router = Router();
@@ -755,9 +756,11 @@ router.post("/admin/message-center", requireAdmin, async (req, res): Promise<voi
     metadata: { sentBy: adminId, target: msgTarget } as Record<string, unknown>,
   }));
 
-  if (rows.length > 0) {
-    for (let i = 0; i < rows.length; i += 100) {
-      await db.insert(notificationsTable).values(rows.slice(i, i + 100));
+  for (let i = 0; i < rows.length; i += 100) {
+    const inserted = await db.insert(notificationsTable).values(rows.slice(i, i + 100)).returning();
+    // Push to active SSE connections so the bell lights up immediately
+    for (const n of inserted) {
+      pushNotificationToUser(n.userId, n);
     }
   }
 
@@ -1046,9 +1049,11 @@ async function fanOutBroadcast(
     metadata: { broadcastId, broadcastType: type } as Record<string, unknown>,
   }));
 
-  if (rows.length > 0) {
-    for (let i = 0; i < rows.length; i += 100) {
-      await db.insert(notificationsTable).values(rows.slice(i, i + 100));
+  for (let i = 0; i < rows.length; i += 100) {
+    const inserted = await db.insert(notificationsTable).values(rows.slice(i, i + 100)).returning();
+    // Push to any active SSE connections so the bell lights up immediately
+    for (const n of inserted) {
+      pushNotificationToUser(n.userId, n);
     }
   }
 }

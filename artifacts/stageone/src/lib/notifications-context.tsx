@@ -60,6 +60,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
     refresh();
 
+    // Polling fallback: re-fetch every 30s so broadcasts/messages appear even
+    // if the SSE connection isn't active (proxy timeouts, reconnects, etc.)
+    const poll = setInterval(refresh, 30_000);
+
     const es = new EventSource("/api/notifications/stream", { withCredentials: true });
     esRef.current = es;
 
@@ -88,10 +92,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     };
 
     es.onerror = () => {
-      es.close();
+      // Don't close — browser will auto-reconnect EventSource
     };
 
     return () => {
+      clearInterval(poll);
       es.close();
       esRef.current = null;
     };
