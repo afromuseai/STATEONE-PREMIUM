@@ -42,6 +42,7 @@ import supportRouter from "./support";
 import adminImpersonationRouter from "./admin-impersonation";
 import adminCrmRouter from "./admin-crm";
 import adminAcquisitionRouter from "./admin-acquisition";
+import adminFeatureFlagsRouter from "./admin-feature-flags";
 
 const router: IRouter = Router();
 
@@ -88,5 +89,6 @@ router.use(supportRouter);
 router.use(adminImpersonationRouter);
 router.use(adminCrmRouter);
 router.use(adminAcquisitionRouter);
+router.use(adminFeatureFlagsRouter);
 
 export default router;

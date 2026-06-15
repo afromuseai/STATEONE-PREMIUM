@@ -1,0 +1,223 @@
+Build Phase 2C.5 — Feature Flags System for STAGEONE.
+
+IMPORTANT RULES:
+
+DO NOT modify CRM
+DO NOT modify acquisition intelligence
+DO NOT modify billing
+DO NOT modify support
+DO NOT modify impersonation
+ONLY add feature flag infrastructure
+🎯 GOAL
+
+Create a centralized feature rollout system.
+
+Admins must be able to:
+
+enable features
+disable features
+target specific plans
+target specific users
+run beta programs
+
+without deploying code.
+
+1. DATABASE
+
+Create:
+
+feature_flags
+
+Fields:
+
+id
+key
+name
+description
+enabled
+rolloutPercentage
+createdAt
+updatedAt
+
+Indexes:
+
+key
+feature_flag_rules
+
+Fields:
+
+id
+featureFlagId
+
+Rule types:
+
+plan
+user
+segment
+
+Rule value:
+
+Examples:
+
+plan = pro
+
+plan = startup
+
+user = uuid
+
+segment = power_users
+
+createdAt
+
+Indexes:
+
+featureFlagId
+2. BACKEND SERVICE
+
+Create:
+
+FeatureFlagService
+
+Methods:
+
+isEnabled(featureKey)
+
+isEnabledForUser(featureKey, userId)
+
+isEnabledForPlan(featureKey, plan)
+
+Priority:
+
+Explicit user rule
+Segment rule
+Plan rule
+Global flag
+Rollout %
+3. API ROUTES
+GET /api/admin/feature-flags
+
+Returns all flags
+
+POST /api/admin/feature-flags
+
+Create new flag
+
+PATCH /api/admin/feature-flags/:id
+
+Update:
+
+enabled
+rollout percentage
+metadata
+DELETE /api/admin/feature-flags/:id
+
+Remove flag
+
+POST /api/admin/feature-flags/:id/rules
+
+Create targeting rule
+
+DELETE /api/admin/feature-flags/rules/:id
+
+Delete targeting rule
+
+4. ADMIN PANEL
+
+Add tab:
+
+Feature Flags
+A. Overview Cards
+Total Flags
+Enabled
+Disabled
+Beta Features
+B. Feature Table
+
+Columns:
+
+Name
+Key
+Status
+Rollout %
+Created
+
+Actions:
+
+Edit
+Toggle
+Delete
+C. Rules Drawer
+
+For each feature:
+
+Manage:
+
+plan targeting
+user targeting
+segment targeting
+D. Rollout Controls
+
+Slider:
+
+0–100%
+
+Example:
+
+AI Builder
+Rollout = 25%
+
+Only 25% of users see it.
+
+5. INITIAL FLAGS
+
+Seed:
+
+ai_builder
+advanced_reasoning
+website_v2
+marcus_beta
+automation_pro
+future_marketplace
+6. FRONTEND HELPER
+
+Create:
+
+useFeatureFlag(featureKey)
+
+Returns:
+
+enabled
+loading
+
+Usage:
+
+const websiteV2 = useFeatureFlag("website_v2");
+7. SAFETY
+
+Feature flag checks must:
+
+fail closed
+never expose hidden features accidentally
+8. AUDIT INTEGRATION
+
+Log:
+
+feature_created
+feature_enabled
+feature_disabled
+rule_added
+rule_removed
+
+Reuse existing audit system.
+
+9. UX
+
+Dark theme
+
+Fast filtering
+
+Search
+
+Toggle switches
+
+No page reloads
