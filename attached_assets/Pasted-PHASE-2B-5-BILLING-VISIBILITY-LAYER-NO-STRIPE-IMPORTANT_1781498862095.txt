@@ -1,0 +1,243 @@
+PHASE 2B.5 — BILLING VISIBILITY LAYER (NO STRIPE)
+
+IMPORTANT:
+
+DO NOT:
+
+* integrate Stripe
+* add payment processing
+* modify authentication
+* modify subscription enforcement
+* change plan logic
+* alter generation systems
+* affect existing billing architecture
+
+This phase is ADMIN VISIBILITY ONLY.
+
+==================================================
+
+GOAL
+
+Build a complete Billing Intelligence Dashboard for STAGEONE Admin.
+
+This is not payment processing.
+
+This is operational visibility.
+
+==================================================
+
+OVERVIEW CARDS
+
+Display:
+
+* Total Users
+* Free Users
+* Pro Users
+* Startup Users
+* Enterprise Users
+* Conversion Rate
+* Simulated MRR
+* Simulated ARR
+
+---
+
+MRR Formula
+
+Pro Users × $29
+
+Startup Users × $99
+
+Enterprise = custom (exclude for now unless value exists)
+
+MRR =
+(Pro × 29) + (Startup × 99)
+
+ARR =
+MRR × 12
+
+==================================================
+
+PLAN DISTRIBUTION
+
+Create plan distribution visualization.
+
+Display:
+
+* Free
+* Pro
+* Startup
+* Enterprise
+
+Show:
+
+* count
+* percentage
+
+==================================================
+
+REVENUE BREAKDOWN
+
+Display:
+
+Revenue by plan.
+
+Example:
+
+Pro:
+users
+revenue
+share %
+
+Startup:
+users
+revenue
+share %
+
+Enterprise:
+users
+revenue
+share %
+
+==================================================
+
+UPGRADE FUNNEL
+
+Track:
+
+Free → Pro
+
+Pro → Startup
+
+Display:
+
+* conversion counts
+* conversion percentages
+
+==================================================
+
+USAGE ECONOMICS
+
+Aggregate by plan.
+
+Show:
+
+BI generations
+
+Website generations
+
+Chatbot generations
+
+Automation generations
+
+Marcus usage
+
+Average per user.
+
+==================================================
+
+POWER USER IDENTIFICATION
+
+Create:
+
+Top Revenue Candidates
+
+Rank users using:
+
+* usage frequency
+* activity score
+* projects count
+* generation volume
+
+Show:
+
+* email
+* current plan
+* upgrade likelihood score
+
+==================================================
+
+USER BILLING INTELLIGENCE
+
+When opening a user profile:
+
+Show:
+
+Current Plan
+
+Plan Start Date
+
+Usage This Month
+
+Generation Breakdown
+
+Activity Score
+
+Estimated Value
+
+Upgrade Candidate Score
+
+==================================================
+
+FUTURE BILLING TABLES
+
+Create:
+
+billing_customers
+
+billing_subscriptions
+
+billing_events
+
+IMPORTANT:
+
+No Stripe.
+
+No payment processing.
+
+No webhooks.
+
+No checkout.
+
+Just schema and architecture preparation.
+
+==================================================
+
+ADMIN TAB
+
+Add:
+
+Billing Intelligence
+
+Sections:
+
+1. Overview
+2. Revenue
+3. Plan Distribution
+4. Upgrade Funnel
+5. Usage Economics
+6. Power Users
+7. Billing Readiness
+
+==================================================
+
+VISUAL STYLE
+
+Use existing STAGEONE Admin style.
+
+Dark interface.
+
+Enterprise analytics feel.
+
+Responsive.
+
+Fast loading.
+
+==================================================
+
+IMPORTANT
+
+This phase prepares STAGEONE for monetization visibility.
+
+It must not depend on Stripe.
+
+It must work immediately using existing plan assignments.

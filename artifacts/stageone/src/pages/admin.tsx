@@ -10,7 +10,8 @@ import {
   DollarSign, CreditCard, Tag, FileText, ListFilter,
   Pause, Play, Plus, Percent, Hash, Calendar, ChevronUp,
   BadgeCheck, UserX, ToggleLeft, ToggleRight, Monitor, Wifi,
-  ClipboardList, ChevronRight,
+  ClipboardList, ChevronRight, Target, Layers, Star, Cpu, TrendingDown,
+  Database, CheckCircle2, Circle, AlertCircle, Flame,
 } from "lucide-react"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
@@ -18,7 +19,7 @@ import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo"
+type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo"
 
 interface AdminUser {
   id: string
@@ -181,6 +182,70 @@ interface BillingData {
 interface BillingCharts {
   dailySignups: Array<{ date: string; count: number }>
   planDistribution: Record<string, number>
+}
+
+interface BIRevenueRow {
+  plan: string
+  users: number
+  revenuePerUser: number
+  totalRevenue: number
+  share: number
+}
+interface BIRevenue {
+  breakdown: BIRevenueRow[]
+  mrr: number
+  arr: number
+}
+
+interface BIFunnelStage { stage: string; count: number; pct: number }
+interface BIFunnelConversion { from: string; to: string; count: number; rate: number }
+interface BIFunnel {
+  stages: BIFunnelStage[]
+  conversions: BIFunnelConversion[]
+}
+
+interface BIUsageRow {
+  plan: string
+  userCount: number
+  totalBiGenerations: number
+  totalWebsiteGenerations: number
+  totalChatbotGenerations: number
+  totalAutomationGenerations: number
+  totalMarcusMessages: number
+  totalGenerations: number
+  avgBiPerUser: number
+  avgWebsitePerUser: number
+  avgGenerationsPerUser: number
+}
+interface BIUsage { economics: BIUsageRow[] }
+
+interface BIPowerUser {
+  userId: string
+  email: string
+  name: string
+  plan: string
+  currentMrr: number
+  totalGenerations: number
+  biGenerations: number
+  websiteGenerations: number
+  marcusMessages: number
+  projectCount: number
+  aiUsedPct: number
+  activityScore: number
+  upgradeLikelihood: number
+  lastSeen: string | null
+}
+interface BIPowerUsers { users: BIPowerUser[] }
+
+interface BIReadinessCheck { id: string; label: string; status: "ready" | "pending" | "not_started"; detail: string }
+interface BIReadiness {
+  checks: BIReadinessCheck[]
+  readinessPct: number
+  readyCount: number
+  totalChecks: number
+  mrr: number
+  paidUsers: number
+  totalUsers: number
 }
 
 interface WaitlistEntry {
@@ -459,6 +524,15 @@ export default function AdminPage() {
   const [billingRange, setBillingRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
   const [suspendingUser, setSuspendingUser] = useState<string | null>(null)
 
+  // Billing Intelligence
+  const [biRevenue, setBiRevenue] = useState<BIRevenue | null>(null)
+  const [biFunnel, setBiFunnel] = useState<BIFunnel | null>(null)
+  const [biUsage, setBiUsage] = useState<BIUsage | null>(null)
+  const [biPowerUsers, setBiPowerUsers] = useState<BIPowerUsers | null>(null)
+  const [biReadiness, setBiReadiness] = useState<BIReadiness | null>(null)
+  const [biIntelLoading, setBiIntelLoading] = useState(false)
+  const [biSection, setBiSection] = useState<"overview" | "revenue" | "distribution" | "funnel" | "usage" | "power" | "readiness">("overview")
+
   // Waitlist
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([])
   const [waitlistFilter, setWaitlistFilter] = useState<string>("all")
@@ -559,6 +633,25 @@ export default function AdminPage() {
     } catch (_) {}
   }, [billingRange])
 
+  const loadBillingIntelligence = useCallback(async () => {
+    setBiIntelLoading(true)
+    try {
+      const [rev, funnel, usage, power, readiness] = await Promise.all([
+        fetch("/api/admin/billing/revenue", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/billing/upgrade-funnel", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/billing/usage-economics", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/billing/power-users", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/billing/readiness", { credentials: "include" }).then(r => r.json()),
+      ])
+      setBiRevenue(rev)
+      setBiFunnel(funnel)
+      setBiUsage(usage)
+      setBiPowerUsers(power)
+      setBiReadiness(readiness)
+    } catch (_) {}
+    setBiIntelLoading(false)
+  }, [])
+
   const loadWaitlist = useCallback(async () => {
     try {
       const params = waitlistFilter !== "all" ? `?plan=${waitlistFilter}` : ""
@@ -638,13 +731,14 @@ export default function AdminPage() {
     else if (activeTab === "broadcasts") loadBroadcasts()
     else if (activeTab === "intelligence") loadIntelligence()
     else if (activeTab === "billing") loadBilling()
+    else if (activeTab === "billing-intel") loadBillingIntelligence()
     else if (activeTab === "waitlist") loadWaitlist()
     else if (activeTab === "coupons") loadCoupons()
     else if (activeTab === "audit") loadAudit()
     else if (activeTab === "audit-logs") loadAdminAuditLogs()
     else if (activeTab === "geo") loadGeoIntelligence()
     else if (activeTab === "messages") loadMessages()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages])
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages])
 
   // Session Monitor: auto-refresh every 30s while tab is active
   useEffect(() => {
@@ -827,19 +921,20 @@ export default function AdminPage() {
   )
 
   const TABS: { id: AdminTab; label: string; icon: React.ElementType }[] = [
-    { id: "users",        label: "Users",        icon: Users },
-    { id: "stats",        label: "Stats",        icon: BarChart3 },
-    { id: "billing",      label: "Billing",      icon: DollarSign },
-    { id: "events",       label: "Events",       icon: Radio },
-    { id: "analytics",    label: "Analytics",    icon: TrendingUp },
-    { id: "intelligence", label: "Intelligence", icon: Bot },
-    { id: "messages",     label: "Messages",     icon: Send },
-    { id: "broadcasts",   label: "Broadcast",    icon: Megaphone },
-    { id: "waitlist",     label: "Waitlist",     icon: UserCheck },
-    { id: "coupons",      label: "Coupons",      icon: Tag },
-    { id: "sessions",     label: "Sessions",     icon: Monitor },
-    { id: "audit-logs",   label: "Admin Audit",  icon: ClipboardList },
-    { id: "geo",          label: "Geo Intel",    icon: Globe },
+    { id: "users",         label: "Users",          icon: Users },
+    { id: "stats",         label: "Stats",          icon: BarChart3 },
+    { id: "billing",       label: "Billing",        icon: DollarSign },
+    { id: "billing-intel", label: "Billing Intel",  icon: Target },
+    { id: "events",        label: "Events",         icon: Radio },
+    { id: "analytics",     label: "Analytics",      icon: TrendingUp },
+    { id: "intelligence",  label: "Intelligence",   icon: Bot },
+    { id: "messages",      label: "Messages",       icon: Send },
+    { id: "broadcasts",    label: "Broadcast",      icon: Megaphone },
+    { id: "waitlist",      label: "Waitlist",       icon: UserCheck },
+    { id: "coupons",       label: "Coupons",        icon: Tag },
+    { id: "sessions",      label: "Sessions",       icon: Monitor },
+    { id: "audit-logs",    label: "Admin Audit",    icon: ClipboardList },
+    { id: "geo",           label: "Geo Intel",      icon: Globe },
   ]
 
   if (!user?.isAdmin) return null
@@ -1093,6 +1188,482 @@ export default function AdminPage() {
               )}
             </div>
           )}
+
+          {/* ── Billing Intelligence Tab ───────────────────────────────────── */}
+          {activeTab === "billing-intel" && (() => {
+            const PLAN_COLOR: Record<string, string> = { free: "#6B7280", pro: "#6366F1", startup: "#D4AF37", enterprise: "#10B981" }
+            const SECTION_NAV: { id: typeof biSection; label: string; icon: React.ElementType }[] = [
+              { id: "overview",      label: "Overview",       icon: BarChart3 },
+              { id: "revenue",       label: "Revenue",        icon: DollarSign },
+              { id: "distribution",  label: "Plan Dist.",     icon: Layers },
+              { id: "funnel",        label: "Upgrade Funnel", icon: Funnel },
+              { id: "usage",         label: "Usage Econ.",    icon: Cpu },
+              { id: "power",         label: "Power Users",    icon: Flame },
+              { id: "readiness",     label: "Readiness",      icon: CheckCircle2 },
+            ]
+            return (
+              <div className="space-y-5">
+                {/* Section nav */}
+                <div className="flex flex-wrap gap-1.5">
+                  {SECTION_NAV.map(({ id, label, icon: Icon }) => (
+                    <button key={id} onClick={() => setBiSection(id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${biSection === id ? "bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30" : "text-muted-foreground hover:text-foreground hover:bg-white/4 border border-transparent"}`}>
+                      <Icon className="h-3 w-3" />{label}
+                    </button>
+                  ))}
+                </div>
+
+                {biIntelLoading && (
+                  <div className="flex items-center justify-center py-24">
+                    <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin" />
+                  </div>
+                )}
+
+                {!biIntelLoading && (
+                  <>
+                    {/* ── 1. Overview ─────────────────────────────────── */}
+                    {biSection === "overview" && biRevenue && biFunnel && biReadiness && (
+                      <div className="space-y-5">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                            className="col-span-2 rounded-2xl border border-[#D4AF37]/25 bg-[#D4AF37]/5 p-5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <DollarSign className="h-4 w-4 text-[#D4AF37]" />
+                              <span className="text-xs font-black text-[#D4AF37] uppercase tracking-widest">Simulated MRR</span>
+                            </div>
+                            <p className="text-4xl font-black text-foreground">${biRevenue.mrr.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground mt-1">ARR: ${biRevenue.arr.toLocaleString()} / year</p>
+                          </motion.div>
+                          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                            className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Users className="h-3.5 w-3.5 text-primary" />
+                              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Total Users</span>
+                            </div>
+                            <p className="text-2xl font-black text-foreground">{biReadiness.totalUsers}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">{biReadiness.paidUsers} paid</p>
+                          </motion.div>
+                          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                            className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Conversion</span>
+                            </div>
+                            <p className="text-2xl font-black text-foreground">
+                              {biReadiness.totalUsers > 0 ? Math.round((biReadiness.paidUsers / biReadiness.totalUsers) * 1000) / 10 : 0}%
+                            </p>
+                            <p className="text-[10px] text-muted-foreground mt-1">free → paid</p>
+                          </motion.div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {(["free", "pro", "startup", "enterprise"] as const).map((plan, i) => {
+                            const row = biRevenue.breakdown.find(r => r.plan === plan)
+                            const color = PLAN_COLOR[plan]
+                            return (
+                              <motion.div key={plan} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <div className="p-1.5 rounded-lg" style={{ background: `${color}15` }}>
+                                    <Users className="h-3 w-3" style={{ color }} />
+                                  </div>
+                                  <span className="text-xs font-bold text-foreground capitalize">{plan}</span>
+                                </div>
+                                <p className="text-2xl font-black text-foreground">{row?.users ?? 0}</p>
+                                <p className="text-[10px] text-muted-foreground mt-1">${(row?.totalRevenue ?? 0).toLocaleString()}/mo</p>
+                                <div className="mt-2 h-1 bg-white/5 rounded-full overflow-hidden">
+                                  <motion.div initial={{ width: 0 }} animate={{ width: `${row?.share ?? 0}%` }}
+                                    transition={{ delay: 0.3 + i * 0.05, duration: 0.7 }}
+                                    className="h-full rounded-full" style={{ background: color }} />
+                                </div>
+                              </motion.div>
+                            )
+                          })}
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          {biFunnel.conversions.map((c, i) => (
+                            <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+                              className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <div className="p-1 rounded-lg bg-emerald-500/10"><ArrowUp className="h-3 w-3 text-emerald-400" /></div>
+                                <span className="text-xs font-bold text-foreground">{c.from} → {c.to}</span>
+                              </div>
+                              <p className="text-2xl font-black text-emerald-400">{c.count}</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">conversions · {c.rate}% rate</p>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── 2. Revenue ───────────────────────────────────── */}
+                    {biSection === "revenue" && biRevenue && (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-[#D4AF37]/20 bg-[#D4AF37]/5 p-5">
+                          <div className="flex items-center gap-3 mb-4">
+                            <DollarSign className="h-4 w-4 text-[#D4AF37]" />
+                            <h3 className="text-sm font-black text-[#D4AF37] uppercase tracking-widest">Revenue Breakdown</h3>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 mb-6">
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Monthly MRR</p>
+                              <p className="text-3xl font-black text-foreground">${biRevenue.mrr.toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Annual ARR</p>
+                              <p className="text-3xl font-black text-foreground">${biRevenue.arr.toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="space-y-3">
+                            {biRevenue.breakdown.filter(r => r.plan !== "free").map((row, i) => {
+                              const color = PLAN_COLOR[row.plan]
+                              const maxRev = Math.max(...biRevenue.breakdown.map(r => r.totalRevenue), 1)
+                              return (
+                                <motion.div key={row.plan} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: i * 0.08 }}
+                                  className="flex items-center gap-4 p-4 rounded-xl border border-white/6 bg-white/2">
+                                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                                  <div className="w-20 shrink-0">
+                                    <p className="text-xs font-black text-foreground capitalize">{row.plan}</p>
+                                    <p className="text-[10px] text-muted-foreground">${row.revenuePerUser}/user/mo</p>
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="h-5 bg-white/5 rounded-full overflow-hidden">
+                                      <motion.div initial={{ width: 0 }} animate={{ width: `${(row.totalRevenue / maxRev) * 100}%` }}
+                                        transition={{ delay: 0.3 + i * 0.08, duration: 0.7 }}
+                                        className="h-full rounded-full" style={{ background: color }} />
+                                    </div>
+                                  </div>
+                                  <div className="text-right shrink-0 w-28">
+                                    <p className="text-sm font-black text-foreground">${row.totalRevenue.toLocaleString()}/mo</p>
+                                    <p className="text-[10px] text-muted-foreground">{row.users} users · {row.share}% share</p>
+                                  </div>
+                                </motion.div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── 3. Plan Distribution ─────────────────────────── */}
+                    {biSection === "distribution" && biRevenue && (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                          <h3 className="text-sm font-black text-foreground mb-5">Plan Distribution</h3>
+                          <div className="space-y-4">
+                            {biRevenue.breakdown.map((row, i) => {
+                              const color = PLAN_COLOR[row.plan]
+                              const totalUsers = biRevenue.breakdown.reduce((s, r) => s + r.users, 0)
+                              const pct = totalUsers > 0 ? Math.round((row.users / totalUsers) * 1000) / 10 : 0
+                              return (
+                                <motion.div key={row.plan} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: i * 0.06 }}>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+                                      <span className="text-xs font-bold text-foreground capitalize">{row.plan}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-xs font-black text-foreground">{row.users}</span>
+                                      <span className="text-[10px] text-muted-foreground w-10 text-right">{pct}%</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-7 bg-white/5 rounded-xl overflow-hidden">
+                                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                                      transition={{ delay: 0.2 + i * 0.06, duration: 0.8 }}
+                                      className="h-full rounded-xl flex items-center pl-3" style={{ background: `${color}60` }}>
+                                      {pct > 10 && <span className="text-[10px] font-black" style={{ color }}>{pct}%</span>}
+                                    </motion.div>
+                                  </div>
+                                </motion.div>
+                              )
+                            })}
+                          </div>
+                          <div className="mt-6 pt-5 border-t border-white/6 flex justify-between items-center">
+                            <span className="text-xs text-muted-foreground">Total users</span>
+                            <span className="text-sm font-black text-foreground">{biRevenue.breakdown.reduce((s, r) => s + r.users, 0)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── 4. Upgrade Funnel ───────────────────────────── */}
+                    {biSection === "funnel" && biFunnel && (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                          <h3 className="text-sm font-black text-foreground mb-5">Upgrade Funnel</h3>
+                          <div className="flex items-end gap-2 mb-8">
+                            {biFunnel.stages.map((s, i) => {
+                              const colors = ["#6B7280", "#6366F1", "#D4AF37", "#10B981"]
+                              const maxCnt = Math.max(...biFunnel.stages.map(st => st.count), 1)
+                              const heightPct = Math.max((s.count / maxCnt) * 100, 4)
+                              return (
+                                <div key={s.stage} className="flex-1 flex flex-col items-center gap-2">
+                                  <span className="text-xs font-black text-foreground">{s.count}</span>
+                                  <motion.div initial={{ height: 0 }} animate={{ height: `${heightPct * 1.2}px` }}
+                                    transition={{ delay: i * 0.1, duration: 0.6 }}
+                                    className="w-full rounded-t-xl" style={{ background: `${colors[i]}40`, borderTop: `2px solid ${colors[i]}` }} />
+                                  <span className="text-[10px] font-bold text-muted-foreground">{s.stage}</span>
+                                  <span className="text-[10px] text-muted-foreground/60">{s.pct}%</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <div className="space-y-3">
+                            <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">Conversion Events (All Time)</p>
+                            {biFunnel.conversions.map((c, i) => (
+                              <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: i * 0.07 }}
+                                className="flex items-center gap-4 p-4 rounded-xl border border-white/6 bg-white/2">
+                                <div className="flex items-center gap-2 flex-1">
+                                  <div className="w-2 h-2 rounded-full bg-white/30" />
+                                  <span className="text-xs font-bold text-foreground">{c.from}</span>
+                                  <ArrowUp className="h-3 w-3 text-emerald-400" />
+                                  <span className="text-xs font-bold text-foreground">{c.to}</span>
+                                </div>
+                                <div className="flex items-center gap-6 text-right">
+                                  <div>
+                                    <p className="text-sm font-black text-foreground">{c.count}</p>
+                                    <p className="text-[10px] text-muted-foreground">conversions</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-black text-emerald-400">{c.rate}%</p>
+                                    <p className="text-[10px] text-muted-foreground">rate</p>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── 5. Usage Economics ──────────────────────────── */}
+                    {biSection === "usage" && biUsage && (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                          <h3 className="text-sm font-black text-foreground mb-5">Usage Economics by Plan</h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-white/6">
+                                  {["Plan", "Users", "BI Gen", "Website Gen", "Chatbot Gen", "Automation", "Marcus", "Avg Gen/User"].map(h => (
+                                    <th key={h} className="text-left pb-3 pr-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(["free", "pro", "startup", "enterprise"] as const).map((plan, i) => {
+                                  const row = biUsage.economics.find(r => r.plan === plan)
+                                  const color = PLAN_COLOR[plan]
+                                  return (
+                                    <motion.tr key={plan} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                      transition={{ delay: i * 0.06 }}
+                                      className="border-b border-white/4">
+                                      <td className="py-3 pr-4">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                                          <span className="font-bold text-foreground capitalize">{plan}</span>
+                                        </div>
+                                      </td>
+                                      <td className="py-3 pr-4 font-bold text-foreground">{row?.userCount ?? 0}</td>
+                                      <td className="py-3 pr-4 text-muted-foreground">{row?.totalBiGenerations ?? 0}</td>
+                                      <td className="py-3 pr-4 text-muted-foreground">{row?.totalWebsiteGenerations ?? 0}</td>
+                                      <td className="py-3 pr-4 text-muted-foreground">{row?.totalChatbotGenerations ?? 0}</td>
+                                      <td className="py-3 pr-4 text-muted-foreground">{row?.totalAutomationGenerations ?? 0}</td>
+                                      <td className="py-3 pr-4 text-muted-foreground">{row?.totalMarcusMessages ?? 0}</td>
+                                      <td className="py-3 font-black" style={{ color }}>{row?.avgGenerationsPerUser ?? 0}</td>
+                                    </motion.tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          {biUsage.economics.filter(r => r.plan !== "free").map((row, i) => {
+                            const color = PLAN_COLOR[row.plan]
+                            const metrics = [
+                              { label: "BI Gen", value: row.totalBiGenerations },
+                              { label: "Website", value: row.totalWebsiteGenerations },
+                              { label: "Chatbot", value: row.totalChatbotGenerations },
+                              { label: "Automation", value: row.totalAutomationGenerations },
+                              { label: "Marcus", value: row.totalMarcusMessages },
+                            ]
+                            const maxVal = Math.max(...metrics.map(m => m.value), 1)
+                            return (
+                              <motion.div key={row.plan} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.06 }}
+                                className="rounded-2xl border border-white/8 bg-white/2 p-4">
+                                <div className="flex items-center gap-2 mb-4">
+                                  <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                                  <span className="text-xs font-black text-foreground capitalize">{row.plan}</span>
+                                </div>
+                                {metrics.map(m => (
+                                  <div key={m.label} className="mb-2">
+                                    <div className="flex justify-between text-[10px] mb-1">
+                                      <span className="text-muted-foreground">{m.label}</span>
+                                      <span className="font-bold text-foreground">{m.value}</span>
+                                    </div>
+                                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                      <motion.div initial={{ width: 0 }} animate={{ width: `${(m.value / maxVal) * 100}%` }}
+                                        transition={{ delay: 0.4, duration: 0.6 }}
+                                        className="h-full rounded-full" style={{ background: color }} />
+                                    </div>
+                                  </div>
+                                ))}
+                              </motion.div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── 6. Power Users ──────────────────────────────── */}
+                    {biSection === "power" && biPowerUsers && (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                          <div className="flex items-center justify-between mb-5">
+                            <div>
+                              <h3 className="text-sm font-black text-foreground">Top Revenue Candidates</h3>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">Ranked by upgrade likelihood score</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+                              <Flame className="h-3 w-3 text-[#D4AF37]" />
+                              <span className="text-[10px] font-black text-[#D4AF37]">{biPowerUsers.users.filter(u => u.upgradeLikelihood >= 70).length} hot leads</span>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            {biPowerUsers.users.map((u, i) => {
+                              const planColor = PLAN_COLOR[u.plan]
+                              const likelihood = u.upgradeLikelihood
+                              const heatColor = likelihood >= 80 ? "#EF4444" : likelihood >= 60 ? "#F59E0B" : likelihood >= 40 ? "#6366F1" : "#6B7280"
+                              return (
+                                <motion.div key={u.userId} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: i * 0.02 }}
+                                  className="flex items-center gap-4 px-4 py-3 rounded-xl border border-white/6 bg-white/2 hover:bg-white/4 transition-colors">
+                                  <div className="text-[10px] font-black text-muted-foreground/50 w-5 text-center">{i + 1}</div>
+                                  <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0"
+                                    style={{ background: `${planColor}20`, color: planColor }}>
+                                    {(u.name ?? u.email ?? "?")[0].toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-foreground truncate">{u.name ?? "—"}</p>
+                                    <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                                  </div>
+                                  <div className="hidden md:flex items-center gap-4 text-right shrink-0">
+                                    <div>
+                                      <p className="text-[10px] text-muted-foreground">Plan</p>
+                                      <span className="text-[10px] font-black capitalize" style={{ color: planColor }}>{u.plan}</span>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-muted-foreground">Gens</p>
+                                      <p className="text-[10px] font-black text-foreground">{u.totalGenerations}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-muted-foreground">Projects</p>
+                                      <p className="text-[10px] font-black text-foreground">{u.projectCount}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] text-muted-foreground">Usage</p>
+                                      <p className="text-[10px] font-black text-foreground">{u.aiUsedPct}%</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end gap-1 shrink-0 w-16">
+                                    <div className="flex items-center gap-1">
+                                      <Target className="h-2.5 w-2.5" style={{ color: heatColor }} />
+                                      <span className="text-xs font-black" style={{ color: heatColor }}>{likelihood}</span>
+                                    </div>
+                                    <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                                      <motion.div initial={{ width: 0 }} animate={{ width: `${likelihood}%` }}
+                                        transition={{ delay: 0.1 + i * 0.015, duration: 0.5 }}
+                                        className="h-full rounded-full" style={{ background: heatColor }} />
+                                    </div>
+                                    <p className="text-[8px] text-muted-foreground/50">likelihood</p>
+                                  </div>
+                                </motion.div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── 7. Billing Readiness ────────────────────────── */}
+                    {biSection === "readiness" && biReadiness && (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                          <div className="flex items-center justify-between mb-6">
+                            <div>
+                              <h3 className="text-sm font-black text-foreground">Billing Readiness</h3>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">Infrastructure preparation for monetization</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-3xl font-black text-foreground">{biReadiness.readinessPct}%</p>
+                              <p className="text-[10px] text-muted-foreground">{biReadiness.readyCount}/{biReadiness.totalChecks} checks</p>
+                            </div>
+                          </div>
+                          <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-6">
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${biReadiness.readinessPct}%` }}
+                              transition={{ duration: 0.8 }}
+                              className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-emerald-400" />
+                          </div>
+                          <div className="space-y-3">
+                            {biReadiness.checks.map((check, i) => {
+                              const Icon = check.status === "ready" ? CheckCircle2 : check.status === "pending" ? Circle : AlertCircle
+                              const color = check.status === "ready" ? "#10B981" : check.status === "pending" ? "#F59E0B" : "#6B7280"
+                              return (
+                                <motion.div key={check.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: i * 0.06 }}
+                                  className="flex items-start gap-3 p-4 rounded-xl border border-white/6 bg-white/2">
+                                  <Icon className="h-4 w-4 mt-0.5 shrink-0" style={{ color }} />
+                                  <div className="flex-1">
+                                    <p className="text-xs font-bold text-foreground">{check.label}</p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">{check.detail}</p>
+                                  </div>
+                                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full"
+                                    style={{ color, background: `${color}15`, border: `1px solid ${color}30` }}>
+                                    {check.status === "not_started" ? "Pending" : check.status}
+                                  </span>
+                                </motion.div>
+                              )
+                            })}
+                          </div>
+                          <div className="mt-6 pt-5 border-t border-white/6 grid grid-cols-3 gap-4">
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1 mb-1">
+                                <Database className="h-3.5 w-3.5 text-[#D4AF37]" />
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Schema Tables</span>
+                              </div>
+                              <p className="text-lg font-black text-foreground">3</p>
+                              <p className="text-[10px] text-muted-foreground">billing_* tables ready</p>
+                            </div>
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1 mb-1">
+                                <Users className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Paid Users</span>
+                              </div>
+                              <p className="text-lg font-black text-foreground">{biReadiness.paidUsers}</p>
+                              <p className="text-[10px] text-muted-foreground">of {biReadiness.totalUsers} total</p>
+                            </div>
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1 mb-1">
+                                <DollarSign className="h-3.5 w-3.5 text-emerald-400" />
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Sim. MRR</span>
+                              </div>
+                              <p className="text-lg font-black text-foreground">${biReadiness.mrr.toLocaleString()}</p>
+                              <p className="text-[10px] text-muted-foreground">when Stripe connected</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )
+          })()}
 
           {/* ── Users Tab ─────────────────────────────────────────────────── */}
           {activeTab === "users" && (

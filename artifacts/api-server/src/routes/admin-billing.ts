@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, usersTable, subscriptionsTable, projectsTable, couponsTable, auditLogsTable, waitlistTable } from "@workspace/db";
-import { eq, desc, gte, count, sql, and, isNotNull, inArray } from "drizzle-orm";
+import { db, usersTable, subscriptionsTable, projectsTable, couponsTable, auditLogsTable, waitlistTable, userUsageTable, billingCustomersTable, billingSubscriptionsTable, billingEventsTable } from "@workspace/db";
+import { eq, desc, gte, count, sql, and, isNotNull, inArray, sum, avg } from "drizzle-orm";
 import { requireAdmin } from "../middleware/auth";
 import { logAuditFireForget } from "../lib/audit";
 import { PLAN_LIMITS, getOrCreateSubscription } from "./subscriptions";
@@ -366,6 +366,241 @@ router.delete("/admin/coupons/:id", requireAdmin, async (req, res): Promise<void
   await db.delete(couponsTable).where(eq(couponsTable.id, id));
   logAuditFireForget({ userId: adminId, action: "coupon_delete", resource: "coupons", resourceId: id, severity: "high" });
   res.json({ ok: true });
+});
+
+// ─── Billing Intelligence: Revenue Breakdown ──────────────────────────────────
+
+router.get("/admin/billing/revenue", requireAdmin, async (_req, res): Promise<void> => {
+  const PLAN_MRR: Record<string, number> = { free: 0, pro: 29, startup: 99, enterprise: 299 };
+  const allSubs = await db
+    .select({ plan: subscriptionsTable.plan, status: subscriptionsTable.status })
+    .from(subscriptionsTable);
+
+  const counts: Record<string, number> = { free: 0, pro: 0, startup: 0, enterprise: 0 };
+  for (const s of allSubs) {
+    if (s.status === "active") counts[s.plan ?? "free"] = (counts[s.plan ?? "free"] ?? 0) + 1;
+  }
+
+  const total = Object.entries(counts).filter(([p]) => p !== "free").reduce((acc, [p, n]) => acc + (PLAN_MRR[p] ?? 0) * n, 0);
+
+  const breakdown = (["free", "pro", "startup", "enterprise"] as const).map(plan => {
+    const users = counts[plan] ?? 0;
+    const revenue = (PLAN_MRR[plan] ?? 0) * users;
+    const share = total > 0 ? Math.round((revenue / total) * 100 * 10) / 10 : 0;
+    return { plan, users, revenuePerUser: PLAN_MRR[plan] ?? 0, totalRevenue: revenue, share };
+  });
+
+  const mrr = breakdown.reduce((s, r) => s + r.totalRevenue, 0);
+  res.json({ breakdown, mrr, arr: mrr * 12 });
+});
+
+// ─── Billing Intelligence: Upgrade Funnel ─────────────────────────────────────
+
+router.get("/admin/billing/upgrade-funnel", requireAdmin, async (_req, res): Promise<void> => {
+  const PLAN_ORDER = ["free", "pro", "startup", "enterprise"];
+
+  const [allSubs, planChanges] = await Promise.all([
+    db.select({ plan: subscriptionsTable.plan, status: subscriptionsTable.status }).from(subscriptionsTable),
+    db.select({ changes: auditLogsTable.changes, createdAt: auditLogsTable.createdAt })
+      .from(auditLogsTable)
+      .where(eq(auditLogsTable.action, "plan_change"))
+      .orderBy(desc(auditLogsTable.createdAt))
+      .limit(1000),
+  ]);
+
+  const activeSubs = allSubs.filter(s => s.status === "active");
+  const freeCnt = activeSubs.filter(s => (s.plan ?? "free") === "free").length;
+  const proCnt = activeSubs.filter(s => s.plan === "pro").length;
+  const startupCnt = activeSubs.filter(s => s.plan === "startup").length;
+  const enterpriseCnt = activeSubs.filter(s => s.plan === "enterprise").length;
+  const total = activeSubs.length || 1;
+
+  let freeToPro = 0;
+  let proToStartup = 0;
+  let startupToEnterprise = 0;
+
+  for (const r of planChanges) {
+    const c = r.changes as Record<string, string> | null;
+    if (!c) continue;
+    const from = PLAN_ORDER.indexOf(c.from ?? "free");
+    const to = PLAN_ORDER.indexOf(c.to ?? "free");
+    if (from === 0 && to === 1) freeToPro++;
+    else if (from === 1 && to === 2) proToStartup++;
+    else if (from === 2 && to === 3) startupToEnterprise++;
+  }
+
+  res.json({
+    stages: [
+      { stage: "Free", count: freeCnt, pct: Math.round((freeCnt / total) * 100) },
+      { stage: "Pro", count: proCnt, pct: Math.round((proCnt / total) * 100) },
+      { stage: "Startup", count: startupCnt, pct: Math.round((startupCnt / total) * 100) },
+      { stage: "Enterprise", count: enterpriseCnt, pct: Math.round((enterpriseCnt / total) * 100) },
+    ],
+    conversions: [
+      { from: "Free", to: "Pro", count: freeToPro, rate: freeCnt > 0 ? Math.round((freeToPro / freeCnt) * 100 * 10) / 10 : 0 },
+      { from: "Pro", to: "Startup", count: proToStartup, rate: proCnt > 0 ? Math.round((proToStartup / proCnt) * 100 * 10) / 10 : 0 },
+      { from: "Startup", to: "Enterprise", count: startupToEnterprise, rate: startupCnt > 0 ? Math.round((startupToEnterprise / startupCnt) * 100 * 10) / 10 : 0 },
+    ],
+  });
+});
+
+// ─── Billing Intelligence: Usage Economics ────────────────────────────────────
+
+router.get("/admin/billing/usage-economics", requireAdmin, async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      plan: subscriptionsTable.plan,
+      totalBi: sql<number>`COALESCE(SUM(${userUsageTable.biGenerations}), 0)`,
+      totalWebsite: sql<number>`COALESCE(SUM(${userUsageTable.websiteGenerations}), 0)`,
+      totalChatbot: sql<number>`COALESCE(SUM(${userUsageTable.chatbotGenerations}), 0)`,
+      totalAutomation: sql<number>`COALESCE(SUM(${userUsageTable.automationGenerations}), 0)`,
+      totalMarcus: sql<number>`COALESCE(SUM(${userUsageTable.marcusMessages}), 0)`,
+      totalAll: sql<number>`COALESCE(SUM(${userUsageTable.totalGenerations}), 0)`,
+      userCount: count(userUsageTable.userId),
+    })
+    .from(userUsageTable)
+    .leftJoin(subscriptionsTable, eq(userUsageTable.userId, subscriptionsTable.userId))
+    .groupBy(subscriptionsTable.plan);
+
+  const economics = rows.map(r => {
+    const cnt = Number(r.userCount) || 1;
+    return {
+      plan: r.plan ?? "free",
+      userCount: Number(r.userCount),
+      totalBiGenerations: Number(r.totalBi),
+      totalWebsiteGenerations: Number(r.totalWebsite),
+      totalChatbotGenerations: Number(r.totalChatbot),
+      totalAutomationGenerations: Number(r.totalAutomation),
+      totalMarcusMessages: Number(r.totalMarcus),
+      totalGenerations: Number(r.totalAll),
+      avgBiPerUser: Math.round(Number(r.totalBi) / cnt * 10) / 10,
+      avgWebsitePerUser: Math.round(Number(r.totalWebsite) / cnt * 10) / 10,
+      avgGenerationsPerUser: Math.round(Number(r.totalAll) / cnt * 10) / 10,
+    };
+  });
+
+  res.json({ economics });
+});
+
+// ─── Billing Intelligence: Power Users ────────────────────────────────────────
+
+router.get("/admin/billing/power-users", requireAdmin, async (_req, res): Promise<void> => {
+  const PLAN_MRR: Record<string, number> = { free: 0, pro: 29, startup: 99, enterprise: 299 };
+
+  const rows = await db
+    .select({
+      userId: usersTable.id,
+      email: usersTable.email,
+      name: usersTable.name,
+      plan: subscriptionsTable.plan,
+      aiUsed: subscriptionsTable.aiGenerationsUsed,
+      aiLimit: subscriptionsTable.aiGenerationsLimit,
+      createdAt: usersTable.createdAt,
+      lastSeen: usersTable.lastSeenAt,
+      totalGenerations: sql<number>`COALESCE(SUM(${userUsageTable.totalGenerations}), 0)`,
+      biGenerations: sql<number>`COALESCE(SUM(${userUsageTable.biGenerations}), 0)`,
+      websiteGenerations: sql<number>`COALESCE(SUM(${userUsageTable.websiteGenerations}), 0)`,
+      marcusMessages: sql<number>`COALESCE(SUM(${userUsageTable.marcusMessages}), 0)`,
+    })
+    .from(usersTable)
+    .leftJoin(subscriptionsTable, eq(usersTable.id, subscriptionsTable.userId))
+    .leftJoin(userUsageTable, eq(usersTable.id, userUsageTable.userId))
+    .groupBy(usersTable.id, subscriptionsTable.plan, subscriptionsTable.aiGenerationsUsed, subscriptionsTable.aiGenerationsLimit)
+    .orderBy(desc(sql`COALESCE(SUM(${userUsageTable.totalGenerations}), 0)`))
+    .limit(30);
+
+  const [{ projectCounts }] = await db
+    .select({ projectCounts: sql<string>`json_object_agg(user_id, cnt)` })
+    .from(
+      db.select({ userId: projectsTable.userId, cnt: count().as("cnt") })
+        .from(projectsTable)
+        .groupBy(projectsTable.userId)
+        .as("pc")
+    );
+
+  const pcMap: Record<string, number> = (projectCounts as unknown as Record<string, number>) ?? {};
+
+  const scored = rows.map(r => {
+    const plan = r.plan ?? "free";
+    const totalGen = Number(r.totalGenerations);
+    const aiLimit = r.aiLimit ?? 0;
+    const aiUsed = r.aiUsed ?? 0;
+    const usagePct = aiLimit > 0 ? (aiUsed / aiLimit) : 0;
+    const projects = pcMap[r.userId] ?? 0;
+    const daysSinceActive = r.lastSeen
+      ? Math.floor((Date.now() - new Date(r.lastSeen).getTime()) / (1000 * 60 * 60 * 24))
+      : 999;
+    const activityScore = Math.max(0, 100 - daysSinceActive * 2);
+
+    const upgradeLikelihood = Math.min(100, Math.round(
+      (usagePct * 40) +
+      (Math.min(totalGen, 50) / 50 * 25) +
+      (Math.min(projects, 10) / 10 * 20) +
+      (activityScore * 0.15)
+    ));
+
+    return {
+      userId: r.userId,
+      email: r.email,
+      name: r.name,
+      plan,
+      currentMrr: PLAN_MRR[plan] ?? 0,
+      totalGenerations: totalGen,
+      biGenerations: Number(r.biGenerations),
+      websiteGenerations: Number(r.websiteGenerations),
+      marcusMessages: Number(r.marcusMessages),
+      projectCount: projects,
+      aiUsedPct: Math.round(usagePct * 100),
+      activityScore,
+      upgradeLikelihood,
+      lastSeen: r.lastSeen,
+    };
+  });
+
+  const sorted = scored.sort((a, b) => b.upgradeLikelihood - a.upgradeLikelihood).slice(0, 20);
+  res.json({ users: sorted });
+});
+
+// ─── Billing Intelligence: Readiness ─────────────────────────────────────────
+
+router.get("/admin/billing/readiness", requireAdmin, async (_req, res): Promise<void> => {
+  const PLAN_MRR: Record<string, number> = { free: 0, pro: 29, startup: 99, enterprise: 299 };
+
+  const [
+    [{ customerCount }],
+    [{ subCount }],
+    [{ eventCount }],
+    allSubs,
+    [{ userCount }],
+  ] = await Promise.all([
+    db.select({ customerCount: count() }).from(billingCustomersTable),
+    db.select({ subCount: count() }).from(billingSubscriptionsTable),
+    db.select({ eventCount: count() }).from(billingEventsTable),
+    db.select({ plan: subscriptionsTable.plan, status: subscriptionsTable.status }).from(subscriptionsTable),
+    db.select({ userCount: count() }).from(usersTable),
+  ]);
+
+  const activeSubs = allSubs.filter(s => s.status === "active");
+  const planCounts: Record<string, number> = { free: 0, pro: 0, startup: 0, enterprise: 0 };
+  for (const s of activeSubs) planCounts[s.plan ?? "free"] = (planCounts[s.plan ?? "free"] ?? 0) + 1;
+  const mrr = Object.entries(planCounts).reduce((acc, [p, n]) => acc + (PLAN_MRR[p] ?? 0) * n, 0);
+  const paidUsers = (planCounts.pro ?? 0) + (planCounts.startup ?? 0) + (planCounts.enterprise ?? 0);
+  const total = Number(userCount);
+
+  const checks = [
+    { id: "schema_customers", label: "billing_customers table", status: "ready", detail: `${Number(customerCount)} records` },
+    { id: "schema_subscriptions", label: "billing_subscriptions table", status: "ready", detail: `${Number(subCount)} records` },
+    { id: "schema_events", label: "billing_events table", status: "ready", detail: `${Number(eventCount)} records` },
+    { id: "plan_data", label: "Plan data populated", status: paidUsers > 0 ? "ready" : "pending", detail: `${paidUsers} paid users of ${total}` },
+    { id: "mrr_baseline", label: "MRR baseline established", status: mrr > 0 ? "ready" : "pending", detail: `$${mrr}/mo simulated` },
+    { id: "stripe_integration", label: "Stripe integration", status: "not_started", detail: "No Stripe keys configured" },
+    { id: "webhook_endpoint", label: "Billing webhook endpoint", status: "not_started", detail: "Pending Stripe setup" },
+  ];
+
+  const readyCount = checks.filter(c => c.status === "ready").length;
+  const readinessPct = Math.round((readyCount / checks.length) * 100);
+
+  res.json({ checks, readinessPct, readyCount, totalChecks: checks.length, mrr, paidUsers, totalUsers: total });
 });
 
 // ─── User Billing Profile ─────────────────────────────────────────────────────
