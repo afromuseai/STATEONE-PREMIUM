@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import { useImpersonation } from "@/lib/impersonation-context"
+import { GeoGlobe } from "@/components/dashboard/geo-globe"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
 type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition"
@@ -3829,6 +3830,43 @@ export default function AdminPage() {
 
             return (
               <div className="space-y-5">
+
+                {/* Globe */}
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl border border-white/8 bg-white/2 p-6 flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-2 self-start">
+                    <Globe className="h-4 w-4 text-[#6366F1]" />
+                    <h3 className="text-sm font-black text-foreground">Global User Distribution</h3>
+                    {geo?.countries && geo.countries.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground ml-1">
+                        {geo.countries.length} countr{geo.countries.length !== 1 ? "ies" : "y"} · {geo.countries.reduce((s, c) => s + c.users, 0).toLocaleString()} users
+                      </span>
+                    )}
+                  </div>
+                  {(!geo?.countries || geo.countries.length === 0) ? (
+                    <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+                      <Globe className="h-10 w-10 opacity-20" />
+                      <p className="text-xs">No geo data yet — data appears as users sign up</p>
+                    </div>
+                  ) : (
+                    <GeoGlobe countries={geo.countries} size={340} />
+                  )}
+                  {geo?.countries && geo.countries.length > 0 && (
+                    <div className="flex flex-wrap gap-4 self-start">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
+                        <span className="text-[10px] text-muted-foreground">Active users</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#D4AF37]" />
+                        <span className="text-[10px] text-muted-foreground">Registered users</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 ml-2">
+                        <span className="text-[10px] text-muted-foreground">Dot size = user count</span>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
 
                 {/* Overview Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
