@@ -526,10 +526,10 @@ export function AdminSecurity() {
         <div className="space-y-5">
           {/* Stat cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Failed Logins (24h)"       value={data?.overview.failedLogins24h        ?? "—"} icon={Eye}           color="#EF4444" />
-            <StatCard label="Suspended Accounts"        value={data?.overview.suspendedUsers         ?? "—"} icon={UserX}         color="#F97316" />
-            <StatCard label="Open Abuse Alerts"         value={data?.overview.openAbuseAlerts        ?? "—"} icon={AlertTriangle} color="#F59E0B" />
-            <StatCard label="Rate Violations (24h)"     value={data?.overview.rateLimitViolations24h ?? "—"} icon={Zap}           color="#6366F1" />
+            <StatCard label="Failed Logins (24h)"       value={data?.overview?.failedLogins24h        ?? "—"} icon={Eye}           color="#EF4444" />
+            <StatCard label="Suspended Accounts"        value={data?.overview?.suspendedUsers         ?? "—"} icon={UserX}         color="#F97316" />
+            <StatCard label="Open Abuse Alerts"         value={data?.overview?.openAbuseAlerts        ?? "—"} icon={AlertTriangle} color="#F59E0B" />
+            <StatCard label="Rate Violations (24h)"     value={data?.overview?.rateLimitViolations24h ?? "—"} icon={Zap}           color="#6366F1" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
