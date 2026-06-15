@@ -232,6 +232,47 @@ interface AuditLog {
   userName: string | null
 }
 
+interface MessageCenterSend {
+  id: string
+  adminId: string
+  adminEmail: string
+  title: string
+  message: string
+  type: string
+  segment: string
+  targetUserId: string | null
+  recipientCount: number
+  createdAt: string
+}
+
+interface NotifSchedule {
+  id: string
+  title: string
+  message: string
+  type: string
+  segment: string
+  targetUserId: string | null
+  scheduledFor: string
+  status: string
+  createdBy: string | null
+  sentAt: string | null
+  createdAt: string
+}
+
+interface NotifAnalytics {
+  totalSent: number
+  totalRead: number
+  unreadCount: number
+  readRate: number
+  topNotifications: Array<{
+    title: string
+    type: string
+    recipients: number
+    reads: number
+    readRate: number
+  }>
+}
+
 const PLAN_META: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   free:       { icon: Zap,       color: "#10B981", label: "Free" },
   pro:        { icon: Crown,     color: "#D4AF37", label: "Pro" },
@@ -401,6 +442,16 @@ export default function AdminPage() {
   const [msgForm, setMsgForm] = useState({ target: "all", targetUserId: "", type: "announcement", title: "", body: "" })
   const [sendingMsg, setSendingMsg] = useState(false)
   const [msgSent, setMsgSent] = useState(false)
+  const [messageSends, setMessageSends] = useState<MessageCenterSend[]>([])
+  const [notifAnalytics, setNotifAnalytics] = useState<NotifAnalytics | null>(null)
+  const [schedules, setSchedules] = useState<NotifSchedule[]>([])
+  const [scheduleForm, setScheduleForm] = useState({ title: "", message: "", type: "announcement", segment: "all", scheduledFor: "" })
+  const [showScheduleForm, setShowScheduleForm] = useState(false)
+  const [creatingSchedule, setCreatingSchedule] = useState(false)
+  const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const [deletingMsgSend, setDeletingMsgSend] = useState<string | null>(null)
+  const [viewingMsg, setViewingMsg] = useState<string | null>(null)
+  const [cancellingSchedule, setCancellingSchedule] = useState<string | null>(null)
 
   // Billing
   const [billing, setBilling] = useState<BillingData | null>(null)
@@ -566,6 +617,19 @@ export default function AdminPage() {
     } catch (_) {}
   }, [])
 
+  const loadMessages = useCallback(async () => {
+    try {
+      const [sendsData, analyticsData, schedulesData] = await Promise.all([
+        fetch("/api/admin/message-center", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/notification-analytics", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/notification-schedules", { credentials: "include" }).then(r => r.json()),
+      ])
+      setMessageSends(sendsData.sends ?? [])
+      if (analyticsData?.totalSent !== undefined) setNotifAnalytics(analyticsData)
+      setSchedules(schedulesData.schedules ?? [])
+    } catch (_) {}
+  }, [])
+
   useEffect(() => { loadData() }, [loadData])
 
   useEffect(() => {
@@ -579,7 +643,8 @@ export default function AdminPage() {
     else if (activeTab === "audit") loadAudit()
     else if (activeTab === "audit-logs") loadAdminAuditLogs()
     else if (activeTab === "geo") loadGeoIntelligence()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence])
+    else if (activeTab === "messages") loadMessages()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages])
 
   // Session Monitor: auto-refresh every 30s while tab is active
   useEffect(() => {
@@ -1388,9 +1453,48 @@ export default function AdminPage() {
           {/* ── Messages Tab ───────────────────────────────────────────────── */}
           {activeTab === "messages" && (
             <div className="space-y-5">
+
+              {/* ── Analytics Row ───────────────────────────────────────────── */}
+              {notifAnalytics && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard label="Total Sent" value={notifAnalytics.totalSent.toLocaleString()} icon={Send} color="#6366F1" />
+                  <StatCard label="Total Read" value={notifAnalytics.totalRead.toLocaleString()} icon={Eye} color="#10B981" />
+                  <StatCard label="Unread" value={notifAnalytics.unreadCount.toLocaleString()} icon={Mail} color="#F59E0B" />
+                  <StatCard label="Read Rate" value={`${notifAnalytics.readRate}%`} icon={Activity} color="#D4AF37" />
+                </div>
+              )}
+
+              {/* ── Top Notifications ─────────────────────────────────────── */}
+              {notifAnalytics && notifAnalytics.topNotifications.length > 0 && (
+                <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
+                  <h3 className="text-xs font-black text-foreground mb-3 flex items-center gap-2">
+                    <TrendingUp className="h-3.5 w-3.5 text-primary" /> Top Notifications by Reads
+                  </h3>
+                  <div className="space-y-2">
+                    {notifAnalytics.topNotifications.map((n, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="text-[10px] text-muted-foreground/50 w-4 shrink-0">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold text-foreground truncate">{n.title}</span>
+                            <span className="text-[10px] text-muted-foreground capitalize shrink-0">{n.type}</span>
+                          </div>
+                          <MiniBar pct={n.readRate} color="#10B981" />
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-bold text-foreground">{n.readRate}%</p>
+                          <p className="text-[10px] text-muted-foreground">{n.reads}/{n.recipients}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Compose ───────────────────────────────────────────────── */}
               <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
                 <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2">
-                  <Send className="h-4 w-4 text-primary" /> Message Center
+                  <Send className="h-4 w-4 text-primary" /> Send Message
                 </h3>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
@@ -1406,7 +1510,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Target</p>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Target Segment</p>
                       <div className="flex gap-2 flex-wrap">
                         {(["all", "free", "pro", "startup", "enterprise", "individual"] as const).map(t => (
                           <button key={t} onClick={() => setMsgForm(f => ({ ...f, target: t }))}
@@ -1433,6 +1537,7 @@ export default function AdminPage() {
                         await fetch("/api/admin/message-center", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...msgForm }) })
                         setMsgSent(true)
                         setMsgForm({ target: "all", targetUserId: "", type: "announcement", title: "", body: "" })
+                        await loadMessages()
                         setTimeout(() => setMsgSent(false), 3000)
                       } catch (_) {}
                       setSendingMsg(false)
@@ -1452,6 +1557,224 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
+
+              {/* ── Scheduled Notifications ───────────────────────────────── */}
+              <div className="rounded-2xl border border-white/8 bg-white/2 p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-black text-foreground flex items-center gap-2 flex-1">
+                    <Clock className="h-4 w-4 text-primary" /> Scheduled Notifications
+                  </h3>
+                  <button onClick={() => { setShowScheduleForm(v => !v); setScheduleError(null) }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-black hover:bg-primary/90 transition-all">
+                    <Plus className="h-3.5 w-3.5" /> Schedule
+                  </button>
+                </div>
+
+                <AnimatePresence>
+                  {showScheduleForm && (
+                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                      className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+                      <h4 className="text-xs font-black text-foreground">New Scheduled Notification</h4>
+                      {scheduleError && (
+                        <div className="flex items-center gap-2 text-red-400 text-xs font-bold bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+                          <AlertTriangle className="h-3.5 w-3.5" /> {scheduleError}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Type</p>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {(["announcement", "feature", "warning", "maintenance", "tip"] as const).map(t => (
+                              <button key={t} onClick={() => setScheduleForm(f => ({ ...f, type: t }))}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all capitalize ${scheduleForm.type === t ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                                {t}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Segment</p>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {(["all", "free", "pro", "startup", "enterprise"] as const).map(s => (
+                              <button key={s} onClick={() => setScheduleForm(f => ({ ...f, segment: s }))}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all capitalize ${scheduleForm.segment === s ? "bg-primary/15 border-primary/30 text-primary" : "border-white/8 bg-white/3 text-muted-foreground hover:text-foreground"}`}>
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <input type="text" placeholder="Title..." value={scheduleForm.title} onChange={e => setScheduleForm(f => ({ ...f, title: e.target.value }))}
+                        className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none" />
+                      <textarea placeholder="Message body..." value={scheduleForm.message} onChange={e => setScheduleForm(f => ({ ...f, message: e.target.value }))}
+                        rows={2} className="w-full rounded-xl border border-white/8 bg-white/3 px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none resize-none" />
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">Schedule For</p>
+                        <input type="datetime-local" value={scheduleForm.scheduledFor} onChange={e => setScheduleForm(f => ({ ...f, scheduledFor: e.target.value }))}
+                          className="rounded-xl border border-white/8 bg-white/3 px-4 py-2 text-sm text-foreground outline-none focus:border-primary/30" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={async () => {
+                          setScheduleError(null)
+                          if (!scheduleForm.title.trim() || !scheduleForm.message.trim() || !scheduleForm.scheduledFor) {
+                            setScheduleError("Title, message, and schedule time are required"); return
+                          }
+                          setCreatingSchedule(true)
+                          try {
+                            const r = await fetch("/api/admin/notification-schedules", {
+                              method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ ...scheduleForm, scheduledFor: new Date(scheduleForm.scheduledFor).toISOString() }),
+                            })
+                            const d = await r.json()
+                            if (!r.ok) { setScheduleError(d.error ?? "Failed to create"); setCreatingSchedule(false); return }
+                            setScheduleForm({ title: "", message: "", type: "announcement", segment: "all", scheduledFor: "" })
+                            setShowScheduleForm(false)
+                            await loadMessages()
+                          } catch (_) { setScheduleError("Request failed") }
+                          setCreatingSchedule(false)
+                        }} disabled={creatingSchedule}
+                          className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold bg-primary text-black hover:bg-primary/90 transition-all disabled:opacity-40">
+                          {creatingSchedule ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                          Schedule
+                        </button>
+                        <button onClick={() => { setShowScheduleForm(false); setScheduleError(null) }}
+                          className="px-4 py-2 rounded-xl text-sm font-bold text-muted-foreground hover:text-foreground border border-white/8 bg-white/3 transition-all">
+                          Cancel
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {schedules.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Clock className="h-7 w-7 mx-auto mb-2 text-muted-foreground opacity-30" />
+                    <p className="text-sm text-muted-foreground">No scheduled notifications</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {schedules.map((s, i) => {
+                      const isPast = s.status === "sent"
+                      const isCancelled = s.status === "cancelled"
+                      return (
+                        <motion.div key={s.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                          className={`rounded-xl border bg-white/2 px-4 py-3 ${isPast || isCancelled ? "border-white/4 opacity-60" : "border-white/8"}`}>
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-xs font-bold text-foreground truncate">{s.title}</span>
+                                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold capitalize"
+                                  style={{
+                                    background: s.status === "pending" ? "#6366F115" : s.status === "sent" ? "#10B98115" : "#6B728015",
+                                    color: s.status === "pending" ? "#6366F1" : s.status === "sent" ? "#10B981" : "#6B7280",
+                                    border: `1px solid ${s.status === "pending" ? "#6366F130" : s.status === "sent" ? "#10B98130" : "#6B728030"}`,
+                                  }}>
+                                  {s.status}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground capitalize">{s.type} · {s.segment}</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground/70 truncate">{s.message}</p>
+                              <p className="text-[10px] text-muted-foreground/50 mt-0.5 flex items-center gap-1">
+                                <Calendar className="h-2.5 w-2.5" />
+                                {new Date(s.scheduledFor).toLocaleString()}
+                                {s.sentAt && <span className="ml-2 text-emerald-400">· sent {timeAgo(s.sentAt)}</span>}
+                              </p>
+                            </div>
+                            {s.status === "pending" && (
+                              <div className="flex gap-1.5 shrink-0">
+                                <button onClick={async () => {
+                                  setCancellingSchedule(s.id)
+                                  await fetch(`/api/admin/notification-schedules/${s.id}/cancel`, { method: "PATCH", credentials: "include" })
+                                  await loadMessages()
+                                  setCancellingSchedule(null)
+                                }} disabled={cancellingSchedule === s.id}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border border-white/8 bg-white/3 text-muted-foreground hover:text-yellow-400 hover:border-yellow-500/20 transition-all">
+                                  <Pause className="h-2.5 w-2.5" /> Cancel
+                                </button>
+                                <button onClick={async () => {
+                                  await fetch(`/api/admin/notification-schedules/${s.id}`, { method: "DELETE", credentials: "include" })
+                                  await loadMessages()
+                                }} className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-colors">
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            )}
+                            {(s.status === "sent" || s.status === "cancelled") && (
+                              <button onClick={async () => {
+                                await fetch(`/api/admin/notification-schedules/${s.id}`, { method: "DELETE", credentials: "include" })
+                                await loadMessages()
+                              }} className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-colors shrink-0">
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Sent Messages History ─────────────────────────────────── */}
+              <div className="rounded-2xl border border-white/8 bg-white/2 p-5 space-y-4">
+                <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4 text-primary" /> Sent Messages
+                  <span className="text-[10px] font-bold text-muted-foreground/60 bg-white/5 rounded-full px-2 py-0.5">{messageSends.length}</span>
+                </h3>
+
+                {messageSends.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Send className="h-7 w-7 mx-auto mb-2 text-muted-foreground opacity-30" />
+                    <p className="text-sm text-muted-foreground">No messages sent yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {messageSends.map((m, i) => (
+                      <motion.div key={m.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                        className="rounded-xl border border-white/6 bg-white/2 overflow-hidden">
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-xs font-bold text-foreground truncate">{m.title}</span>
+                              <span className="text-[10px] text-muted-foreground capitalize shrink-0">{m.type}</span>
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold bg-primary/10 text-primary border border-primary/20 capitalize shrink-0">{m.segment}</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                              <span className="flex items-center gap-1"><Users className="h-2.5 w-2.5" />{m.recipientCount} recipients</span>
+                              <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{timeAgo(m.createdAt)}</span>
+                              <span>{m.adminEmail}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button onClick={() => setViewingMsg(viewingMsg === m.id ? null : m.id)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border border-white/8 bg-white/3 text-muted-foreground hover:text-foreground transition-all">
+                              <Eye className="h-2.5 w-2.5" /> {viewingMsg === m.id ? "Hide" : "View"}
+                            </button>
+                            <button onClick={async () => {
+                              setDeletingMsgSend(m.id)
+                              await fetch(`/api/admin/message-center/${m.id}`, { method: "DELETE", credentials: "include" })
+                              setMessageSends(prev => prev.filter(s => s.id !== m.id))
+                              setDeletingMsgSend(null)
+                            }} disabled={deletingMsgSend === m.id}
+                              className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/5 transition-colors">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                        <AnimatePresence>
+                          {viewingMsg === m.id && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                              className="border-t border-white/6 px-4 py-3 bg-white/1">
+                              <p className="text-xs text-muted-foreground leading-relaxed">{m.message}</p>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 

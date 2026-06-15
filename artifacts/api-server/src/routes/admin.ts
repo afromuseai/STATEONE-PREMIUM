@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, subscriptionsTable, eventsTable, broadcastsTable, notificationsTable, sessionsTable, projectsTable, userUsageTable, adminAuditLogsTable } from "@workspace/db";
-import { eq, desc, gte, lt, and, count, sql, isNotNull, ne, inArray, ilike, or } from "drizzle-orm";
+import { db, usersTable, subscriptionsTable, eventsTable, broadcastsTable, notificationsTable, sessionsTable, projectsTable, userUsageTable, adminAuditLogsTable, messageCenterSendsTable, notificationSchedulesTable } from "@workspace/db";
+import { eq, desc, gte, lt, lte, and, count, sql, isNotNull, ne, inArray, ilike, or } from "drizzle-orm";
 import { logAuditFireForget } from "../lib/audit";
 import { logAdminAuditFireForget } from "../lib/admin-audit";
 import { requireAdmin, requireAuth } from "../middleware/auth";
@@ -786,8 +786,206 @@ router.post("/admin/message-center", requireAdmin, async (req, res): Promise<voi
     });
   }).catch(() => {});
 
+  // Record to message_center_sends for history
+  db.select({ email: usersTable.email, name: usersTable.name })
+    .from(usersTable)
+    .where(eq(usersTable.id, adminId))
+    .then(([admin]) => {
+      db.insert(messageCenterSendsTable).values({
+        adminId,
+        adminEmail: admin?.email ?? "unknown",
+        title: title.trim(),
+        message: body.trim(),
+        type: type ?? "announcement",
+        segment: msgTarget,
+        targetUserId: msgTarget === "individual" && targetUserId ? targetUserId : null,
+        recipientCount: rows.length,
+      }).catch(() => {});
+    }).catch(() => {});
+
   res.status(201).json({ ok: true, sent: rows.length });
 });
+
+// ─── Message Center History ────────────────────────────────────────────────────
+
+router.get("/admin/message-center", requireAdmin, async (req, res): Promise<void> => {
+  const limit  = Math.min(100, Math.max(1, Number(req.query.limit ?? 50)));
+  const offset = Math.max(0, Number(req.query.page ?? 0)) * limit;
+
+  const [sends, [{ total }]] = await Promise.all([
+    db.select().from(messageCenterSendsTable)
+      .orderBy(desc(messageCenterSendsTable.createdAt))
+      .limit(limit).offset(offset),
+    db.select({ total: count() }).from(messageCenterSendsTable),
+  ]);
+
+  res.json({ sends, total });
+});
+
+router.delete("/admin/message-center/:id", requireAdmin, async (req, res): Promise<void> => {
+  const { id } = req.params;
+  await db.delete(messageCenterSendsTable).where(eq(messageCenterSendsTable.id, id));
+  res.json({ ok: true });
+});
+
+// ─── Notification Analytics ───────────────────────────────────────────────────
+
+router.get("/admin/notification-analytics", requireAdmin, async (_req, res): Promise<void> => {
+  const [
+    [{ totalSent }],
+    [{ totalRead }],
+    topRows,
+  ] = await Promise.all([
+    db.select({ totalSent: count() }).from(notificationsTable),
+    db.select({ totalRead: count() }).from(notificationsTable).where(eq(notificationsTable.read, true)),
+    db.select({
+      title:      notificationsTable.title,
+      type:       notificationsTable.type,
+      recipients: count(),
+      reads:      sql<number>`COUNT(CASE WHEN ${notificationsTable.read} THEN 1 END)::int`,
+    })
+      .from(notificationsTable)
+      .groupBy(notificationsTable.title, notificationsTable.type)
+      .orderBy(desc(sql`COUNT(CASE WHEN ${notificationsTable.read} THEN 1 END)`))
+      .limit(10),
+  ]);
+
+  const sent    = Number(totalSent);
+  const read    = Number(totalRead);
+  const unread  = sent - read;
+  const readRate = sent > 0 ? Math.round((read / sent) * 100 * 10) / 10 : 0;
+
+  const topNotifications = topRows.map(r => ({
+    title:      r.title,
+    type:       r.type,
+    recipients: Number(r.recipients),
+    reads:      Number(r.reads),
+    readRate:   Number(r.recipients) > 0
+      ? Math.round((Number(r.reads) / Number(r.recipients)) * 100 * 10) / 10
+      : 0,
+  }));
+
+  res.json({ totalSent: sent, totalRead: read, unreadCount: unread, readRate, topNotifications });
+});
+
+// ─── Notification Schedules ───────────────────────────────────────────────────
+
+router.get("/admin/notification-schedules", requireAdmin, async (_req, res): Promise<void> => {
+  const schedules = await db
+    .select()
+    .from(notificationSchedulesTable)
+    .orderBy(desc(notificationSchedulesTable.scheduledFor));
+  res.json({ schedules });
+});
+
+router.post("/admin/notification-schedules", requireAdmin, async (req, res): Promise<void> => {
+  const { title, message, type, segment, targetUserId, scheduledFor } = req.body as {
+    title?: string;
+    message?: string;
+    type?: string;
+    segment?: string;
+    targetUserId?: string;
+    scheduledFor?: string;
+  };
+
+  if (!title?.trim() || !message?.trim() || !scheduledFor) {
+    res.status(400).json({ error: "title, message, and scheduledFor are required" });
+    return;
+  }
+
+  const schedDate = new Date(scheduledFor);
+  if (isNaN(schedDate.getTime()) || schedDate <= new Date()) {
+    res.status(400).json({ error: "scheduledFor must be a future date" });
+    return;
+  }
+
+  const validSegments = ["all", "free", "pro", "startup", "enterprise", "individual"];
+  const seg = validSegments.includes(segment ?? "") ? segment! : "all";
+  const adminId = req.user!.userId;
+
+  const [schedule] = await db.insert(notificationSchedulesTable).values({
+    title:        title.trim(),
+    message:      message.trim(),
+    type:         type ?? "announcement",
+    segment:      seg,
+    targetUserId: seg === "individual" && targetUserId ? targetUserId : null,
+    scheduledFor: schedDate,
+    status:       "pending",
+    createdBy:    adminId,
+  }).returning();
+
+  res.status(201).json({ schedule });
+});
+
+router.patch("/admin/notification-schedules/:id/cancel", requireAdmin, async (req, res): Promise<void> => {
+  const { id } = req.params;
+  const [updated] = await db.update(notificationSchedulesTable)
+    .set({ status: "cancelled" })
+    .where(and(eq(notificationSchedulesTable.id, id), eq(notificationSchedulesTable.status, "pending")))
+    .returning();
+
+  if (!updated) { res.status(404).json({ error: "Schedule not found or already processed" }); return; }
+  res.json({ schedule: updated });
+});
+
+router.delete("/admin/notification-schedules/:id", requireAdmin, async (req, res): Promise<void> => {
+  const { id } = req.params;
+  await db.delete(notificationSchedulesTable)
+    .where(and(eq(notificationSchedulesTable.id, id), ne(notificationSchedulesTable.status, "sent")));
+  res.json({ ok: true });
+});
+
+// ─── Notification Scheduler ───────────────────────────────────────────────────
+
+async function runScheduledNotifications() {
+  try {
+    const due = await db
+      .select()
+      .from(notificationSchedulesTable)
+      .where(and(
+        eq(notificationSchedulesTable.status, "pending"),
+        lte(notificationSchedulesTable.scheduledFor, new Date()),
+      ));
+
+    for (const schedule of due) {
+      try {
+        const recipients = schedule.segment === "individual" && schedule.targetUserId
+          ? [{ id: schedule.targetUserId }]
+          : await getTargetRecipients(schedule.segment);
+
+        const severityMap: Record<string, "info" | "success" | "warning" | "error"> = {
+          announcement: "info", feature: "success", warning: "warning", maintenance: "warning", tip: "info",
+        };
+        const severity = severityMap[schedule.type] ?? "info";
+
+        const rows = recipients.map(u => ({
+          userId:   u.id,
+          type:     schedule.type,
+          title:    schedule.title,
+          message:  schedule.message,
+          severity,
+          metadata: { scheduledId: schedule.id, segment: schedule.segment } as Record<string, unknown>,
+        }));
+
+        if (rows.length > 0) {
+          for (let i = 0; i < rows.length; i += 100) {
+            await db.insert(notificationsTable).values(rows.slice(i, i + 100));
+          }
+        }
+
+        await db.update(notificationSchedulesTable)
+          .set({ status: "sent", sentAt: new Date() })
+          .where(eq(notificationSchedulesTable.id, schedule.id));
+      } catch {
+        // individual schedule failure doesn't block others
+      }
+    }
+  } catch {
+    // scheduler is fire-and-forget
+  }
+}
+
+setInterval(runScheduledNotifications, 60_000);
 
 // ─── Admin Audit Logs ─────────────────────────────────────────────────────────
 
