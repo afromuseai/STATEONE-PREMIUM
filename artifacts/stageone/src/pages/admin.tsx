@@ -295,6 +295,11 @@ function ActionBadge({ action }: { action: string }) {
   )
 }
 
+function countryFlag(code: string | null): string {
+  if (!code || code.length !== 2) return "🌍"
+  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65))
+}
+
 function formatDuration(ms: number): string {
   if (ms <= 0) return "—"
   if (ms < 60000) return `${Math.floor(ms / 1000)}s`
@@ -1924,6 +1929,179 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* Geo Heatmap */}
+                  {(() => {
+                    // Aggregate country + city + device counts from live session data
+                    const countryCounts: Record<string, { total: number; online: number }> = {}
+                    const cityCounts: Record<string, { country: string | null; total: number; online: number }> = {}
+                    const deviceCounts: Record<string, number> = {}
+                    const browserCounts: Record<string, number> = {}
+                    for (const s of sessionData.sessions) {
+                      const c = s.country ?? "Unknown"
+                      if (!countryCounts[c]) countryCounts[c] = { total: 0, online: 0 }
+                      countryCounts[c].total++
+                      if (s.isOnline) countryCounts[c].online++
+
+                      if (s.city) {
+                        const key = `${s.city}||${c}`
+                        if (!cityCounts[key]) cityCounts[key] = { country: s.country, total: 0, online: 0 }
+                        cityCounts[key].total++
+                        if (s.isOnline) cityCounts[key].online++
+                      }
+
+                      const dev = s.device ?? "Desktop"
+                      deviceCounts[dev] = (deviceCounts[dev] ?? 0) + 1
+
+                      const br = s.browser ?? "Unknown"
+                      browserCounts[br] = (browserCounts[br] ?? 0) + 1
+                    }
+
+                    const topCountries = Object.entries(countryCounts)
+                      .sort((a, b) => b[1].total - a[1].total)
+                      .slice(0, 10)
+                    const topCities = Object.entries(cityCounts)
+                      .sort((a, b) => b[1].total - a[1].total)
+                      .slice(0, 8)
+                    const topDevices = Object.entries(deviceCounts).sort((a, b) => b[1] - a[1])
+                    const topBrowsers = Object.entries(browserCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
+
+                    const maxCountry = topCountries[0]?.[1]?.total ?? 1
+                    const maxCity = topCities[0]?.[1]?.total ?? 1
+
+                    const DEVICE_COLOR: Record<string, string> = {
+                      Desktop: "#6366F1", Mobile: "#10B981", Tablet: "#F59E0B",
+                    }
+                    const BROWSER_COLOR: Record<string, string> = {
+                      Chrome: "#4285F4", Firefox: "#FF7139", Safari: "#0FB5EE",
+                      Edge: "#0078D4", Opera: "#FF1B2D", Chromium: "#6B7280", Unknown: "#6B7280",
+                    }
+
+                    return (
+                      <div className="rounded-2xl border border-white/8 bg-white/2 p-5 space-y-5">
+                        <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-sky-400" />
+                          Geographic Distribution
+                        </h3>
+
+                        {topCountries.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-6">No location data yet — sessions populate as users log in</p>
+                        ) : (
+                          <div className="grid md:grid-cols-2 gap-5">
+                            {/* Countries */}
+                            <div>
+                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-3">Top Countries</p>
+                              <div className="space-y-2">
+                                {topCountries.map(([country, { total, online }], i) => {
+                                  const pct = Math.round((total / maxCountry) * 100)
+                                  const isUnknown = country === "Unknown"
+                                  return (
+                                    <motion.div key={country} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                                      transition={{ delay: i * 0.04 }} className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-base leading-none w-6 shrink-0 text-center">
+                                          {isUnknown ? "🌍" : countryFlag(country)}
+                                        </span>
+                                        <span className="text-xs text-foreground font-medium flex-1 truncate">
+                                          {isUnknown ? "Unknown" : country}
+                                        </span>
+                                        {online > 0 && (
+                                          <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 rounded-full px-1.5 py-0.5 shrink-0">
+                                            {online} live
+                                          </span>
+                                        )}
+                                        <span className="text-[10px] font-bold text-muted-foreground tabular-nums w-5 text-right shrink-0">
+                                          {total}
+                                        </span>
+                                      </div>
+                                      <div className="h-1.5 rounded-full bg-white/6 overflow-hidden ml-8">
+                                        <motion.div
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${pct}%` }}
+                                          transition={{ duration: 0.7, delay: i * 0.04 }}
+                                          className="h-full rounded-full"
+                                          style={{ background: i === 0 ? "#D4AF37" : i === 1 ? "#6366F1" : i === 2 ? "#10B981" : "#4B5563" }}
+                                        />
+                                      </div>
+                                    </motion.div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Right column: cities + device + browser */}
+                            <div className="space-y-5">
+                              {/* Top Cities */}
+                              {topCities.length > 0 && (
+                                <div>
+                                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-3">Top Cities</p>
+                                  <div className="space-y-1.5">
+                                    {topCities.map(([key, { country, total, online }], i) => {
+                                      const city = key.split("||")[0]
+                                      const pct = Math.round((total / maxCity) * 100)
+                                      return (
+                                        <motion.div key={key} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
+                                          transition={{ delay: i * 0.04 }} className="space-y-0.5">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-sm w-5 text-center shrink-0">
+                                              {countryFlag(country ?? null)}
+                                            </span>
+                                            <span className="text-xs text-foreground flex-1 truncate">{city}</span>
+                                            {online > 0 && (
+                                              <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 rounded-full px-1.5 py-0.5 shrink-0">
+                                                {online}●
+                                              </span>
+                                            )}
+                                            <span className="text-[10px] text-muted-foreground tabular-nums">{total}</span>
+                                          </div>
+                                          <div className="h-1 rounded-full bg-white/5 overflow-hidden ml-7">
+                                            <motion.div
+                                              initial={{ width: 0 }}
+                                              animate={{ width: `${pct}%` }}
+                                              transition={{ duration: 0.6, delay: i * 0.04 }}
+                                              className="h-full rounded-full bg-sky-400/60"
+                                            />
+                                          </div>
+                                        </motion.div>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Device breakdown */}
+                              <div>
+                                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Device Types</p>
+                                <div className="flex gap-2 flex-wrap">
+                                  {topDevices.map(([device, count]) => (
+                                    <div key={device} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border"
+                                      style={{ background: `${DEVICE_COLOR[device] ?? "#6B7280"}10`, borderColor: `${DEVICE_COLOR[device] ?? "#6B7280"}25` }}>
+                                      <span className="text-[10px] font-bold" style={{ color: DEVICE_COLOR[device] ?? "#6B7280" }}>{device}</span>
+                                      <span className="text-[10px] text-muted-foreground">{count}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Browser breakdown */}
+                              <div>
+                                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-2">Browsers</p>
+                                <div className="flex gap-2 flex-wrap">
+                                  {topBrowsers.map(([browser, count]) => (
+                                    <div key={browser} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border"
+                                      style={{ background: `${BROWSER_COLOR[browser] ?? "#6B7280"}10`, borderColor: `${BROWSER_COLOR[browser] ?? "#6B7280"}25` }}>
+                                      <span className="text-[10px] font-bold" style={{ color: BROWSER_COLOR[browser] ?? "#6B7280" }}>{browser}</span>
+                                      <span className="text-[10px] text-muted-foreground">{count}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {/* Activity Feed */}
                   <div className="rounded-2xl border border-white/8 bg-white/2 p-5">
