@@ -109,8 +109,8 @@ interface Rect { top: number; left: number; width: number; height: number }
 interface BubblePos { x: number; y: number; arrowSide: "left" | "right" | "top" | "bottom" }
 
 const PADDING = 4
-const BUBBLE_W = 300
-const BUBBLE_H = 170
+const BUBBLE_W = 340
+const BUBBLE_H = 180
 
 function computeBubblePos(rect: Rect, placement: TourStep["placement"]): BubblePos {
   const vw = window.innerWidth
@@ -379,34 +379,32 @@ export function ProductTour() {
             </p>
           </div>
 
+          {/* Progress bar */}
+          <div className="px-4 pb-1">
+            <div className="h-0.5 w-full rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: "linear-gradient(90deg, #c9a227, #e8c547)" }}
+                initial={false}
+                animate={{ width: `${((stepIdx + 1) / STEPS.length) * 100}%` }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+              />
+            </div>
+          </div>
+
           <div
             className="flex items-center justify-between px-4 py-2.5"
             style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
           >
-            <div className="flex items-center gap-1.5">
-              {STEPS.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setStepIdx(i)}
-                  className="rounded-full transition-all"
-                  style={{
-                    width: i === stepIdx ? 16 : 5,
-                    height: 5,
-                    background: i === stepIdx
-                      ? "linear-gradient(90deg, #c9a227, #e8c547)"
-                      : i < stepIdx
-                      ? "rgba(212,175,55,0.35)"
-                      : "rgba(255,255,255,0.1)",
-                  }}
-                />
-              ))}
-            </div>
+            <span className="text-[11px] tabular-nums" style={{ color: "#555" }}>
+              {stepIdx + 1} <span style={{ color: "#333" }}>/</span> {STEPS.length}
+            </span>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {stepIdx > 0 && (
                 <button
                   onClick={() => setStepIdx(i => i - 1)}
-                  className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-all"
+                  className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
                   style={{ color: "#666", border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)" }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#aaa" }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#666" }}
@@ -417,14 +415,16 @@ export function ProductTour() {
               )}
               <button
                 onClick={() => isLast ? dismiss() : setStepIdx(i => i + 1)}
-                className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold transition-all"
                 style={{
-                  background: "linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.08))",
-                  border: "1px solid rgba(212,175,55,0.25)",
+                  background: "linear-gradient(135deg, rgba(212,175,55,0.18), rgba(212,175,55,0.08))",
+                  border: "1px solid rgba(212,175,55,0.3)",
                   color: "#c9a227",
+                  minWidth: 64,
+                  justifyContent: "center",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(212,175,55,0.25), rgba(212,175,55,0.15))" }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(212,175,55,0.15), rgba(212,175,55,0.08))" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(212,175,55,0.28), rgba(212,175,55,0.15))" }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(212,175,55,0.18), rgba(212,175,55,0.08))" }}
               >
                 {isLast ? "Done" : "Next"}
                 {!isLast && <ChevronRight className="w-3 h-3" />}
