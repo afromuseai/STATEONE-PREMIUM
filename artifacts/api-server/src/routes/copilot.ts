@@ -11,6 +11,7 @@ import { getLanguageInstruction } from "../lib/language";
 import { getBusinessContext, getBusinessMemorySummary, type BusinessContextResult } from "../lib/business-graph";
 import { logEventFireForget } from "../lib/log-event";
 import { trackUsageFireForget } from "../lib/usage";
+import { runAgent, discoverActiveAgents, AGENT_NAME_TO_KEY } from "../lib/agent-runtime";
 
 // ─── Memory category types ─────────────────────────────────────────────────
 type MemoryCategory = "Decision" | "Goal" | "Assumption" | "Experiment" | "Milestone" | "Learning" | "Risk" | "Preference";
@@ -2311,6 +2312,38 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
   if (latestUserMessageForMemory) {
     extractProjectMemories(userId, latestUserMessageForMemory, wsProject?.title, req.log).catch(() => {});
   }
+
+  // ─── Agent run intent detection ────────────────────────────────────────────
+  // When the user explicitly asks Marcus to run an agent, detect the intent
+  // and dispatch through the worker. Fire-and-forget — never blocks response.
+  // Only acts when a matching installed agent exists for this user.
+  // Marcus should ONLY act when requested — never autonomously.
+  ;(async () => {
+    if (!latestUserMessageForMemory) return;
+    const msg = latestUserMessageForMemory.toLowerCase();
+
+    // Must contain a run verb
+    if (!/\b(run|start|activate|trigger|execute|launch)\b/.test(msg)) return;
+
+    // Map natural-language agent names to catalog keys
+    let matchedKey: string | null = null;
+    for (const [name, key] of Object.entries(AGENT_NAME_TO_KEY)) {
+      if (msg.includes(name)) { matchedKey = key; break; }
+    }
+    if (!matchedKey) return;
+
+    // Only trigger if the user actually has this agent installed and active
+    const activeAgentsList = await discoverActiveAgents(userId).catch(() => []);
+    const installedAgent = activeAgentsList.find(a => a.agentId === matchedKey);
+    if (!installedAgent) return;
+
+    await runAgent({
+      userId,
+      agentId:   installedAgent.id,
+      agentKey:  matchedKey,
+      projectId: activeProjectId ?? null,
+    }).catch(err => req.log.error({ err, agentKey: matchedKey }, "[Marcus] agent run dispatch failed"));
+  })();
 });
 
 export default router;

@@ -3,6 +3,7 @@ import { db, agentsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { z } from "zod";
+import { runAgent } from "../lib/agent-runtime";
 
 const router = Router();
 
@@ -264,6 +265,42 @@ router.patch("/agents/:id", requireAuth, async (req, res): Promise<void> => {
     .returning();
   if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
   res.json({ agent });
+});
+
+// Run an agent — creates an agent task + enqueues a worker job
+router.post("/agents/:id/run", requireAuth, async (req, res): Promise<void> => {
+  const id = req.params.id as string;
+  const userId = req.user!.userId;
+
+  const RunBody = z.object({
+    projectId:   z.string().uuid().nullable().optional(),
+    title:       z.string().max(300).optional(),
+  });
+  const parsed = RunBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+
+  const [agent] = await db
+    .select()
+    .from(agentsTable)
+    .where(and(eq(agentsTable.id, id), eq(agentsTable.userId, userId)));
+  if (!agent) { res.status(404).json({ error: "Agent not found" }); return; }
+  if (!agent.isActive) { res.status(409).json({ error: "Agent is not active — activate it before running" }); return; }
+
+  try {
+    const { task, execution } = await runAgent({
+      userId,
+      agentId:   agent.id,
+      agentKey:  agent.agentId,
+      projectId: parsed.data.projectId ?? null,
+      title:     parsed.data.title,
+    });
+    res.status(202).json({ task, execution, queued: true });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to run agent" });
+  }
 });
 
 // Uninstall an agent

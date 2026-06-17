@@ -1,0 +1,297 @@
+PHASE 2C.4 — AGENT RUNTIME FOUNDATION
+
+IMPORTANT:
+
+This phase builds on:
+
+* Phase 2C.2 Worker Infrastructure
+* Phase 2C.3 Execution Integration
+
+Both are already complete.
+
+DO NOT:
+
+* create new sidebar items
+* create new pages
+* create new dashboards
+* expose execution infrastructure
+* expose worker internals
+* expose orchestration controls
+* modify Business Intelligence
+* modify Website Builder
+* modify Chatbot Builder
+* modify Automation Builder
+
+The Execution Engine UI is intentionally hidden for MVP simplicity.
+
+This phase is backend/runtime only.
+
+==================================================
+
+GOAL
+
+Transform installed agents from:
+
+Agent Record
+→ Exists
+
+into:
+
+Agent
+→ Task
+→ Execution
+→ Worker
+→ Result
+→ Persistence
+
+without exposing any new UI.
+
+==================================================
+
+CURRENT PROBLEM
+
+Today:
+
+Agent Store works.
+
+Users can:
+
+* install agents
+* configure agents
+* pause agents
+* resume agents
+
+But agents do not actually perform work.
+
+The worker infrastructure now exists.
+
+The execution pipeline now exists.
+
+Agents must begin using it.
+
+==================================================
+
+CREATE AGENT RUNTIME SERVICE
+
+Create:
+
+lib/agent-runtime.ts
+
+Responsibilities:
+
+* discover active agents
+* schedule agent work
+* create execution jobs
+* monitor execution completion
+* persist outputs
+* emit notifications
+
+==================================================
+
+INITIAL AGENT SUPPORT
+
+Use existing agents only.
+
+DO NOT create new agents.
+
+Support:
+
+* Research Agent
+* Marketing Agent
+* Operations Agent
+* Growth Agent
+
+These agents should become capable of:
+
+* generating tasks
+* creating executions
+* processing outputs
+
+through the worker system.
+
+==================================================
+
+AGENT TASK FLOW
+
+Agent Active
+↓
+Task Created
+↓
+Execution Created
+↓
+Worker Processes
+↓
+Result Returned
+↓
+Persist Result
+
+==================================================
+
+EXECUTION INTEGRATION
+
+Use existing:
+
+* executions table
+* worker
+* job handlers
+* execution lifecycle
+
+DO NOT create a second execution system.
+
+Agents must use:
+
+the existing execution infrastructure.
+
+==================================================
+
+PERSISTENCE
+
+When agent work completes:
+
+Persist to:
+
+agent_tasks
+
+and
+
+agent_memory
+
+and
+
+related project context
+
+when available.
+
+Results must survive refreshes.
+
+==================================================
+
+NOTIFICATIONS
+
+When agent work completes:
+
+Create in-app notification.
+
+Examples:
+
+"Growth Agent completed market opportunity analysis."
+
+"Research Agent finished industry scan."
+
+"Marketing Agent generated campaign recommendations."
+
+Use existing notification infrastructure.
+
+==================================================
+
+MARCUS INTEGRATION
+
+Marcus should be able to trigger agents.
+
+Example:
+
+User:
+"Run the Growth Agent"
+
+Marcus:
+
+* creates agent task
+* creates execution
+* monitors progress
+* reports completion
+
+Marcus must use:
+
+existing execution infrastructure.
+
+DO NOT make Marcus autonomous.
+
+Marcus should only act when requested.
+
+==================================================
+
+AGENT STATUS
+
+Track:
+
+* idle
+* queued
+* running
+* completed
+* failed
+
+using existing execution state where possible.
+
+Avoid duplicate status systems.
+
+==================================================
+
+LOGGING
+
+Add structured logs:
+
+AGENT_RUNTIME_STARTED
+
+AGENT_TASK_CREATED
+
+AGENT_EXECUTION_CREATED
+
+AGENT_EXECUTION_COMPLETED
+
+AGENT_EXECUTION_FAILED
+
+Include:
+
+* agentId
+* agentType
+* executionId
+* duration
+
+==================================================
+
+IMPORTANT MVP RULE
+
+No new navigation.
+
+No new pages.
+
+No new dashboard modules.
+
+No execution UI.
+
+No orchestration UI.
+
+All functionality must remain infrastructure-only.
+
+The visible STAGEONE experience should remain:
+
+Business Idea
+→ Strategy
+→ Website
+→ Chatbot
+→ Automation
+
+while the operating system underneath becomes more capable.
+
+==================================================
+
+SUCCESS CRITERIA
+
+A user can:
+
+* install an agent
+* activate an agent
+* request agent execution
+
+and the system successfully:
+
+* creates tasks
+* creates executions
+* processes work through the worker
+* stores outputs
+* generates notifications
+
+using the existing execution architecture.
+
+This phase is runtime activation,
+not UI expansion.
