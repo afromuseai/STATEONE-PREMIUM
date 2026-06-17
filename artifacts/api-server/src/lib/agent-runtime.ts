@@ -185,7 +185,18 @@ export async function runAgent(opts: {
     status:   "pending",
   }).returning();
 
-  logger.info({ taskId: task.id, agentKey, userId, projectId: projectId ?? null }, "AGENT_TASK_CREATED");
+  logger.info(
+    {
+      taskId:      task.id,
+      agentId:     agentId     ?? null,
+      agentKey,
+      executionId: null,          // not yet created — logged again at AGENT_EXECUTION_CREATED
+      projectId:   projectId  ?? null,
+      durationMs:  null,
+      userId,
+    },
+    "AGENT_TASK_CREATED",
+  );
 
   const execution = await enqueueJob({
     userId,
@@ -203,7 +214,15 @@ export async function runAgent(opts: {
   });
 
   logger.info(
-    { executionId: execution.id, taskId: task.id, agentKey, userId },
+    {
+      executionId: execution.id,
+      taskId:      task.id,
+      agentId:     agentId    ?? null,
+      agentKey,
+      projectId:   projectId ?? null,
+      durationMs:  null,          // job hasn't run yet
+      userId,
+    },
     "AGENT_EXECUTION_CREATED",
   );
 

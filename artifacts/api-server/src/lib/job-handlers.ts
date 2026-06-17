@@ -162,11 +162,26 @@ registerHandler("agent_task", async ({ execution, log, signal }) => {
 
   if (signal.aborted) throw new Error("Aborted before processing");
 
+  // Timer for durationMs on all observability events from this point forward
+  const handlerStartMs = Date.now();
+
   // ── 1. Mark agent task as running ──────────────────────────────────────────
   await db.update(agentTasksTable)
     .set({ status: "running", startedAt: new Date() })
     .where(eq(agentTasksTable.id, taskId))
     .catch(() => {});
+
+  logger.info(
+    {
+      executionId: execution.id,
+      taskId,
+      agentId:   agentId   ?? null,
+      agentKey:  agentKey  ?? null,
+      projectId: projectId ?? null,
+      durationMs: 0,
+    },
+    "AGENT_EXECUTION_STARTED",
+  );
 
   log(`agent_task: running task ${taskId} (agent: ${agentKey ?? "unknown"})`);
 
@@ -257,6 +272,19 @@ registerHandler("agent_task", async ({ execution, log, signal }) => {
       importance: 6,
       metadata:   { taskId, projectId: projectId ?? null, executionId: execution.id },
     }).onConflictDoNothing().catch(() => {});
+
+    logger.info(
+      {
+        executionId: execution.id,
+        taskId,
+        agentId:   agentId   ?? null,
+        agentKey,
+        projectId: projectId ?? null,
+        durationMs: Date.now() - handlerStartMs,
+        memoryKey: memKey,
+      },
+      "AGENT_MEMORY_WRITTEN",
+    );
   }
 
   // ── 6. Increment agent tasksCompleted counter ──────────────────────────────
@@ -298,7 +326,28 @@ registerHandler("agent_task", async ({ execution, log, signal }) => {
   ).catch(() => {});
 
   logger.info(
-    { executionId: execution.id, taskId, agentKey, agentType: agentKey ?? "unknown" },
+    {
+      executionId: execution.id,
+      taskId,
+      agentId:   agentId   ?? null,
+      agentKey:  agentKey  ?? null,
+      projectId: projectId ?? null,
+      durationMs: Date.now() - handlerStartMs,
+      notificationType: "agent.execution.completed",
+    },
+    "AGENT_NOTIFICATION_SENT",
+  );
+
+  const finalDurationMs = Date.now() - handlerStartMs;
+  logger.info(
+    {
+      executionId: execution.id,
+      taskId,
+      agentId:   agentId   ?? null,
+      agentKey:  agentKey  ?? null,
+      projectId: projectId ?? null,
+      durationMs: finalDurationMs,
+    },
     "AGENT_EXECUTION_COMPLETED",
   );
 
