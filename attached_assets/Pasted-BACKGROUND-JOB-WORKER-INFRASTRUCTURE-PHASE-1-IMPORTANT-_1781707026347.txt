@@ -1,0 +1,263 @@
+BACKGROUND JOB WORKER INFRASTRUCTURE — PHASE 1
+
+IMPORTANT:
+
+Do NOT modify:
+
+* Business Intelligence generation
+* Website Architect generation
+* Chatbot generation
+* Automation generation
+* Marcus
+* Existing API routes
+* Authentication
+* Billing
+* Project structure
+
+The goal is:
+
+Create a real execution infrastructure behind STAGEONE.
+
+====================================
+CURRENT PROBLEM
+===============
+
+The executions table exists.
+
+Agent tasks exist.
+
+Automation tasks exist.
+
+Workspace tasks exist.
+
+Execution logs exist.
+
+However:
+
+STAGEONE currently records work.
+
+It does not actually execute work.
+
+The platform behaves like:
+
+"execution tracking"
+
+instead of:
+
+"execution engine"
+
+====================================
+GOAL
+====
+
+Create a centralized job worker system.
+
+The worker must:
+
+* receive jobs
+* queue jobs
+* process jobs
+* track progress
+* retry failures
+* persist execution state
+
+This becomes the foundation for:
+
+* agent execution
+* automation execution
+* scheduled tasks
+* orchestration
+* future autonomous systems
+
+====================================
+ARCHITECTURE
+============
+
+Create:
+
+ExecutionWorker
+
+Responsibilities:
+
+* job registration
+* job processing
+* retries
+* status updates
+* completion events
+
+====================================
+JOB LIFECYCLE
+=============
+
+Every execution must move through:
+
+queued
+
+↓
+
+running
+
+↓
+
+completed
+
+OR
+
+failed
+
+====================================
+DATABASE
+========
+
+Use existing executions table.
+
+Do NOT create duplicate execution systems.
+
+Add only fields if absolutely necessary.
+
+Possible additions:
+
+* startedAt
+* completedAt
+* lastHeartbeat
+* retryCount
+* errorMessage
+
+====================================
+WORKER LOOP
+===========
+
+Create a worker process.
+
+Interval:
+
+5–10 seconds
+
+Process:
+
+1. Find queued jobs
+2. Lock job
+3. Mark running
+4. Execute handler
+5. Save progress
+6. Mark complete
+7. Emit completion event
+
+====================================
+JOB TYPES
+=========
+
+Create handler registry.
+
+Example:
+
+business_intelligence
+
+website_generation
+
+chatbot_generation
+
+automation_generation
+
+agent_task
+
+future_custom_job
+
+Do NOT hardcode execution logic.
+
+Use handler mapping.
+
+Example:
+
+handlers[jobType]
+
+====================================
+RETRIES
+=======
+
+Failed jobs should retry.
+
+Default:
+
+3 retries
+
+After max retries:
+
+status = failed
+
+Store:
+
+* error message
+* final timestamp
+
+====================================
+OBSERVABILITY
+=============
+
+Add logging.
+
+Examples:
+
+WORKER_STARTED
+
+JOB_QUEUED
+
+JOB_RUNNING
+
+JOB_COMPLETED
+
+JOB_FAILED
+
+JOB_RETRY
+
+Include:
+
+* job id
+* job type
+* duration
+
+====================================
+ADMIN VISIBILITY
+================
+
+Do NOT build new admin pages.
+
+Only expose data through existing execution tables.
+
+Future dashboards can consume this later.
+
+====================================
+IMPORTANT
+=========
+
+This is infrastructure.
+
+Do NOT build autonomous agents.
+
+Do NOT build automation logic.
+
+Do NOT build orchestration logic.
+
+Build the worker foundation first.
+
+====================================
+SUCCESS CRITERIA
+================
+
+A queued execution should:
+
+1. enter queue
+2. get picked up by worker
+3. run
+4. complete
+5. persist status
+
+without manual intervention.
+
+STAGEONE should move from:
+
+execution records
+
+to
+
+actual executable jobs.

@@ -52,6 +52,7 @@ import onboardingRouter from "./onboarding";
 import referralsRouter from "./referrals";
 import adminErrorsRouter from "./admin-errors";
 import adminRetentionRouter from "./admin-retention";
+import workerRouter from "./worker";
 
 const router: IRouter = Router();
 
@@ -108,5 +109,6 @@ router.use(onboardingRouter);
 router.use(referralsRouter);
 router.use(adminErrorsRouter);
 router.use(adminRetentionRouter);
+router.use(workerRouter);
 
 export default router;
