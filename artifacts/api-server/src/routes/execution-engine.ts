@@ -4,6 +4,17 @@ import { eq, and, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { z } from "zod";
 import { emitNotification } from "./notifications";
+import { logger } from "../lib/logger";
+
+// Maps the broad execution type to the registered worker handler key.
+// payload.jobType always takes precedence (callers can override).
+const JOB_TYPE_MAP: Record<string, string> = {
+  agent:      "agent_task",
+  automation: "automation_run",
+  scheduled:  "scheduled_task",
+  event:      "noop",
+  // "workflow" intentionally omitted — no handler yet; worker will fail→retry→fail gracefully
+};
 
 const router = Router();
 
@@ -77,6 +88,16 @@ router.post("/executions", requireAuth, async (req, res): Promise<void> => {
     return;
   }
   const userId = req.user!.userId;
+
+  // Enrich payload: inject jobType so the worker resolves the correct handler.
+  // Callers may override by supplying payload.jobType themselves.
+  const mappedJobType = JOB_TYPE_MAP[parsed.data.type];
+  const enrichedPayload: Record<string, unknown> = { ...parsed.data.payload };
+  if (mappedJobType && !enrichedPayload.jobType) {
+    enrichedPayload.jobType = mappedJobType;
+  }
+  if (!enrichedPayload.userId) enrichedPayload.userId = userId;
+
   const [execution] = await db
     .insert(executionsTable)
     .values({
@@ -85,13 +106,24 @@ router.post("/executions", requireAuth, async (req, res): Promise<void> => {
       type: parsed.data.type,
       trigger: parsed.data.trigger,
       priority: parsed.data.priority,
-      payload: parsed.data.payload,
+      payload: enrichedPayload,
       maxRetries: parsed.data.maxRetries,
       scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : null,
       status: "queued",
       logs: [],
     })
     .returning();
+
+  logger.info(
+    {
+      executionId: execution.id,
+      jobType: enrichedPayload.jobType ?? parsed.data.type,
+      userId,
+      projectId: enrichedPayload.projectId ?? null,
+    },
+    "EXECUTION_CREATED",
+  );
+
   res.status(201).json({ execution });
 });
 

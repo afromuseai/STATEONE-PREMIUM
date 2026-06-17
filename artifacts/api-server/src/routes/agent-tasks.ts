@@ -4,6 +4,8 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { z } from "zod";
 import { emitNotification } from "./notifications";
+import { enqueueJob } from "../lib/worker";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -85,6 +87,29 @@ router.post("/agents/tasks", requireAuth, async (req, res): Promise<void> => {
       scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : null,
     })
     .returning();
+
+  // Fire-and-forget: enqueue a worker job for this agent task.
+  // Never blocks the HTTP response.
+  logger.info({ taskId: task.id, agentKey: task.agentKey, userId }, "EXECUTION_CREATED");
+  enqueueJob({
+    userId,
+    name: task.title,
+    type: "agent",
+    payload: {
+      jobType:  "agent_task",
+      taskId:   task.id,
+      agentKey: task.agentKey,
+      userId,
+    },
+    priority:    task.priority,
+    scheduledAt: task.scheduledAt ?? null,
+  }).then(execution => {
+    logger.info(
+      { executionId: execution.id, taskId: task.id, jobType: "agent_task", userId },
+      "JOB_ENQUEUED",
+    );
+  }).catch(() => {/* never surface to caller */});
+
   res.status(201).json({ task });
 });
 

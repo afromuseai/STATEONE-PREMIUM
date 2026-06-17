@@ -1,0 +1,222 @@
+PHASE 2C.3 — EXECUTION ENGINE INTEGRATION
+
+IMPORTANT
+
+The worker infrastructure already exists.
+
+Do NOT:
+
+* rewrite the worker
+* rewrite handlers
+* modify authentication
+* modify subscriptions
+* modify AI generators
+* modify project architecture
+
+The goal is:
+
+Connect existing execution-producing systems to the new worker.
+
+====================================
+
+CURRENT STATE
+
+====================================
+
+ExecutionWorker exists.
+
+Jobs can:
+
+* queue
+* run
+* retry
+* complete
+* fail
+
+However many STAGEONE systems still:
+
+create execution records
+
+WITHOUT creating executable jobs.
+
+====================================
+
+GOAL
+
+====================================
+
+Convert execution-producing systems into worker-backed systems.
+
+When an execution is created:
+
+it should automatically become a queueable job.
+
+====================================
+
+PHASE 1 TARGETS
+
+====================================
+
+Integrate:
+
+1. agent_task
+2. workspace_task
+3. automation_run
+4. scheduled_task
+
+Do NOT build new systems.
+
+Use existing systems.
+
+====================================
+
+AGENT TASKS
+
+====================================
+
+Current:
+
+task record created
+
+Desired:
+
+task record created
+
+↓
+
+enqueueJob({
+type: "agent_task"
+})
+
+↓
+
+worker executes
+
+====================================
+
+WORKSPACE TASKS
+
+====================================
+
+Current:
+
+task exists only as project data
+
+Desired:
+
+execution generated
+
+↓
+
+job queued
+
+↓
+
+worker executes
+
+====================================
+
+AUTOMATION BUILDER
+
+====================================
+
+Automation generation already exists.
+
+After generation:
+
+allow execution creation.
+
+Execution should:
+
+create automation_run job.
+
+Worker processes it.
+
+====================================
+
+SCHEDULED TASKS
+
+====================================
+
+Pending scheduled work should:
+
+automatically create worker jobs.
+
+Do NOT poll manually.
+
+Use worker infrastructure.
+
+====================================
+
+JOB PAYLOADS
+
+====================================
+
+Every queued job should contain:
+
+* projectId
+* userId
+* executionId
+* metadata
+
+Avoid large payloads.
+
+Store heavy state in DB.
+
+====================================
+
+OBSERVABILITY
+
+====================================
+
+Add logs:
+
+EXECUTION_CREATED
+
+JOB_ENQUEUED
+
+JOB_STARTED
+
+JOB_COMPLETED
+
+JOB_FAILED
+
+Include:
+
+* execution id
+* project id
+* user id
+* job type
+
+====================================
+
+SUCCESS CRITERIA
+
+====================================
+
+Creating:
+
+* agent task
+* workspace task
+* automation execution
+* scheduled execution
+
+should automatically produce:
+
+execution
+
+↓
+
+queue
+
+↓
+
+worker processing
+
+↓
+
+completion
+
+without manual intervention.
+
+The worker should become the canonical execution layer for STAGEONE.

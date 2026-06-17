@@ -5,6 +5,8 @@ import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { appendProjectEvent } from "../lib/project-events";
 import { logEventFireForget } from "../lib/log-event";
+import { enqueueJob } from "../lib/worker";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -39,6 +41,28 @@ router.post("/workspace/tasks", requireAuth, async (req, res): Promise<void> => 
 
   res.status(201).json({ tasks: rows });
   logEventFireForget({ userId, projectId: projectId ?? undefined, type: "marcus_task_created", data: { count: rows.length }, req });
+
+  // Fire-and-forget: enqueue one worker job per workspace task.
+  // Runs after the response is sent; never blocks or throws to caller.
+  for (const row of rows) {
+    logger.info({ taskId: row.id, userId, projectId: row.projectId ?? null }, "EXECUTION_CREATED");
+    enqueueJob({
+      userId,
+      name: row.title,
+      type: "workflow",
+      payload: {
+        jobType:         "workspace_task",
+        workspaceTaskId: row.id,
+        projectId:       row.projectId ?? null,
+        userId,
+      },
+    }).then(execution => {
+      logger.info(
+        { executionId: execution.id, taskId: row.id, jobType: "workspace_task", userId, projectId: row.projectId ?? null },
+        "JOB_ENQUEUED",
+      );
+    }).catch(() => {/* never surface to caller */});
+  }
 });
 
 // ─── Get tasks ───────────────────────────────────────────────────────────────
