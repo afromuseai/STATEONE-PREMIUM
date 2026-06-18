@@ -8,6 +8,7 @@ import { MODEL_KWARGS, type ModelId } from "./models";
 import { trackCall, trackStream } from "./model-monitor";
 
 const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
+const NVIDIA_CHAT_URL = `${NVIDIA_BASE}/chat/completions`;
 
 export interface NvidiaMessage {
   role: "system" | "user" | "assistant";
@@ -26,6 +27,22 @@ export interface NvidiaCallOptions {
   _feature?: string;
   _userId?: string;
   _projectId?: string;
+}
+
+// ─── Parse NVIDIA error body — extracts function_id if present ────────────────
+function parseNvidiaError(text: string): { detail?: string; functionId?: string; raw: string } {
+  try {
+    const json = JSON.parse(text) as Record<string, unknown>;
+    const detail =
+      typeof json["detail"] === "string" ? json["detail"] : undefined;
+    const functionId =
+      typeof json["function_id"] === "string" ? json["function_id"] :
+      typeof json["functionId"]  === "string" ? json["functionId"]  :
+      undefined;
+    return { detail, functionId, raw: text };
+  } catch {
+    return { raw: text };
+  }
 }
 
 function getApiKey(): string {
@@ -73,13 +90,17 @@ export async function callNvidia(options: NvidiaCallOptions): Promise<string> {
 
   let response: Response;
   try {
-    response = await fetch(`${NVIDIA_BASE}/chat/completions`, {
+    response = await fetch(NVIDIA_CHAT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(buildBody(options, false)),
     });
   } catch (err) {
     const ms = Date.now() - start;
+    logger.error(
+      { layer: "nvidia", MODEL_NAME: model, REQUEST_URL: NVIDIA_CHAT_URL, ms, networkError: String(err) },
+      `[AI:${model}] Network error (non-stream)`
+    );
     trackCall({ model, feature: options._feature, userId: options._userId, projectId: options._projectId, latencyMs: ms, success: false, errorType: "network_error" });
     throw err;
   }
@@ -88,9 +109,18 @@ export async function callNvidia(options: NvidiaCallOptions): Promise<string> {
 
   if (!response.ok) {
     const errorText = await response.text();
+    const parsed = parseNvidiaError(errorText);
     logger.error(
-      { layer: "nvidia", model, status: response.status, ms, errorText: errorText.slice(0, 400) },
-      `[AI:${model}] FAILED (${response.status}) after ${ms}ms`
+      {
+        layer: "nvidia",
+        MODEL_NAME:           model,
+        REQUEST_URL:          NVIDIA_CHAT_URL,
+        FUNCTION_ID:          parsed.functionId ?? "(not in response)",
+        NVIDIA_RESPONSE_BODY: parsed.raw,
+        status:               response.status,
+        ms,
+      },
+      `[AI:${model}] FAILED (${response.status}) after ${ms}ms — ${parsed.detail ?? parsed.raw.slice(0, 120)}`
     );
     trackCall({ model, feature: options._feature, userId: options._userId, projectId: options._projectId, latencyMs: ms, success: false, errorType: `http_${response.status}` });
     throw new Error(
@@ -145,7 +175,7 @@ export async function streamNvidia(
     `[AI:${model}] Starting stream`
   );
 
-  const response = await fetch(`${NVIDIA_BASE}/chat/completions`, {
+  const response = await fetch(NVIDIA_CHAT_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify(buildBody(options, true)),
@@ -154,9 +184,17 @@ export async function streamNvidia(
 
   if (!response.ok) {
     const errorText = await response.text();
+    const parsed = parseNvidiaError(errorText);
     logger.error(
-      { layer: "nvidia", model, status: response.status, errorText: errorText.slice(0, 400) },
-      `[AI:${model}] Stream FAILED (${response.status})`
+      {
+        layer: "nvidia",
+        MODEL_NAME:           model,
+        REQUEST_URL:          NVIDIA_CHAT_URL,
+        FUNCTION_ID:          parsed.functionId ?? "(not in response)",
+        NVIDIA_RESPONSE_BODY: parsed.raw,
+        status:               response.status,
+      },
+      `[AI:${model}] Stream FAILED (${response.status}) — ${parsed.detail ?? parsed.raw.slice(0, 120)}`
     );
     throw new Error(
       `[AI:${model}] Stream failed — HTTP ${response.status}: ${errorText.slice(0, 200)}`
