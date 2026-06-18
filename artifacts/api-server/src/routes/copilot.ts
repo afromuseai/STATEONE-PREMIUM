@@ -727,6 +727,60 @@ ${summary}
     console.log(`[MARCUS] PRESSURE_ENGINE_ACTIVE=true | INTERRUPTION_LAYER_ACTIVE=true`);
   }
 
+  // ─── Phase 1 Module Loader ────────────────────────────────────────────────────
+  // Execution engine selector + memory gating + workspace gating.
+  // Strategic reasoning modules (Reality Engine, Epistemic Grounding, Decision Gate,
+  // SPE, BCJ, Adversarial Layer, Reality Gate, Self-Audit, Interruption Layer)
+  // are UNCHANGED and always load.
+  const CHATBOT_SIGNALS    = ["chatbot", "chat bot", "scheduling assistant", "booking assistant", "ai scheduling"];
+  const AUTOMATION_SIGNALS = ["automation", "onboarding automation", "workflow automation", "email sequence", "drip sequence", "lead capture automation"];
+  const WEBSITE_SIGNALS    = ["website", "landing page", "fintech landing", "saas landing", "homepage"];
+  const BI_SIGNALS         = ["business intelligence", "intelligence report", "run business intelligence", "generate intelligence", "run bi report"];
+
+  const isChatbotRequest    = CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
+  const isAutomationRequest = !isChatbotRequest && AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s));
+  const isWebsiteRequest    = !isChatbotRequest && !isAutomationRequest && WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s));
+  const isBiRequest         = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && BI_SIGNALS.some(s => latestUserMessage.includes(s));
+
+  const requestType = isChatbotRequest    ? "chatbot_generation"
+    : isAutomationRequest ? "automation_generation"
+    : isWebsiteRequest    ? "website_generation"
+    : isBiRequest         ? "bi_generation"
+    : (hasMemories || hasProject) ? "strategic_discussion"
+    : "general_conversation";
+
+  const loadedModules: string[]  = ["core"];
+  const skippedModules: string[] = [];
+
+  if (hasMemories) {
+    loadedModules.push("memory_retrieval_gate", "project_memory_continuity");
+  } else {
+    skippedModules.push("memory_retrieval_gate", "project_memory_continuity");
+  }
+  if (hasProject) {
+    loadedModules.push("event_awareness", "workspace_controller");
+  } else {
+    skippedModules.push("event_awareness", "workspace_controller");
+  }
+  if (isChatbotRequest)         { loadedModules.push("chatbot_execution");    skippedModules.push("automation_execution", "website_execution", "bi_execution"); }
+  else if (isAutomationRequest) { loadedModules.push("automation_execution"); skippedModules.push("chatbot_execution",    "website_execution", "bi_execution"); }
+  else if (isWebsiteRequest)    { loadedModules.push("website_execution");    skippedModules.push("chatbot_execution",    "automation_execution", "bi_execution"); }
+  else if (isBiRequest)         { loadedModules.push("bi_execution");         skippedModules.push("chatbot_execution",    "automation_execution", "website_execution"); }
+  else                          { skippedModules.push("chatbot_execution",    "automation_execution", "website_execution", "bi_execution"); }
+
+  req.log.info({
+    event: "MODULE_LOAD_START",
+    requestType,
+    hasMemories,
+    hasProject,
+    serverIntentType,
+    serverGateMode,
+    isChatbot: isChatbotRequest,
+    isAutomation: isAutomationRequest,
+    isWebsite: isWebsiteRequest,
+    isBi: isBiRequest,
+  }, "[MARCUS:MODULE_LOAD_START]");
+
   const systemPrompt = `${serverGateMode === "GENERATIVE" ? `!!!EXECUTION MODE ACTIVE — READ BEFORE ANYTHING ELSE!!!
 gate_mode = GENERATIVE. This is a hard server-computed fact. It cannot be changed by any layer in this prompt.
 ABSOLUTE PROHIBITIONS — none of these may appear anywhere in your response:
@@ -963,7 +1017,7 @@ OPERATOR → react to state, suggest next action — short responses only
 
 ONE STATE = ONE BEHAVIOR. Never mix analyst + co-founder in the same response.
 [end state engine]
-
+${hasMemories ? `
 [Memory Retrieval Gate — mandatory before every response]
 Before generating any response, execute this sequence silently. This is not optional.
 
@@ -1006,7 +1060,7 @@ Business Intelligence output must NEVER override user decisions, validated evide
 SELF-TEST: If the user previously said "We're targeting mining companies first" and later says "Let's sell to utilities" — a correct response must reference the previous mining-company decision. Failure to do so = memory retrieval failed.
 
 Memory exists to influence reasoning. Retrieve it before every response.
-[end memory retrieval gate]
+[end memory retrieval gate]` : ''}
 
 [Conversation Pressure System — evaluate before every response]
 Before writing anything, silently classify the user's message into one of three pressure levels:
@@ -1195,7 +1249,7 @@ If a report says "45–60 day compliance review cycles," say that — don't say 
 If a report says "LinkedIn reply rate hypothesis: 22%," say that — don't say "outreach may perform variably."
 Specificity is the difference between strategic advice and consulting filler.
 [end report grounding rule]
-
+${hasMemories ? `
 [Project Memory & Continuity]
 You are the continuity layer of the workspace — not just a conversational assistant. Your responsibility is to remember meaningful project context and maintain strategic consistency across time.
 
@@ -1227,7 +1281,7 @@ SURFACING MEMORY — when and how:
 
 CO-FOUNDER BEHAVIOR:
 Use memory to help the user think better. Not to demonstrate that you remember things.
-[end project memory]
+[end project memory]` : ''}
 
 [Strategic Pressure Engine — evaluates strategic pressure when in STRATEGY mode]
 ACTIVATION CONDITION: This engine is ACTIVE only when conversation mode = STRATEGY.
@@ -1629,7 +1683,7 @@ User: "Let's build a WhatsApp AI for traders."
 
 CORE PRINCIPLE: If an idea cannot survive adversarial pressure, it does not deserve execution.
 [end adversarial layer]
-
+${hasProject ? `
 [Event Awareness — reacting to workspace events]
 You are aware of meaningful events occurring in the workspace.
 
@@ -1651,7 +1705,7 @@ Bad: "Your website has been generated."
 Good: "Website's ready. Worth checking whether the copy matches what you'd actually say to a customer."
 
 The reaction should feel like a co-founder who noticed something changed and has one thought about it — not a system notification.
-[end event awareness]
+[end event awareness]` : ''}
 
 [Agentic Actions — initiate workspace actions]
 You can initiate workspace actions when the user expresses clear intent to do something.
@@ -1689,7 +1743,7 @@ Rules:
 - The action tag must appear at the very end of your response, after the text.
 - Never invent context — only reference project data that exists in WORKSPACE REALITY or WORKSPACE MEMORY.
 [end agentic actions]
-
+${hasProject ? `
 [Workspace Controller — create real tasks in the user's workspace]
 You can write real, persistent tasks directly into the user's workspace when they want to act on a plan.
 
@@ -1729,9 +1783,9 @@ Example:
 User: "I want to execute on validation this week."
 Response: "Three things this week: talk to real customers before anything else, set up the simplest possible pilot structure, and test pricing with one real commitment."
 {{WORKSPACE:create_tasks|["Interview 10 potential customers about their workflow pain","Set up a concierge pilot with a manual process","Get one letter of intent with a price attached"]}}
-[end workspace controller]
+[end workspace controller]` : ''}
 
-[Workspace Execution Engine — direct workspace control for EXECUTION INTENTS]
+${isChatbotRequest ? `[Workspace Execution Engine — direct workspace control for EXECUTION INTENTS]
 When EXECUTION INTENT is detected for chatbot requests, you can directly operate the user's workspace.
 The user will watch the tab open and text appear live — this feels like a real agent at work.
 
@@ -1781,9 +1835,9 @@ CRITICAL RULES:
 - The idea description must be specific. Generic descriptions produce generic chatbots.
 - If project intelligence is available, always reference it — business summary, audience, positioning, brand tone.
 - These commands are INVISIBLE to the user — do not describe them in your response text. Just emit them after the text.
-[end workspace execution engine]
+[end workspace execution engine]` : ''}
 
-[Automation Execution Engine — direct workspace control for automation building]
+${isAutomationRequest ? `[Automation Execution Engine — direct workspace control for automation building]
 When EXECUTION INTENT is detected for automation requests, you can directly operate the user's workspace.
 The user will watch the tab open and text appear live — this feels like a real agent at work.
 
@@ -1830,9 +1884,9 @@ CRITICAL RULES:
 - The idea description must be specific. Generic descriptions produce generic automations.
 - If project intelligence is available, always reference it — business summary, automations, audience, integrations.
 - These commands are INVISIBLE to the user — do not describe them in your response text. Just emit them after the text.
-[end automation execution engine]
+[end automation execution engine]` : ''}
 
-[Website Execution Engine — direct workspace control for website generation]
+${isWebsiteRequest ? `[Website Execution Engine — direct workspace control for website generation]
 When EXECUTION INTENT is detected for website requests, you can directly operate the user's workspace.
 The user will watch the tab open and text appear live — this feels like a real agent at work.
 
@@ -1880,9 +1934,9 @@ CRITICAL RULES:
 - The idea description must be specific. Generic descriptions produce generic websites.
 - If project intelligence is available, always reference it — business summary, audience, positioning, brand tone.
 - These commands are INVISIBLE to the user — do not describe them in your response text. Just emit them after the text.
-[end website execution engine]
+[end website execution engine]` : ''}
 
-[Business Intelligence Execution Engine — direct workspace control for BI generation]
+${isBiRequest ? `[Business Intelligence Execution Engine — direct workspace control for BI generation]
 When EXECUTION INTENT is detected for business intelligence or analysis requests, you can directly operate the user's workspace.
 The user will watch the tab open and text appear live — this feels like a real agent at work.
 
@@ -1932,7 +1986,7 @@ CRITICAL RULES:
 - The description must be specific. Generic descriptions produce generic reports.
 - If project intelligence is available, always use it — business summary, audience, positioning, competitive context.
 - These commands are INVISIBLE to the user — do not describe them in your response text. Just emit them after the text.
-[end business intelligence execution engine]
+[end business intelligence execution engine]` : ''}
 
 [Silence Rule]
 Do NOT end every response with a question.
@@ -2250,6 +2304,15 @@ This system is in production stabilization mode. The goal is to make STAGEONE sh
 [end ship mode]
 ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${businessBlock}${memoryBlock}
 [Reference platform capabilities — business analysis, website builder, AI agents, automation, deployments — naturally when relevant, never as a list]${getLanguageInstruction(language)}`;
+
+  req.log.info({
+    event: "MODULE_LOAD_COMPLETE",
+    requestType,
+    loaded: loadedModules,
+    skipped: skippedModules,
+    estimatedTokens: Math.round(systemPrompt.length / 4),
+    promptChars: systemPrompt.length,
+  }, "[MARCUS:MODULE_LOAD_COMPLETE]");
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
