@@ -1,0 +1,153 @@
+MARCUS PROMPT MODULARIZATION AUDIT
+
+DO NOT IMPLEMENT ANYTHING.
+
+The recent audit shows:
+
+* Static prompt ≈ 22,000 tokens
+* Dynamic context ≈ 162 tokens
+* All 36 sections load on every request
+
+We are NOT changing models.
+
+We are NOT removing Marcus systems.
+
+We are NOT simplifying Marcus.
+
+Goal:
+
+Determine how to make Marcus load only the systems required for the current request.
+
+====================================
+
+TASK 1
+
+List every major Marcus system.
+
+For each system show:
+
+* Name
+* Current token count
+* Purpose
+* Dependency relationships
+
+Example:
+
+Reality Gate
+
+* 642 tokens
+* validates assumptions
+* depends on Epistemic Grounding
+
+====================================
+
+TASK 2
+
+Create a dependency map.
+
+Show:
+
+Which systems must always load.
+
+Which systems can load conditionally.
+
+Example:
+
+Always:
+
+* Identity
+* Epistemic Grounding
+* Reality Layer
+
+Conditional:
+
+* Website Execution Engine
+* Chatbot Execution Engine
+* Automation Execution Engine
+* Strategic Pressure Engine
+
+====================================
+
+TASK 3
+
+Create request categories.
+
+Examples:
+
+1. Workspace Commands
+2. Website Generation
+3. Chatbot Generation
+4. Automation Generation
+5. Strategic Discussion
+6. Business Intelligence
+7. Project Analysis
+8. Memory Retrieval
+9. General Conversation
+
+For each category:
+
+Show exactly which Marcus modules would be loaded.
+
+====================================
+
+TASK 4
+
+Estimate token savings.
+
+Example:
+
+Current:
+22,000 tokens
+
+Chatbot request:
+6,000 tokens
+
+Website request:
+7,000 tokens
+
+Strategic discussion:
+9,000 tokens
+
+Provide realistic estimates.
+
+====================================
+
+TASK 5
+
+Identify risk.
+
+Which systems are dangerous to unload?
+
+Which systems must remain globally active?
+
+Examples:
+
+* Reality Gate
+* Epistemic Grounding
+* Execution Lock
+
+Explain why.
+
+====================================
+
+IMPORTANT
+
+DO NOT:
+
+* rewrite prompts
+* remove systems
+* change models
+* implement routing
+
+This is an architecture audit only.
+
+Output:
+
+A complete Marcus Module Loading Plan showing:
+
+* always-loaded modules
+* conditional modules
+* estimated token reduction
+* risk assessment
+
+We are optimizing prompt architecture without reducing Marcus intelligence.
