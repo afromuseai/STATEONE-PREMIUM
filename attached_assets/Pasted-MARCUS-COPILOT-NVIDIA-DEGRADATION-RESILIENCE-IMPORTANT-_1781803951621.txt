@@ -1,0 +1,138 @@
+MARCUS COPILOT — NVIDIA DEGRADATION RESILIENCE
+
+IMPORTANT
+
+Do NOT modify:
+
+* Marcus architecture
+* Module loader
+* Execution engines
+* Workspace controller
+* Memory system
+* Decision engine
+* Reality engine
+* Prompt structure
+
+The current failure is infrastructure-level.
+
+Observed:
+
+HTTP 400
+
+"Function id ... DEGRADED function cannot be invoked"
+
+This originates from NVIDIA.
+
+Marcus currently fails completely when the COPILOT model deployment is degraded.
+
+GOAL
+
+Add graceful degradation.
+
+====================================
+
+STEP 1
+
+Detect NVIDIA degraded deployment errors.
+
+Match:
+
+* DEGRADED function cannot be invoked
+* function unavailable
+* deployment unavailable
+* model temporarily unavailable
+
+Create helper:
+
+isModelDegradedError()
+
+====================================
+
+STEP 2
+
+When degraded:
+
+DO NOT crash Marcus.
+
+Instead:
+
+Log:
+
+COPILOT_MODEL_DEGRADED
+
+Include:
+
+* model
+* response body
+* function id
+* timestamp
+
+====================================
+
+STEP 3
+
+Return a user-visible fallback response.
+
+Example:
+
+"Marcus is temporarily unavailable because the underlying AI model deployment is currently degraded.
+
+Your request was not lost.
+
+Please try again shortly."
+
+====================================
+
+STEP 4
+
+Add metrics.
+
+Track:
+
+* degraded failures
+* timeout failures
+* network failures
+* success rate
+
+Log:
+
+COPILOT_HEALTH_STATUS
+
+====================================
+
+STEP 5
+
+DO NOT introduce model switching.
+
+DO NOT change:
+
+qwen/qwen3.5-122b-a10b
+
+DO NOT add fallback models.
+
+The objective is:
+
+graceful failure
+
+NOT
+
+automatic model replacement.
+
+====================================
+
+SUCCESS CRITERIA
+
+When NVIDIA returns:
+
+DEGRADED function cannot be invoked
+
+Marcus:
+
+* remains operational
+* logs the incident
+* returns a clean explanation
+* does not hang
+* does not appear broken
+* does not crash the SSE stream
+
+This is an infrastructure resilience fix only.

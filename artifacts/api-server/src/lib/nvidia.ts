@@ -29,6 +29,21 @@ export interface NvidiaCallOptions {
   _projectId?: string;
 }
 
+// ─── Detect NVIDIA degraded deployment errors ──────────────────────────────────
+// Matches infrastructure-level failures where the model function itself is down.
+// Used by callers to distinguish degradation from generic network/HTTP errors.
+const DEGRADED_PATTERNS = [
+  /degraded function cannot be invoked/i,
+  /function unavailable/i,
+  /deployment unavailable/i,
+  /model temporarily unavailable/i,
+];
+
+export function isModelDegradedError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return DEGRADED_PATTERNS.some((p) => p.test(msg));
+}
+
 // ─── Parse NVIDIA error body — extracts function_id if present ────────────────
 function parseNvidiaError(text: string): { detail?: string; functionId?: string; raw: string } {
   try {
