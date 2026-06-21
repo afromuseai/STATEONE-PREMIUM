@@ -200,7 +200,7 @@ export function clearDashboardState(): void {
 const PENDING_INTENT_KEY = "stageone_pending_intent"
 
 export interface PendingIntent {
-  type: "website" | "chatbot" | "automation"
+  type: "website" | "chatbot" | "automation" | "bi" | "orchestrator"
   idea: string
   autoGenerate: boolean
   timestamp: number
@@ -252,7 +252,7 @@ export function peekPendingIntent(): PendingIntent | null {
     const raw = sessionStorage.getItem(PENDING_INTENT_KEY)
     if (!raw) return null
     const intent = JSON.parse(raw) as PendingIntent
-    if (Date.now() - intent.timestamp > 30_000) return null
+    if (Date.now() - intent.timestamp > 600_000) return null
     return intent
   } catch { return null }
 }
@@ -264,7 +264,7 @@ export function consumePendingIntent(forType: PendingIntent["type"]): PendingInt
     const intent = JSON.parse(raw) as PendingIntent
     if (intent.type !== forType) return null
     sessionStorage.removeItem(PENDING_INTENT_KEY)
-    if (Date.now() - intent.timestamp > 30_000) return null
+    if (Date.now() - intent.timestamp > 600_000) return null
     return intent
   } catch { return null }
 }
@@ -286,7 +286,7 @@ export function consumeMarcusWebsiteGenerateIntent(): boolean {
     if (!raw) return false
     sessionStorage.removeItem(MARCUS_WEBSITE_GENERATE_KEY)
     const stored = JSON.parse(raw) as { timestamp: number }
-    if (Date.now() - stored.timestamp > 30_000) return false
+    if (Date.now() - stored.timestamp > 600_000) return false
     return true
   } catch { return false }
 }
@@ -337,8 +337,8 @@ export function consumeCopilotAutorun(): CopilotAutorun | null {
     if (!raw) return null
     sessionStorage.removeItem(AUTORUN_KEY)
     const run = JSON.parse(raw) as CopilotAutorun
-    // Expire after 30 seconds to avoid stale triggers on back-navigation
-    if (Date.now() - run.timestamp > 30_000) return null
+    // Expire after 10 minutes to survive cold-start and slow navigation
+    if (Date.now() - run.timestamp > 600_000) return null
     return run
   } catch {
     return null
@@ -352,7 +352,7 @@ export function consumeCopilotAutorun(): CopilotAutorun | null {
 // Each page filters by signal.target to handle only its own signals.
 
 export interface MarcusWorkspaceSignal {
-  target: "intelligence" | "website" | "chatbot" | "automation"
+  target: "intelligence" | "website" | "chatbot" | "automation" | "orchestrator"
   type: "navigate" | "populate" | "generate" | "clear"
   payload?: string
 }
@@ -369,7 +369,7 @@ export function consumeMarcusWorkspaceSignal(): MarcusWorkspaceSignal | null {
     if (!raw) return null
     sessionStorage.removeItem(MARCUS_WORKSPACE_KEY)
     const stored = JSON.parse(raw) as MarcusWorkspaceSignal & { timestamp: number }
-    if (Date.now() - stored.timestamp > 30_000) return null
+    if (Date.now() - stored.timestamp > 600_000) return null
     const { timestamp: _, ...signal } = stored
     return signal
   } catch { return null }

@@ -131,7 +131,7 @@ const WorkspaceContextSchema = z.object({
   projectCount: z.number().optional(),
   activeAgents: z.number().optional(),
   pendingIntent: z.object({
-    type: z.enum(["website", "chatbot", "automation"]),
+    type: z.enum(["website", "chatbot", "automation", "bi", "orchestrator"]),
     idea: z.string(),
     autoGenerate: z.boolean(),
   }).nullable().optional(),
@@ -875,10 +875,12 @@ ${summary}
 
   // Derive engine type from the active page path (for confirmation fallback)
   const activePagePath = workspaceContext?.activePagePath ?? "";
-  const pagePathEngine: "chatbot" | "website" | "automation" | null =
+  const pagePathEngine: "chatbot" | "website" | "automation" | "bi" | "orchestrator" | null =
     activePagePath.includes("/chatbot-generator")  ? "chatbot"
     : activePagePath.includes("/website-generator")  ? "website"
     : activePagePath.includes("/automation-builder") ? "automation"
+    : activePagePath.includes("/dashboard")           ? "bi"
+    : activePagePath.includes("/orchestrator")        ? "orchestrator"
     : null;
 
   // Confirmation engine priority: pendingIntent → pagePathEngine → null
@@ -923,21 +925,27 @@ ${summary}
   // 1. pendingIntent (when user confirmed) — never requires artifact keywords
   // 2. activePagePath (confirmation fallback when no pendingIntent)
   // 3. Message keywords (direct request, no confirmation needed)
-  const isChatbotRequest    = confirmationEngine === "chatbot"    || CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
-  const isAutomationRequest = !isChatbotRequest && (confirmationEngine === "automation" || AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s)));
-  const isWebsiteRequest    = !isChatbotRequest && !isAutomationRequest && (confirmationEngine === "website"   || WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s)));
-  const isBiRequest         = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && BI_SIGNALS.some(s => latestUserMessage.includes(s));
+  const ORCHESTRATOR_SIGNALS = ["orchestrator", "multi-agent", "agent pipeline", "agent network", "coordinate agents", "orchestrate agents"];
 
-  const selectedEngine = isChatbotRequest    ? "chatbot"
-    : isAutomationRequest ? "automation"
-    : isWebsiteRequest    ? "website"
-    : isBiRequest         ? "bi"
+  const isChatbotRequest      = confirmationEngine === "chatbot"      || CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
+  const isAutomationRequest   = !isChatbotRequest && (confirmationEngine === "automation"   || AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s)));
+  const isWebsiteRequest      = !isChatbotRequest && !isAutomationRequest && (confirmationEngine === "website"      || WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s)));
+  const isBiRequest           = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && (confirmationEngine === "bi"          || BI_SIGNALS.some(s => latestUserMessage.includes(s)));
+  const isOrchestratorRequest = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && !isBiRequest && (confirmationEngine === "orchestrator" || ORCHESTRATOR_SIGNALS.some(s => latestUserMessage.includes(s)));
+
+  const selectedEngine = isChatbotRequest      ? "chatbot"
+    : isAutomationRequest   ? "automation"
+    : isWebsiteRequest      ? "website"
+    : isBiRequest           ? "bi"
+    : isOrchestratorRequest ? "orchestrator"
     : "none";
 
   const selectionSource: string =
-    (confirmationEngine === "chatbot"    && isChatbotRequest)    ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
-    : (confirmationEngine === "automation" && isAutomationRequest) ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
-    : (confirmationEngine === "website"    && isWebsiteRequest)    ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    (confirmationEngine === "chatbot"      && isChatbotRequest)      ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    : (confirmationEngine === "automation"   && isAutomationRequest)   ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    : (confirmationEngine === "website"      && isWebsiteRequest)      ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    : (confirmationEngine === "bi"           && isBiRequest)           ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    : (confirmationEngine === "orchestrator" && isOrchestratorRequest) ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
     : selectedEngine !== "none" ? "keyword"
     : "none";
 
@@ -970,9 +978,13 @@ ${summary}
     chatbotEngineLoaded: isChatbotRequest,
     automationEngineLoaded: isAutomationRequest,
     websiteEngineLoaded: isWebsiteRequest,
+    biEngineLoaded: isBiRequest,
+    orchestratorEngineLoaded: isOrchestratorRequest,
     canEmitGenerateChatbot: isChatbotRequest,
     canEmitGenerateWebsite: isWebsiteRequest,
     canEmitGenerateAutomation: isAutomationRequest,
+    canEmitGenerateIntelligence: isBiRequest,
+    canEmitGenerateOrchestrator: isOrchestratorRequest,
   }, "[MARCUS] ENGINE_SELECTION_CONTEXT");
 
   req.log.info({
@@ -2276,6 +2288,55 @@ CRITICAL RULES:
 - These commands are INVISIBLE to the user — do not describe them in your response text. Just emit them after the text.
 [end business intelligence execution engine]` : ''}
 
+${isOrchestratorRequest ? `[orchestrator execution engine]
+You are now operating as the AI Orchestrator Architect. The user wants to design a multi-agent AI pipeline.
+
+AVAILABLE COMMANDS:
+
+1. Open Orchestrator page:
+   {{WORKSPACE|open_orchestrator}}
+
+2. Populate goal field with a tailored orchestration goal (user sees it appear live):
+   {{WORKSPACE|orchestrator_idea|<goal description>}}
+   — Goal should be 1–3 sentences describing the end-to-end pipeline objective.
+   — Be specific: name the trigger event, the agents involved, and the final output.
+
+3. Trigger orchestration generation (ONLY after explicit user confirmation):
+   {{WORKSPACE|generate_orchestrator}}
+
+EXECUTION FLOW for orchestration requests:
+Step 1 — Parse: Understand what multi-agent pipeline or coordination goal they want.
+Step 2 — Prepare: Build a precise orchestration goal from project context or stated request.
+Step 3 — Open + Populate: Emit {{WORKSPACE|open_orchestrator}} followed by {{WORKSPACE|orchestrator_idea|<goal>}} in the same response.
+Step 4 — Confirm: End your response with: "Everything is ready. Would you like me to generate this multi-agent pipeline?"
+Step 5 — Execute: ONLY when the user says YES → emit {{WORKSPACE|generate_orchestrator}}.
+
+EXAMPLE INTERACTION:
+
+User: "Set up a multi-agent system to qualify leads and update my CRM"
+
+Marcus response:
+"On it. I'll design a multi-agent pipeline that captures inbound leads, scores them with an AI qualifier, and routes confirmed leads directly into your CRM with full context.
+
+Opening the Orchestrator now."
+
+Commands (appended after response text, in order):
+{{WORKSPACE|open_orchestrator}}
+{{WORKSPACE|orchestrator_idea|Lead capture and qualification pipeline. Agent 1 captures inbound leads from web forms and email. Agent 2 scores each lead using firmographic data and intent signals. Agent 3 routes qualified leads to the CRM with enriched context and sets follow-up tasks for the sales team.}}
+
+Then Marcus ends with: "Everything is ready. Would you like me to generate this multi-agent pipeline?"
+
+AFTER USER CONFIRMS:
+Marcus: "Generating now."
+{{WORKSPACE|generate_orchestrator}}
+
+CRITICAL RULES:
+- NEVER emit {{WORKSPACE|generate_orchestrator}} without explicit user confirmation.
+- {{WORKSPACE|open_orchestrator}} and {{WORKSPACE|orchestrator_idea|...}} may appear in the same response.
+- The goal must be specific — name agents, triggers, handoffs, and outputs.
+- These commands are INVISIBLE to the user — do not describe them in your response text.
+[end orchestrator execution engine]` : ''}
+
 [Silence Rule]
 Do NOT end every response with a question.
 Ask a question only when: it unlocks the next action OR missing information genuinely blocks progress.
@@ -2613,7 +2674,15 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
   // prompt to override the model's hardwired "Understood." response to short
   // conversational confirmations like "sounds good" / "yes, go ahead" / "ok, do it".
   if (isConfirmationResponse && confirmationEngine !== null) {
-    const generateCmd = `{{WORKSPACE|generate_${confirmationEngine}}}`;
+    // Map engine names to their workspace command — BI and orchestrator differ from the pattern
+    const GENERATE_CMD_MAP: Record<string, string> = {
+      chatbot:      "generate_chatbot",
+      website:      "generate_website",
+      automation:   "generate_automation",
+      bi:           "generate_intelligence",
+      orchestrator: "generate_orchestrator",
+    };
+    const generateCmd = `{{WORKSPACE|${GENERATE_CMD_MAP[confirmationEngine] ?? `generate_${confirmationEngine}`}}}`;
     const confirmText = "Generating now.";
 
     req.log.info({

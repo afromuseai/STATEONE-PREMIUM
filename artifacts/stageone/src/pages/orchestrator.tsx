@@ -12,7 +12,8 @@ import { useLocation } from "wouter"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
-import { clearProjectContext, loadOrchestratorContext, clearOrchestratorContext } from "@/lib/generation-context"
+import { clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, consumePendingIntent, cacheConsumedIdea, markPendingIntentAutoGenerate } from "@/lib/generation-context"
+import { useWorkspaceController } from "@/lib/workspace-controller-context"
 
 interface Agent {
   id: string; name: string; role: string; model: string
@@ -264,17 +265,33 @@ export default function OrchestratorPage() {
   const [isReplaying, setIsReplaying] = useState(false)
   const [replayStep, setReplayStep] = useState(-1)
   const abortRef = useRef<AbortController | null>(null)
+  const autoGenPendingRef = useRef(false)
   const [userPlan, setUserPlan] = useState<string | null>(null)
+  const [pendingAutoGenerate, setPendingAutoGenerate] = useState(false)
   const { user } = useAuth()
   const { lang } = useLang()
   const [, navigate] = useLocation()
   const { openUpgradeModal } = useUpgradeModal()
+  const { subscribeWorkspaceSignal } = useWorkspaceController()
 
   useEffect(() => {
     console.log("PROJECT_MODE: standalone")
     console.log("PROJECT_SOURCE: Standalone Generator")
     console.log("ORCHESTRATOR_TRACE: standalone mount — clearing stale project context")
     clearProjectContext()
+
+    // Marcus Copilot: consume pendingIntent written by orchestrator_idea command
+    const intent = consumePendingIntent("orchestrator")
+    if (intent?.idea) {
+      setGoal(intent.idea)
+      cacheConsumedIdea("orchestrator", intent.idea)
+      console.log("ORCHESTRATOR_TRACE: consumed pendingIntent | autoGenerate:", intent.autoGenerate, "| idea:", intent.idea.slice(0, 60))
+      if (intent.autoGenerate) {
+        autoGenPendingRef.current = true
+        setPendingAutoGenerate(true)
+      }
+      return
+    }
 
     // Deep-link from Project Detail page: pre-fill goal + business context
     // if the user clicked "Continue in Orchestrator" / "Regenerate".
@@ -285,7 +302,7 @@ export default function OrchestratorPage() {
       console.log("ORCHESTRATOR_TRACE: pre-filled from project context | goal:", ctx.goal.slice(0, 60))
     }
     clearOrchestratorContext()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user) return
@@ -296,6 +313,41 @@ export default function OrchestratorPage() {
   }, [user])
 
   const isFreePlan = user !== null && userPlan === "free"
+
+  // Phase 2 — auto-generate when goal state propagates from pendingIntent
+  useEffect(() => {
+    if (!pendingAutoGenerate || !goal.trim() || step !== "idle") return
+    setPendingAutoGenerate(false)
+    autoGenPendingRef.current = false
+    generate()
+  }, [pendingAutoGenerate, goal, step]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Already-mounted: stageone:autoGenerate event (fired by markPendingIntentAutoGenerate)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { type } = (e as CustomEvent<{ type: string }>).detail
+      if (type !== "orchestrator") return
+      const intent = consumePendingIntent("orchestrator")
+      const text = intent?.idea || goal
+      if (text.trim()) {
+        if (!goal.trim()) setGoal(text)
+        setPendingAutoGenerate(true)
+      }
+    }
+    window.addEventListener("stageone:autoGenerate", handler)
+    return () => window.removeEventListener("stageone:autoGenerate", handler)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live signal subscription — handles orchestrator_idea when page is already mounted
+  useEffect(() => {
+    return subscribeWorkspaceSignal((signal) => {
+      if (signal.type === "populate" && signal.payload) {
+        console.log("ORCHESTRATOR_TRACE: workspace signal populate | idea:", signal.payload.slice(0, 60))
+        setGoal(signal.payload)
+        cacheConsumedIdea("orchestrator", signal.payload)
+      }
+    }, "orchestrator")
+  }, [subscribeWorkspaceSignal])
 
   const generate = async () => {
     if (!goal.trim()) return

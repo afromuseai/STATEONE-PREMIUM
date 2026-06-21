@@ -1,0 +1,202 @@
+WORKFLOW INTEGRITY PATCH — SINGLE IMPLEMENTATION PASS
+
+IMPORTANT
+
+Do NOT perform multiple separate fix cycles.
+
+Implement ALL workflow-layer fixes in ONE pass, then perform ONE validation pass.
+
+The goal is:
+
+* restore execution continuity
+* restore confirmation flow
+* restore orchestration consistency
+* reduce implementation cycles
+* avoid wasting credits
+
+==================================================
+FIX GROUP A — BUSINESS INTELLIGENCE CONFIRMATION
+================================================
+
+Current issue:
+
+Business Intelligence is excluded from the confirmation bypass architecture.
+
+Observed:
+
+* BI generation request succeeds
+* Marcus asks for confirmation
+* User confirms
+* Confirmation bypass does not execute
+
+Implement:
+
+1. Add BI to pendingIntent type system
+2. Add BI to pagePathEngine mapping
+3. Add BI to confirmation bypass resolution
+4. Support:
+
+{{WORKSPACE|generate_intelligence}}
+
+via direct confirmation execution path
+
+Expected:
+
+User:
+"Generate business intelligence"
+
+Marcus:
+"Everything is ready. Generate now?"
+
+User:
+"yes"
+
+Result:
+
+Immediate execution
+
+No LLM confirmation loop.
+
+==================================================
+FIX GROUP B — ORCHESTRATOR INTEGRATION
+======================================
+
+Current issue:
+
+Orchestrator exists as an isolated page.
+
+Copilot can navigate there but cannot operate it.
+
+Implement:
+
+1. Add orchestrator pendingIntent type
+2. Add orchestrator populate path
+3. Add orchestrator workspace commands
+4. Add orchestrator confirmation bypass
+
+Support:
+
+{{WORKSPACE|orchestrator_idea|...}}
+
+{{WORKSPACE|generate_orchestrator}}
+
+Add:
+
+/orchestrator page mapping
+
+Expected:
+
+Marcus can:
+
+* open orchestrator
+* populate goal
+* request confirmation
+* execute orchestration
+
+==================================================
+FIX GROUP C — WEBSITE DOUBLE-MOUNT PROTECTION
+=============================================
+
+Current issue:
+
+Website Generator lacks the mount protection used by Chatbot Generator.
+
+Implement:
+
+Same pattern used in:
+
+chatbot-generator.tsx
+
+Add:
+
+_mountIntentCache
+
+to Website Generator.
+
+Goal:
+
+Prevent:
+
+* pendingIntent consumption race
+* AnimatePresence double mount loss
+* empty generator state
+
+==================================================
+FIX GROUP D — PENDING INTENT TTL
+================================
+
+Current issue:
+
+pendingIntent expires after 30 seconds.
+
+Increase TTL to:
+
+5–10 minutes
+
+Recommended:
+
+10 minutes
+
+Goal:
+
+Prevent:
+
+* cold start failures
+* first-load expiration
+* delayed navigation failures
+
+==================================================
+DO NOT MODIFY
+=============
+
+* Memory system
+* Save architecture
+* SSE architecture
+* Existing generators
+* Project persistence
+* Dashboard UI
+* Pricing
+* Authentication
+
+==================================================
+AFTER IMPLEMENTATION
+====================
+
+STOP CODING.
+
+Run ONE validation matrix.
+
+Report:
+
+| Module       | Populate  | Confirm | Generate | Save |
+| ------------ | --------- | ------- | -------- | ---- |
+| BI           | PASS/FAIL |         |          |      |
+| Website      | PASS/FAIL |         |          |      |
+| Chatbot      | PASS/FAIL |         |          |      |
+| Automation   | PASS/FAIL |         |          |      |
+| Orchestrator | PASS/FAIL |         |          |      |
+
+For each failure provide:
+
+* exact stage
+* exact log
+* exact file
+* exact function
+
+Do NOT begin another implementation cycle.
+
+Validation only.
+
+==================================================
+SUCCESS CRITERIA
+================
+
+All five modules:
+
+* populate correctly
+* survive confirmation
+* execute generation
+* stream results
+* save outputs
+
+with a single workflow architecture.

@@ -31,6 +31,11 @@ const STYLES: { key: StyleOption; desc: string; color: string; bg: string }[] = 
 
 const TONES: ToneOption[] = ["Professional", "Futuristic", "Corporate", "Friendly", "Premium"]
 
+// Module-level: survives AnimatePresence unmount/remount cycles.
+// First mount consumes the intent from sessionStorage; second mount reads this
+// cache instead of getting null. Cleared after use so subsequent visits start fresh.
+let _websiteMountIntentCache: { idea: string; autoGenerate: boolean } | null = null
+
 const SECTIONS: { key: SectionKey; label: string; icon: React.ReactNode }[] = [
   { key: "hero", label: "Hero", icon: <Zap className="h-3.5 w-3.5" /> },
   { key: "features", label: "Features", icon: <Layers className="h-3.5 w-3.5" /> },
@@ -183,7 +188,20 @@ export default function WebsiteGeneratorPage() {
     const _mountCtx = loadProjectContext()
     console.log(`GENERATOR_MOUNT | page=website-generator | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
     console.log("WEBSITE_FLOW:C page mounted")
-    const intent = consumePendingIntent("website")
+    // Cache-aware consumption: AnimatePresence may unmount/remount this page during
+    // route transitions. The first mount removes the intent from sessionStorage;
+    // the second mount reads from the module-level cache instead of returning null.
+    let intent: { type: "website"; idea: string; autoGenerate: boolean; timestamp: number } | null = null
+    if (_websiteMountIntentCache) {
+      intent = { ..._websiteMountIntentCache, type: "website" as const, timestamp: Date.now() }
+      _websiteMountIntentCache = null
+    } else {
+      const fresh = consumePendingIntent("website")
+      if (fresh) {
+        _websiteMountIntentCache = { idea: fresh.idea, autoGenerate: fresh.autoGenerate }
+        intent = { type: "website" as const, idea: fresh.idea, autoGenerate: fresh.autoGenerate, timestamp: fresh.timestamp }
+      }
+    }
     console.log("WEBSITE_FLOW:D idea loaded | consumePendingIntent result:", JSON.stringify(intent))
     if (!intent) {
       // No pending intent — check if a valid continuation context was written by project.tsx

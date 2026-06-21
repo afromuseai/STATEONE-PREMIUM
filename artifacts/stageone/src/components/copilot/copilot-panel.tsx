@@ -106,7 +106,7 @@ interface WorkspaceContext {
   };
   projectCount: number;
   activeAgents: number;
-  pendingIntent: { type: "website" | "chatbot" | "automation"; idea: string; autoGenerate: boolean } | null;
+  pendingIntent: { type: "website" | "chatbot" | "automation" | "bi" | "orchestrator"; idea: string; autoGenerate: boolean } | null;
 }
 
 const PAGE_NAMES: Record<string, string> = {
@@ -637,6 +637,8 @@ export function CopilotPanel() {
   const lastBiIdeaRef = useRef<string>("");
   // Tracks the last automation_idea payload so generate_automation can recover it
   const lastAutomationIdeaRef = useRef<string>("");
+  // Tracks the last orchestrator_idea payload so generate_orchestrator can recover it
+  const lastOrchestratorIdeaRef = useRef<string>("");
   const [location, navigate] = useLocation();
   const { businessData, crossSystem } = useBusinessContext();
   const hasBusinessContext = !!businessData?.industry;
@@ -1048,12 +1050,18 @@ export function CopilotPanel() {
         const _piAfterMark = sessionStorage.getItem("stageone_pending_intent");
         console.log("GENERATE_CHATBOT_NAVIGATE | destination: /chatbot-generator | pendingIntent:", _piAfterMark);
         navigate("/chatbot-generator");
+      } else if (command === "open_orchestrator") {
+        if (location !== "/orchestrator") navigate("/orchestrator");
       } else if (command === "intelligence") {
         navigate("/dashboard?tab=new");
       } else if (command === "bi_idea") {
         const idea = payload.trim();
         if (!idea) return;
         lastBiIdeaRef.current = idea;
+        // Write pendingIntent so the server bypass can fire on the next confirmation.
+        // BI uses workspace signals for actual generation, but the server needs
+        // the pendingIntent to know which bypass command to emit.
+        setPendingIntent({ type: "bi", idea, autoGenerate: false });
         setMarcusWorkspaceSignal({
           target: "intelligence",
           type: "populate",
@@ -1183,6 +1191,22 @@ export function CopilotPanel() {
           "AUTOMATION_TRACE: Navigation fired | to: /automation-builder",
         );
         navigate("/automation-builder");
+      } else if (command === "orchestrator_idea") {
+        const idea = payload.trim();
+        if (!idea) return;
+        lastOrchestratorIdeaRef.current = idea;
+        if (currentProject) {
+          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+        }
+        setPendingIntent({ type: "orchestrator", idea, autoGenerate: false });
+        emitWorkspaceSignal({ target: "orchestrator", type: "populate", payload: idea });
+        if (location !== "/orchestrator") navigate("/orchestrator");
+      } else if (command === "generate_orchestrator") {
+        console.log("[CONFIRM_FLOW:3] handleWorkspaceCmdAction invoked | command: generate_orchestrator");
+        markPendingIntentAutoGenerate("orchestrator");
+        const rawAfterMark = sessionStorage.getItem("stageone_pending_intent");
+        console.log("ORCHESTRATOR_TRACE: SessionStorage after markPendingIntentAutoGenerate:", rawAfterMark);
+        navigate("/orchestrator");
       }
     },
     [navigate, location, emitWorkspaceSignal, currentProject],
