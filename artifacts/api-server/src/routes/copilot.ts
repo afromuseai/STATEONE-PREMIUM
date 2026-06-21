@@ -739,10 +739,32 @@ ${summary}
   const WEBSITE_SIGNALS    = ["website", "landing page", "fintech landing", "saas landing", "homepage"];
   const BI_SIGNALS         = ["business intelligence", "intelligence report", "run business intelligence", "generate intelligence", "run bi report"];
 
+  req.log.info({
+    event: "CONFIRM_CHECK_INPUT",
+    message: latestUserMessage.slice(0, 200),
+    activePage: workspaceContext?.activePage ?? "(none)",
+    activePagePath: workspaceContext?.activePagePath ?? "(none)",
+    chatbotSignals: CHATBOT_SIGNALS,
+    messageLength: latestUserMessage.length,
+  }, "[MARCUS] CONFIRM_CHECK_INPUT");
+
   const isChatbotRequest    = CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
   const isAutomationRequest = !isChatbotRequest && AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s));
   const isWebsiteRequest    = !isChatbotRequest && !isAutomationRequest && WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s));
   const isBiRequest         = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && BI_SIGNALS.some(s => latestUserMessage.includes(s));
+
+  req.log.info({
+    event: "CONFIRM_CHECK_RESULT",
+    isChatbotRequest,
+    isAutomationRequest,
+    isWebsiteRequest,
+    isBiRequest,
+    chatbotEngineIncluded: isChatbotRequest,
+    matchedChatbotSignal: CHATBOT_SIGNALS.find(s => latestUserMessage.includes(s)) ?? null,
+    reason: isChatbotRequest
+      ? `keyword matched — chatbot_execution engine WILL be injected`
+      : `no chatbot keyword in message ("${latestUserMessage.slice(0, 60)}") — chatbot_execution engine WILL NOT be injected — Marcus cannot emit {{WORKSPACE|generate_chatbot}}`,
+  }, "[MARCUS] CONFIRM_CHECK_RESULT");
 
   const requestType = isChatbotRequest    ? "chatbot_generation"
     : isAutomationRequest ? "automation_generation"

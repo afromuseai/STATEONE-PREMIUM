@@ -1,0 +1,143 @@
+CRITICAL FINDING — CONFIRMATION PATH IS BROKEN
+
+The chatbot generation pipeline is NOT failing inside Chatbot Generator.
+
+The logs prove:
+
+SUCCESSFUL:
+
+* Stage 2 command emitted
+* Stage 3 command received
+* Stage 4 dispatch
+* Stage 5 tab open
+* Stage 6 populate
+* Stage 7 confirmation
+
+FAILURE:
+
+After user replies:
+
+"yes"
+
+there is NO evidence of:
+
+MARCUS_STAGE_8_CONFIRMED
+
+MARCUS_STAGE_9_GENERATION_STARTED
+
+MARCUS_STAGE_10_STREAM_STARTED
+
+MARCUS_STAGE_11_GENERATION_COMPLETE
+
+Therefore:
+
+The generation lifecycle never starts.
+
+====================================
+
+INVESTIGATE CONFIRMATION HANDLING
+
+Find:
+
+1. Where Copilot interprets:
+
+   * yes
+   * generate
+   * proceed
+   * confirm
+
+2. How Marcus decides:
+
+   * user confirmed
+   * user did not confirm
+
+3. What command should be emitted after confirmation
+
+Expected:
+
+{{WORKSPACE|generate_chatbot}}
+
+Actual:
+
+No command appears in logs.
+
+====================================
+
+ADD LOGS
+
+Before confirmation classification:
+
+CONFIRM_CHECK_INPUT
+
+Log:
+
+* raw user message
+* active pending intent
+* pending type
+
+Example:
+
+CONFIRM_CHECK_INPUT
+message="yes"
+pendingIntent="chatbot"
+
+====================================
+
+After classification:
+
+CONFIRM_CHECK_RESULT
+
+Log:
+
+* confirmed=true/false
+* reason
+
+====================================
+
+Before emitting workspace command:
+
+CONFIRM_EMIT_COMMAND
+
+Log:
+
+* command
+* pending intent type
+
+Expected:
+
+command=generate_chatbot
+
+====================================
+
+After command emission:
+
+CONFIRM_COMMAND_EMITTED
+
+====================================
+
+IMPORTANT
+
+Do NOT investigate Chatbot Generator.
+
+Do NOT investigate generation API.
+
+Do NOT investigate saveToProject.
+
+The logs already prove we never reach those systems.
+
+The bug is:
+
+Confirmation → command emission.
+
+Find where the chain stops:
+
+yes
+→ confirmation detected
+→ generate_chatbot emitted
+
+or
+
+yes
+→ confirmation not detected
+
+I need proof of the exact failing stage.

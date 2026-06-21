@@ -457,7 +457,13 @@ async function streamCopilot(
             );
           }
           console.log("MARCUS_STAGE_2_COMMAND_EMITTED | command:", cmd, "| payloadLength:", (wsCmdMatch[2]?.trim() ?? "").length, "| payload:", (wsCmdMatch[2]?.trim() ?? "").slice(0, 120));
+          if (cmd === "generate_chatbot") {
+            console.log("CONFIRM_EMIT_COMMAND | command: generate_chatbot | pendingIntent type: chatbot | about to call onWorkspaceCmd");
+          }
           onWorkspaceCmd?.(cmd, wsCmdMatch[2]?.trim() ?? "");
+          if (cmd === "generate_chatbot") {
+            console.log("CONFIRM_COMMAND_EMITTED | command: generate_chatbot | onWorkspaceCmd called successfully");
+          }
         } else {
           // Colon-variant execution command: model emitted {{WORKSPACE:command}} instead of {{WORKSPACE|command}}
           const wsCmdColonMatch = tag.match(WORKSPACE_CMD_COLON_RE);
