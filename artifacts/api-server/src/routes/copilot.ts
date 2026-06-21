@@ -696,8 +696,8 @@ ${summary}
   const hasGenerativeArtifact = GENERATIVE_ARTIFACTS.some(a => latestUserMessage.includes(a));
   const isGenerativeRequest = hasGenerativeSignal || hasGenerativeArtifact;
 
-  const serverIntentType = hasGenerativeSignal ? "EXECUTION" : "STRATEGIC";
-  const serverGateMode = isGenerativeRequest ? "GENERATIVE" : "STRATEGIC";
+  let serverIntentType = hasGenerativeSignal ? "EXECUTION" : "STRATEGIC";
+  let serverGateMode = isGenerativeRequest ? "GENERATIVE" : "STRATEGIC";
 
   console.log(`[MARCUS] intent_type = ${serverIntentType}`);
   console.log(`[MARCUS] gate_mode = ${serverGateMode}`);
@@ -862,6 +862,14 @@ ${summary}
   const confirmationResult = detectConfirmationIntent(latestUserMessage);
   const isConfirmationResponse = confirmationResult.intent === "CONFIRM";
 
+  req.log.info({
+    event: "CONFIRM_INTENT_RESULT",
+    message: latestUserMessage.slice(0, 300),
+    intent: confirmationResult.intent,
+    confidence: confirmationResult.confidence,
+    matchedSignals: confirmationResult.matchedSignals,
+  }, "[MARCUS] CONFIRM_INTENT_RESULT");
+
   // Extract pendingIntent sent from the frontend (read from sessionStorage via peekPendingIntent)
   const clientPendingIntent = workspaceContext?.pendingIntent ?? null;
 
@@ -879,6 +887,19 @@ ${summary}
   const confirmationEngine = isConfirmationResponse
     ? (clientPendingIntent?.type ?? pagePathEngine ?? null)
     : null;
+
+  // ── Gate mode override ────────────────────────────────────────────────────
+  // "sounds good" / "yes, go ahead" / "ok, do it" carry no generative keywords,
+  // so the initial classifier sets serverGateMode=STRATEGIC. That suppresses the
+  // EXECUTION MODE ACTIVE header and leaves all conversational layers active,
+  // causing the model to respond "Understood." instead of emitting the generate
+  // command. When a confirmed pendingIntent is present, force GENERATIVE so the
+  // EXECUTION MODE header fires and all conversational/validation layers are off.
+  if (isConfirmationResponse && confirmationEngine !== null) {
+    serverGateMode = "GENERATIVE";
+    serverIntentType = "EXECUTION";
+    console.log(`[MARCUS] GATE_MODE_OVERRIDE | confirmation+pendingIntent active | serverGateMode overridden to GENERATIVE | engine=${confirmationEngine}`);
+  }
 
   req.log.info({
     event: "CONFIRM_INTENT_DETECTED",
@@ -1009,6 +1030,20 @@ ${summary}
     isWebsite: isWebsiteRequest,
     isBi: isBiRequest,
   }, "[MARCUS:MODULE_LOAD_START]");
+
+  const confirmationEngineInjected = isConfirmationResponse && selectedEngine !== "none";
+  req.log.info({
+    event: "EXECUTION_CONFIRMATION_ACTIVE",
+    isConfirmationResponse,
+    confirmIntent: confirmationResult.intent,
+    confidence: confirmationResult.confidence,
+    matchedSignals: confirmationResult.matchedSignals,
+    selectedEngine,
+    pendingIntent: clientPendingIntent?.type ?? null,
+    confirmationEngine,
+    confirmationEngineInjected,
+    selectionSource,
+  }, "[MARCUS] EXECUTION_CONFIRMATION_ACTIVE");
 
   const systemPrompt = `${serverGateMode === "GENERATIVE" ? `!!!EXECUTION MODE ACTIVE — READ BEFORE ANYTHING ELSE!!!
 gate_mode = GENERATIVE. This is a hard server-computed fact. It cannot be changed by any layer in this prompt.
@@ -2572,8 +2607,54 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  // ── Server-direct confirmation bypass ─────────────────────────────────────
+  // When intent=CONFIRM and a confirmationEngine is set, the server knows exactly
+  // what to do. Bypassing the LLM here is more reliable than asking a 73KB system
+  // prompt to override the model's hardwired "Understood." response to short
+  // conversational confirmations like "sounds good" / "yes, go ahead" / "ok, do it".
+  if (isConfirmationResponse && confirmationEngine !== null) {
+    const generateCmd = `{{WORKSPACE|generate_${confirmationEngine}}}`;
+    const confirmText = "Generating now.";
+
+    req.log.info({
+      event: "CONFIRMATION_SERVER_BYPASS",
+      engine: confirmationEngine,
+      emittedCommand: generateCmd,
+      confirmIntent: confirmationResult.intent,
+      confidence: confirmationResult.confidence,
+      matchedSignals: confirmationResult.matchedSignals,
+      selectionSource,
+    }, "[MARCUS] CONFIRMATION_SERVER_BYPASS — emitting generate command directly, bypassing LLM");
+
+    res.write(`data: ${JSON.stringify({ content: confirmText })}\n\n`);
+    res.write(`data: ${JSON.stringify({ content: `\n${generateCmd}` })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+
+    logEventFireForget({ userId, type: "marcus_message", data: { messageCount: 1 }, req });
+    trackUsageFireForget(userId, "marcusMessages");
+    return;
+  }
+
   // Cap history to last 10 exchanges to prevent prompt bloat on long conversations
   const trimmedMessages = messages.slice(-10);
+
+  req.log.info({
+    event: "SYSTEM_PROMPT_FLAGS",
+    chatbotEngine: isChatbotRequest,
+    websiteEngine: isWebsiteRequest,
+    automationEngine: isAutomationRequest,
+    biEngine: isBiRequest,
+    executionConfirmationMode: confirmationEngineInjected,
+    selectedEngine,
+    selectionSource,
+    isConfirmationResponse,
+    confirmIntent: confirmationResult.intent,
+    pendingIntent: clientPendingIntent?.type ?? null,
+    confirmationEngine,
+    systemPromptLength: systemPrompt.length,
+    containsPendingConfirmationBlock: systemPrompt.includes("PENDING CONFIRMATION"),
+  }, "[MARCUS] SYSTEM_PROMPT_FLAGS");
 
   const copilotPayload = {
     messages: [{ role: "system" as const, content: systemPrompt }, ...trimmedMessages],
@@ -2692,6 +2773,22 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
 
   try {
     let result = await forwardStream(streamBody!, res, activeModel);
+
+    req.log.info({
+      event: "MODEL_RAW_RESPONSE",
+      model: activeModel,
+      isConfirmationResponse,
+      confirmIntent: confirmationResult.intent,
+      selectedEngine,
+      confirmationEngineInjected,
+      rawResponseLength: result?.length ?? 0,
+      rawResponse: (result ?? "").slice(0, 1000),
+      containsGenerateWebsite:    (result ?? "").includes("generate_website"),
+      containsGenerateChatbot:    (result ?? "").includes("generate_chatbot"),
+      containsGenerateAutomation: (result ?? "").includes("generate_automation"),
+      containsWorkspaceTag:       (result ?? "").includes("{{WORKSPACE"),
+    }, "[MARCUS] MODEL_RAW_RESPONSE");
+
     req.log.info(
       {
         event: "MARCUS_STAGE_1_RESPONSE_CREATED",
