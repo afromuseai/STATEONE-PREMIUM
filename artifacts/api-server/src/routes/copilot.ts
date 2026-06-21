@@ -2510,7 +2510,7 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
         hasContent: !!result,
         userId,
         requestType,
-        intentType,
+        intentType: serverIntentType,
       },
       "[MARCUS] MARCUS_STAGE_1_RESPONSE_CREATED — Marcus response delivered to client",
     );
