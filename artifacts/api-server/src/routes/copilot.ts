@@ -792,6 +792,48 @@ ${summary}
   else if (isBiRequest)         { loadedModules.push("bi_execution");         skippedModules.push("chatbot_execution",    "automation_execution", "website_execution"); }
   else                          { skippedModules.push("chatbot_execution",    "automation_execution", "website_execution", "bi_execution"); }
 
+  // ─── ENGINE_SELECTION_CONTEXT ─────────────────────────────────────────────────
+  // Emitted immediately after engine selection so every request shows exactly
+  // which engine was chosen, why, and whether the active page provides context.
+  // When a confirmation message ("yes", "continue", "build it") arrives after a
+  // prior generative turn, pendingIntent is inferred from the last few messages.
+  const lastFewMessages = messages.slice(-6);
+  const conversationHistory = lastFewMessages.map(m => m.content.toLowerCase()).join(" ");
+  const inferredPendingIntentFromHistory =
+    conversationHistory.includes("chatbot")    ? "chatbot"
+    : conversationHistory.includes("website")  ? "website"
+    : conversationHistory.includes("automation") ? "automation"
+    : conversationHistory.includes("intelligence") || conversationHistory.includes("bi") ? "bi"
+    : null;
+
+  const selectedEngine = isChatbotRequest    ? "chatbot"
+    : isAutomationRequest ? "automation"
+    : isWebsiteRequest    ? "website"
+    : isBiRequest         ? "bi"
+    : "none";
+
+  const selectionReason = selectedEngine !== "none"
+    ? `keyword matched in current message → ${selectedEngine}_execution engine loaded`
+    : inferredPendingIntentFromHistory
+      ? `NO keyword in current message ("${latestUserMessage.slice(0, 40)}") — engine=none — BUT conversation history implies pendingIntent=${inferredPendingIntentFromHistory} — engine NOT loaded — {{WORKSPACE|generate_${inferredPendingIntentFromHistory}}} is UNAVAILABLE to Marcus`
+      : `NO keyword in current message ("${latestUserMessage.slice(0, 40)}") — engine=none — no prior context inferred`;
+
+  req.log.info({
+    event: "ENGINE_SELECTION_CONTEXT",
+    latestUserMessage: latestUserMessage.slice(0, 200),
+    activePagePath: workspaceContext?.activePagePath ?? "(none)",
+    pendingIntent: inferredPendingIntentFromHistory,
+    selectedEngine,
+    selectionReason,
+    chatbotEngineLoaded: isChatbotRequest,
+    automationEngineLoaded: isAutomationRequest,
+    websiteEngineLoaded: isWebsiteRequest,
+    biEngineLoaded: isBiRequest,
+    canEmitGenerateChatbot: isChatbotRequest,
+    canEmitGenerateWebsite: isWebsiteRequest,
+    canEmitGenerateAutomation: isAutomationRequest,
+  }, "[MARCUS] ENGINE_SELECTION_CONTEXT");
+
   req.log.info({
     event: "MODULE_LOAD_START",
     requestType,
