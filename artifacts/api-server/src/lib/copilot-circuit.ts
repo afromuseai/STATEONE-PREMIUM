@@ -43,10 +43,48 @@ const health = {
  * single-probe gate automatically.
  */
 export function shouldBlock(): boolean {
+  const now = Date.now();
+  const cooldownUntil = openedAt !== null ? openedAt + COOLDOWN_MS : null;
+  const elapsed       = openedAt !== null ? now - openedAt : null;
+  const remainingMs   = cooldownUntil !== null ? cooldownUntil - now : null;
+
+  // ── CIRCUIT_STATE_CHECK — logged on every shouldBlock() call ─────────────────
+  logger.info(
+    {
+      event:               "CIRCUIT_STATE_CHECK",
+      model:               MODELS.COPILOT,
+      state,
+      openedAt:            openedAt ? new Date(openedAt).toISOString() : null,
+      cooldownUntil:       cooldownUntil ? new Date(cooldownUntil).toISOString() : null,
+      elapsedMs:           elapsed,
+      remainingMs,
+      testInFlight,
+      ...health,
+    },
+    "[CIRCUIT] CIRCUIT_STATE_CHECK"
+  );
+
   if (state === "CLOSED") return false;
 
   if (state === "OPEN") {
-    if (openedAt !== null && Date.now() - openedAt >= COOLDOWN_MS) {
+    // ── CIRCUIT_RECOVERY_CHECK — logged every time we evaluate the cooldown ────
+    const cooldownExpired = openedAt !== null && now - openedAt >= COOLDOWN_MS;
+    logger.info(
+      {
+        event:           "CIRCUIT_RECOVERY_CHECK",
+        model:           MODELS.COPILOT,
+        currentTimestamp: new Date(now).toISOString(),
+        cooldownUntil:   cooldownUntil ? new Date(cooldownUntil).toISOString() : null,
+        elapsedMs:       elapsed,
+        remainingMs,
+        cooldownExpired,
+        willTransitionToHalfOpen: cooldownExpired,
+        ...health,
+      },
+      "[CIRCUIT] CIRCUIT_RECOVERY_CHECK"
+    );
+
+    if (cooldownExpired) {
       // Cooldown expired — allow one test probe
       state        = "HALF_OPEN";
       testInFlight = false;
@@ -62,14 +100,49 @@ export function shouldBlock(): boolean {
       );
     } else {
       // Still within cooldown window — fail fast
+      logger.warn(
+        {
+          event:         "CIRCUIT_BLOCK_TRIGGERED",
+          model:         MODELS.COPILOT,
+          state,
+          reason:        `cooldown not yet expired — ${remainingMs}ms remaining`,
+          remainingMs,
+          cooldownUntil: cooldownUntil ? new Date(cooldownUntil).toISOString() : null,
+          ...health,
+        },
+        "[CIRCUIT] CIRCUIT_BLOCK_TRIGGERED — failing fast (OPEN, in cooldown)"
+      );
       return true;
     }
   }
 
   // HALF_OPEN: gate the single test probe
   if (state === "HALF_OPEN") {
-    if (testInFlight) return true; // probe already in flight — block concurrent requests
-    testInFlight = true;           // claim the probe slot
+    if (testInFlight) {
+      // Probe already in flight — block concurrent requests
+      logger.warn(
+        {
+          event:  "CIRCUIT_BLOCK_TRIGGERED",
+          model:  MODELS.COPILOT,
+          state,
+          reason: "HALF_OPEN probe already in flight — blocking concurrent request",
+          ...health,
+        },
+        "[CIRCUIT] CIRCUIT_BLOCK_TRIGGERED — probe in flight (HALF_OPEN)"
+      );
+      return true;
+    }
+    // Claim the probe slot
+    testInFlight = true;
+    logger.info(
+      {
+        event:            "CIRCUIT_PROBE_START",
+        model:            MODELS.COPILOT,
+        recoveryAttempts: health.recoveryAttempts,
+        ...health,
+      },
+      "[CIRCUIT] CIRCUIT_PROBE_START — allowing single test probe through"
+    );
     return false;
   }
 
@@ -78,13 +151,22 @@ export function shouldBlock(): boolean {
 
 /** Call when streamNvidia opens successfully (stream body received). */
 export function recordSuccess(): void {
+  const wasHalfOpen = state === "HALF_OPEN";
   health.successes++;
   health.consecutiveFailures = 0;
 
-  if (state === "HALF_OPEN") {
+  if (wasHalfOpen) {
     state        = "CLOSED";
     openedAt     = null;
     testInFlight = false;
+    logger.info(
+      {
+        event:    "CIRCUIT_PROBE_SUCCESS",
+        model:    MODELS.COPILOT,
+        ...health,
+      },
+      "[CIRCUIT] CIRCUIT_PROBE_SUCCESS — probe succeeded, circuit CLOSED"
+    );
     logger.info(
       {
         event:    "COPILOT_CIRCUIT_CLOSED",
@@ -98,6 +180,7 @@ export function recordSuccess(): void {
 
 /** Call when the request times out (TimeoutError / AbortError). */
 export function recordTimeout(errorMsg: string): void {
+  const wasHalfOpen = state === "HALF_OPEN";
   health.timeouts++;
   health.consecutiveFailures++;
 
@@ -113,11 +196,24 @@ export function recordTimeout(errorMsg: string): void {
     "[CIRCUIT] COPILOT stream timeout"
   );
 
+  if (wasHalfOpen) {
+    logger.error(
+      {
+        event:  "CIRCUIT_PROBE_FAILED",
+        model:  MODELS.COPILOT,
+        reason: "timeout during HALF_OPEN probe",
+        ...health,
+      },
+      "[CIRCUIT] CIRCUIT_PROBE_FAILED — probe timed out, reopening circuit"
+    );
+  }
+
   _maybeOpen("timeout");
 }
 
 /** Call when NVIDIA returns a DEGRADED deployment error. */
 export function recordDegraded(errorMsg: string): void {
+  const wasHalfOpen = state === "HALF_OPEN";
   health.degraded++;
   health.consecutiveFailures++;
 
@@ -132,6 +228,18 @@ export function recordDegraded(errorMsg: string): void {
     },
     "[CIRCUIT] COPILOT_MODEL_DEGRADED — NVIDIA infrastructure degradation"
   );
+
+  if (wasHalfOpen) {
+    logger.error(
+      {
+        event:  "CIRCUIT_PROBE_FAILED",
+        model:  MODELS.COPILOT,
+        reason: "DEGRADED error during HALF_OPEN probe",
+        ...health,
+      },
+      "[CIRCUIT] CIRCUIT_PROBE_FAILED — probe returned DEGRADED, reopening circuit"
+    );
+  }
 
   _maybeOpen("degraded");
 }
