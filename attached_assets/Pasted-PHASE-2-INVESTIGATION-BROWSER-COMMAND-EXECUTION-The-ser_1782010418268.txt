@@ -1,0 +1,192 @@
+PHASE 2 INVESTIGATION — BROWSER COMMAND EXECUTION
+
+The server-side confirmation bug is fixed.
+
+Evidence already proves:
+
+* selectedEngine=chatbot
+* chatbotEngineIncluded=true
+* canEmitGenerateChatbot=true
+* Marcus emits {{WORKSPACE|generate_chatbot}}
+
+Do NOT investigate engine selection again.
+
+Do NOT investigate confirmation classification again.
+
+The failure is now downstream.
+
+====================================
+
+GOAL
+
+Prove whether the browser receives and executes:
+
+{{WORKSPACE|generate_chatbot}}
+
+====================================
+
+ADD LOGGING
+
+I want logs at every browser boundary.
+
+====================================
+
+STAGE A
+
+Inside fireAndStripTags()
+
+Log:
+
+GENERATE_CHATBOT_TAG_DETECTED
+
+Include:
+
+* full tag
+* buffer length
+
+====================================
+
+STAGE B
+
+Immediately before:
+
+onWorkspaceCmd("generate_chatbot")
+
+Log:
+
+GENERATE_CHATBOT_DISPATCH
+
+Include:
+
+* command
+* payload
+* timestamp
+
+====================================
+
+STAGE C
+
+First line inside:
+
+handleWorkspaceCmdAction()
+
+Log:
+
+GENERATE_CHATBOT_HANDLER_ENTERED
+
+Include:
+
+* command
+* active page
+* current route
+
+====================================
+
+STAGE D
+
+Immediately before navigation
+
+Log:
+
+GENERATE_CHATBOT_NAVIGATE
+
+Include:
+
+* destination
+* pendingIntent
+
+====================================
+
+STAGE E
+
+Inside chatbot-generator mount
+
+Log:
+
+GENERATE_CHATBOT_MOUNT
+
+Include:
+
+* pendingIntent
+* autoGenerate
+* route
+
+====================================
+
+STAGE F
+
+Immediately before automatic generation trigger
+
+Log:
+
+GENERATE_CHATBOT_AUTOSTART
+
+Include:
+
+* business description length
+* chatbot type
+* pendingIntent
+
+====================================
+
+STAGE G
+
+First line of generateChatbot()
+
+Log:
+
+GENERATE_CHATBOT_FUNCTION_ENTERED
+
+====================================
+
+STAGE H
+
+Immediately before fetch
+
+Log:
+
+GENERATE_CHATBOT_FETCH_START
+
+====================================
+
+STAGE I
+
+First SSE chunk
+
+Log:
+
+GENERATE_CHATBOT_STREAM_STARTED
+
+====================================
+
+STAGE J
+
+Generation completion
+
+Log:
+
+GENERATE_CHATBOT_STREAM_COMPLETE
+
+====================================
+
+OUTPUT
+
+After running:
+
+Generate healthcare scheduling chatbot
+
+then
+
+yes
+
+Provide:
+
+1. Last successful stage
+2. First missing stage
+3. Exact log sequence
+
+Do NOT speculate.
+
+Use logs only.
+
+The objective is to identify the first browser-side boundary where execution stops.

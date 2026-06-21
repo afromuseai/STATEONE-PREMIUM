@@ -449,6 +449,10 @@ async function streamCopilot(
         const wsCmdMatch = tag.match(WORKSPACE_CMD_RE);
         if (wsCmdMatch) {
           const cmd = wsCmdMatch[1].trim();
+          // ── Stage A ──────────────────────────────────────────────────────────
+          if (cmd === "generate_chatbot") {
+            console.log("GENERATE_CHATBOT_TAG_DETECTED | tag:", tag, "| bufferLength:", buffer.length);
+          }
           console.log("[WEBSITE TRACE] parser detected", cmd, "| tag:", tag);
           if (cmd.startsWith("generate_")) {
             console.log(
@@ -460,6 +464,8 @@ async function streamCopilot(
           }
           console.log("MARCUS_STAGE_2_COMMAND_EMITTED | command:", cmd, "| payloadLength:", (wsCmdMatch[2]?.trim() ?? "").length, "| payload:", (wsCmdMatch[2]?.trim() ?? "").slice(0, 120));
           if (cmd === "generate_chatbot") {
+            // ── Stage B ────────────────────────────────────────────────────────
+            console.log("GENERATE_CHATBOT_DISPATCH | command:", cmd, "| payload:", (wsCmdMatch[2]?.trim() ?? ""), "| timestamp:", Date.now());
             console.log("CONFIRM_EMIT_COMMAND | command: generate_chatbot | pendingIntent type: chatbot | about to call onWorkspaceCmd");
           }
           onWorkspaceCmd?.(cmd, wsCmdMatch[2]?.trim() ?? "");
@@ -997,6 +1003,10 @@ export function CopilotPanel() {
   // WORKSPACE CMD — Marcus execution commands: open tabs, populate forms, trigger generation
   const handleWorkspaceCmdAction = useCallback(
     (command: string, payload: string) => {
+      // ── Stage C ────────────────────────────────────────────────────────────────
+      if (command === "generate_chatbot") {
+        console.log("GENERATE_CHATBOT_HANDLER_ENTERED | command:", command, "| activePage:", location, "| currentRoute:", window.location.pathname);
+      }
       console.log("MARCUS_STAGE_3_COMMAND_RECEIVED | command:", command, "| payloadLength:", payload.length, "| payload:", payload.slice(0, 120));
       if (command === "chatbot") {
         console.log(
@@ -1034,6 +1044,9 @@ export function CopilotPanel() {
         console.log("MARCUS_STAGE_4_DISPATCH | command: generate_chatbot | action: markPendingIntentAutoGenerate");
         markPendingIntentAutoGenerate("chatbot");
         console.log("MARCUS_STAGE_5_TAB_OPEN | command: generate_chatbot | navigating to /chatbot-generator | autoGenerate: true");
+        // ── Stage D ──────────────────────────────────────────────────────────────
+        const _piAfterMark = sessionStorage.getItem("stageone_pending_intent");
+        console.log("GENERATE_CHATBOT_NAVIGATE | destination: /chatbot-generator | pendingIntent:", _piAfterMark);
         navigate("/chatbot-generator");
       } else if (command === "intelligence") {
         navigate("/dashboard?tab=new");

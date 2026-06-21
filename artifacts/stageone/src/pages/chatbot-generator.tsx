@@ -182,6 +182,8 @@ export default function ChatbotGeneratorPage() {
     // Does NOT depend on subscriber timing, React effect order, or live signals.
     const rawSS = sessionStorage.getItem("stageone_pending_intent")
     const _mountCtx = loadProjectContext()
+    // ── Stage E ────────────────────────────────────────────────────────────────
+    console.log("GENERATE_CHATBOT_MOUNT | pendingIntent:", rawSS, "| autoGenerate:", rawSS ? JSON.parse(rawSS).autoGenerate : null, "| route:", window.location.pathname);
     console.log(`GENERATOR_MOUNT | page=chatbot-generator | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
     console.log("[PIPELINE:7a] chatbot-generator mounted | raw sessionStorage:", rawSS)
     const intent = consumePendingIntent("chatbot")
@@ -220,6 +222,8 @@ export default function ChatbotGeneratorPage() {
         setTimeout(() => {
           const desc = effective.idea || businessDescRef.current
           if (desc.trim()) {
+            // ── Stage F ────────────────────────────────────────────────────────
+            console.log("GENERATE_CHATBOT_AUTOSTART | businessDescLength:", desc.trim().length, "| chatbotType:", chatbotTypeRef.current, "| pendingIntent:", JSON.stringify(effective));
             generateWith(desc, chatbotTypeRef.current, industryRef.current, toneRef.current)
           }
         }, 300)
@@ -465,6 +469,8 @@ export default function ChatbotGeneratorPage() {
   }
 
   const generateWith = async (desc: string, type: string, ind: string, tn: string) => {
+    // ── Stage G ──────────────────────────────────────────────────────────────────
+    console.log("GENERATE_CHATBOT_FUNCTION_ENTERED | descLength:", desc.trim().length, "| type:", type, "| ind:", ind, "| tn:", tn);
     if (!desc.trim()) return
     console.log("MARCUS_STAGE_8_CONFIRMED | trigger: auto-generate | descLength:", desc.trim().length, "| chatbotType:", type, "| industry:", ind, "| tone:", tn);
     setGenError(""); setStep("generating")
@@ -473,6 +479,8 @@ export default function ChatbotGeneratorPage() {
     let buffer = ""
     let _s10 = false
     try {
+      // ── Stage H ────────────────────────────────────────────────────────────────
+      console.log("GENERATE_CHATBOT_FETCH_START | endpoint: /api/generate/chatbot | descLength:", desc.trim().length, "| type:", type);
       const res = await fetch("/api/generate/chatbot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -503,12 +511,19 @@ export default function ChatbotGeneratorPage() {
           try {
             const msg = JSON.parse(line.slice(6))
             if (msg.content) {
-              if (!_s10) { console.log("MARCUS_STAGE_10_STREAM_STARTED | first chunk received | chunkLength:", msg.content.length); _s10 = true; }
+              if (!_s10) {
+                // ── Stage I ──────────────────────────────────────────────────────
+                console.log("GENERATE_CHATBOT_STREAM_STARTED | first chunk received | chunkLength:", msg.content.length);
+                console.log("MARCUS_STAGE_10_STREAM_STARTED | first chunk received | chunkLength:", msg.content.length);
+                _s10 = true;
+              }
               buffer += msg.content
             }
             if (msg.error) { setGenError(msg.error); setStep("input"); return }
             if (msg.done && msg.data) {
               const out = msg.data as ChatbotOutput
+              // ── Stage J ────────────────────────────────────────────────────────
+              console.log("GENERATE_CHATBOT_STREAM_COMPLETE | identity:", out.identity?.name, "| role:", out.identity?.role);
               console.log("MARCUS_STAGE_11_GENERATION_COMPLETE | identity:", out.identity?.name, "| role:", out.identity?.role);
               setData(out)
               setEditedPrompt(out.systemPrompt.main)
