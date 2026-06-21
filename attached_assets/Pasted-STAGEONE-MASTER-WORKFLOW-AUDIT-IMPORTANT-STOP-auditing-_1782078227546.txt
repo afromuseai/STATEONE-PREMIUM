@@ -1,0 +1,207 @@
+STAGEONE MASTER WORKFLOW AUDIT
+
+IMPORTANT
+
+STOP auditing modules individually.
+
+Do NOT audit:
+
+* Business Intelligence in isolation
+* Website Generator in isolation
+* Chatbot Generator in isolation
+* Automation Builder in isolation
+* Orchestrator in isolation
+
+The problem is not whether individual modules work.
+
+The problem is whether STAGEONE functions as a continuous operating system.
+
+==================================================
+
+GOAL
+
+Audit the complete Copilot-driven workflow from start to finish.
+
+Trace the entire lifecycle.
+
+User → Copilot → Module → Generation → Save → Context Update → Next Module
+
+I want the first point where continuity breaks.
+
+==================================================
+
+TRACE THIS EXACT FLOW
+
+Step 1
+
+User says:
+
+"Analyze my fintech startup idea"
+
+Verify:
+
+* Copilot receives request
+* Correct intent classification
+* Correct navigation
+* Correct Business Intelligence population
+* Confirmation prompt appears
+* Confirmation response works
+* Generation starts
+* Generation completes
+* Results save
+
+==================================================
+
+Step 2
+
+From BI results:
+
+User clicks:
+
+Generate Website
+
+Verify:
+
+* Website opens
+* BI context transfers
+* Website population works
+* Project linkage preserved
+* Same project ID preserved
+* Website generation works
+* Website saves
+
+==================================================
+
+Step 3
+
+From Website:
+
+User triggers:
+
+Generate Chatbot
+
+Verify:
+
+* Chatbot opens
+* Context inherited
+* Same project preserved
+* Population works
+* Generation works
+* Save works
+
+==================================================
+
+Step 4
+
+From Chatbot:
+
+User triggers:
+
+Build Automation
+
+Verify:
+
+* Automation Builder opens
+* Context inherited
+* Same project preserved
+* Population works
+* Generation works
+* Save works
+
+==================================================
+
+Step 5
+
+From Automation:
+
+User triggers:
+
+Open Orchestrator
+
+Verify:
+
+* Orchestrator opens
+* Context inherited
+* Same project preserved
+* Population works
+* Generation works
+* Save works
+
+==================================================
+
+FOR EACH TRANSITION
+
+Show:
+
+* projectId before
+
+* projectId after
+
+* sessionStorage values before
+
+* sessionStorage values after
+
+* workspace context before
+
+* workspace context after
+
+* generation context before
+
+* generation context after
+
+* pendingIntent before
+
+* pendingIntent after
+
+* activeProjectId before
+
+* activeProjectId after
+
+==================================================
+
+REQUIRED OUTPUT
+
+For every stage:
+
+PASS
+or
+FAIL
+
+Then show:
+
+Last successful stage
+First failed stage
+
+Example:
+
+PASS — Copilot intent classification
+PASS — BI generation
+PASS — BI save
+FAIL — Website inherited wrong projectId
+
+Last successful stage:
+BI save
+
+First failed stage:
+Website context transfer
+
+==================================================
+
+IMPORTANT
+
+Do NOT propose fixes.
+
+Do NOT refactor.
+
+Do NOT modify code.
+
+Only audit.
+
+I want proof of:
+
+* where workflow continuity breaks
+* where project continuity breaks
+* where context continuity breaks
+* where Copilot continuity breaks
+
+The objective is to find the first actual break in the STAGEONE operating system workflow.
