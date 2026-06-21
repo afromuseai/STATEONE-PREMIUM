@@ -1,0 +1,171 @@
+STAGEONE WORKFLOW AUDIT — NO FIXES, NO REFACTORING
+
+IMPORTANT:
+
+DO NOT implement fixes.
+
+DO NOT modify code.
+
+DO NOT refactor architecture.
+
+DO NOT add features.
+
+DO NOT rewrite modules.
+
+DO NOT optimize anything.
+
+DO NOT make assumptions.
+
+Your job is ONLY to audit the existing system.
+
+==================================================
+GOAL
+====
+
+Trace the complete STAGEONE workflow from the moment a user talks to Marcus until the final output is saved.
+
+I want evidence-based workflow tracing.
+
+==================================================
+THE OFFICIAL STAGEONE WORKFLOW
+==============================
+
+Stage 1
+User talks to Marcus
+
+Stage 2
+Marcus classifies intent
+
+Stage 3
+Marcus navigates to the correct module
+
+Stage 4
+Marcus populates the module automatically
+
+Stage 5
+User reviews populated content
+
+Stage 6
+Marcus asks for confirmation
+
+Stage 7
+User confirms
+
+Stage 8
+Marcus triggers generation
+
+Stage 9
+Generation streams live
+
+Stage 10
+Output saves to project
+
+Stage 11
+Project context updates
+
+Stage 12
+Marcus suggests next actions
+
+Stage 13
+User continues building inside the same project
+
+==================================================
+MODULES TO AUDIT
+================
+
+1. Business Intelligence
+2. Website Generator
+3. Chatbot Generator
+4. Automation Builder
+5. AI Orchestrator
+
+==================================================
+AUDIT REQUIREMENTS
+==================
+
+For EACH module:
+
+Trace every stage.
+
+Identify:
+
+* last successful stage
+* first failed stage
+* exact file
+* exact function
+* exact condition causing failure
+* exact reason the workflow stops
+
+I want evidence from code.
+
+Do NOT speculate.
+
+Do NOT guess.
+
+Do NOT propose fixes yet.
+
+==================================================
+OUTPUT FORMAT
+=============
+
+Module: [name]
+
+Stage 1:
+PASS / FAIL
+
+Stage 2:
+PASS / FAIL
+
+...
+
+Stage 13:
+PASS / FAIL
+
+Summary:
+
+Last successful stage:
+[stage]
+
+First failed stage:
+[stage]
+
+File:
+[path]
+
+Function:
+[name]
+
+Root cause:
+[detailed explanation]
+
+==================================================
+FINAL REPORT
+============
+
+Create a matrix:
+
+| Module | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 | S10 | S11 | S12 | S13 |
+| ------ | -- | -- | -- | -- | -- | -- | -- | -- | -- | --- | --- | --- | --- |
+
+Then provide:
+
+1. Shared failures across modules
+2. Module-specific failures
+3. Most critical workflow breakpoints
+4. Ranked list of failures by severity
+
+==================================================
+CRITICAL RULE
+=============
+
+Do NOT fix anything.
+
+Do NOT edit code.
+
+Do NOT generate patches.
+
+Do NOT suggest architecture changes.
+
+First produce the complete workflow audit.
+
+Only after the audit is complete should implementation be discussed.
