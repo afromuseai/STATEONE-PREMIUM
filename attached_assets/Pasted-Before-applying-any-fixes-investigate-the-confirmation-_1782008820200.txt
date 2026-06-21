@@ -1,0 +1,126 @@
+Before applying any fixes, investigate the confirmation workflow for Marcus.
+
+Current observed behavior:
+
+User requests a generator action
+Example:
+"Generate a healthcare scheduling chatbot"
+Marcus correctly:
+opens the chatbot generator
+populates the form
+asks for confirmation
+User replies:
+"yes"
+"continue"
+"generate it"
+"build it"
+Nothing happens.
+Generation never starts.
+====================================
+INVESTIGATION GOAL
+
+Trace the entire confirmation lifecycle and determine exactly where execution stops.
+
+I want evidence, not assumptions.
+
+====================================
+ADD LOGGING
+
+Log the following:
+
+ENGINE_SELECTION_CONTEXT
+
+Include:
+
+latestUserMessage
+activePagePath
+pendingIntent
+selectedEngine
+selectionReason
+
+Example:
+
+ENGINE_SELECTION_CONTEXT
+message=yes
+activePage=/chatbot-generator
+pendingIntent=chatbot
+selectedEngine=chatbot
+selectionReason=pendingIntent
+
+====================================
+
+Also log:
+
+CONFIRM_CHECK_INPUT
+
+CONFIRM_CHECK_RESULT
+
+Include:
+
+message
+active page
+pending workflow
+engine loaded true/false
+
+====================================
+
+Then log:
+
+CONFIRM_EMIT_COMMAND
+
+and
+
+CONFIRM_COMMAND_EMITTED
+
+when Marcus actually emits:
+
+{{WORKSPACE|generate_chatbot}}
+
+or any equivalent generation command.
+
+====================================
+
+EXPECTED FLOW
+
+After user says:
+
+"yes"
+
+I expect to see:
+
+Engine selected
+Confirmation recognized
+Generation command emitted
+Generation started
+
+Example:
+
+ENGINE_SELECTION_CONTEXT
+→ chatbot engine selected
+
+CONFIRM_CHECK_RESULT
+→ confirmation recognized
+
+CONFIRM_EMIT_COMMAND
+
+CONFIRM_COMMAND_EMITTED
+
+MARCUS_STAGE_8_CONFIRMED
+
+MARCUS_STAGE_9_GENERATION_STARTED
+
+====================================
+IMPORTANT
+
+Do NOT change code yet.
+
+Do NOT implement a fix yet.
+
+First determine:
+
+whether the correct execution engine is loaded after confirmation
+whether the confirmation message is recognized
+whether a generation command is emitted
+exactly which stage fails
+
+Provide logs proving the first missing stage in the sequence.
