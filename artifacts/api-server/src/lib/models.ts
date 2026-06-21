@@ -11,6 +11,8 @@
 //   WEBSITE_PLANNING       — Llama-4 Maverick: fast streaming JSON section planning
 //   COMPONENT_GENERATION   — DeepSeek V4 Flash: fast 284B MoE coding model
 //   COPILOT                — Qwen 3.5 122B A10B: strong instruction-following, workspace command emission
+//   COPILOT_FALLBACK_1     — Qwen 3.5 397B: failover when primary is DEGRADED
+//   COPILOT_FALLBACK_2     — Qwen3-Next 80B A3B: second failover when fallback-1 also fails
 //   CHATBOT                — Qwen 3.5 397B: structured reasoning for chatbot design
 //   AUTOMATION             — Qwen 3.5 397B: multi-step workflow & automation planning
 //   ENHANCE                — Qwen 3.5 397B: idea expansion & business framing
@@ -26,6 +28,8 @@ export const MODELS = {
   WEBSITE_PLANNING:      "meta/llama-4-maverick-17b-128e-instruct",
   COMPONENT_GENERATION:  "deepseek-ai/deepseek-v4-flash",
   COPILOT:               "qwen/qwen3.5-122b-a10b",
+  COPILOT_FALLBACK_1:    "qwen/qwen3.5-397b-a17b",
+  COPILOT_FALLBACK_2:    "qwen/qwen3-next-80b-a3b-instruct",
   CHATBOT:               "qwen/qwen3.5-397b-a17b",
   AUTOMATION:            "qwen/qwen3.5-397b-a17b",
   ENHANCE:               "qwen/qwen3.5-397b-a17b",

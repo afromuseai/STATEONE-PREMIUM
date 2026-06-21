@@ -1,0 +1,145 @@
+COPILOT EMERGENCY RECOVERY
+
+INVESTIGATION COMPLETE.
+
+The root cause is confirmed.
+
+Evidence:
+
+qwen/qwen3.5-122b-a10b
+
+returns:
+
+HTTP 400
+
+Function id:
+e8d66c85-ab6a-4066-b2f3-6c03134faf14
+
+DEGRADED function cannot be invoked
+
+The circuit breaker is working correctly.
+
+The workflow system is working correctly.
+
+Marcus is failing because the underlying NVIDIA deployment is degraded.
+
+==================================================
+
+GOAL
+
+Keep Marcus operational during NVIDIA model outages.
+
+==================================================
+
+IMPLEMENT MODEL FAILOVER
+
+Primary:
+
+qwen/qwen3.5-122b-a10b
+
+Fallback 1:
+
+qwen/qwen3.5-397b-a17b
+
+Fallback 2:
+
+qwen/qwen3-next-80b-a3b-instruct
+
+==================================================
+
+FAILOVER RULE
+
+If streamNvidia() returns:
+
+* DEGRADED
+* HTTP 400 degraded function
+* deployment unavailable
+* model unavailable
+* timeout > 20s
+
+Immediately retry using:
+
+qwen/qwen3.5-397b-a17b
+
+If that fails:
+
+retry using:
+
+qwen/qwen3-next-80b-a3b-instruct
+
+==================================================
+
+LOGGING
+
+Add:
+
+MODEL_FAILOVER_TRIGGERED
+
+show:
+
+* original model
+* fallback model
+* reason
+
+Add:
+
+MODEL_FAILOVER_SUCCESS
+
+show:
+
+* failed model
+* replacement model
+* latency
+
+Add:
+
+MODEL_FAILOVER_FAILED
+
+show:
+
+* all attempted models
+* final error
+
+==================================================
+
+IMPORTANT
+
+Do NOT modify:
+
+* Marcus prompt
+* workflow engine
+* confirmation engine
+* project persistence
+* chatbot generation
+* website generation
+* automation generation
+
+Only modify:
+
+model routing.
+
+==================================================
+
+USER EXPERIENCE
+
+Never show:
+
+"Marcus is unavailable"
+
+if a fallback model succeeds.
+
+The outage message should appear ONLY if:
+
+all fallback models fail.
+
+==================================================
+
+SUCCESS CRITERIA
+
+When qwen/qwen3.5-122b-a10b is degraded:
+
+Marcus automatically switches models.
+
+User notices no interruption.
+
+Workflows continue operating normally.

@@ -2461,52 +2461,120 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     maxTokens: 8192,
   };
 
-  // ── Circuit breaker — fail fast when COPILOT model is known unavailable ──────
-  if (shouldBlock()) {
+  // ── Model failover chain ────────────────────────────────────────────────────
+  // Primary: MODELS.COPILOT (qwen/qwen3.5-122b-a10b)
+  // Fallback 1: MODELS.COPILOT_FALLBACK_1 (qwen/qwen3.5-397b-a17b)
+  // Fallback 2: MODELS.COPILOT_FALLBACK_2 (qwen/qwen3-next-80b-a3b-instruct)
+  //
+  // Circuit breaker state determines the starting index:
+  //   CLOSED / HALF_OPEN → start at index 0 (try primary first)
+  //   OPEN               → start at index 1 (skip primary, go straight to fallback)
+  //
+  // DEGRADED or timeout errors trigger retries down the chain.
+  // Non-retryable errors (network) do NOT cascade to fallbacks.
+  // The outage message is shown ONLY when every model in the chain has failed.
+  const FAILOVER_CHAIN = [
+    MODELS.COPILOT,
+    MODELS.COPILOT_FALLBACK_1,
+    MODELS.COPILOT_FALLBACK_2,
+  ] as const;
+
+  const circuitBlocked = shouldBlock();
+  const startIdx = circuitBlocked ? 1 : 0;
+
+  if (circuitBlocked) {
     req.log.warn(
-      { event: "COPILOT_CIRCUIT_OPEN", model: MODELS.COPILOT, ...getCircuitHealth() },
-      "[CIRCUIT] Request rejected — circuit open"
+      { event: "COPILOT_CIRCUIT_OPEN", model: MODELS.COPILOT, startingFallback: FAILOVER_CHAIN[1], ...getCircuitHealth() },
+      "[CIRCUIT] Circuit OPEN — skipping primary, starting from fallback"
     );
-    res.write(`data: ${JSON.stringify({ content: "Marcus is temporarily unavailable because the underlying AI deployment is currently experiencing an outage.\n\nYour request was not lost.\n\nPlease try again shortly." })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-    res.end();
-    return;
   }
 
   let streamBody: ReadableStream<Uint8Array>;
+  let activeModel: string = FAILOVER_CHAIN[startIdx];
+  let failoverTriggeredAt: number | null = null;
 
-  try {
-    streamBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(90_000) });
-    recordSuccess();
-  } catch (err) {
-    const isDegraded = isModelDegradedError(err);
-    const isTimeout  = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
-    const errorMsg   = String(err);
+  failoverLoop: for (let i = startIdx; i < FAILOVER_CHAIN.length; i++) {
+    const model = FAILOVER_CHAIN[i];
+    const t0 = Date.now();
 
-    if (isDegraded) {
-      recordDegraded(errorMsg);
-    } else if (isTimeout) {
-      recordTimeout(errorMsg);
-    } else {
-      recordNetworkError(errorMsg);
+    try {
+      streamBody = await streamNvidia({ ...copilotPayload, model, signal: AbortSignal.timeout(90_000) });
+
+      if (i === 0) {
+        recordSuccess();
+      } else {
+        req.log.info(
+          {
+            event:            "MODEL_FAILOVER_SUCCESS",
+            failedModel:      MODELS.COPILOT,
+            replacementModel: model,
+            fallbackIndex:    i,
+            latencyMs:        Date.now() - (failoverTriggeredAt ?? t0),
+          },
+          "[FAILOVER] MODEL_FAILOVER_SUCCESS — Marcus operational on fallback model"
+        );
+      }
+
+      activeModel = model;
+      break failoverLoop;
+
+    } catch (err) {
+      const isDegraded  = isModelDegradedError(err);
+      const isTimeout   = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+      const isRetryable = isDegraded || isTimeout;
+      const errorMsg    = String(err);
+
+      if (i === 0) {
+        if (isDegraded)      recordDegraded(errorMsg);
+        else if (isTimeout)  recordTimeout(errorMsg);
+        else                 recordNetworkError(errorMsg);
+      }
+
+      const nextModel = FAILOVER_CHAIN[i + 1];
+
+      if (isRetryable && nextModel) {
+        if (failoverTriggeredAt === null) failoverTriggeredAt = t0;
+        req.log.warn(
+          {
+            event:         "MODEL_FAILOVER_TRIGGERED",
+            originalModel: model,
+            fallbackModel: nextModel,
+            reason:        isDegraded ? "DEGRADED" : "timeout",
+            errorMsg:      errorMsg.slice(0, 300),
+            attemptIndex:  i,
+          },
+          "[FAILOVER] MODEL_FAILOVER_TRIGGERED — retrying with next model"
+        );
+        continue failoverLoop;
+      }
+
+      req.log.error(
+        {
+          event:           "MODEL_FAILOVER_FAILED",
+          attemptedModels: FAILOVER_CHAIN.slice(startIdx, i + 1),
+          finalError:      errorMsg.slice(0, 300),
+          isRetryable,
+        },
+        "[FAILOVER] MODEL_FAILOVER_FAILED — all models exhausted"
+      );
+
+      const userMessage = isRetryable
+        ? "Marcus is temporarily unavailable because the underlying AI deployment is currently experiencing an outage.\n\nYour request was not lost.\n\nPlease try again shortly."
+        : "Something went wrong reaching the AI. Please try again.";
+
+      res.write(`data: ${JSON.stringify({ content: userMessage })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+      return;
     }
-
-    const userMessage = (isDegraded || isTimeout)
-      ? "Marcus is temporarily unavailable because the underlying AI deployment is currently experiencing an outage.\n\nYour request was not lost.\n\nPlease try again shortly."
-      : "Something went wrong reaching the AI. Please try again.";
-
-    res.write(`data: ${JSON.stringify({ content: userMessage })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-    res.end();
-    return;
   }
 
   try {
-    let result = await forwardStream(streamBody, res, MODELS.COPILOT);
+    let result = await forwardStream(streamBody!, res, activeModel);
     req.log.info(
       {
         event: "MARCUS_STAGE_1_RESPONSE_CREATED",
-        model: MODELS.COPILOT,
+        model: activeModel,
         hasContent: !!result,
         userId,
         requestType,
@@ -2516,12 +2584,12 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     );
     if (!result) {
       // Empty response — retry once with a fresh NVIDIA call (model occasionally returns nothing)
-      req.log.warn({ model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Empty response — retrying`);
+      req.log.warn({ model: activeModel }, `[AI:${activeModel}] Empty response — retrying`);
       try {
-        const retryBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(90_000) });
-        result = await forwardStream(retryBody, res, MODELS.COPILOT);
+        const retryBody = await streamNvidia({ ...copilotPayload, model: activeModel, signal: AbortSignal.timeout(90_000) });
+        result = await forwardStream(retryBody, res, activeModel);
       } catch (retryErr) {
-        req.log.error({ err: retryErr, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Retry also failed`);
+        req.log.error({ err: retryErr, model: activeModel }, `[AI:${activeModel}] Retry also failed`);
       }
     }
     if (!result) {
