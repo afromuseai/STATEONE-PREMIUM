@@ -1,0 +1,152 @@
+STAGEONE EXECUTION ENGINE AUDIT
+
+IMPORTANT
+
+Do NOT assume prior context.
+
+Treat this as a fresh investigation.
+
+==================================================
+
+GOAL
+
+Determine whether Marcus execution workflows are working consistently across:
+
+1. Website Generator
+2. Chatbot Generator
+3. Automation Builder
+4. Business Intelligence
+5. AI Orchestrator
+
+We previously focused on a chatbot workflow failure, but that may only have exposed a deeper architectural issue.
+
+I need a system-wide audit.
+
+==================================================
+
+TEST THESE FLOWS
+
+FLOW A
+
+User:
+"Generate a website for a fintech startup"
+
+Expected:
+
+Marcus
+→ prepares website
+→ asks for confirmation
+→ user confirms
+→ website generation starts
+→ generation streams
+→ output saves
+
+==================================================
+
+FLOW B
+
+User:
+"Generate a healthcare scheduling chatbot"
+
+Expected:
+
+Marcus
+→ prepares chatbot
+→ asks for confirmation
+→ user confirms
+→ chatbot generation starts
+→ generation streams
+→ output saves
+
+==================================================
+
+FLOW C
+
+User:
+"Build onboarding automation for a SaaS company"
+
+Expected:
+
+Marcus
+→ prepares automation
+→ asks for confirmation
+→ user confirms
+→ automation generation starts
+→ generation streams
+→ output saves
+
+==================================================
+
+FOR EACH FLOW
+
+Instrument and verify:
+
+STAGE 1
+Intent classification
+
+STAGE 2
+Engine selection
+
+STAGE 3
+Confirmation handling
+
+STAGE 4
+Workspace command emission
+
+STAGE 5
+Command dispatch
+
+STAGE 6
+Navigation
+
+STAGE 7
+State hydration
+
+STAGE 8
+Auto-generation trigger
+
+STAGE 9
+Streaming lifecycle
+
+STAGE 10
+Persistence / save
+
+==================================================
+
+OUTPUT FORMAT
+
+Provide:
+
+Workflow:
+Website
+
+PASS / FAIL
+
+Last successful stage:
+X
+
+First failed stage:
+Y
+
+Reason:
+...
+
+Repeat for:
+
+* Website
+* Chatbot
+* Automation
+
+==================================================
+
+IMPORTANT
+
+Do NOT begin fixing anything.
+
+First identify:
+
+* whether failures are shared
+* whether failures are workflow-specific
+* whether the root cause is architectural
+
+Only after the audit is complete should implementation changes be proposed.
