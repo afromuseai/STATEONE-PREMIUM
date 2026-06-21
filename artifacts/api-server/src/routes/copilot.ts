@@ -7,14 +7,13 @@ import { z } from "zod";
 
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, callNvidia, extractJson, isModelDegradedError } from "../lib/nvidia";
+import { shouldBlock, recordSuccess, recordTimeout, recordDegraded, recordNetworkError, getCircuitHealth } from "../lib/copilot-circuit";
 import { getLanguageInstruction } from "../lib/language";
 import { getBusinessContext, getBusinessMemorySummary, type BusinessContextResult } from "../lib/business-graph";
 import { logEventFireForget } from "../lib/log-event";
 import { trackUsageFireForget } from "../lib/usage";
 import { runAgent, discoverActiveAgents, AGENT_NAME_TO_KEY } from "../lib/agent-runtime";
 
-// ─── Copilot health metrics (in-memory, reset on restart) ─────────────────────
-const copilotHealth = { success: 0, degraded: 0, timeout: 0, network: 0 };
 
 // ─── Memory category types ─────────────────────────────────────────────────
 type MemoryCategory = "Decision" | "Goal" | "Assumption" | "Experiment" | "Milestone" | "Learning" | "Risk" | "Preference";
@@ -2332,41 +2331,38 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     maxTokens: 8192,
   };
 
+  // ── Circuit breaker — fail fast when COPILOT model is known unavailable ──────
+  if (shouldBlock()) {
+    req.log.warn(
+      { event: "COPILOT_CIRCUIT_OPEN", model: MODELS.COPILOT, ...getCircuitHealth() },
+      "[CIRCUIT] Request rejected — circuit open"
+    );
+    res.write(`data: ${JSON.stringify({ content: "Marcus is temporarily unavailable because the underlying AI deployment is currently experiencing an outage.\n\nYour request was not lost.\n\nPlease try again shortly." })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+    return;
+  }
+
   let streamBody: ReadableStream<Uint8Array>;
 
   try {
     streamBody = await streamNvidia({ ...copilotPayload, model: MODELS.COPILOT, signal: AbortSignal.timeout(90_000) });
-    copilotHealth.success++;
+    recordSuccess();
   } catch (err) {
     const isDegraded = isModelDegradedError(err);
     const isTimeout  = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+    const errorMsg   = String(err);
 
     if (isDegraded) {
-      copilotHealth.degraded++;
-      req.log.error(
-        {
-          event:     "COPILOT_MODEL_DEGRADED",
-          model:     MODELS.COPILOT,
-          errorMsg:  String(err),
-          timestamp: new Date().toISOString(),
-        },
-        "[MARCUS] COPILOT_MODEL_DEGRADED — NVIDIA infrastructure degradation detected"
-      );
+      recordDegraded(errorMsg);
     } else if (isTimeout) {
-      copilotHealth.timeout++;
-      req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Stream timeout`);
+      recordTimeout(errorMsg);
     } else {
-      copilotHealth.network++;
-      req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Stream network error`);
+      recordNetworkError(errorMsg);
     }
 
-    req.log.info(
-      { event: "COPILOT_HEALTH_STATUS", model: MODELS.COPILOT, ...copilotHealth },
-      "[MARCUS] COPILOT_HEALTH_STATUS"
-    );
-
-    const userMessage = isDegraded
-      ? "Marcus is temporarily unavailable because the underlying AI model deployment is currently degraded.\n\nYour request was not lost.\n\nPlease try again shortly."
+    const userMessage = (isDegraded || isTimeout)
+      ? "Marcus is temporarily unavailable because the underlying AI deployment is currently experiencing an outage.\n\nYour request was not lost.\n\nPlease try again shortly."
       : "Something went wrong reaching the AI. Please try again.";
 
     res.write(`data: ${JSON.stringify({ content: userMessage })}\n\n`);
