@@ -750,15 +750,117 @@ ${summary}
   // Only the CONFIRMATION path uses Priority 1 & 2 — a non-confirmation
   // message on /chatbot-generator ("what do you think?") still gets no engine.
 
-  const CONFIRMATION_SIGNALS = [
-    "yes", "yeah", "yep", "proceed", "continue", "build it", "generate it",
-    "do it", "go ahead", "confirm", "let's do it", "go for it", "ok let's go",
-    "sounds good let's", "start it", "run it", "execute",
-  ];
-  const isConfirmationResponse = CONFIRMATION_SIGNALS.some(s => {
-    const msg = latestUserMessage.trim();
-    return msg === s || msg.startsWith(s + " ") || msg.endsWith(" " + s);
-  });
+  // ─── Intent-based confirmation detector ──────────────────────────────────────
+  // Replaces the old exact-match CONFIRMATION_SIGNALS list.
+  // Strips punctuation, tokenises, and matches against weighted signal sets so
+  // natural responses like "yes, go ahead" / "sounds good" / "ok, do it" all
+  // resolve to CONFIRM without requiring chatbot/website/automation keywords.
+
+  interface ConfirmationResult {
+    intent: "CONFIRM" | "REJECT" | "UNCLEAR";
+    confidence: number;
+    matchedSignals: string[];
+  }
+
+  function detectConfirmationIntent(rawMessage: string): ConfirmationResult {
+    // Normalise: lowercase, strip punctuation except apostrophes (let's → let's)
+    const normalised = rawMessage
+      .toLowerCase()
+      .replace(/[^\w\s']/g, " ")   // remove punctuation, keep apostrophes
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const CONFIRM_SIGNALS: Array<{ phrase: string; weight: number }> = [
+      // Strong single-word confirms
+      { phrase: "yes",         weight: 1.0 },
+      { phrase: "yeah",        weight: 1.0 },
+      { phrase: "yep",         weight: 1.0 },
+      { phrase: "yup",         weight: 1.0 },
+      { phrase: "sure",        weight: 0.9 },
+      { phrase: "confirmed",   weight: 1.0 },
+      { phrase: "confirm",     weight: 1.0 },
+      { phrase: "approved",    weight: 1.0 },
+      { phrase: "correct",     weight: 0.8 },
+      { phrase: "absolutely",  weight: 1.0 },
+      { phrase: "definitely",  weight: 1.0 },
+      { phrase: "exactly",     weight: 0.8 },
+      { phrase: "ok",          weight: 0.7 },
+      { phrase: "okay",        weight: 0.7 },
+      // Action phrases
+      { phrase: "go ahead",     weight: 1.0 },
+      { phrase: "go for it",    weight: 1.0 },
+      { phrase: "do it",        weight: 1.0 },
+      { phrase: "build it",     weight: 1.0 },
+      { phrase: "generate it",  weight: 1.0 },
+      { phrase: "run it",       weight: 1.0 },
+      { phrase: "start it",     weight: 1.0 },
+      { phrase: "execute",      weight: 1.0 },
+      { phrase: "proceed",      weight: 1.0 },
+      { phrase: "continue",     weight: 0.9 },
+      { phrase: "let's go",     weight: 1.0 },
+      { phrase: "lets go",      weight: 1.0 },
+      { phrase: "let's do it",  weight: 1.0 },
+      { phrase: "lets do it",   weight: 1.0 },
+      // Affirmation phrases
+      { phrase: "sounds good",   weight: 1.0 },
+      { phrase: "looks good",    weight: 1.0 },
+      { phrase: "works for me",  weight: 1.0 },
+      { phrase: "that works",    weight: 0.9 },
+      { phrase: "that's great",  weight: 0.8 },
+      { phrase: "great",         weight: 0.6 },
+      { phrase: "perfect",       weight: 0.8 },
+      { phrase: "please",        weight: 0.5 },
+    ];
+
+    const REJECT_SIGNALS: Array<{ phrase: string; weight: number }> = [
+      { phrase: "no",          weight: 1.0 },
+      { phrase: "nope",        weight: 1.0 },
+      { phrase: "nah",         weight: 1.0 },
+      { phrase: "stop",        weight: 1.0 },
+      { phrase: "cancel",      weight: 1.0 },
+      { phrase: "not yet",     weight: 1.0 },
+      { phrase: "wait",        weight: 0.9 },
+      { phrase: "hold on",     weight: 0.9 },
+      { phrase: "change it",   weight: 1.0 },
+      { phrase: "modify it",   weight: 1.0 },
+      { phrase: "don't",       weight: 0.9 },
+      { phrase: "dont",        weight: 0.9 },
+      { phrase: "not now",     weight: 1.0 },
+      { phrase: "never mind",  weight: 1.0 },
+      { phrase: "nevermind",   weight: 1.0 },
+    ];
+
+    const matched: Array<{ phrase: string; weight: number; side: "CONFIRM" | "REJECT" }> = [];
+
+    for (const sig of CONFIRM_SIGNALS) {
+      // Match if the normalised message contains the phrase as a whole word / phrase
+      const re = new RegExp(`(?:^|\\s)${sig.phrase.replace(/'/g, "'")}(?:\\s|$)`);
+      if (re.test(normalised) || normalised === sig.phrase) {
+        matched.push({ ...sig, side: "CONFIRM" });
+      }
+    }
+    for (const sig of REJECT_SIGNALS) {
+      const re = new RegExp(`(?:^|\\s)${sig.phrase}(?:\\s|$)`);
+      if (re.test(normalised) || normalised === sig.phrase) {
+        matched.push({ ...sig, side: "REJECT" });
+      }
+    }
+
+    const confirmScore = matched.filter(m => m.side === "CONFIRM").reduce((s, m) => s + m.weight, 0);
+    const rejectScore  = matched.filter(m => m.side === "REJECT").reduce((s, m) => s + m.weight, 0);
+    const matchedSignals = matched.map(m => m.phrase);
+
+    if (rejectScore > confirmScore) {
+      return { intent: "REJECT", confidence: Math.min(rejectScore, 1), matchedSignals };
+    }
+    if (confirmScore > 0) {
+      return { intent: "CONFIRM", confidence: Math.min(confirmScore, 1), matchedSignals };
+    }
+    return { intent: "UNCLEAR", confidence: 0, matchedSignals: [] };
+  }
+
+  const confirmationResult = detectConfirmationIntent(latestUserMessage);
+  const isConfirmationResponse = confirmationResult.intent === "CONFIRM";
 
   // Extract pendingIntent sent from the frontend (read from sessionStorage via peekPendingIntent)
   const clientPendingIntent = workspaceContext?.pendingIntent ?? null;
@@ -771,31 +873,35 @@ ${summary}
     : activePagePath.includes("/automation-builder") ? "automation"
     : null;
 
-  // Confirmation engine: pendingIntent → pagePathEngine → null
+  // Confirmation engine priority: pendingIntent → pagePathEngine → null
+  // When intent is CONFIRM and pendingIntent is present, the pending workflow type
+  // always wins — no artifact keywords needed in the confirmation message.
   const confirmationEngine = isConfirmationResponse
     ? (clientPendingIntent?.type ?? pagePathEngine ?? null)
     : null;
+
+  req.log.info({
+    event: "CONFIRM_INTENT_DETECTED",
+    message: latestUserMessage.slice(0, 200),
+    intent: confirmationResult.intent,
+    confidence: confirmationResult.confidence,
+    matchedSignals: confirmationResult.matchedSignals,
+    pendingIntent: clientPendingIntent?.type ?? null,
+    activePagePath,
+    pagePathEngine,
+    confirmationEngine,
+    selectedEngine: confirmationEngine ?? "pending_keyword_match",
+  }, "[MARCUS] CONFIRM_INTENT_DETECTED");
 
   const CHATBOT_SIGNALS    = ["chatbot", "chat bot", "scheduling assistant", "booking assistant", "ai scheduling"];
   const AUTOMATION_SIGNALS = ["automation", "onboarding automation", "workflow automation", "email sequence", "drip sequence", "lead capture automation"];
   const WEBSITE_SIGNALS    = ["website", "landing page", "fintech landing", "saas landing", "homepage"];
   const BI_SIGNALS         = ["business intelligence", "intelligence report", "run business intelligence", "generate intelligence", "run bi report"];
 
-  req.log.info({
-    event: "CONFIRM_CHECK_INPUT",
-    message: latestUserMessage.slice(0, 200),
-    activePage: workspaceContext?.activePage ?? "(none)",
-    activePagePath: activePagePath,
-    isConfirmationResponse,
-    clientPendingIntentType: clientPendingIntent?.type ?? null,
-    pagePathEngine,
-    confirmationEngine,
-    messageLength: latestUserMessage.length,
-  }, "[MARCUS] CONFIRM_CHECK_INPUT");
-
-  // State-aware engine selection:
-  //   Confirmation + pendingIntent/pagePath overrides keyword detection.
-  //   Direct keyword matches always work regardless of confirmation state.
+  // ─── Engine loading priority ──────────────────────────────────────────────────
+  // 1. pendingIntent (when user confirmed) — never requires artifact keywords
+  // 2. activePagePath (confirmation fallback when no pendingIntent)
+  // 3. Message keywords (direct request, no confirmation needed)
   const isChatbotRequest    = confirmationEngine === "chatbot"    || CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
   const isAutomationRequest = !isChatbotRequest && (confirmationEngine === "automation" || AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s)));
   const isWebsiteRequest    = !isChatbotRequest && !isAutomationRequest && (confirmationEngine === "website"   || WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s)));
@@ -807,12 +913,25 @@ ${summary}
     : isBiRequest         ? "bi"
     : "none";
 
-  const selectionSource =
-    (confirmationEngine && isChatbotRequest    && confirmationEngine === "chatbot")    ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
-    : (confirmationEngine && isAutomationRequest && confirmationEngine === "automation") ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
-    : (confirmationEngine && isWebsiteRequest    && confirmationEngine === "website")    ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+  const selectionSource: string =
+    (confirmationEngine === "chatbot"    && isChatbotRequest)    ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    : (confirmationEngine === "automation" && isAutomationRequest) ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    : (confirmationEngine === "website"    && isWebsiteRequest)    ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
     : selectedEngine !== "none" ? "keyword"
     : "none";
+
+  // Log forced engine activation when pendingIntent wins over keyword matching
+  if (selectionSource === "pendingIntent") {
+    req.log.info({
+      event: "EXECUTION_ENGINE_FORCED",
+      engine: selectedEngine,
+      source: "pendingIntent",
+      pendingIntentType: clientPendingIntent?.type,
+      confirmIntent: confirmationResult.intent,
+      confidence: confirmationResult.confidence,
+      matchedSignals: confirmationResult.matchedSignals,
+    }, "[MARCUS] EXECUTION_ENGINE_FORCED");
+  }
 
   req.log.info({
     event: "ENGINE_SELECTION_CONTEXT",
@@ -825,6 +944,8 @@ ${summary}
       ? `engine=${selectedEngine} loaded via ${selectionSource}`
       : `engine=none — message="${latestUserMessage.slice(0, 40)}" has no keywords and no confirmationEngine`,
     isConfirmationResponse,
+    confirmIntent: confirmationResult.intent,
+    confirmConfidence: confirmationResult.confidence,
     chatbotEngineLoaded: isChatbotRequest,
     automationEngineLoaded: isAutomationRequest,
     websiteEngineLoaded: isWebsiteRequest,

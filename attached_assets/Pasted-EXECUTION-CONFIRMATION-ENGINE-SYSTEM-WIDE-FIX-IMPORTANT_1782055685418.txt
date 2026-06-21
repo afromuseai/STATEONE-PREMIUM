@@ -1,0 +1,239 @@
+EXECUTION CONFIRMATION ENGINE — SYSTEM-WIDE FIX
+
+IMPORTANT
+
+Do NOT implement workflow-specific fixes.
+
+Do NOT patch chatbot only.
+
+Do NOT patch website only.
+
+Do NOT patch automation only.
+
+The audit proved the primary failure exists in the shared execution-confirmation layer.
+
+==================================================
+
+AUDIT FINDINGS
+
+Website
+FAILS at Stage 3 under natural confirmation variants.
+
+Chatbot
+FAILS at Stage 3 under natural confirmation variants.
+
+Automation
+FAILS at Stage 3 under natural confirmation variants.
+
+Shared failure:
+
+Confirmation detection logic.
+
+Current implementation relies on exact string matching:
+
+* "yes"
+* "yeah"
+* "go ahead"
+* etc.
+
+This fails for normal user behavior:
+
+Examples:
+
+"yes, go ahead"
+"yes please"
+"sounds good"
+"ok, do it"
+"let's go"
+"that works"
+
+These should all be treated as confirmation.
+
+==================================================
+
+GOAL
+
+Replace exact-match confirmation detection with an intent-based confirmation detector.
+
+The detector should determine:
+
+CONFIRM
+REJECT
+UNCLEAR
+
+instead of keyword equality.
+
+==================================================
+
+IMPLEMENT
+
+Create:
+
+detectConfirmationIntent(message)
+
+Returns:
+
+{
+intent: "CONFIRM" | "REJECT" | "UNCLEAR",
+confidence: number,
+matchedSignals: string[]
+}
+
+==================================================
+
+CONFIRM SIGNALS
+
+Examples:
+
+yes
+yeah
+yep
+sure
+sounds good
+looks good
+go ahead
+continue
+proceed
+do it
+build it
+generate it
+run it
+execute
+start it
+let's go
+lets go
+works for me
+approved
+confirm
+confirmed
+
+Punctuation must not matter.
+
+Examples:
+
+"yes"
+"yes."
+"yes!"
+"yes, go ahead"
+
+All should classify as CONFIRM.
+
+==================================================
+
+REJECT SIGNALS
+
+Examples:
+
+no
+stop
+cancel
+not yet
+wait
+hold on
+change it
+modify it
+
+Should classify as REJECT.
+
+==================================================
+
+CRITICAL RULE
+
+If:
+
+pendingIntent exists
+
+AND
+
+intent == CONFIRM
+
+THEN:
+
+force execution engine loading.
+
+Do NOT require:
+
+* chatbot keywords
+* website keywords
+* automation keywords
+
+The pending intent already identifies the workflow.
+
+==================================================
+
+ENGINE LOADING PRIORITY
+
+1. pendingIntent
+2. activePagePath
+3. message keywords
+
+Pending intent must always win.
+
+==================================================
+
+VERIFICATION LOGS
+
+Add:
+
+CONFIRM_INTENT_DETECTED
+
+{
+message,
+intent,
+confidence,
+pendingIntent,
+selectedEngine
+}
+
+Add:
+
+EXECUTION_ENGINE_FORCED
+
+{
+engine,
+source: "pendingIntent"
+}
+
+==================================================
+
+SUCCESS CRITERIA
+
+All of these must execute:
+
+Website:
+
+Generate website
+→ Marcus asks confirmation
+→ User: "yes, go ahead"
+→ Website generation starts
+
+Chatbot:
+
+Generate chatbot
+→ Marcus asks confirmation
+→ User: "sounds good"
+→ Chatbot generation starts
+
+Automation:
+
+Generate automation
+→ Marcus asks confirmation
+→ User: "ok, do it"
+→ Automation generation starts
+
+No workflow-specific handling.
+
+One shared confirmation architecture.
+
+==================================================
+
+DO NOT TOUCH
+
+* memory
+* project persistence
+* streaming
+* save logic
+* generator routes
+* execution engines
+
+Only replace confirmation classification and engine activation logic.
