@@ -456,6 +456,7 @@ async function streamCopilot(
               Date.now(),
             );
           }
+          console.log("MARCUS_STAGE_2_COMMAND_EMITTED | command:", cmd, "| payloadLength:", (wsCmdMatch[2]?.trim() ?? "").length, "| payload:", (wsCmdMatch[2]?.trim() ?? "").slice(0, 120));
           onWorkspaceCmd?.(cmd, wsCmdMatch[2]?.trim() ?? "");
         } else {
           // Colon-variant execution command: model emitted {{WORKSPACE:command}} instead of {{WORKSPACE|command}}
@@ -476,6 +477,7 @@ async function streamCopilot(
                 Date.now(),
               );
             }
+            console.log("MARCUS_STAGE_2_COMMAND_EMITTED | command:", cmd, "| payloadLength:", (wsCmdColonMatch[2]?.trim() ?? "").length, "| payload:", (wsCmdColonMatch[2]?.trim() ?? "").slice(0, 120), "| variant: colon");
             onWorkspaceCmd?.(cmd, wsCmdColonMatch[2]?.trim() ?? "");
           }
         }
@@ -984,17 +986,20 @@ export function CopilotPanel() {
   // WORKSPACE CMD — Marcus execution commands: open tabs, populate forms, trigger generation
   const handleWorkspaceCmdAction = useCallback(
     (command: string, payload: string) => {
+      console.log("MARCUS_STAGE_3_COMMAND_RECEIVED | command:", command, "| payloadLength:", payload.length, "| payload:", payload.slice(0, 120));
       if (command === "chatbot") {
         console.log(
           "[PIPELINE:3] chatbot command received | payload:",
           JSON.stringify(payload),
         );
+        console.log("MARCUS_STAGE_4_DISPATCH | command: chatbot | action: no-op (idea command follows with the actual payload)");
         // Intentional no-op: idea always follows and will navigate.
       } else if (command === "idea") {
         console.log(
           "[PIPELINE:4] idea command received | raw payload:",
           JSON.stringify(payload),
         );
+        console.log("MARCUS_STAGE_4_DISPATCH | command: idea | payloadLength:", payload.trim().length);
         const idea = payload.trim();
         if (!idea) {
           console.log(
@@ -1012,9 +1017,12 @@ export function CopilotPanel() {
         setPendingIntent({ type: "chatbot", idea, autoGenerate: false });
         const raw = sessionStorage.getItem("stageone_pending_intent");
         console.log("[PIPELINE:6] sessionStorage after setPendingIntent:", raw);
+        console.log("MARCUS_STAGE_5_TAB_OPEN | command: idea | navigating to /chatbot-generator | ideaLength:", idea.length, "| autoGenerate: false");
         navigate("/chatbot-generator");
       } else if (command === "generate_chatbot") {
+        console.log("MARCUS_STAGE_4_DISPATCH | command: generate_chatbot | action: markPendingIntentAutoGenerate");
         markPendingIntentAutoGenerate("chatbot");
+        console.log("MARCUS_STAGE_5_TAB_OPEN | command: generate_chatbot | navigating to /chatbot-generator | autoGenerate: true");
         navigate("/chatbot-generator");
       } else if (command === "intelligence") {
         navigate("/dashboard?tab=new");

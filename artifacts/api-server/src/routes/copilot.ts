@@ -2373,6 +2373,17 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
 
   try {
     let result = await forwardStream(streamBody, res, MODELS.COPILOT);
+    req.log.info(
+      {
+        event: "MARCUS_STAGE_1_RESPONSE_CREATED",
+        model: MODELS.COPILOT,
+        hasContent: !!result,
+        userId,
+        requestType,
+        intentType,
+      },
+      "[MARCUS] MARCUS_STAGE_1_RESPONSE_CREATED — Marcus response delivered to client",
+    );
     if (!result) {
       // Empty response — retry once with a fresh NVIDIA call (model occasionally returns nothing)
       req.log.warn({ model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Empty response — retrying`);

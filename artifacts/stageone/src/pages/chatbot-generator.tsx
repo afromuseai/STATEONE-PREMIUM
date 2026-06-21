@@ -158,6 +158,7 @@ export default function ChatbotGeneratorPage() {
   // ─── Marcus typewriter populate ────────────────────────────────────────────
   const typewriterPopulate = useCallback((text: string) => {
     if (typewriterRef.current) clearInterval(typewriterRef.current)
+    console.log("MARCUS_STAGE_6_POPULATE | mode: typewriter | promptLength:", text.length, "| first100:", text.slice(0, 100));
     setContextBanner(true)
     setStep("input")
     setBusinessDesc("")
@@ -169,6 +170,7 @@ export default function ChatbotGeneratorPage() {
       if (i >= text.length) {
         clearInterval(typewriterRef.current!)
         typewriterRef.current = null
+        console.log("MARCUS_STAGE_7_CONFIRMATION | typewriter complete | form fully populated | businessDescLength:", text.length);
         setTimeout(() => descTextareaRef.current?.focus(), 50)
       }
     }, 20)
@@ -204,6 +206,7 @@ export default function ChatbotGeneratorPage() {
         if (effective.autoGenerate) {
           // Direct set — no typewriter needed when we're about to generate
           console.log("[PIPELINE:8] calling setBusinessDesc (autoGenerate) | value:", JSON.stringify(effective.idea))
+          console.log("MARCUS_STAGE_6_POPULATE | mode: direct (autoGenerate) | promptLength:", effective.idea.length, "| first100:", effective.idea.slice(0, 100));
           setBusinessDesc(effective.idea)
           setContextBanner(true)
         } else {
@@ -277,12 +280,14 @@ export default function ChatbotGeneratorPage() {
 
   const saveToProject = useCallback(async (output: ChatbotOutput): Promise<boolean> => {
     console.log("GENERATOR_AUDIT: generator=chatbot")
-    const { saved } = await ensureProject({
+    console.log("MARCUS_STAGE_12_SAVE_STARTED | type: chatbot | idea:", (businessDescRef.current || "Chatbot").slice(0, 80));
+    const { saved, projectId } = await ensureProject({
       type: "chatbot",
       idea: businessDescRef.current || "Chatbot",
       outputField: "chatbotOutput",
       output: output as unknown as Record<string, unknown>,
     })
+    console.log("MARCUS_STAGE_13_SAVE_COMPLETE | saved:", saved, "| projectId:", projectId || "(none)");
     return saved
   }, [])
 
@@ -461,9 +466,12 @@ export default function ChatbotGeneratorPage() {
 
   const generateWith = async (desc: string, type: string, ind: string, tn: string) => {
     if (!desc.trim()) return
+    console.log("MARCUS_STAGE_8_CONFIRMED | trigger: auto-generate | descLength:", desc.trim().length, "| chatbotType:", type, "| industry:", ind, "| tone:", tn);
     setGenError(""); setStep("generating")
     abortRef.current = new AbortController()
+    console.log("MARCUS_STAGE_9_GENERATION_STARTED | endpoint: /api/generate/chatbot | trigger: auto-generate | chatbotType:", type, "| industry:", ind, "| tone:", tn);
     let buffer = ""
+    let _s10 = false
     try {
       const res = await fetch("/api/generate/chatbot", {
         method: "POST",
@@ -494,10 +502,14 @@ export default function ChatbotGeneratorPage() {
           if (!line.startsWith("data: ")) continue
           try {
             const msg = JSON.parse(line.slice(6))
-            if (msg.content) buffer += msg.content
+            if (msg.content) {
+              if (!_s10) { console.log("MARCUS_STAGE_10_STREAM_STARTED | first chunk received | chunkLength:", msg.content.length); _s10 = true; }
+              buffer += msg.content
+            }
             if (msg.error) { setGenError(msg.error); setStep("input"); return }
             if (msg.done && msg.data) {
               const out = msg.data as ChatbotOutput
+              console.log("MARCUS_STAGE_11_GENERATION_COMPLETE | identity:", out.identity?.name, "| role:", out.identity?.role);
               setData(out)
               setEditedPrompt(out.systemPrompt.main)
               initChat(out)
@@ -523,9 +535,12 @@ export default function ChatbotGeneratorPage() {
 
   const generate = async () => {
     if (!businessDesc.trim()) return
+    console.log("MARCUS_STAGE_8_CONFIRMED | trigger: user-click | businessDescLength:", businessDesc.trim().length, "| chatbotType:", chatbotType, "| industry:", industry, "| tone:", tone);
     setGenError(""); setStep("generating")
     abortRef.current = new AbortController()
+    console.log("MARCUS_STAGE_9_GENERATION_STARTED | endpoint: /api/generate/chatbot | trigger: user-click | chatbotType:", chatbotType, "| industry:", industry, "| tone:", tone);
     let buffer = ""
+    let _s10 = false
     try {
       const res = await fetch("/api/generate/chatbot", {
         method: "POST",
@@ -548,10 +563,14 @@ export default function ChatbotGeneratorPage() {
           if (!line.startsWith("data: ")) continue
           try {
             const msg = JSON.parse(line.slice(6))
-            if (msg.content) buffer += msg.content
+            if (msg.content) {
+              if (!_s10) { console.log("MARCUS_STAGE_10_STREAM_STARTED | first chunk received | chunkLength:", msg.content.length); _s10 = true; }
+              buffer += msg.content
+            }
             if (msg.error) { setGenError(msg.error); setStep("input"); return }
             if (msg.done && msg.data) {
               const out = msg.data as ChatbotOutput
+              console.log("MARCUS_STAGE_11_GENERATION_COMPLETE | identity:", out.identity?.name, "| role:", out.identity?.role);
               setData(out)
               setEditedPrompt(out.systemPrompt.main)
               initChat(out)
