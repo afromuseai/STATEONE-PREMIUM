@@ -42,6 +42,7 @@ import {
   setPendingIntent,
   markPendingIntentAutoGenerate,
   saveProjectContext,
+  peekPendingIntent,
 } from "@/lib/generation-context";
 import { useWorkspaceController } from "@/lib/workspace-controller-context";
 import { useUpgradeModal } from "@/lib/upgrade-modal-context";
@@ -105,6 +106,7 @@ interface WorkspaceContext {
   };
   projectCount: number;
   activeAgents: number;
+  pendingIntent: { type: "website" | "chatbot" | "automation"; idea: string; autoGenerate: boolean } | null;
 }
 
 const PAGE_NAMES: Record<string, string> = {
@@ -700,6 +702,9 @@ export function CopilotPanel() {
     modules,
     projectCount: projects.length,
     activeAgents: crossSystem.agentsInstalled,
+    // Peek (non-consuming read) so the server can do state-aware engine selection.
+    // The generator page still consumes this intent on mount — we are only reading it.
+    pendingIntent: peekPendingIntent(),
   };
 
   const completedCount = Object.values(modules).filter(Boolean).length;

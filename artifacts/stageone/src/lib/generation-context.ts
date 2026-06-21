@@ -245,6 +245,18 @@ export function markPendingIntentAutoGenerate(type: PendingIntent["type"]): void
   } catch { /* */ }
 }
 
+// Non-consuming read — lets the copilot panel send pendingIntent to the server
+// without removing it from sessionStorage (the generator page still needs to consume it).
+export function peekPendingIntent(): PendingIntent | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_INTENT_KEY)
+    if (!raw) return null
+    const intent = JSON.parse(raw) as PendingIntent
+    if (Date.now() - intent.timestamp > 30_000) return null
+    return intent
+  } catch { return null }
+}
+
 export function consumePendingIntent(forType: PendingIntent["type"]): PendingIntent | null {
   try {
     const raw = sessionStorage.getItem(PENDING_INTENT_KEY)

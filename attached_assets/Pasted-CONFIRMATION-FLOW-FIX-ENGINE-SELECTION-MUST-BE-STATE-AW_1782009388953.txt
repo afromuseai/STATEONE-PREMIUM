@@ -1,0 +1,241 @@
+CONFIRMATION FLOW FIX — ENGINE SELECTION MUST BE STATE-AWARE
+
+ROOT CAUSE CONFIRMED
+
+Current behavior:
+
+Request 1
+
+"Generate a healthcare scheduling chatbot"
+
+Result:
+
+isChatbotRequest=true
+
+chatbot_execution loads
+
+Correct.
+
+---
+
+Request 2
+
+"yes"
+
+Result:
+
+isChatbotRequest=false
+
+chatbot_execution skipped
+
+Marcus loses access to:
+
+{{WORKSPACE|generate_chatbot}}
+
+Generation cannot continue.
+
+---
+
+This is NOT a generation bug.
+
+This is NOT an SSE bug.
+
+This is NOT a chatbot-generator bug.
+
+This is an ENGINE SELECTION bug.
+
+====================================
+
+FIX REQUIRED
+
+The engine selector must become STATE-AWARE.
+
+Do NOT classify execution engines from latestUserMessage alone.
+
+Current logic:
+
+latestUserMessage
+→ keyword match
+→ load engine
+
+This fails for:
+
+* yes
+* continue
+* proceed
+* build it
+* generate it
+* do it
+
+because none contain chatbot keywords.
+
+====================================
+
+NEW ENGINE SELECTION ORDER
+
+Priority 1
+
+pendingIntent
+
+Priority 2
+
+activePagePath
+
+Priority 3
+
+latestUserMessage
+
+---
+
+Example
+
+pendingIntent.type="chatbot"
+
+message="yes"
+
+Expected:
+
+selectedEngine=chatbot
+
+chatbot_execution loaded
+
+---
+
+Example
+
+pendingIntent.type="website"
+
+message="continue"
+
+Expected:
+
+selectedEngine=website
+
+website_execution loaded
+
+---
+
+Example
+
+pendingIntent.type="automation"
+
+message="build it"
+
+Expected:
+
+selectedEngine=automation
+
+automation_execution loaded
+
+====================================
+
+CONFIRMATION MODE
+
+Add:
+
+isConfirmationResponse
+
+Match:
+
+* yes
+* yeah
+* yep
+* proceed
+* continue
+* build it
+* generate it
+* do it
+* go ahead
+* confirm
+
+When:
+
+isConfirmationResponse=true
+
+AND
+
+pendingIntent exists
+
+THEN:
+
+force-load the matching execution engine.
+
+====================================
+
+CONVERSATION MODE FIX
+
+Current behavior:
+
+yes
+
+→ MODE: NEUTRAL
+
+This is wrong when a workflow is pending.
+
+Add:
+
+If:
+
+pendingIntent exists
+
+AND
+
+isConfirmationResponse=true
+
+THEN:
+
+MODE=EXECUTION_CONFIRMATION
+
+NOT NEUTRAL
+
+====================================
+
+EXPECTED LOGS
+
+After user says:
+
+yes
+
+Logs should show:
+
+ENGINE_SELECTION_CONTEXT
+
+pendingIntent=chatbot
+message=yes
+selectedEngine=chatbot
+selectionReason=pendingIntent
+
+CONFIRM_CHECK_RESULT
+
+chatbotEngineIncluded=true
+
+CONFIRM_EMIT_COMMAND
+
+CONFIRM_COMMAND_EMITTED
+
+MARCUS_STAGE_8_CONFIRMED
+
+MARCUS_STAGE_9_GENERATION_STARTED
+
+====================================
+
+DO NOT MODIFY
+
+* chatbot generator
+* generation APIs
+* saveToProject
+* SSE architecture
+* project persistence
+* execution engines
+
+Only fix:
+
+* engine selection
+* confirmation classification
+* conversation mode routing
+
+The first missing stage is:
+
+CONFIRM_EMIT_COMMAND
+
+Fix the conditions that prevent Marcus from reaching that stage.

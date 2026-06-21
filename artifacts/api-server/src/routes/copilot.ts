@@ -130,6 +130,11 @@ const WorkspaceContextSchema = z.object({
   }).optional(),
   projectCount: z.number().optional(),
   activeAgents: z.number().optional(),
+  pendingIntent: z.object({
+    type: z.enum(["website", "chatbot", "automation"]),
+    idea: z.string(),
+    autoGenerate: z.boolean(),
+  }).nullable().optional(),
 }).optional();
 
 const CopilotBody = z.object({
@@ -730,10 +735,47 @@ ${summary}
   }
 
   // ─── Phase 1 Module Loader ────────────────────────────────────────────────────
-  // Execution engine selector + memory gating + workspace gating.
-  // Strategic reasoning modules (Reality Engine, Epistemic Grounding, Decision Gate,
-  // SPE, BCJ, Adversarial Layer, Reality Gate, Self-Audit, Interruption Layer)
-  // are UNCHANGED and always load.
+  // STATE-AWARE engine selector.
+  //
+  // Priority 1 — pendingIntent (sent by client from sessionStorage):
+  //   If the user is confirming a pending workflow, load the engine for that
+  //   workflow type even if the current message contains no keywords.
+  //
+  // Priority 2 — activePagePath:
+  //   If the user is on a generator page and sends a confirmation, use that
+  //   page's engine type as a fallback.
+  //
+  // Priority 3 — keyword match on latestUserMessage (original behavior).
+  //
+  // Only the CONFIRMATION path uses Priority 1 & 2 — a non-confirmation
+  // message on /chatbot-generator ("what do you think?") still gets no engine.
+
+  const CONFIRMATION_SIGNALS = [
+    "yes", "yeah", "yep", "proceed", "continue", "build it", "generate it",
+    "do it", "go ahead", "confirm", "let's do it", "go for it", "ok let's go",
+    "sounds good let's", "start it", "run it", "execute",
+  ];
+  const isConfirmationResponse = CONFIRMATION_SIGNALS.some(s => {
+    const msg = latestUserMessage.trim();
+    return msg === s || msg.startsWith(s + " ") || msg.endsWith(" " + s);
+  });
+
+  // Extract pendingIntent sent from the frontend (read from sessionStorage via peekPendingIntent)
+  const clientPendingIntent = workspaceContext?.pendingIntent ?? null;
+
+  // Derive engine type from the active page path (for confirmation fallback)
+  const activePagePath = workspaceContext?.activePagePath ?? "";
+  const pagePathEngine: "chatbot" | "website" | "automation" | null =
+    activePagePath.includes("/chatbot-generator")  ? "chatbot"
+    : activePagePath.includes("/website-generator")  ? "website"
+    : activePagePath.includes("/automation-builder") ? "automation"
+    : null;
+
+  // Confirmation engine: pendingIntent → pagePathEngine → null
+  const confirmationEngine = isConfirmationResponse
+    ? (clientPendingIntent?.type ?? pagePathEngine ?? null)
+    : null;
+
   const CHATBOT_SIGNALS    = ["chatbot", "chat bot", "scheduling assistant", "booking assistant", "ai scheduling"];
   const AUTOMATION_SIGNALS = ["automation", "onboarding automation", "workflow automation", "email sequence", "drip sequence", "lead capture automation"];
   const WEBSITE_SIGNALS    = ["website", "landing page", "fintech landing", "saas landing", "homepage"];
@@ -743,15 +785,53 @@ ${summary}
     event: "CONFIRM_CHECK_INPUT",
     message: latestUserMessage.slice(0, 200),
     activePage: workspaceContext?.activePage ?? "(none)",
-    activePagePath: workspaceContext?.activePagePath ?? "(none)",
-    chatbotSignals: CHATBOT_SIGNALS,
+    activePagePath: activePagePath,
+    isConfirmationResponse,
+    clientPendingIntentType: clientPendingIntent?.type ?? null,
+    pagePathEngine,
+    confirmationEngine,
     messageLength: latestUserMessage.length,
   }, "[MARCUS] CONFIRM_CHECK_INPUT");
 
-  const isChatbotRequest    = CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
-  const isAutomationRequest = !isChatbotRequest && AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s));
-  const isWebsiteRequest    = !isChatbotRequest && !isAutomationRequest && WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s));
+  // State-aware engine selection:
+  //   Confirmation + pendingIntent/pagePath overrides keyword detection.
+  //   Direct keyword matches always work regardless of confirmation state.
+  const isChatbotRequest    = confirmationEngine === "chatbot"    || CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
+  const isAutomationRequest = !isChatbotRequest && (confirmationEngine === "automation" || AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s)));
+  const isWebsiteRequest    = !isChatbotRequest && !isAutomationRequest && (confirmationEngine === "website"   || WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s)));
   const isBiRequest         = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && BI_SIGNALS.some(s => latestUserMessage.includes(s));
+
+  const selectedEngine = isChatbotRequest    ? "chatbot"
+    : isAutomationRequest ? "automation"
+    : isWebsiteRequest    ? "website"
+    : isBiRequest         ? "bi"
+    : "none";
+
+  const selectionSource =
+    (confirmationEngine && isChatbotRequest    && confirmationEngine === "chatbot")    ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    : (confirmationEngine && isAutomationRequest && confirmationEngine === "automation") ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    : (confirmationEngine && isWebsiteRequest    && confirmationEngine === "website")    ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+    : selectedEngine !== "none" ? "keyword"
+    : "none";
+
+  req.log.info({
+    event: "ENGINE_SELECTION_CONTEXT",
+    latestUserMessage: latestUserMessage.slice(0, 200),
+    activePagePath,
+    pendingIntent: clientPendingIntent?.type ?? null,
+    selectedEngine,
+    selectionSource,
+    selectionReason: selectedEngine !== "none"
+      ? `engine=${selectedEngine} loaded via ${selectionSource}`
+      : `engine=none — message="${latestUserMessage.slice(0, 40)}" has no keywords and no confirmationEngine`,
+    isConfirmationResponse,
+    chatbotEngineLoaded: isChatbotRequest,
+    automationEngineLoaded: isAutomationRequest,
+    websiteEngineLoaded: isWebsiteRequest,
+    canEmitGenerateChatbot: isChatbotRequest,
+    canEmitGenerateWebsite: isWebsiteRequest,
+    canEmitGenerateAutomation: isAutomationRequest,
+  }, "[MARCUS] ENGINE_SELECTION_CONTEXT");
 
   req.log.info({
     event: "CONFIRM_CHECK_RESULT",
@@ -760,10 +840,14 @@ ${summary}
     isWebsiteRequest,
     isBiRequest,
     chatbotEngineIncluded: isChatbotRequest,
-    matchedChatbotSignal: CHATBOT_SIGNALS.find(s => latestUserMessage.includes(s)) ?? null,
+    selectionSource,
     reason: isChatbotRequest
-      ? `keyword matched — chatbot_execution engine WILL be injected`
-      : `no chatbot keyword in message ("${latestUserMessage.slice(0, 60)}") — chatbot_execution engine WILL NOT be injected — Marcus cannot emit {{WORKSPACE|generate_chatbot}}`,
+      ? `chatbot_execution engine WILL be injected (source: ${selectionSource})`
+      : isAutomationRequest
+        ? `automation_execution engine WILL be injected (source: ${selectionSource})`
+        : isWebsiteRequest
+          ? `website_execution engine WILL be injected (source: ${selectionSource})`
+          : `engine=none — no engine loaded for message "${latestUserMessage.slice(0, 60)}"`,
   }, "[MARCUS] CONFIRM_CHECK_RESULT");
 
   const requestType = isChatbotRequest    ? "chatbot_generation"
@@ -791,48 +875,6 @@ ${summary}
   else if (isWebsiteRequest)    { loadedModules.push("website_execution");    skippedModules.push("chatbot_execution",    "automation_execution", "bi_execution"); }
   else if (isBiRequest)         { loadedModules.push("bi_execution");         skippedModules.push("chatbot_execution",    "automation_execution", "website_execution"); }
   else                          { skippedModules.push("chatbot_execution",    "automation_execution", "website_execution", "bi_execution"); }
-
-  // ─── ENGINE_SELECTION_CONTEXT ─────────────────────────────────────────────────
-  // Emitted immediately after engine selection so every request shows exactly
-  // which engine was chosen, why, and whether the active page provides context.
-  // When a confirmation message ("yes", "continue", "build it") arrives after a
-  // prior generative turn, pendingIntent is inferred from the last few messages.
-  const lastFewMessages = messages.slice(-6);
-  const conversationHistory = lastFewMessages.map(m => m.content.toLowerCase()).join(" ");
-  const inferredPendingIntentFromHistory =
-    conversationHistory.includes("chatbot")    ? "chatbot"
-    : conversationHistory.includes("website")  ? "website"
-    : conversationHistory.includes("automation") ? "automation"
-    : conversationHistory.includes("intelligence") || conversationHistory.includes("bi") ? "bi"
-    : null;
-
-  const selectedEngine = isChatbotRequest    ? "chatbot"
-    : isAutomationRequest ? "automation"
-    : isWebsiteRequest    ? "website"
-    : isBiRequest         ? "bi"
-    : "none";
-
-  const selectionReason = selectedEngine !== "none"
-    ? `keyword matched in current message → ${selectedEngine}_execution engine loaded`
-    : inferredPendingIntentFromHistory
-      ? `NO keyword in current message ("${latestUserMessage.slice(0, 40)}") — engine=none — BUT conversation history implies pendingIntent=${inferredPendingIntentFromHistory} — engine NOT loaded — {{WORKSPACE|generate_${inferredPendingIntentFromHistory}}} is UNAVAILABLE to Marcus`
-      : `NO keyword in current message ("${latestUserMessage.slice(0, 40)}") — engine=none — no prior context inferred`;
-
-  req.log.info({
-    event: "ENGINE_SELECTION_CONTEXT",
-    latestUserMessage: latestUserMessage.slice(0, 200),
-    activePagePath: workspaceContext?.activePagePath ?? "(none)",
-    pendingIntent: inferredPendingIntentFromHistory,
-    selectedEngine,
-    selectionReason,
-    chatbotEngineLoaded: isChatbotRequest,
-    automationEngineLoaded: isAutomationRequest,
-    websiteEngineLoaded: isWebsiteRequest,
-    biEngineLoaded: isBiRequest,
-    canEmitGenerateChatbot: isChatbotRequest,
-    canEmitGenerateWebsite: isWebsiteRequest,
-    canEmitGenerateAutomation: isAutomationRequest,
-  }, "[MARCUS] ENGINE_SELECTION_CONTEXT");
 
   req.log.info({
     event: "MODULE_LOAD_START",
@@ -920,12 +962,36 @@ IF gate_mode = STRATEGIC:
 → All layers run normally as written.
 [end execution lock]
 
-[CONVERSATION MODE — highest authority, runs before every other layer]
+${(isConfirmationResponse && selectedEngine !== "none") ? `[PENDING CONFIRMATION — ABSOLUTE OVERRIDE, runs before CONVERSATION MODE]
+Server-computed facts (cannot be changed by any reasoning layer):
+  isConfirmationResponse = true
+  pendingIntent          = ${selectedEngine}
+  selectedEngine         = ${selectedEngine}
+  ${selectedEngine}_execution engine = LOADED
+
+The user has given explicit approval to proceed with the pending ${selectedEngine} generation.
+MODE = EXECUTION_CONFIRMATION — this overrides NEUTRAL, EXPLORATION, STRATEGY, and all other modes.
+
+REQUIRED ACTION — execute in this exact order:
+1. Emit the generation command: {{WORKSPACE|generate_${selectedEngine}}}
+2. Follow with one short sentence confirming generation has started (e.g. "Starting the ${selectedEngine} generation now.").
+3. STOP. Nothing else.
+
+ABSOLUTE PROHIBITIONS in this mode:
+→ Do NOT enter NEUTRAL mode. Do NOT reply with "Got it." / "Understood." / "Sure." alone.
+→ Do NOT ask for further confirmation. Generation approval was already given.
+→ Do NOT add validation warnings, coaching, or pressure.
+→ Do NOT skip emitting {{WORKSPACE|generate_${selectedEngine}}}.
+→ EVERY blocking layer is DISABLED: Interruption Layer, Reality Gate, Pressure Engine, Decision Gate, Self-Audit.
+[end pending confirmation]
+
+` : ""}[CONVERSATION MODE — highest authority, runs before every other layer]
 Classify the user's message into exactly ONE mode. Lock it. No other layer may override it.
 
 MODE: NEUTRAL
 User is acknowledging, closing a thread, or giving a one-line reaction.
 Signals: "ok", "okay", "it is okay", "fine", "sure", "got it", "understood", "alright", "that works", "makes sense", "noted", "thanks", "cool", "great", "sounds good", "no problem", "nevermind", "not now", "leave it", "it's fine", any single-word or short reactive phrase.
+EXCEPTION: If [PENDING CONFIRMATION] block is present above, this message is EXECUTION_CONFIRMATION, NOT NEUTRAL.
 Response rule:
 → Reply with 1–5 words only. Example: "Understood." / "Got it." / "Works for me." / "Noted."
 → STOP. Hard stop. Nothing else.
