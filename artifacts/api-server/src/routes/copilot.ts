@@ -110,6 +110,27 @@ Respond with JSON array only. No explanation.`;
   }
 }
 
+// ─── ROUTING_TRACE helper (log-only, diagnostic) ──────────────────────────────
+// Extracts every {{WORKSPACE|command|payload}} tag emitted by the LLM in its
+// raw response, in emission order. Used purely for tracing the routing
+// decision end-to-end — does not affect parsing/dispatch behavior, which is
+// handled independently by the frontend's own WORKSPACE_CMD_RE.
+const NAVIGATE_COMMANDS = new Set(["chatbot", "website", "automation", "open_orchestrator", "intelligence"]);
+const POPULATE_COMMANDS = new Set(["idea", "bi_idea", "website_idea", "automation_idea", "orchestrator_idea"]);
+const GENERATE_COMMANDS = new Set(["generate_chatbot", "generate_website", "generate_automation", "generate_intelligence", "generate_orchestrator"]);
+
+interface ExtractedWorkspaceTag { tag: string; command: string; payload: string }
+
+function extractWorkspaceTags(raw: string): ExtractedWorkspaceTag[] {
+  const tags: ExtractedWorkspaceTag[] = [];
+  const re = /\{\{WORKSPACE\|([^|}\n]+?)(?:\|([^}]*))?\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    tags.push({ tag: m[0], command: m[1].trim(), payload: (m[2] ?? "").trim() });
+  }
+  return tags;
+}
+
 const router = Router();
 
 const WorkspaceContextSchema = z.object({
@@ -948,6 +969,40 @@ ${summary}
     : (confirmationEngine === "orchestrator" && isOrchestratorRequest) ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
     : selectedEngine !== "none" ? "keyword"
     : "none";
+
+  // ─── ROUTING_TRACE (log-only, diagnostic) ─────────────────────────────────────
+  // Full trace of the signal-matching layer that decides which execution engine
+  // block gets injected into the system prompt. This determines which set of
+  // {{WORKSPACE|...}} commands the model is instructed to emit. Logged BEFORE
+  // the LLM call so we can compare "what engine did routing select" against
+  // "what did the LLM actually emit" (see ROUTING_TRACE_LLM_OUTPUT below).
+  req.log.info({
+    event: "ROUTING_TRACE_SIGNAL_MATCH",
+    userMessage: latestUserMessage.slice(0, 300),
+    matchedSignals: {
+      chatbot:      CHATBOT_SIGNALS.filter(s => latestUserMessage.includes(s)),
+      automation:   AUTOMATION_SIGNALS.filter(s => latestUserMessage.includes(s)),
+      website:      WEBSITE_SIGNALS.filter(s => latestUserMessage.includes(s)),
+      bi:           BI_SIGNALS.filter(s => latestUserMessage.includes(s)),
+      orchestrator: ORCHESTRATOR_SIGNALS.filter(s => latestUserMessage.includes(s)),
+    },
+    evaluationOrder: ["chatbot", "automation", "website", "bi", "orchestrator"],
+    flags: {
+      isChatbotRequest,
+      isAutomationRequest,
+      isWebsiteRequest,
+      isBiRequest,
+      isOrchestratorRequest,
+    },
+    isConfirmationResponse,
+    confirmIntent: confirmationResult.intent,
+    clientPendingIntentType: clientPendingIntent?.type ?? null,
+    activePagePath,
+    pagePathEngine,
+    confirmationEngine,
+    selectedEngineFromSignals: selectedEngine,
+    selectionSource,
+  }, "[MARCUS][ROUTING_TRACE] Signal-matching layer — engine selected before LLM call");
 
   // Log forced engine activation when pendingIntent wins over keyword matching
   if (selectionSource === "pendingIntent") {
@@ -2857,6 +2912,55 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
       containsGenerateAutomation: (result ?? "").includes("generate_automation"),
       containsWorkspaceTag:       (result ?? "").includes("{{WORKSPACE"),
     }, "[MARCUS] MODEL_RAW_RESPONSE");
+
+    // ─── ROUTING_TRACE (log-only, diagnostic) ───────────────────────────────────
+    // Complete end-to-end trace of the routing decision for this request:
+    //   1. user message
+    //   2. raw LLM response (full, untruncated)
+    //   3. every {{WORKSPACE|...}} tag emitted, in order
+    //   4. every parsed command + payload derived from those tags
+    //   5. module selected by the signal-matching layer (see ROUTING_TRACE_SIGNAL_MATCH above)
+    //   6/7/8. navigate / populate / generate targets found among the emitted tags
+    // Compare selectedEngineFromSignalMatching (step 5) against the module implied
+    // by the emitted tags (steps 6-8) to see whether the mismatch originates in the
+    // signal-matching layer (wrong engine block injected into the prompt) or in the
+    // LLM's own tag emission (right engine injected, but LLM emitted the wrong tag).
+    const emittedWorkspaceTags = extractWorkspaceTags(result ?? "");
+    const parsedCommands = emittedWorkspaceTags.map(t => ({ command: t.command, payload: t.payload.slice(0, 200) }));
+    const navigateTag = emittedWorkspaceTags.find(t => NAVIGATE_COMMANDS.has(t.command)) ?? null;
+    const populateTag = emittedWorkspaceTags.find(t => POPULATE_COMMANDS.has(t.command)) ?? null;
+    const generateTag = emittedWorkspaceTags.find(t => GENERATE_COMMANDS.has(t.command)) ?? null;
+
+    req.log.info({
+      event: "ROUTING_TRACE",
+      userMessage: latestUserMessage.slice(0, 500),
+      rawLLMResponse: result ?? "",
+      emittedWorkspaceTags: emittedWorkspaceTags.map(t => t.tag),
+      parsedCommands,
+      moduleSelectedBySignalMatching: selectedEngine,
+      navigateTarget: navigateTag ? { command: navigateTag.command, tag: navigateTag.tag } : null,
+      populateTarget: populateTag ? { command: populateTag.command, payload: populateTag.payload.slice(0, 200), tag: populateTag.tag } : null,
+      generateTarget: generateTag ? { command: generateTag.command, tag: generateTag.tag } : null,
+      moduleImpliedByGenerateTag: generateTag
+        ? (generateTag.command === "generate_chatbot" ? "chatbot"
+          : generateTag.command === "generate_website" ? "website"
+          : generateTag.command === "generate_automation" ? "automation"
+          : generateTag.command === "generate_intelligence" ? "bi"
+          : generateTag.command === "generate_orchestrator" ? "orchestrator"
+          : "unknown")
+        : null,
+      mismatchBetweenSignalMatchingAndLLMOutput: generateTag
+        ? (() => {
+            const impliedModule = generateTag.command === "generate_chatbot" ? "chatbot"
+              : generateTag.command === "generate_website" ? "website"
+              : generateTag.command === "generate_automation" ? "automation"
+              : generateTag.command === "generate_intelligence" ? "bi"
+              : generateTag.command === "generate_orchestrator" ? "orchestrator"
+              : "unknown";
+            return impliedModule !== selectedEngine;
+          })()
+        : false,
+    }, "[MARCUS][ROUTING_TRACE] Full routing trace — user message → LLM output → parsed commands → navigate/populate/generate targets");
 
     req.log.info(
       {

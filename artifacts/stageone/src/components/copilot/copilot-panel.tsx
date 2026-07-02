@@ -1006,6 +1006,26 @@ export function CopilotPanel() {
   // WORKSPACE CMD — Marcus execution commands: open tabs, populate forms, trigger generation
   const handleWorkspaceCmdAction = useCallback(
     (command: string, payload: string) => {
+      // ── ROUTING_TRACE (log-only, diagnostic) ────────────────────────────────────
+      // Every parsed WORKSPACE command reaching the client-side dispatcher, with
+      // the module it maps to. Compare against server-side ROUTING_TRACE to see
+      // whether the dispatcher (this function) sends the command to the wrong
+      // module, or whether it faithfully forwards what the LLM/parser produced.
+      const ROUTING_TRACE_MODULE_MAP: Record<string, string> = {
+        chatbot: "chatbot", idea: "chatbot", generate_chatbot: "chatbot",
+        website: "website", website_idea: "website", generate_website: "website",
+        automation: "automation", automation_idea: "automation", generate_automation: "automation",
+        intelligence: "bi", bi_idea: "bi", generate_intelligence: "bi",
+        open_orchestrator: "orchestrator", orchestrator_idea: "orchestrator", generate_orchestrator: "orchestrator",
+      };
+      console.log(
+        "ROUTING_TRACE_CLIENT | parsed command:", command,
+        "| payload:", payload.slice(0, 200),
+        "| dispatchedToModule:", ROUTING_TRACE_MODULE_MAP[command] ?? "unknown",
+        "| currentLocation:", location,
+        "| currentRoute:", window.location.pathname,
+      );
+
       // ── Stage C ────────────────────────────────────────────────────────────────
       if (command === "generate_chatbot") {
         console.log("GENERATE_CHATBOT_HANDLER_ENTERED | command:", command, "| activePage:", location, "| currentRoute:", window.location.pathname);
