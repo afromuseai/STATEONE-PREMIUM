@@ -979,9 +979,10 @@ export function CopilotPanel() {
   // NAVIGATE — fires immediately on tag detection, switches tab without waiting for stream
   const handleNavigate = useCallback(
     (path: string) => {
+      console.log("NAV_TRACE | source: handleNavigate ({{NAVIGATE:}} tag) | from:", location, "| to:", path, "| stack:", new Error("NAV_TRACE").stack);
       navigate(path);
     },
-    [navigate],
+    [navigate], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // EXECUTE — fires a fire-and-forget backend call on tag detection
@@ -1078,6 +1079,7 @@ export function CopilotPanel() {
             emitWorkspaceSignal({ target: "website", type: "populate", payload: idea });
           } else {
             console.log("WEBSITE_FLOW:B navigation triggered (generic idea command) | pending intent written first");
+            console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: website | from:", location, "| to: /website-generator | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
             navigate("/website-generator");
           }
         } else if (activeModule === "automation") {
@@ -1089,13 +1091,19 @@ export function CopilotPanel() {
           }
           setPendingIntent({ type: "automation", idea, autoGenerate: false });
           emitWorkspaceSignal({ target: "automation", type: "populate", payload: idea });
-          if (location !== "/automation-builder") navigate("/automation-builder");
+          if (location !== "/automation-builder") {
+            console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: automation | from:", location, "| to: /automation-builder | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
+            navigate("/automation-builder");
+          }
         } else if (activeModule === "bi") {
           // Same logic as the "bi_idea" command handler below.
           lastBiIdeaRef.current = idea;
           setPendingIntent({ type: "bi", idea, autoGenerate: false });
           setMarcusWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea });
-          if (!location.startsWith("/business-intelligence")) navigate("/business-intelligence");
+          if (!location.startsWith("/business-intelligence")) {
+            console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: bi | from:", location, "| to: /business-intelligence | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
+            navigate("/business-intelligence");
+          }
           emitWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea });
         } else if (activeModule === "orchestrator") {
           // Same logic as the "orchestrator_idea" command handler below.
@@ -1105,7 +1113,10 @@ export function CopilotPanel() {
           }
           setPendingIntent({ type: "orchestrator", idea, autoGenerate: false });
           emitWorkspaceSignal({ target: "orchestrator", type: "populate", payload: idea });
-          if (location !== "/orchestrator") navigate("/orchestrator");
+          if (location !== "/orchestrator") {
+            console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: orchestrator | from:", location, "| to: /orchestrator | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
+            navigate("/orchestrator");
+          }
         } else {
           // Default: chatbot (also the historical, pre-fix behavior when no
           // module-switch command preceded "idea").
@@ -1120,6 +1131,7 @@ export function CopilotPanel() {
           const raw = sessionStorage.getItem("stageone_pending_intent");
           console.log("[PIPELINE:6] sessionStorage after setPendingIntent:", raw);
           console.log("MARCUS_STAGE_5_TAB_OPEN | command: idea | navigating to /chatbot-generator | ideaLength:", idea.length, "| autoGenerate: false");
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: chatbot DEFAULT (no module-switch command set activeWorkspaceModuleRef) | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| from:", location, "| to: /chatbot-generator | stack:", new Error("NAV_TRACE").stack);
           navigate("/chatbot-generator");
         }
       } else if (command === "generate_chatbot") {
@@ -1129,10 +1141,15 @@ export function CopilotPanel() {
         // ── Stage D ──────────────────────────────────────────────────────────────
         const _piAfterMark = sessionStorage.getItem("stageone_pending_intent");
         console.log("GENERATE_CHATBOT_NAVIGATE | destination: /chatbot-generator | pendingIntent:", _piAfterMark);
+        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_chatbot | from:", location, "| to: /chatbot-generator | stack:", new Error("NAV_TRACE").stack);
         navigate("/chatbot-generator");
       } else if (command === "open_orchestrator") {
-        if (location !== "/orchestrator") navigate("/orchestrator");
+        if (location !== "/orchestrator") {
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: open_orchestrator | from:", location, "| to: /orchestrator | stack:", new Error("NAV_TRACE").stack);
+          navigate("/orchestrator");
+        }
       } else if (command === "intelligence") {
+        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: intelligence | from:", location, "| to: /business-intelligence | stack:", new Error("NAV_TRACE").stack);
         navigate("/business-intelligence");
       } else if (command === "bi_idea") {
         const idea = payload.trim();
@@ -1147,7 +1164,10 @@ export function CopilotPanel() {
           type: "populate",
           payload: idea,
         });
-        if (!location.startsWith("/business-intelligence")) navigate("/business-intelligence");
+        if (!location.startsWith("/business-intelligence")) {
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: bi_idea | from:", location, "| to: /business-intelligence | stack:", new Error("NAV_TRACE").stack);
+          navigate("/business-intelligence");
+        }
         emitWorkspaceSignal({
           target: "intelligence",
           type: "populate",
@@ -1166,7 +1186,10 @@ export function CopilotPanel() {
         // Writing an empty intent here caused a race condition where the page mounted
         // with idea="" because website_idea hadn't processed yet.
         console.log("WEBSITE_FLOW:B navigation triggered (website command) | NOT writing pending intent");
-        if (location !== "/website-generator") navigate("/website-generator");
+        if (location !== "/website-generator") {
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: website | from:", location, "| to: /website-generator | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
+          navigate("/website-generator");
+        }
       } else if (command === "website_idea") {
         const idea = payload.trim();
         if (!idea) return;
@@ -1186,12 +1209,14 @@ export function CopilotPanel() {
           // WEBSITE_FLOW:B — navigate only AFTER idea is in sessionStorage
           // Fresh mount: the mount effect will consume pendingIntent and start typewriter.
           console.log("WEBSITE_FLOW:B navigation triggered (website_idea command) | pending intent written first");
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: website_idea | from:", location, "| to: /website-generator | stack:", new Error("NAV_TRACE").stack);
           navigate("/website-generator");
         }
       } else if (command === "generate_website") {
         console.log("WEBSITE_FLOW:2 generate_website command received | calling markPendingIntentAutoGenerate(website)");
         markPendingIntentAutoGenerate("website");
         console.log("WEBSITE_FLOW:2a markPendingIntentAutoGenerate dispatched | navigating to /website-generator");
+        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_website | from:", location, "| to: /website-generator | stack:", new Error("NAV_TRACE").stack);
         navigate("/website-generator");
       } else if (command === "automation") {
         console.log(
@@ -1204,6 +1229,7 @@ export function CopilotPanel() {
           console.log(
             "AUTOMATION_TRACE: Navigation fired | to: /automation-builder",
           );
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: automation | from:", location, "| to: /automation-builder | stack:", new Error("NAV_TRACE").stack);
           navigate("/automation-builder");
         } else {
           console.log(
@@ -1247,6 +1273,7 @@ export function CopilotPanel() {
           console.log(
             "AUTOMATION_TRACE: navigate() called | to: /automation-builder",
           );
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: automation_idea | from:", location, "| to: /automation-builder | stack:", new Error("NAV_TRACE").stack);
           navigate("/automation-builder");
         }
       } else if (command === "generate_automation") {
@@ -1270,6 +1297,7 @@ export function CopilotPanel() {
         console.log(
           "AUTOMATION_TRACE: Navigation fired | to: /automation-builder",
         );
+        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_automation | from:", location, "| to: /automation-builder | stack:", new Error("NAV_TRACE").stack);
         navigate("/automation-builder");
       } else if (command === "orchestrator_idea") {
         const idea = payload.trim();
@@ -1280,12 +1308,16 @@ export function CopilotPanel() {
         }
         setPendingIntent({ type: "orchestrator", idea, autoGenerate: false });
         emitWorkspaceSignal({ target: "orchestrator", type: "populate", payload: idea });
-        if (location !== "/orchestrator") navigate("/orchestrator");
+        if (location !== "/orchestrator") {
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: orchestrator_idea | from:", location, "| to: /orchestrator | stack:", new Error("NAV_TRACE").stack);
+          navigate("/orchestrator");
+        }
       } else if (command === "generate_orchestrator") {
         console.log("[CONFIRM_FLOW:3] handleWorkspaceCmdAction invoked | command: generate_orchestrator");
         markPendingIntentAutoGenerate("orchestrator");
         const rawAfterMark = sessionStorage.getItem("stageone_pending_intent");
         console.log("ORCHESTRATOR_TRACE: SessionStorage after markPendingIntentAutoGenerate:", rawAfterMark);
+        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_orchestrator | from:", location, "| to: /orchestrator | stack:", new Error("NAV_TRACE").stack);
         navigate("/orchestrator");
       } else if (command === "run") {
         // ExecutionBus unified run command: {{WORKSPACE|run|<module>|<idea>}}
@@ -1484,10 +1516,11 @@ export function CopilotPanel() {
         markPendingIntentAutoGenerate("website");
         console.log("WEBSITE_FLOW:G event dispatched | markPendingIntentAutoGenerate(website) called");
       }
+      console.log("NAV_TRACE | source: executeAction ({{ACTION:}} tag) | action.id:", action.id, "| from:", location, "| to:", route, "| stack:", new Error("NAV_TRACE").stack);
       navigate(route);
       setOpen(false);
     },
-    [crossSystem.lastBusinessIdea, navigate, setOpen],
+    [crossSystem.lastBusinessIdea, navigate, setOpen], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // When an action is detected after streaming, start a 2-second countdown
