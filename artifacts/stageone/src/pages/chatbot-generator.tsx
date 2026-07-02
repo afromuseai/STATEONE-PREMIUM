@@ -6,6 +6,7 @@ import {
   Smartphone, Send, User, Settings2, GitBranch, Plug, FileJson,
   Lock, Crown,
 } from "lucide-react"
+import { useLocation } from "wouter"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import {
@@ -19,6 +20,9 @@ import {
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
+import { registerBridge, unregisterBridge } from "@/lib/module-architecture/chatbot-bridge"
+import { chatbotController } from "@/lib/module-architecture/controllers/chatbot-controller"
+import { registerController, unregisterController } from "@/lib/module-architecture/registry"
 
 // ─── Module-level intent cache ────────────────────────────────────────────────
 // AnimatedRoutes uses key={location}, so navigation causes an unmount+remount
@@ -148,12 +152,26 @@ export default function ChatbotGeneratorPage() {
   const toneRef = useRef(tone)
 
   const { emit } = useWorkspaceController()
+  const [, setLocation] = useLocation()
+
+  // Phase 4 — Bridge refs: wired into the ChatbotBridge so the controller can
+  // delegate through them without duplicating any generation logic.
+  // populateCompleteCallbackRef: stored by the bridge's populate(); called by
+  //   typewriterPopulate when the animation is fully done and form is ready.
+  // generateCompleteCallbackRef: stored by the bridge's triggerGenerate(); called
+  //   by generateWith after SSE, save, and UI update are all complete.
+  // latestDataRef: always-current mirror of data state for bridge-based save.
+  const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  const latestDataRef = useRef<ChatbotOutput | null>(null)
 
   // Keep refs in sync with state so signal callbacks always see current values
   useEffect(() => { businessDescRef.current = businessDesc }, [businessDesc])
   useEffect(() => { chatbotTypeRef.current = chatbotType }, [chatbotType])
   useEffect(() => { industryRef.current = industry }, [industry])
   useEffect(() => { toneRef.current = tone }, [tone])
+  // Keep latestDataRef in sync for bridge-based save
+  useEffect(() => { latestDataRef.current = data }, [data])
 
   // ─── Marcus typewriter populate ────────────────────────────────────────────
   const typewriterPopulate = useCallback((text: string) => {
@@ -171,10 +189,49 @@ export default function ChatbotGeneratorPage() {
         clearInterval(typewriterRef.current!)
         typewriterRef.current = null
         console.log("MARCUS_STAGE_7_CONFIRMATION | typewriter complete | form fully populated | businessDescLength:", text.length);
-        setTimeout(() => descTextareaRef.current?.focus(), 50)
+        setTimeout(() => {
+          descTextareaRef.current?.focus()
+          // Phase 4: notify bridge that populate is complete — fires only after the
+          // entire description has finished typing and the form is ready for review.
+          populateCompleteCallbackRef.current?.()
+          populateCompleteCallbackRef.current = null
+        }, 50)
       }
     }, 20)
   }, [])
+
+  // ─── Phase 4: Register ChatbotBridge + controller on mount ──────────────────
+  // The bridge delegates all operations to this component's existing handlers.
+  // No generation logic is duplicated — the bridge is purely a delegation layer.
+  useEffect(() => {
+    registerBridge({
+      navigate: () => setLocation("/chatbot-generator"),
+      populate: (idea, onComplete) => {
+        if (!idea) { onComplete(); return }
+        populateCompleteCallbackRef.current = onComplete
+        typewriterPopulate(idea)
+      },
+      triggerGenerate: (idea) => new Promise<void>((resolve) => {
+        generateCompleteCallbackRef.current = resolve
+        generateWith(idea, chatbotTypeRef.current, industryRef.current, toneRef.current)
+      }),
+      save: async () => {
+        if (!latestDataRef.current) return
+        await ensureProject({
+          type: "chatbot",
+          idea: businessDescRef.current || "Chatbot",
+          outputField: "chatbotOutput",
+          output: latestDataRef.current as unknown as Record<string, unknown>,
+        }).catch(() => {})
+      },
+      getCurrentIdea: () => businessDescRef.current,
+    })
+    registerController("chatbot", chatbotController)
+    return () => {
+      unregisterBridge()
+      unregisterController("chatbot")
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Mount: consume durable intent queue (primary) or legacy signal (fallback) ─
   useEffect(() => {
@@ -533,6 +590,10 @@ export default function ChatbotGeneratorPage() {
               console.log("GENERATOR_AUDIT: generator=chatbot | generation completed")
               const saved = await saveToProject(out)
               emit({ type: "chatbot.generated", data: { saved } })
+              // Phase 4: signal bridge that generation is fully complete —
+              // fires only after SSE streaming, project save, and UI update are done.
+              generateCompleteCallbackRef.current?.()
+              generateCompleteCallbackRef.current = null
               return
             }
           } catch { /* fragment */ }
