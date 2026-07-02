@@ -1070,18 +1070,24 @@ export function CopilotPanel() {
         }
         if (activeModule === "website") {
           // Same logic as the "website_idea" command handler below.
+          console.log("WEBSITE_POPULATE_1 | idea command received | activeModule: website | length:", idea.length, "| first 80:", idea.slice(0, 80));
           console.log("WEBSITE_FLOW:A idea stored via generic idea command | length:", idea.length, "| first 80:", idea.slice(0, 80));
           if (currentProject) {
             saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
           }
           setPendingIntent({ type: "website", idea, autoGenerate: false });
-          if (location === "/website-generator") {
-            console.log("WEBSITE_FLOW:B already on /website-generator — emitting workspace signal to populate textarea (via generic idea command)");
-            emitWorkspaceSignal({ target: "website", type: "populate", payload: idea });
-          } else {
+          // Always emit the signal regardless of current location.
+          // If the page is mounted the signal delivers live; if not (race: page mounting
+          // but subscribeWorkspaceSignal effect hasn't registered yet), the signal is
+          // queued and drained by the effect when it runs. This mirrors automation_idea.
+          console.log("WEBSITE_POPULATE_2 | emitWorkspaceSignal called | onPage:", location === "/website-generator");
+          emitWorkspaceSignal({ target: "website", type: "populate", payload: idea });
+          if (location !== "/website-generator") {
             console.log("WEBSITE_FLOW:B navigation triggered (generic idea command) | pending intent written first");
             console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: website | from:", location, "| to: /website-generator | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
             navigate("/website-generator");
+          } else {
+            console.log("WEBSITE_FLOW:B already on /website-generator — signal emitted unconditionally (via generic idea command)");
           }
         } else if (activeModule === "automation") {
           // Same logic as the "automation_idea" command handler below.

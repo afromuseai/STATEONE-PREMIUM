@@ -8,7 +8,7 @@ import {
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, loadProjectContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, loadProjectContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea, dequeueWorkspaceSignals } from "@/lib/generation-context"
 import { ensureProject } from "@/lib/ensure-project"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
@@ -325,8 +325,27 @@ export default function WebsiteGeneratorPage() {
   // Generation is NOT triggered here. It is handled exclusively by
   // consumePendingIntent on mount. Workspace signals = UI state only.
   useEffect(() => {
+    // Drain any signals queued before this subscriber registered.
+    // Race condition: {{WORKSPACE|idea|...}} may fire while the page is mounting
+    // but before this effect runs (effects are async post-render). In that window
+    // emitWorkspaceSignal finds "website" not yet in subscribedTargetsRef and falls
+    // back to enqueueWorkspaceSignal. Without a drain here those signals are lost.
+    const queued = dequeueWorkspaceSignals("website")
+    for (const signal of queued) {
+      console.log("WEBSITE_POPULATE_3 | queued signal drained | type:", signal.type, "| payload length:", signal.payload?.length ?? 0)
+      if (signal.type === "populate" && signal.payload && !ideaRef.current) {
+        const text = signal.payload
+        marcusWebsiteIdeaRef.current = text
+        ideaRef.current = text
+        setContextBanner(true)
+        marcusPopulateRef.current = text
+        setMarcusPopulateTick(t => t + 1)
+      }
+    }
+
     return subscribeWorkspaceSignal((signal) => {
       if (signal.target !== "website") return
+      console.log("WEBSITE_POPULATE_3 | live signal received | type:", signal.type, "| payload length:", signal.payload?.length ?? 0)
       if (signal.type === "populate" && signal.payload) {
         const text = signal.payload
         marcusWebsiteIdeaRef.current = text
@@ -355,6 +374,7 @@ export default function WebsiteGeneratorPage() {
     if (!text) return
     marcusPopulateRef.current = "" // clear ref — no re-render, no cleanup triggered
 
+    console.log("WEBSITE_POPULATE_4 | setIdea typewriter started | idea length:", text.length, "| first 80:", text.slice(0, 80))
     setIdea("")
     setIsTyping(true)
     ideaTextareaRef.current?.focus()
@@ -371,6 +391,7 @@ export default function WebsiteGeneratorPage() {
         clearInterval(typewriterRef.current!)
         typewriterRef.current = null
         setIsTyping(false)
+        console.log("WEBSITE_POPULATE_5 | textarea fully populated | idea length:", text.length)
         populateCompleteCallbackRef.current?.()
         populateCompleteCallbackRef.current = null
       }
