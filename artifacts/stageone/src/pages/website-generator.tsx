@@ -449,6 +449,13 @@ export default function WebsiteGeneratorPage() {
       return
     }
     setGenError("")
+    // Always populate UI state from the override — critical when called via the
+    // bridge/Marcus where setIdea() hasn't been called yet (idea state is empty).
+    if (ideaOverride !== ideaRef.current || !ideaRef.current) {
+      setIdea(ideaOverride)
+      ideaRef.current = ideaOverride
+    }
+    setContextBanner(true)
     console.log("WEBSITE_FLOW:5 generateWithIdea started | idea (first 80):", ideaOverride.slice(0, 80))
     setStep("generating")
     abortRef.current = new AbortController()
