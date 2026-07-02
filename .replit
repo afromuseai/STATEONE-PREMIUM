@@ -108,6 +108,7 @@ localPort = 22923
 BASE_PATH = "/"
 PORT = "5000"
 API_PORT = "8000"
+JWT_SECRET = "cf617ce8-f4cf-4ef1-aac9-c52bde7e00bba287ac72-c759-42ff-81c1-cffc7c0c2c64"
 
 [nix]
 channel = "stable-25_05"
