@@ -77,7 +77,7 @@ const ANY_TAG_RE = () =>
 
 const ACTION_ROUTES: Record<string, string> = {
   generate_website: "/website-generator",
-  generate_intelligence: "/dashboard",
+  generate_intelligence: "/business-intelligence",
   open_agents: "/agents",
   open_automation: "/automation-builder",
   open_chatbot: "/chatbot-generator",
@@ -125,6 +125,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/developer": "Developer API",
   "/integrations": "Integrations",
   "/intelligence": "Intelligence",
+  "/business-intelligence": "Business Intelligence",
   "/os": "OS Hub",
   "/orchestrator": "Orchestrator",
   "/agent-monitor": "Agent Monitor",
@@ -1053,7 +1054,7 @@ export function CopilotPanel() {
       } else if (command === "open_orchestrator") {
         if (location !== "/orchestrator") navigate("/orchestrator");
       } else if (command === "intelligence") {
-        navigate("/dashboard?tab=new");
+        navigate("/business-intelligence");
       } else if (command === "bi_idea") {
         const idea = payload.trim();
         if (!idea) return;
@@ -1067,7 +1068,7 @@ export function CopilotPanel() {
           type: "populate",
           payload: idea,
         });
-        if (!location.startsWith("/dashboard")) navigate("/dashboard?tab=new");
+        if (!location.startsWith("/business-intelligence")) navigate("/business-intelligence");
         emitWorkspaceSignal({
           target: "intelligence",
           type: "populate",

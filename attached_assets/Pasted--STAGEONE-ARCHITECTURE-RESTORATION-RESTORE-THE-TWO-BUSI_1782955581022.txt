@@ -1,0 +1,146 @@
+# STAGEONE ARCHITECTURE RESTORATION — RESTORE THE TWO BUSINESS INTELLIGENCE WORKFLOWS
+
+## IMPORTANT
+
+Do NOT begin modifying code immediately.
+
+First understand the product architecture.
+
+The previous implementation merged two separate Business Intelligence workflows into one, causing regressions.
+
+This task is an architectural restoration, not a bug patch.
+
+---
+
+# PRODUCT MODEL
+
+STAGEONE has TWO completely separate workflows.
+
+## WORKFLOW A — STANDALONE MODULE FLOW
+
+User manually navigates to a generator.
+
+Example:
+
+Business Intelligence
+→ user types idea
+→ generate
+→ save project
+
+Website Generator
+→ user types idea
+→ generate
+→ save
+
+Chatbot Generator
+→ generate
+→ save
+
+Automation Builder
+→ generate
+→ save
+
+AI Orchestrator
+→ generate
+→ save
+
+This workflow MUST NOT depend on Copilot.
+
+The generators must always function independently.
+
+---
+
+## WORKFLOW B — COPILOT OPERATING SYSTEM FLOW
+
+User talks to Copilot.
+
+Example:
+
+"Analyze my fintech startup"
+
+Copilot should:
+
+1. Open the Business Intelligence module
+2. Populate the Business Intelligence form
+3. Ask for confirmation
+4. Trigger Business Intelligence generation
+5. Wait for completion
+6. Continue into Website Generator
+7. Continue into Chatbot Generator
+8. Continue into Automation Builder
+9. Continue into AI Orchestrator
+
+Copilot is an orchestration layer.
+
+It must NEVER replace the standalone modules.
+
+It operates them.
+
+---
+
+# BUSINESS INTELLIGENCE
+
+Business Intelligence is NOT the Dashboard.
+
+The Dashboard is the operating-system home.
+
+Business Intelligence is its own generator.
+
+Restore navigation so that:
+
+Copilot
+→ opens the Business Intelligence module
+
+NOT
+
+Copilot
+→ opens the Dashboard
+
+Restore the original standalone Business Intelligence pipeline.
+
+---
+
+# ARCHITECTURE RULE
+
+Copilot must NEVER generate directly.
+
+Its responsibilities are only:
+
+* navigate
+* populate
+* ask for confirmation
+* trigger the existing module generation
+* observe completion
+* continue the workflow
+
+Each module remains responsible for:
+
+* validation
+* generation
+* streaming
+* persistence
+* project updates
+* UI
+
+Copilot orchestrates.
+
+Modules execute.
+
+---
+
+# AUDIT BEFORE CHANGES
+
+Before changing code, identify:
+
+1. Standalone Business Intelligence flow
+2. Copilot Business Intelligence flow
+3. Where these two flows were merged
+4. Which files caused the regression
+
+Show the complete flow for both paths.
+
+Only after identifying the architectural regression should implementation begin.
+
+Do NOT redesign unrelated systems.
+
+Restore the intended separation of responsibilities while preserving all existing generation engines.

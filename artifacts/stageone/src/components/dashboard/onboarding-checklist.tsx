@@ -48,7 +48,7 @@ export function OnboardingChecklist() {
         id: "project",
         label: "Run your first analysis",
         description: "Describe your idea and get a full AI business blueprint.",
-        href: "/dashboard?tab=new",
+        href: "/business-intelligence",
         done: hasProject,
       },
       {

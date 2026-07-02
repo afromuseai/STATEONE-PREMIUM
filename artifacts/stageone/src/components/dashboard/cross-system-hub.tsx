@@ -250,7 +250,7 @@ export function CrossSystemHub({
       shortName: "Biz Intel",
       description: hasBi ? `${industry} analysis active` : "No analysis yet",
       status: hasBi ? "active" : "idle",
-      path: "/dashboard?tab=new",
+      path: "/business-intelligence",
     },
     {
       id: "website",
@@ -258,7 +258,7 @@ export function CrossSystemHub({
       shortName: "Website",
       description: hasWebsite ? "Site generated" : hasBi ? "Ready to generate" : "Waiting on BI",
       status: hasWebsite ? "active" : hasBi ? "ready" : "idle",
-      path: "/dashboard?tab=new",
+      path: "/business-intelligence",
     },
     {
       id: "workflows",
@@ -494,7 +494,7 @@ export function CrossSystemHub({
                     label="Generate Website"
                     description="Turn analysis into a live site preview"
                     available={hasBi && !hasWebsite}
-                    onClick={() => goTo("/dashboard?tab=new")}
+                    onClick={() => goTo("/business-intelligence")}
                   />
                   <QuickAction
                     icon={Bot}

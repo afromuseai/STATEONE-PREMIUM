@@ -22,6 +22,7 @@ import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
 import DashboardPage from "@/pages/dashboard";
+import BusinessIntelligencePage from "@/pages/business-intelligence";
 import ProjectPage from "@/pages/project";
 import SettingsPage from "@/pages/settings";
 import WebsiteGeneratorPage from "@/pages/website-generator";
@@ -86,6 +87,9 @@ function Router() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><DashboardPage /></ProtectedRoute>
+      </Route>
+      <Route path="/business-intelligence">
+        <ProtectedRoute><BusinessIntelligencePage /></ProtectedRoute>
       </Route>
       <Route path="/projects/:id">
         {(params) => (

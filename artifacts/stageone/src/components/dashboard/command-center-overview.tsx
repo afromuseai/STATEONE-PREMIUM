@@ -93,7 +93,7 @@ export function CommandCenterOverview({
         transition={{ delay: 0.05 }}
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
-        onClick={() => go("/dashboard?tab=new&_r=" + Date.now())}
+        onClick={() => go("/business-intelligence?_r=" + Date.now())}
         className="w-full flex items-center gap-4 glass-card rounded-2xl p-5 border-primary/30 hover:border-primary/50 hover:bg-primary/5 transition-all text-left"
       >
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 shrink-0 shadow-[0_0_20px_rgba(212,175,55,0.15)]">
