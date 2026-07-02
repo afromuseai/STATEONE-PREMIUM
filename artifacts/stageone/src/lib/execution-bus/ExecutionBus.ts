@@ -179,8 +179,13 @@ class ExecutionBus {
   /**
    * Convenience method for the Copilot `{{WORKSPACE|run|<module>|<idea>}}` tag.
    * Parses the module name and delegates to execute().
+   *
+   * autoGenerate defaults to false: Marcus is a workspace operator, not a second
+   * generation pipeline. Every run must pause at the confirmation gate and wait
+   * for explicit user approval before the standalone module's generate() fires —
+   * mirroring the confirmation flow used by the generate_* WORKSPACE commands.
    */
-  async executeRun(rawModule: string, idea: string, autoGenerate = true): Promise<ExecutionRecord | null> {
+  async executeRun(rawModule: string, idea: string, autoGenerate = false): Promise<ExecutionRecord | null> {
     const { parseModuleId } = await import('./module-registry');
     const moduleId = parseModuleId(rawModule);
     if (!moduleId) {

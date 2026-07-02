@@ -1219,7 +1219,9 @@ export function CopilotPanel() {
         if (!rawModule || !idea) return;
         console.log("[ExecutionBus] run command received | module:", rawModule, "| idea length:", idea.length);
         import("@/lib/execution-bus").then(({ bus }) => {
-          bus.executeRun(rawModule, idea, true).catch((err) => {
+          // autoGenerate=false: pause at the confirmation gate and wait for the
+          // user to approve before the standalone module's generate() fires.
+          bus.executeRun(rawModule, idea, false).catch((err) => {
             console.warn("[ExecutionBus] executeRun failed:", err);
           });
         });
