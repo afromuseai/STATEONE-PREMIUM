@@ -1,0 +1,228 @@
+# STAGEONE RECOVERY — PHASE 0
+
+## OBJECTIVE
+
+We are entering a recovery phase.
+
+The goal is **NOT** to build new features.
+
+The goal is to restore STAGEONE to a stable standalone application before continuing development on Marcus.
+
+---
+
+## IMPORTANT
+
+DO NOT:
+
+* redesign architecture
+* introduce new abstractions
+* create new execution systems
+* improve UX
+* optimize code
+* refactor working code
+* continue Marcus implementation
+* continue Execution Bus implementation
+
+This is NOT a feature phase.
+
+This is a recovery phase.
+
+---
+
+# PRIMARY GOAL
+
+Restore every standalone generator so it functions correctly without Marcus.
+
+Each generator must work independently.
+
+Marcus is temporarily OUT OF SCOPE.
+
+---
+
+# MODULES TO VERIFY
+
+Verify these modules one at a time.
+
+## 1. Business Intelligence
+
+Confirm:
+
+* generation starts
+* streaming works
+* output renders
+* project saves
+* project restores
+* reload restores correctly
+
+---
+
+## 2. Website Generator
+
+Confirm:
+
+* manual generation works
+* streaming works
+* website renders
+* project saves
+* reload restores
+
+---
+
+## 3. Chatbot Generator
+
+Confirm:
+
+* manual generation works
+* streaming works
+* chatbot output renders
+* project saves
+* reload restores
+
+---
+
+## 4. Automation Builder
+
+Confirm:
+
+* manual generation works
+* streaming works
+* workflow renders
+* project saves
+* reload restores
+
+---
+
+## 5. AI Orchestrator
+
+Confirm:
+
+* manual generation works
+* streaming works
+* output renders
+* project saves
+* reload restores
+
+---
+
+# CRITICAL RULE
+
+DO NOT ASSUME ANY MODULE WORKS.
+
+Actually verify every module individually.
+
+---
+
+# EXECUTION ORDER
+
+Business Intelligence
+
+↓
+
+Website Generator
+
+↓
+
+Chatbot Generator
+
+↓
+
+Automation Builder
+
+↓
+
+AI Orchestrator
+
+Do NOT work on multiple modules simultaneously.
+
+Finish one completely before moving to the next.
+
+---
+
+# DEBUGGING RULE
+
+When a module fails:
+
+Determine exactly where the failure occurs.
+
+Examples:
+
+* generation never starts
+* API request fails
+* SSE fails
+* output parsing fails
+* rendering fails
+* save fails
+* restore fails
+
+Fix ONLY that failure.
+
+Do not rewrite unrelated systems.
+
+---
+
+# DO NOT TOUCH
+
+Leave completely untouched:
+
+* Copilot
+* Marcus
+* Execution Bus
+* Module Architecture
+* Controller Registry
+* Lifecycle System
+* Reality Gate
+* Decision Engine
+* Pressure Engine
+
+Pretend they do not exist.
+
+We are validating standalone functionality only.
+
+---
+
+# SUCCESS CRITERIA
+
+A module is only considered complete when:
+
+* generation works
+* streaming works
+* output displays correctly
+* save succeeds
+* restore succeeds
+* refresh restores state
+
+Only then move to the next module.
+
+---
+
+# REPORT FORMAT
+
+After finishing each module report:
+
+Module:
+
+Status:
+
+Generation:
+
+Streaming:
+
+Rendering:
+
+Save:
+
+Restore:
+
+Remaining issues:
+
+Only continue after reporting results.
+
+Do NOT begin the next module automatically if unresolved issues remain.
+
+---
+
+# IMPORTANT
+
+Recover product stability first.
+
+Feature development resumes only after all standalone modules are confirmed healthy.

@@ -3,7 +3,7 @@ import { db, aiMemoryTable, projectsTable, subscriptionsTable } from "@workspace
 import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
-import { streamNvidia, forwardStream } from "../lib/nvidia";
+import { streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
 import { getLanguageInstruction } from "../lib/language";
 import { onBusinessIntelligenceComplete } from "../lib/business-graph";
 import { logEventFireForget } from "../lib/log-event";
@@ -442,14 +442,8 @@ router.post("/generate", requireAuth, async (req, res) => {
         }
       }
 
-      let cleanContent = contentBuffer.trim();
-      if (cleanContent.startsWith("```json")) cleanContent = cleanContent.slice(7);
-      else if (cleanContent.startsWith("```")) cleanContent = cleanContent.slice(3);
-      if (cleanContent.endsWith("```")) cleanContent = cleanContent.slice(0, -3);
-      cleanContent = cleanContent.trim();
-
       try {
-        const finalData = JSON.parse(cleanContent);
+        const finalData = extractJson(contentBuffer) as Record<string, unknown>;
 
         res.write(`data: ${JSON.stringify({ done: true, data: finalData })}\n\n`);
 
