@@ -1,6 +1,5 @@
 import { pgTable, uuid, text, boolean, integer, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
 
 export const featureFlagsTable = pgTable(
   "feature_flags",
@@ -45,6 +44,6 @@ export const insertFeatureFlagRuleSchema = createInsertSchema(featureFlagRulesTa
 });
 
 export type FeatureFlag = typeof featureFlagsTable.$inferSelect;
-export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
+export type InsertFeatureFlag = Omit<typeof featureFlagsTable.$inferInsert, 'id' | 'createdAt' | 'updatedAt'>;
 export type FeatureFlagRule = typeof featureFlagRulesTable.$inferSelect;
-export type InsertFeatureFlagRule = z.infer<typeof insertFeatureFlagRuleSchema>;
+export type InsertFeatureFlagRule = Omit<typeof featureFlagRulesTable.$inferInsert, 'id' | 'createdAt'>;
