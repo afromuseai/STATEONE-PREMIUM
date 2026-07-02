@@ -12,7 +12,7 @@ import { useLocation } from "wouter"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
-import { clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, consumePendingIntent, cacheConsumedIdea, markPendingIntentAutoGenerate } from "@/lib/generation-context"
+import { loadProjectContext, clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, consumePendingIntent, cacheConsumedIdea, markPendingIntentAutoGenerate } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 
 interface Agent {
@@ -275,10 +275,16 @@ export default function OrchestratorPage() {
   const { subscribeWorkspaceSignal } = useWorkspaceController()
 
   useEffect(() => {
-    console.log("PROJECT_MODE: standalone")
-    console.log("PROJECT_SOURCE: Standalone Generator")
-    console.log("ORCHESTRATOR_TRACE: standalone mount — clearing stale project context")
-    clearProjectContext()
+    const _mountCtx = loadProjectContext()
+    console.log(`GENERATOR_MOUNT | page=orchestrator | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
+
+    const isContinuation = _mountCtx?.continuityMode === "continuation" && !!_mountCtx?.projectId
+    if (!isContinuation) {
+      console.log("ORCHESTRATOR_TRACE: no continuation context — clearing stale project context")
+      clearProjectContext()
+    } else {
+      console.log(`ORCHESTRATOR_TRACE: continuation mode — preserving projectId=${_mountCtx!.projectId}`)
+    }
 
     // Marcus Copilot: consume pendingIntent written by orchestrator_idea command
     const intent = consumePendingIntent("orchestrator")

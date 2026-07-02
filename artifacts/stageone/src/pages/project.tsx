@@ -678,14 +678,18 @@ export default function ProjectPage({ id }: ProjectPageProps) {
                   <OrchestratorPanel
                     orchestratorOutput={project.orchestratorOutput as Record<string, unknown>}
                     onRegenerate={() => {
-                      console.log(`PROJECT_OPENED | projectId=${id} | destination=/orchestrator (orchestrator-regen)`)
+                      const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                      saveProjectContext(pctx)
+                      console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/orchestrator (orchestrator-regen)`)
                       setLocation("/orchestrator")
                     }}
                   />
                 ) : (
                   <OrchestratorEmptyPanel
                     onNavigate={() => {
-                      console.log(`PROJECT_OPENED | projectId=${id} | destination=/orchestrator (orchestrator-empty)`)
+                      const pctx = { projectId: id, projectTitle: project.title, originatingBusinessIntelligenceId: id, continuityMode: "continuation" as const, source: "Existing Project" as const }
+                      saveProjectContext(pctx)
+                      console.log(`PROJECT_OPENED | projectId=${pctx.projectId} | continuityMode=${pctx.continuityMode} | source=${pctx.source} | destination=/orchestrator (orchestrator-empty)`)
                       setLocation("/orchestrator")
                     }}
                   />
