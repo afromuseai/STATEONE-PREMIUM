@@ -1,0 +1,253 @@
+STAGEONE — EXECUTION BUS ARCHITECTURE (CRITICAL SYSTEM)
+
+You are now implementing a global Execution Bus system for STAGEONE.
+
+This is NOT a UI feature.
+
+This is NOT a refactor of modules.
+
+This is a central orchestration layer that controls how ALL AI modules execute:
+
+Business Intelligence
+Website Generator
+Chatbot Generator
+Automation Builder
+AI Orchestrator
+🧠 CORE PROBLEM
+
+Right now STAGEONE suffers from:
+
+fragmented lifecycle logic
+module-specific execution flows
+inconsistent generate triggers
+missing global coordination layer
+no central "source of truth" for execution state
+
+Each module runs independently.
+
+We need to unify execution under a single system:
+
+⚙️ NEW SYSTEM: EXECUTION BUS
+
+Create a global system called:
+
+ExecutionBus
+
+It is responsible for:
+
+1. Routing ALL execution commands
+
+Instead of modules executing directly:
+
+generate_intelligence
+generate_website
+generate_chatbot
+generate_automation
+generate_orchestrator
+
+ALL of them must go through:
+
+ExecutionBus.execute(command)
+2. Central lifecycle tracking
+
+ExecutionBus must track:
+
+executionId
+moduleId
+status
+phase
+payload
+timestamps
+3. Standard lifecycle phases (MANDATORY)
+
+Every execution must go through:
+
+IDLE
+→ ROUTING
+→ POPULATING
+→ CONFIRMATION_WAIT
+→ GENERATING
+→ STREAMING
+→ SAVING
+→ COMPLETED
+
+No module can bypass these phases.
+
+4. Global confirmation gate (CRITICAL)
+
+ExecutionBus MUST enforce:
+
+POPULATING → CONFIRMATION_WAIT
+
+Nothing can generate before confirmation is explicitly approved.
+
+5. Unified execution API
+
+Create:
+
+ExecutionBus.execute({
+  module: "intelligence" | "website" | "chatbot" | "automation" | "orchestrator",
+  action: "populate" | "generate",
+  payload: any
+})
+🔁 EXECUTION FLOW (STANDARDIZED)
+
+When ANY module runs:
+
+Step 1 — Route
+ExecutionBus.execute()
+
+↓
+
+Step 2 — Populate
+ExecutionBus triggers module.populate()
+
+↓
+
+Step 3 — Wait for event
+populate.complete
+
+↓
+
+Step 4 — Ask for confirmation
+
+ExecutionBus emits:
+
+ui:confirmation_request
+
+↓
+
+Step 5 — On user confirm
+ExecutionBus.executeGenerate()
+
+↓
+
+Step 6 — Generate
+
+Module runs:
+
+generate()
+
+↓
+
+Step 7 — Stream
+
+SSE pipeline runs normally
+
+↓
+
+Step 8 — Save
+
+Project persistence happens
+
+↓
+
+Step 9 — Emit completion
+execution.complete
+🔌 INTEGRATION REQUIREMENTS
+IMPORTANT RULE
+
+ExecutionBus MUST NOT replace modules.
+
+It only COORDINATES them.
+
+Modules still own:
+
+UI rendering
+SSE streaming
+form state
+typewriter effects
+
+ExecutionBus only controls:
+
+sequencing
+gating
+lifecycle enforcement
+confirmation logic
+🧩 MODULE INTEGRATION CONTRACT
+
+Each module must implement:
+
+ExecutionModule {
+  populate(payload)
+  generate(payload)
+  save(output)
+}
+
+But modules do NOT decide when these run.
+
+ExecutionBus decides.
+
+📡 GLOBAL EVENTS
+
+ExecutionBus emits:
+
+UI Events
+execution:populate_started
+execution:populate_complete
+execution:confirmation_required
+execution:generate_started
+execution:generate_complete
+execution:saving
+execution:completed
+🧠 COPILOT INTEGRATION
+
+Copilot MUST stop emitting direct commands like:
+
+❌ {{WORKSPACE|generate_website}}
+
+Instead it emits ONLY:
+
+{{WORKSPACE|run|website|<idea>}}
+
+ExecutionBus handles everything after that.
+
+🔥 CRITICAL RULE
+
+REMOVE ALL direct generation triggers from Copilot and modules.
+
+All of them must flow through ExecutionBus.
+
+🧱 FILES TO CREATE
+
+Create:
+
+src/lib/execution-bus/
+
+Inside:
+
+ExecutionBus.ts
+types.ts
+events.ts
+module-registry.ts
+lifecycle-manager.ts
+🧠 FINAL SYSTEM GOAL
+
+STAGEONE must become:
+
+A single execution engine coordinating multiple AI modules like an operating system kernel.
+
+NOT:
+
+separate generators
+separate workflows
+scattered lifecycle logic
+⚠️ NON-NEGOTIABLE
+
+Do NOT:
+
+rewrite UI
+change module design
+break SSE
+modify database schema
+change Copilot UI structure
+
+ONLY add ExecutionBus layer and integrate it.
+
+If done correctly:
+
+every module becomes predictable
+every generation follows same lifecycle
+Copilot becomes deterministic
+confirmation becomes enforced
+system becomes OS-like

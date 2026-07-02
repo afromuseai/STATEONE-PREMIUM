@@ -1208,6 +1208,21 @@ export function CopilotPanel() {
         const rawAfterMark = sessionStorage.getItem("stageone_pending_intent");
         console.log("ORCHESTRATOR_TRACE: SessionStorage after markPendingIntentAutoGenerate:", rawAfterMark);
         navigate("/orchestrator");
+      } else if (command === "run") {
+        // ExecutionBus unified run command: {{WORKSPACE|run|<module>|<idea>}}
+        // Routes through the global ExecutionBus so execution is tracked, sequenced,
+        // and lifecycle events are emitted — without touching any existing flow.
+        const sepIdx = payload.indexOf("|");
+        if (sepIdx === -1) return;
+        const rawModule = payload.slice(0, sepIdx).trim();
+        const idea = payload.slice(sepIdx + 1).trim();
+        if (!rawModule || !idea) return;
+        console.log("[ExecutionBus] run command received | module:", rawModule, "| idea length:", idea.length);
+        import("@/lib/execution-bus").then(({ bus }) => {
+          bus.executeRun(rawModule, idea, true).catch((err) => {
+            console.warn("[ExecutionBus] executeRun failed:", err);
+          });
+        });
       }
     },
     [navigate, location, emitWorkspaceSignal, currentProject],
