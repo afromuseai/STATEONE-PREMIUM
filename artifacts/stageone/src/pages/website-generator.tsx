@@ -12,6 +12,10 @@ import { loadGenerationContext, clearGenerationContext, loadProjectContext, clea
 import { ensureProject } from "@/lib/ensure-project"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
+import { useLocation } from "wouter"
+import { registerBridge, unregisterBridge } from "@/lib/module-architecture/website-bridge"
+import { websiteController } from "@/lib/module-architecture/controllers/website-controller"
+import { registerController, unregisterController } from "@/lib/module-architecture/registry"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Step = "input" | "generating" | "done"
@@ -119,6 +123,7 @@ export default function WebsiteGeneratorPage() {
   const [isTyping, setIsTyping] = useState(false)
   const { openUpgradeModal } = useUpgradeModal()
   const { subscribeWorkspaceSignal } = useWorkspaceController()
+  const [, setLocation] = useLocation()
   const exportRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const ideaTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -130,6 +135,10 @@ export default function WebsiteGeneratorPage() {
   const marcusPopulateRef = useRef<string>("")
   // Always-current mirror of the textarea `idea` state — safe to read in stale closures
   const ideaRef = useRef<string>("")
+  // Phase 3: bridge callback refs — set by the bridge, fired by the page at completion points
+  const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  const latestDataRef = useRef<WebsiteOutput | null>(null)
+  const generateWithIdeaRef = useRef<((idea: string) => Promise<void>) | null>(null)
 
   // Check subscription tier
   useEffect(() => {
@@ -180,6 +189,38 @@ export default function WebsiteGeneratorPage() {
   // (allows the subscriber closure to read the current textarea value without
   //  stale-closure issues — refs are always current even in old closures)
   useEffect(() => { ideaRef.current = idea }, [idea])
+
+  // Keep latestDataRef in sync for bridge-based save
+  useEffect(() => { latestDataRef.current = data }, [data])
+
+  // Phase 3 architecture: register the WebsiteBridge and controller on mount
+  useEffect(() => {
+    registerBridge({
+      navigate: () => setLocation("/website-generator"),
+      populate: (idea, onComplete) => {
+        if (!idea) { onComplete(); return }
+        populateCompleteCallbackRef.current = onComplete
+        marcusPopulateRef.current = idea
+        setMarcusPopulateTick(t => t + 1)
+      },
+      triggerGenerate: (idea) => generateWithIdeaRef.current?.(idea) ?? Promise.resolve(),
+      save: async () => {
+        if (!latestDataRef.current) return
+        await ensureProject({
+          type: "website",
+          idea: ideaRef.current,
+          outputField: "websiteOutput",
+          output: latestDataRef.current as unknown as Record<string, unknown>,
+        }).catch(() => {})
+      },
+      getCurrentIdea: () => ideaRef.current,
+    })
+    registerController("website", websiteController)
+    return () => {
+      unregisterBridge()
+      unregisterController("website")
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Mount: consume durable intent queue (primary) or legacy signal (fallback) ─
   useEffect(() => {
@@ -330,6 +371,8 @@ export default function WebsiteGeneratorPage() {
         clearInterval(typewriterRef.current!)
         typewriterRef.current = null
         setIsTyping(false)
+        populateCompleteCallbackRef.current?.()
+        populateCompleteCallbackRef.current = null
       }
     }, 18)
 
@@ -451,7 +494,7 @@ export default function WebsiteGeneratorPage() {
               updatePreview(out)
               setStep("done")
               console.log("WEBSITE_FLOW:6a step set to done")
-              ensureProject({
+              await ensureProject({
                 type: "website",
                 idea: ideaOverride,
                 outputField: "websiteOutput",
@@ -470,6 +513,9 @@ export default function WebsiteGeneratorPage() {
       setStep("input")
     }
   }
+
+  // Synchronous render-time assignment — ref is always current before any bridge call fires
+  generateWithIdeaRef.current = generateWithIdea
 
   const generate = async () => {
     if (!idea.trim()) return
@@ -511,7 +557,7 @@ export default function WebsiteGeneratorPage() {
               setData(out)
               updatePreview(out)
               setStep("done")
-              ensureProject({
+              await ensureProject({
                 type: "website",
                 idea: idea,
                 outputField: "websiteOutput",
