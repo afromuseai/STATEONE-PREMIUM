@@ -609,62 +609,8 @@ export default function ChatbotGeneratorPage() {
     }
   }
 
-  const generate = async () => {
-    if (!businessDesc.trim()) return
-    console.log("MARCUS_STAGE_8_CONFIRMED | trigger: user-click | businessDescLength:", businessDesc.trim().length, "| chatbotType:", chatbotType, "| industry:", industry, "| tone:", tone);
-    setGenError(""); setStep("generating")
-    abortRef.current = new AbortController()
-    console.log("MARCUS_STAGE_9_GENERATION_STARTED | endpoint: /api/generate/chatbot | trigger: user-click | chatbotType:", chatbotType, "| industry:", industry, "| tone:", tone);
-    let buffer = ""
-    let _s10 = false
-    try {
-      const res = await fetch("/api/generate/chatbot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ businessDescription: businessDesc.trim(), chatbotType, tone, industry, language: lang }),
-        signal: abortRef.current.signal,
-      })
-      if (!res.ok || !res.body) throw new Error("Request failed")
-      const reader = res.body.getReader()
-      const dec = new TextDecoder()
-      let carry = ""
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = carry + dec.decode(value, { stream: true })
-        const lines = chunk.split("\n")
-        carry = lines.pop() ?? ""
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
-          try {
-            const msg = JSON.parse(line.slice(6))
-            if (msg.content) {
-              if (!_s10) { console.log("MARCUS_STAGE_10_STREAM_STARTED | first chunk received | chunkLength:", msg.content.length); _s10 = true; }
-              buffer += msg.content
-            }
-            if (msg.error) { setGenError(msg.error); setStep("input"); return }
-            if (msg.done && msg.data) {
-              const out = msg.data as ChatbotOutput
-              console.log("MARCUS_STAGE_11_GENERATION_COMPLETE | identity:", out.identity?.name, "| role:", out.identity?.role);
-              setData(out)
-              setEditedPrompt(out.systemPrompt.main)
-              initChat(out)
-              setStep("done")
-              setRightTab("preview")
-              console.log("GENERATOR_AUDIT: generator=chatbot | generation completed")
-              const saved = await saveToProject(out)
-              emit({ type: "chatbot.generated", data: { saved } })
-              return
-            }
-          } catch { /* fragment */ }
-        }
-      }
-      setGenError("Generation ended unexpectedly. Try again."); setStep("input")
-    } catch (err: unknown) {
-      if ((err as Error).name === "AbortError") { setStep("input"); return }
-      setGenError("Connection error. Please try again."); setStep("input")
-    }
+  const generate = () => {
+    generateWith(businessDesc, chatbotType, industry, tone)
   }
 
   const downloadJson = () => {
