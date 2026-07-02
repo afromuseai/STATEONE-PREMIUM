@@ -1046,6 +1046,7 @@ export function CopilotPanel() {
         console.log("MARCUS_STAGE_4_DISPATCH | command: chatbot | action: no-op (idea command follows with the actual payload)");
         // Intentional no-op: idea always follows and will navigate.
       } else if (command === "idea") {
+        // activeWorkspaceModuleRef.current is already "chatbot" from the chatbot handler above.
         // ── Context-aware generic "idea" dispatch ──────────────────────────────
         // The LLM emits the generic {{WORKSPACE|idea|...}} tag (rather than a
         // module-specific *_idea tag) after switching modules via {{WORKSPACE|website}},
@@ -1118,21 +1119,16 @@ export function CopilotPanel() {
             navigate("/orchestrator");
           }
         } else {
-          // Default: chatbot (also the historical, pre-fix behavior when no
-          // module-switch command preceded "idea").
-          console.log(
-            "[PIPELINE:5] calling setPendingIntent | idea:",
-            JSON.stringify(idea),
+          // Unknown module — this should never happen if every module-switch command
+          // (website, automation, intelligence, open_orchestrator, chatbot) sets
+          // activeWorkspaceModuleRef.current before navigating. Log an error and
+          // do NOT navigate anywhere; silently defaulting to chatbot masked bugs.
+          console.error(
+            "[PIPELINE:idea] UNROUTED idea command — activeWorkspaceModuleRef has no recognised module.",
+            "| activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current,
+            "| idea (first 80):", idea.slice(0, 80),
+            "| This means a module-switch command ran without setting activeWorkspaceModuleRef.current.",
           );
-          if (currentProject) {
-            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
-          }
-          setPendingIntent({ type: "chatbot", idea, autoGenerate: false });
-          const raw = sessionStorage.getItem("stageone_pending_intent");
-          console.log("[PIPELINE:6] sessionStorage after setPendingIntent:", raw);
-          console.log("MARCUS_STAGE_5_TAB_OPEN | command: idea | navigating to /chatbot-generator | ideaLength:", idea.length, "| autoGenerate: false");
-          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: chatbot DEFAULT (no module-switch command set activeWorkspaceModuleRef) | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| from:", location, "| to: /chatbot-generator | stack:", new Error("NAV_TRACE").stack);
-          navigate("/chatbot-generator");
         }
       } else if (command === "generate_chatbot") {
         console.log("MARCUS_STAGE_4_DISPATCH | command: generate_chatbot | action: markPendingIntentAutoGenerate");
@@ -1144,11 +1140,13 @@ export function CopilotPanel() {
         console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_chatbot | from:", location, "| to: /chatbot-generator | stack:", new Error("NAV_TRACE").stack);
         navigate("/chatbot-generator");
       } else if (command === "open_orchestrator") {
+        activeWorkspaceModuleRef.current = "orchestrator";
         if (location !== "/orchestrator") {
           console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: open_orchestrator | from:", location, "| to: /orchestrator | stack:", new Error("NAV_TRACE").stack);
           navigate("/orchestrator");
         }
       } else if (command === "intelligence") {
+        activeWorkspaceModuleRef.current = "bi";
         console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: intelligence | from:", location, "| to: /business-intelligence | stack:", new Error("NAV_TRACE").stack);
         navigate("/business-intelligence");
       } else if (command === "bi_idea") {
@@ -1185,6 +1183,7 @@ export function CopilotPanel() {
         // website_idea (which fires after or instead of this) writes the real idea.
         // Writing an empty intent here caused a race condition where the page mounted
         // with idea="" because website_idea hadn't processed yet.
+        activeWorkspaceModuleRef.current = "website";
         console.log("WEBSITE_FLOW:B navigation triggered (website command) | NOT writing pending intent");
         if (location !== "/website-generator") {
           console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: website | from:", location, "| to: /website-generator | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
@@ -1219,6 +1218,7 @@ export function CopilotPanel() {
         console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_website | from:", location, "| to: /website-generator | stack:", new Error("NAV_TRACE").stack);
         navigate("/website-generator");
       } else if (command === "automation") {
+        activeWorkspaceModuleRef.current = "automation";
         console.log(
           "AUTOMATION_TRACE: Command received | command: automation | payload:",
           JSON.stringify(payload),

@@ -1,0 +1,139 @@
+The investigation has identified the root cause.
+
+Do NOT implement a Website-only fix.
+
+This is an architecture issue.
+
+Current finding:
+
+Only the chatbot command updates:
+
+activeWorkspaceModuleRef.current = "chatbot"
+
+The following commands navigate but never update the active workspace:
+
+* website
+* automation
+* intelligence
+* orchestrator
+
+Therefore the generic:
+
+{{WORKSPACE|idea|...}}
+
+always resolves using stale workspace state.
+
+That causes:
+
+Website
+↓
+
+Idea
+
+↓
+
+chatbot default branch
+
+↓
+
+navigate("/chatbot-generator")
+
+This explains the second unexpected navigation.
+
+---
+
+TASK
+
+Audit EVERY workspace-switch command.
+
+For every command that opens a module:
+
+website
+
+automation
+
+business intelligence
+
+orchestrator
+
+chatbot
+
+ensure they ALL perform exactly the same state update.
+
+Example:
+
+website command:
+
+activeWorkspaceModuleRef.current = "website"
+
+automation command:
+
+activeWorkspaceModuleRef.current = "automation"
+
+intelligence command:
+
+activeWorkspaceModuleRef.current = "business-intelligence"
+
+orchestrator command:
+
+activeWorkspaceModuleRef.current = "orchestrator"
+
+chatbot command:
+
+activeWorkspaceModuleRef.current = "chatbot"
+
+The assignment must occur BEFORE navigation.
+
+---
+
+Then inspect the generic idea handler.
+
+The generic idea handler should ONLY dispatch using:
+
+activeWorkspaceModuleRef.current
+
+It must NEVER contain a chatbot fallback that silently redirects.
+
+If activeWorkspaceModuleRef.current is unknown:
+
+log an error
+
+do NOT navigate anywhere
+
+do NOT default to chatbot
+
+---
+
+Expected flow
+
+{{WORKSPACE|website}}
+
+↓
+
+activeWorkspaceModuleRef.current = "website"
+
+↓
+
+navigate("/website-generator")
+
+↓
+
+{{WORKSPACE|idea|...}}
+
+↓
+
+dispatch to Website Generator
+
+↓
+
+NO second navigation
+
+---
+
+After implementation provide:
+
+1. Every location where activeWorkspaceModuleRef.current is assigned.
+
+2. Every location where generic idea dispatch reads it.
+
+3. Confirm there are NO remaining implicit chatbot defaults.
