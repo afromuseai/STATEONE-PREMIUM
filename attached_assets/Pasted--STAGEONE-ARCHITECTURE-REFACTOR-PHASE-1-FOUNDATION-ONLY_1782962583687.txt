@@ -1,0 +1,244 @@
+# STAGEONE ARCHITECTURE REFACTOR — PHASE 1
+
+## FOUNDATION ONLY
+
+IMPORTANT:
+
+This is Phase 1 of a multi-phase architecture migration.
+
+This phase builds ONLY the shared infrastructure.
+
+DO NOT migrate any module.
+
+DO NOT modify any generation workflow.
+
+DO NOT refactor Copilot.
+
+DO NOT change application behavior.
+
+At the end of this phase, STAGEONE must behave **exactly** as it does now.
+
+---
+
+# PRIMARY GOAL
+
+Build the architecture that later phases will use.
+
+Nothing should consume it yet.
+
+Nothing should depend on it yet.
+
+This is infrastructure only.
+
+---
+
+# DO NOT MODIFY
+
+Do NOT modify:
+
+* Copilot logic
+* Business Intelligence generation
+* Website Generator
+* Chatbot Generator
+* Automation Builder
+* AI Orchestrator
+* API routes
+* SSE streaming
+* Project saving
+* Database logic
+* Navigation behavior
+* Existing React state
+* Existing hooks
+* Existing event flow
+
+If you find yourself editing any existing workflow logic, you have gone beyond the scope of this phase.
+
+---
+
+# TASK 1 — CREATE MODULE CONTROLLER CONTRACT
+
+Create a shared interface representing every operational module.
+
+Example:
+
+```ts
+export interface ModuleController {
+    navigate(): Promise<void>
+
+    populate(context: ModuleContext): Promise<void>
+
+    generate(): Promise<void>
+
+    save(): Promise<void>
+}
+```
+
+This is only a contract.
+
+No existing module should implement it yet.
+
+---
+
+# TASK 2 — CREATE MODULE REGISTRY
+
+Create a centralized registry.
+
+Example API:
+
+```ts
+registerController()
+
+unregisterController()
+
+getController()
+
+getRegisteredModules()
+```
+
+Supported module IDs:
+
+* intelligence
+* website
+* chatbot
+* automation
+* orchestrator
+
+The registry must be generic.
+
+No module-specific logic.
+
+---
+
+# TASK 3 — CREATE SHARED MODULE CONTEXT TYPES
+
+Create reusable types.
+
+Example:
+
+```ts
+ModuleContext
+
+ModuleId
+
+ModuleState
+
+LifecycleEvent
+```
+
+These types should be reusable across every module.
+
+---
+
+# TASK 4 — CREATE LIFECYCLE EVENT SYSTEM
+
+Create a shared lifecycle event infrastructure.
+
+Supported events:
+
+* populate.started
+* populate.complete
+* generate.started
+* generate.complete
+
+Example interface:
+
+```ts
+emitLifecycleEvent()
+
+subscribeLifecycleEvent()
+
+unsubscribeLifecycleEvent()
+
+awaitLifecycleEvent()
+```
+
+Do NOT connect these events to any existing module yet.
+
+Nothing should emit them.
+
+Nothing should consume them.
+
+Infrastructure only.
+
+---
+
+# TASK 5 — CREATE PLACEHOLDER CONTROLLERS
+
+Create placeholder controller classes or objects for:
+
+* Business Intelligence
+* Website Generator
+* Chatbot Generator
+* Automation Builder
+* AI Orchestrator
+
+Each placeholder should satisfy the ModuleController interface.
+
+Each method should contain only placeholder implementations such as:
+
+```ts
+throw new Error("Not implemented")
+```
+
+OR
+
+```ts
+console.warn("Phase 2 implementation")
+```
+
+Do NOT wire them into production code.
+
+---
+
+# TASK 6 — EXPORT ARCHITECTURE CLEANLY
+
+Create a clean structure that future phases can import.
+
+Future phases should be able to simply replace placeholder implementations.
+
+No existing imports should be broken.
+
+---
+
+# VALIDATION REQUIREMENTS
+
+Before finishing:
+
+Confirm:
+
+* application compiles
+* no TypeScript errors introduced
+* no routing changes
+* no behavioral changes
+* no modified generation flow
+* no modified save flow
+* no modified Copilot behavior
+
+---
+
+# SUCCESS CRITERIA
+
+At the end of Phase 1:
+
+✅ STAGEONE behaves exactly as before.
+
+✅ No module has been migrated.
+
+✅ Copilot behaves exactly as before.
+
+✅ Standalone workflows behave exactly as before.
+
+✅ Only shared architectural infrastructure has been added.
+
+If application behavior changes in any way, this phase has failed.
+
+DO NOT begin Phase 2.
+
+Stop after the infrastructure is complete and provide a report of:
+
+* files created
+* files modified
+* exported interfaces
+* exported registry
+* lifecycle infrastructure
+* confirmation that no production workflows were changed.

@@ -1,0 +1,211 @@
+# STAGEONE ARCHITECTURE REFACTOR — PHASE 3
+
+## OBJECTIVE
+
+Migrate **Website Generator ONLY** to the new Module Architecture introduced in Phase 1.
+
+Business Intelligence is already complete.
+
+Do NOT modify any other module.
+
+---
+
+## IMPORTANT RULES
+
+Do NOT modify:
+
+* Copilot
+* Chatbot Generator
+* Automation Builder
+* AI Orchestrator
+* API routes
+* SSE implementation
+* Project persistence logic
+* Existing Website generation logic
+* Existing streaming logic
+
+This phase is ONLY:
+
+* Website bridge
+* Website controller registration
+* Lifecycle events
+
+Nothing else.
+
+---
+
+# GOAL
+
+Website Generator should expose exactly the same lifecycle contract as Business Intelligence.
+
+The controller must delegate to the page through a bridge.
+
+There must be NO duplicated Website generation logic.
+
+---
+
+## CREATE
+
+If not already present:
+
+src/lib/module-architecture/website-bridge.ts
+
+Bridge should expose only imperative actions.
+
+Example responsibilities:
+
+* populate()
+* triggerGenerate()
+* save()
+
+The bridge should NOT contain Website generation logic.
+
+It should only delegate into the Website page.
+
+---
+
+## CONTROLLER
+
+Update:
+
+src/lib/module-architecture/controllers/website-controller.ts
+
+Implement ModuleController using the bridge.
+
+The controller should:
+
+navigate()
+
+↓
+
+populate()
+
+↓
+
+emitLifecycleEvent("populate.started")
+
+↓
+
+wait for populate completion
+
+↓
+
+triggerGenerate()
+
+↓
+
+emitLifecycleEvent("generate.started")
+
+↓
+
+await Website generation
+
+↓
+
+emitLifecycleEvent("generate.complete")
+
+The controller must NOT implement Website generation itself.
+
+---
+
+## WEBSITE PAGE
+
+Modify ONLY the Website page.
+
+Register:
+
+registerBridge()
+
+registerController()
+
+on mount.
+
+Unregister on unmount.
+
+Use the existing Website generation implementation.
+
+Do NOT duplicate any logic.
+
+---
+
+## POPULATE COMPLETE
+
+Emit:
+
+populate.complete
+
+ONLY after:
+
+* Website prompt fully populated
+* Typewriter finished
+* Form ready for user review
+
+NOT before.
+
+---
+
+## GENERATE COMPLETE
+
+Emit:
+
+generate.complete
+
+ONLY after:
+
+* streaming finished
+* final JSON parsed
+* project saved
+* UI updated
+
+Exactly like Business Intelligence.
+
+---
+
+## SAVE ORDER
+
+Required order:
+
+generate.started
+
+↓
+
+SSE streaming
+
+↓
+
+await project save
+
+↓
+
+UI updated
+
+↓
+
+generate.complete
+
+Do NOT emit generate.complete early.
+
+---
+
+## VALIDATION
+
+After implementation verify:
+
+* typecheck passes
+* standalone Website generation still works
+* Website still streams normally
+* project saving unchanged
+* controller delegates through bridge
+* no duplicated generation logic
+* no changes outside Website Generator
+
+---
+
+## OUTPUT
+
+Provide:
+
+1. Files modified
+2. Lifecycle sequence
+3. Validation results
+4. Confirmation that ONLY Website Generator changed

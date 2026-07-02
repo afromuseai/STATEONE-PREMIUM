@@ -1,0 +1,243 @@
+# PHASE 6.5 — EXECUTION BUS RESUMPTION (DO NOT CANCEL WHEN MODULE IS NOT MOUNTED)
+
+IMPORTANT
+
+Do NOT rewrite the Execution Bus.
+
+The current implementation is correct except for one architectural issue.
+
+## Current behavior
+
+When `ExecutionBus.execute()` runs:
+
+```
+controller = getController(module)
+```
+
+If the controller is not registered because the page has not mounted yet, the execution is cancelled.
+
+This is incorrect.
+
+---
+
+## Required behavior
+
+The Execution Bus must survive navigation.
+
+Execution must become resumable.
+
+Expected flow:
+
+```
+Copilot
+↓
+
+ExecutionBus.execute()
+
+↓
+
+controller not registered
+
+↓
+
+navigate()
+
+↓
+
+module mounts
+
+↓
+
+registerController()
+
+↓
+
+ExecutionBus resumes automatically
+
+↓
+
+populate
+
+↓
+
+populate.complete
+
+↓
+
+confirmation
+
+↓
+
+generate
+
+↓
+
+generate.complete
+
+↓
+
+completed
+```
+
+---
+
+## Add Pending Execution Queue
+
+Create an internal pending execution store.
+
+Example:
+
+```
+pendingExecution = {
+    executionId,
+    module,
+    action,
+    payload,
+    phase
+}
+```
+
+If controller is unavailable:
+
+DO NOT cancel.
+
+Store execution.
+
+Wait.
+
+---
+
+## Controller Registration Hook
+
+When
+
+```
+registerController(module)
+```
+
+is called,
+
+ExecutionBus should automatically check:
+
+```
+pending execution exists?
+
+same module?
+
+resume.
+```
+
+No user interaction required.
+
+---
+
+## Resume Point
+
+Execution must resume from the stored phase.
+
+Examples
+
+Waiting for populate:
+
+resume populate
+
+Waiting for confirmation:
+
+resume confirmation
+
+Waiting for generate:
+
+resume generate
+
+Never restart from the beginning.
+
+---
+
+## Navigation
+
+ExecutionBus may request navigation.
+
+Navigation happens only once.
+
+Never loop.
+
+Never navigate repeatedly.
+
+---
+
+## Timeouts
+
+Add timeout protection.
+
+Example:
+
+If controller never registers within 60 seconds:
+
+```
+execution.failed
+
+reason:
+Controller registration timeout
+```
+
+Do not hang forever.
+
+---
+
+## Event Order
+
+The following lifecycle must remain unchanged.
+
+```
+execution.created
+
+↓
+
+execution.waiting_for_controller
+
+↓
+
+execution.resumed
+
+↓
+
+populate.started
+
+↓
+
+populate.complete
+
+↓
+
+confirmation
+
+↓
+
+generate.started
+
+↓
+
+generate.complete
+
+↓
+
+execution.completed
+```
+
+---
+
+## IMPORTANT
+
+Do NOT modify:
+
+* module controllers
+* standalone generators
+* SSE
+* save logic
+* project persistence
+
+Only improve the Execution Bus.
+
+The Execution Bus must become navigation-aware and capable of resuming execution after module registration.
+
+This is required before adding more Copilot intelligence.

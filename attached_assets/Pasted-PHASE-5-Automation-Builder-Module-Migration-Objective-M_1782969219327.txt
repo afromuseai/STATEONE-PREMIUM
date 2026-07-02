@@ -1,0 +1,209 @@
+PHASE 5 — Automation Builder Module Migration
+
+Objective
+
+Migrate the Automation Builder to the shared ModuleController architecture introduced in Phase 1.
+
+This is an architectural migration only.
+
+Do not redesign the UI, change generation quality, modify SSE behavior, or alter project persistence.
+
+Scope
+
+Mirror the same architecture already implemented for:
+
+Business Intelligence
+Website Generator
+Chatbot Generator
+
+Automation Builder must become a first-class module using the shared controller lifecycle.
+
+Deliverables
+1. Create Automation Bridge
+
+Create:
+
+src/lib/module-architecture/automation-bridge.ts
+
+Implement the same pattern used by:
+
+intelligence-bridge.ts
+website-bridge.ts
+chatbot-bridge.ts
+
+The bridge should expose:
+
+registerBridge()
+unregisterBridge()
+getBridge()
+
+and an interface similar to:
+
+populate(...)
+triggerGenerate(...)
+save(...)
+
+No business logic belongs inside the bridge.
+
+2. Replace Placeholder Controller
+
+Replace:
+
+src/lib/module-architecture/controllers/automation-controller.ts
+
+with a real ModuleController implementation.
+
+Required lifecycle:
+
+populate.started
+populate.complete
+generate.started
+generate.complete
+
+The controller should:
+
+delegate to the bridge
+emit lifecycle events
+never duplicate Automation Builder logic
+3. Register Automation Builder
+
+Inside:
+
+automation-builder.tsx
+
+Register:
+
+bridge
+controller
+
+on mount.
+
+Unregister both on unmount.
+
+Follow the exact lifecycle already used by Website Generator and Chatbot Generator.
+
+4. Populate Lifecycle
+
+Automation Builder currently populates fields directly.
+
+Implement:
+
+populate.started
+
+before population begins.
+
+Implement:
+
+populate.complete
+
+only after:
+
+textarea
+workflow fields
+derived values
+
+have been completely populated.
+
+If there is no typewriter animation, emit populate.complete only after React state has finished updating.
+
+5. Generation Lifecycle
+
+Generation must emit:
+
+generate.started
+
+immediately before generation begins.
+
+Emit:
+
+generate.complete
+
+only after:
+
+SSE streaming finishes
+saveToProject()
+ensureProject()
+project persistence
+
+have fully resolved.
+
+6. Remove Duplicate Generation Logic
+
+If Automation Builder currently has:
+
+generate()
+generateWith()
+
+or any duplicated execution paths,
+
+collapse them into a single implementation exactly like Chatbot Generator.
+
+Manual Generate button, Copilot, and bridge must all call the same function.
+
+7. Fix Existing Event Listener Bug
+
+During the audit a structural issue was found.
+
+The current:
+
+stageone:autoGenerate
+
+listener is recreated whenever:
+
+businessDesc
+workflowType
+complexity
+
+change.
+
+This creates a race where the event may fire while no listener exists.
+
+Replace this with:
+
+useEffect(() => {
+    ...
+}, [])
+
+Use refs to access mutable values instead of dependencies.
+
+This matches the stable listener pattern already used by Website Generator.
+
+8. Preserve Standalone Workflow
+
+This is critical.
+
+Automation Builder must continue to work exactly as it does today when accessed directly by a user.
+
+Do not alter:
+
+routing
+SSE
+persistence
+API endpoints
+streaming
+UI
+
+Only add the controller layer.
+
+Validation Checklist
+
+Confirm all of the following:
+
+pnpm typecheck passes with zero new errors.
+Manual Automation generation still works unchanged.
+Copilot generation uses the same generation function as manual execution.
+No duplicated generation logic remains.
+generate.complete fires only after project persistence finishes.
+populate.complete fires only after all fields are fully populated.
+Controller registers on mount and unregisters on unmount.
+No other module is modified.
+
+Deliverable
+
+When finished, provide:
+
+Files created.
+Files modified.
+Lifecycle sequence.
+Validation results.
+Any architectural issues intentionally left for a later phase.
