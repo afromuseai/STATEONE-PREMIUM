@@ -640,6 +640,11 @@ export function CopilotPanel() {
   const lastAutomationIdeaRef = useRef<string>("");
   // Tracks the last orchestrator_idea payload so generate_orchestrator can recover it
   const lastOrchestratorIdeaRef = useRef<string>("");
+  // Tracks whichever workspace module Marcus most recently switched to (via the
+  // "website"/"chatbot"/"automation"/"intelligence"/"open_orchestrator" commands),
+  // so the generic "idea" command can be routed contextually instead of being
+  // hardcoded to a single module.
+  const activeWorkspaceModuleRef = useRef<"chatbot" | "website" | "automation" | "bi" | "orchestrator">("chatbot");
   const [location, navigate] = useLocation();
   const { businessData, crossSystem } = useBusinessContext();
   const hasBusinessContext = !!businessData?.industry;
@@ -1032,6 +1037,7 @@ export function CopilotPanel() {
       }
       console.log("MARCUS_STAGE_3_COMMAND_RECEIVED | command:", command, "| payloadLength:", payload.length, "| payload:", payload.slice(0, 120));
       if (command === "chatbot") {
+        activeWorkspaceModuleRef.current = "chatbot";
         console.log(
           "[PIPELINE:3] chatbot command received | payload:",
           JSON.stringify(payload),
@@ -1039,11 +1045,20 @@ export function CopilotPanel() {
         console.log("MARCUS_STAGE_4_DISPATCH | command: chatbot | action: no-op (idea command follows with the actual payload)");
         // Intentional no-op: idea always follows and will navigate.
       } else if (command === "idea") {
+        // ── Context-aware generic "idea" dispatch ──────────────────────────────
+        // The LLM emits the generic {{WORKSPACE|idea|...}} tag (rather than a
+        // module-specific *_idea tag) after switching modules via {{WORKSPACE|website}},
+        // {{WORKSPACE|chatbot}}, {{WORKSPACE|automation}}, {{WORKSPACE|intelligence}}, or
+        // {{WORKSPACE|open_orchestrator}}. This must be routed to whichever module was
+        // most recently activated — it must NEVER be hardcoded to a single module.
+        const activeModule = activeWorkspaceModuleRef.current;
         console.log(
           "[PIPELINE:4] idea command received | raw payload:",
           JSON.stringify(payload),
+          "| activeWorkspaceModule:",
+          activeModule,
         );
-        console.log("MARCUS_STAGE_4_DISPATCH | command: idea | payloadLength:", payload.trim().length);
+        console.log("ROUTING_TRACE_CLIENT | generic idea command resolved | activeWorkspaceModule:", activeModule);
         const idea = payload.trim();
         if (!idea) {
           console.log(
@@ -1051,18 +1066,62 @@ export function CopilotPanel() {
           );
           return;
         }
-        console.log(
-          "[PIPELINE:5] calling setPendingIntent | idea:",
-          JSON.stringify(idea),
-        );
-        if (currentProject) {
-          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+        if (activeModule === "website") {
+          // Same logic as the "website_idea" command handler below.
+          console.log("WEBSITE_FLOW:A idea stored via generic idea command | length:", idea.length, "| first 80:", idea.slice(0, 80));
+          if (currentProject) {
+            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          }
+          setPendingIntent({ type: "website", idea, autoGenerate: false });
+          if (location === "/website-generator") {
+            console.log("WEBSITE_FLOW:B already on /website-generator — emitting workspace signal to populate textarea (via generic idea command)");
+            emitWorkspaceSignal({ target: "website", type: "populate", payload: idea });
+          } else {
+            console.log("WEBSITE_FLOW:B navigation triggered (generic idea command) | pending intent written first");
+            navigate("/website-generator");
+          }
+        } else if (activeModule === "automation") {
+          // Same logic as the "automation_idea" command handler below.
+          console.log("AUTOMATION_TRACE: Command received | command: idea (generic, routed to automation) | payload:", JSON.stringify(payload));
+          lastAutomationIdeaRef.current = idea;
+          if (currentProject) {
+            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          }
+          setPendingIntent({ type: "automation", idea, autoGenerate: false });
+          emitWorkspaceSignal({ target: "automation", type: "populate", payload: idea });
+          if (location !== "/automation-builder") navigate("/automation-builder");
+        } else if (activeModule === "bi") {
+          // Same logic as the "bi_idea" command handler below.
+          lastBiIdeaRef.current = idea;
+          setPendingIntent({ type: "bi", idea, autoGenerate: false });
+          setMarcusWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea });
+          if (!location.startsWith("/business-intelligence")) navigate("/business-intelligence");
+          emitWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea });
+        } else if (activeModule === "orchestrator") {
+          // Same logic as the "orchestrator_idea" command handler below.
+          lastOrchestratorIdeaRef.current = idea;
+          if (currentProject) {
+            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          }
+          setPendingIntent({ type: "orchestrator", idea, autoGenerate: false });
+          emitWorkspaceSignal({ target: "orchestrator", type: "populate", payload: idea });
+          if (location !== "/orchestrator") navigate("/orchestrator");
+        } else {
+          // Default: chatbot (also the historical, pre-fix behavior when no
+          // module-switch command preceded "idea").
+          console.log(
+            "[PIPELINE:5] calling setPendingIntent | idea:",
+            JSON.stringify(idea),
+          );
+          if (currentProject) {
+            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          }
+          setPendingIntent({ type: "chatbot", idea, autoGenerate: false });
+          const raw = sessionStorage.getItem("stageone_pending_intent");
+          console.log("[PIPELINE:6] sessionStorage after setPendingIntent:", raw);
+          console.log("MARCUS_STAGE_5_TAB_OPEN | command: idea | navigating to /chatbot-generator | ideaLength:", idea.length, "| autoGenerate: false");
+          navigate("/chatbot-generator");
         }
-        setPendingIntent({ type: "chatbot", idea, autoGenerate: false });
-        const raw = sessionStorage.getItem("stageone_pending_intent");
-        console.log("[PIPELINE:6] sessionStorage after setPendingIntent:", raw);
-        console.log("MARCUS_STAGE_5_TAB_OPEN | command: idea | navigating to /chatbot-generator | ideaLength:", idea.length, "| autoGenerate: false");
-        navigate("/chatbot-generator");
       } else if (command === "generate_chatbot") {
         console.log("MARCUS_STAGE_4_DISPATCH | command: generate_chatbot | action: markPendingIntentAutoGenerate");
         markPendingIntentAutoGenerate("chatbot");
