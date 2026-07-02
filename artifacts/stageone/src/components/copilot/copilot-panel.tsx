@@ -1112,6 +1112,19 @@ export function CopilotPanel() {
             navigate("/business-intelligence");
           }
           emitWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea });
+        } else if (activeModule === "chatbot") {
+          // Same pattern as website/automation/orchestrator idea handlers.
+          const idea_c = idea;
+          if (currentProject) {
+            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          }
+          setPendingIntent({ type: "chatbot", idea: idea_c, autoGenerate: false });
+          // Always emit unconditionally — queued if page not yet subscribed, drained on subscribe.
+          emitWorkspaceSignal({ target: "chatbot", type: "populate", payload: idea_c });
+          if (location !== "/chatbot-generator") {
+            console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: chatbot | from:", location, "| to: /chatbot-generator | stack:", new Error("NAV_TRACE").stack);
+            navigate("/chatbot-generator");
+          }
         } else if (activeModule === "orchestrator") {
           // Same logic as the "orchestrator_idea" command handler below.
           lastOrchestratorIdeaRef.current = idea;

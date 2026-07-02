@@ -16,6 +16,7 @@ import {
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
   consumePendingIntent,
   cacheConsumedIdea,
+  dequeueWorkspaceSignals,
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
@@ -151,7 +152,7 @@ export default function ChatbotGeneratorPage() {
   const industryRef = useRef(industry)
   const toneRef = useRef(tone)
 
-  const { emit } = useWorkspaceController()
+  const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
   const [, setLocation] = useLocation()
 
   // Phase 4 — Bridge refs: wired into the ChatbotBridge so the controller can
@@ -329,6 +330,31 @@ export default function ChatbotGeneratorPage() {
     window.addEventListener("stageone:autoGenerate", handler)
     return () => window.removeEventListener("stageone:autoGenerate", handler)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Workspace signal subscription — same pipeline as website-generator ────────
+  // Drains any signals queued before this page's subscriber registered (race window
+  // between navigation and the effect firing), then subscribes for live delivery.
+  // Both paths call typewriterPopulate — identical to the website module's pattern.
+  useEffect(() => {
+    const queued = dequeueWorkspaceSignals("chatbot")
+    for (const qs of queued) {
+      if (qs.type === "populate" && qs.payload?.trim()) {
+        console.log("CHATBOT_POPULATE_3 | queued signal drained | payload length:", qs.payload.length)
+        if (!businessDescRef.current.trim()) {
+          cacheConsumedIdea("chatbot", qs.payload)
+          typewriterPopulate(qs.payload)
+        }
+      }
+    }
+    return subscribeWorkspaceSignal((signal) => {
+      if (signal.target !== "chatbot") return
+      if (signal.type === "populate" && signal.payload?.trim()) {
+        console.log("CHATBOT_POPULATE_3 | live signal received | payload length:", signal.payload.length)
+        cacheConsumedIdea("chatbot", signal.payload)
+        typewriterPopulate(signal.payload)
+      }
+    }, "chatbot")
+  }, [subscribeWorkspaceSignal, typewriterPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const ctx = loadProjectContext()

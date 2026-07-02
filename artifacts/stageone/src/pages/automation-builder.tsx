@@ -326,6 +326,12 @@ export default function AutomationBuilderPage() {
   // Phase 5: tick counter for bridge-driven populate — incremented by the bridge's
   // populate() to trigger the effect that commits state and fires the callback.
   const [populateTick, setPopulateTick] = useState(0)
+  // Marcus workspace signal typewriter — same ref+tick pattern as website-generator.
+  // marcusPopulateRef holds the text; marcusPopulateTick is the counter dep so
+  // the typewriter effect never re-runs from businessDesc state changes mid-type.
+  const [marcusPopulateTick, setMarcusPopulateTick] = useState(0)
+  const marcusPopulateRef = useRef<string>("")
+  const marcusTypewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { openUpgradeModal } = useUpgradeModal()
   const abortRef = useRef<AbortController | null>(null)
   // Holds the auto-generation payload until businessDesc state has propagated
@@ -414,34 +420,42 @@ export default function AutomationBuilderPage() {
     console.log(`GENERATOR_MOUNT | page=automation-builder | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
     console.log("AUTOMATION_TRACE: Page mounted | Phase 1 starting | checking consumePendingIntent('automation')")
 
-    // Workspace signal queue: drain any signals that arrived before this page mounted.
-    // These were stored by emitWorkspaceSignal when no automation subscriber was registered.
-    // Must run BEFORE subscribeWorkspaceSignal (which is in the next effect).
+    // Signal queue drain — must run before subscribeWorkspaceSignal registers.
+    // Uses typewriter (ref+tick) so animation matches website-generator exactly.
     const queued = dequeueWorkspaceSignals("automation")
+    let drainedSignal = false
     for (const qs of queued) {
       if (qs.type === "populate" && qs.payload?.trim()) {
-        console.log("AUTOMATION_TRACE: Draining queued populate signal | idea:", JSON.stringify(qs.payload.slice(0, 60)))
+        console.log("AUTOMATION_POPULATE_3 | queued signal drained | payload length:", qs.payload.length)
         cacheConsumedIdea("automation", qs.payload)
-        setBusinessDesc(qs.payload)
-        setContextBanner(true)
+        marcusPopulateRef.current = qs.payload
+        setMarcusPopulateTick(t => t + 1)
+        drainedSignal = true
       }
     }
 
     // Primary: durable pending intent — written by Copilot before navigating.
+    // Always consume it (removes from sessionStorage), but only act if no signal
+    // was drained (prevents the direct-set overwriting the in-progress typewriter).
     const intent = consumePendingIntent("automation")
     console.log("AUTOMATION_TRACE: Intent consumed | result:", JSON.stringify(intent))
     if (intent && intent.idea) {
       // Cache the idea so markPendingIntentAutoGenerate can recover it if generate_automation
       // fires after this intent has already been consumed (page already mounted).
       cacheConsumedIdea("automation", intent.idea)
-      console.log("AUTOMATION_TRACE: Textarea populated | businessDesc set to:", JSON.stringify(intent.idea))
-      setBusinessDesc(intent.idea)
-      setContextBanner(true)
       if (intent.autoGenerate) {
-        console.log("AUTOMATION_TRACE: autoGenerate=true | autoGenPending set | generation will fire in Phase 2")
+        // autoGenerate=true: direct set + schedule generation — no typewriter needed.
+        console.log("AUTOMATION_TRACE: autoGenerate=true | businessDesc set directly | autoGenPending queued")
+        setBusinessDesc(intent.idea)
+        setContextBanner(true)
         autoGenPending.current = { wt: "Lead Capture", cplx: "Intermediate" }
+      } else if (!drainedSignal) {
+        // Non-autoGenerate + no signal drained: use typewriter for populate animation.
+        console.log("AUTOMATION_TRACE: autoGenerate=false | typewriter populate | waiting for user to confirm generation")
+        marcusPopulateRef.current = intent.idea
+        setMarcusPopulateTick(t => t + 1)
       } else {
-        console.log("AUTOMATION_TRACE: autoGenerate=false | textarea populated | waiting for user to confirm generation")
+        console.log("AUTOMATION_TRACE: autoGenerate=false | signal already drained — skipping duplicate pendingIntent populate")
       }
       return
     }
@@ -526,6 +540,33 @@ export default function AutomationBuilderPage() {
     return () => window.removeEventListener("stageone:autoGenerate", handler)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Marcus typewriter populate effect — same ref+tick pattern as website-generator.
+  // Reads marcusPopulateRef, clears it (no re-render), then types the idea character
+  // by character into businessDesc. Counter dep prevents re-run on every setBusinessDesc.
+  useEffect(() => {
+    const text = marcusPopulateRef.current
+    if (!text) return
+    marcusPopulateRef.current = ""
+    console.log("AUTOMATION_POPULATE_4 | typewriter started | length:", text.length, "| first 80:", text.slice(0, 80))
+    setBusinessDesc("")
+    setContextBanner(true)
+    let i = 0
+    if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
+    marcusTypewriterRef.current = setInterval(() => {
+      i++
+      setBusinessDesc(text.slice(0, i))
+      if (i >= text.length) {
+        clearInterval(marcusTypewriterRef.current!)
+        marcusTypewriterRef.current = null
+        console.log("AUTOMATION_POPULATE_5 | textarea fully populated | length:", text.length)
+        cacheConsumedIdea("automation", text)
+      }
+    }, 18)
+    return () => {
+      if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
+    }
+  }, [marcusPopulateTick]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Post-mount intent sync — handles the case where automation_idea fires while this page
   // is already mounted. The copilot now uses emitWorkspaceSignal (live delivery) instead of
   // the old stageone:intentUpdated CustomEvent + 300ms timeout hack.
@@ -533,10 +574,10 @@ export default function AutomationBuilderPage() {
     return subscribeWorkspaceSignal((signal) => {
       if (signal.target !== "automation") return
       if (signal.type === "populate" && signal.payload?.trim()) {
-        console.log("AUTOMATION_TRACE: Live workspace signal received | type: populate | idea:", JSON.stringify(signal.payload.slice(0, 60)))
+        console.log("AUTOMATION_POPULATE_3 | live signal received | payload length:", signal.payload.length)
         cacheConsumedIdea("automation", signal.payload)
-        setBusinessDesc(signal.payload)
-        setContextBanner(true)
+        marcusPopulateRef.current = signal.payload
+        setMarcusPopulateTick(t => t + 1)
       }
     }, "automation")
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps

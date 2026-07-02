@@ -12,7 +12,7 @@ import { useLocation } from "wouter"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
-import { loadProjectContext, clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, consumePendingIntent, cacheConsumedIdea, markPendingIntentAutoGenerate } from "@/lib/generation-context"
+import { loadProjectContext, clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, consumePendingIntent, cacheConsumedIdea, markPendingIntentAutoGenerate, dequeueWorkspaceSignals } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 
 interface Agent {
@@ -268,6 +268,10 @@ export default function OrchestratorPage() {
   const autoGenPendingRef = useRef(false)
   const [userPlan, setUserPlan] = useState<string | null>(null)
   const [pendingAutoGenerate, setPendingAutoGenerate] = useState(false)
+  // Marcus workspace signal typewriter — same ref+tick pattern as website-generator.
+  const [marcusPopulateTick, setMarcusPopulateTick] = useState(0)
+  const marcusPopulateRef = useRef<string>("")
+  const marcusTypewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { user } = useAuth()
   const { lang } = useLang()
   const [, navigate] = useLocation()
@@ -289,12 +293,17 @@ export default function OrchestratorPage() {
     // Marcus Copilot: consume pendingIntent written by orchestrator_idea command
     const intent = consumePendingIntent("orchestrator")
     if (intent?.idea) {
-      setGoal(intent.idea)
       cacheConsumedIdea("orchestrator", intent.idea)
       console.log("ORCHESTRATOR_TRACE: consumed pendingIntent | autoGenerate:", intent.autoGenerate, "| idea:", intent.idea.slice(0, 60))
       if (intent.autoGenerate) {
+        // Direct set — about to auto-generate, no animation needed.
+        setGoal(intent.idea)
         autoGenPendingRef.current = true
         setPendingAutoGenerate(true)
+      } else {
+        // Non-autoGenerate: use typewriter animation, same as website-generator.
+        marcusPopulateRef.current = intent.idea
+        setMarcusPopulateTick(t => t + 1)
       }
       return
     }
@@ -344,16 +353,52 @@ export default function OrchestratorPage() {
     return () => window.removeEventListener("stageone:autoGenerate", handler)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live signal subscription — handles orchestrator_idea when page is already mounted
+  // Marcus typewriter populate effect — same ref+tick pattern as website-generator.
   useEffect(() => {
+    const text = marcusPopulateRef.current
+    if (!text) return
+    marcusPopulateRef.current = ""
+    console.log("ORCHESTRATOR_POPULATE_4 | typewriter started | length:", text.length, "| first 80:", text.slice(0, 80))
+    setGoal("")
+    let i = 0
+    if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
+    marcusTypewriterRef.current = setInterval(() => {
+      i++
+      setGoal(text.slice(0, i))
+      if (i >= text.length) {
+        clearInterval(marcusTypewriterRef.current!)
+        marcusTypewriterRef.current = null
+        console.log("ORCHESTRATOR_POPULATE_5 | textarea fully populated | length:", text.length)
+        cacheConsumedIdea("orchestrator", text)
+      }
+    }, 18)
+    return () => {
+      if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
+    }
+  }, [marcusPopulateTick]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live signal subscription — handles orchestrator_idea when page is already mounted.
+  // Drains queued signals first (race window between navigation and effect registration),
+  // then subscribes for live delivery. Both paths use typewriter via ref+tick.
+  useEffect(() => {
+    const queued = dequeueWorkspaceSignals("orchestrator")
+    for (const qs of queued) {
+      if (qs.type === "populate" && qs.payload?.trim()) {
+        console.log("ORCHESTRATOR_POPULATE_3 | queued signal drained | payload length:", qs.payload.length)
+        marcusPopulateRef.current = qs.payload
+        setMarcusPopulateTick(t => t + 1)
+      }
+    }
     return subscribeWorkspaceSignal((signal) => {
+      if (signal.target !== "orchestrator") return
       if (signal.type === "populate" && signal.payload) {
-        console.log("ORCHESTRATOR_TRACE: workspace signal populate | idea:", signal.payload.slice(0, 60))
-        setGoal(signal.payload)
+        console.log("ORCHESTRATOR_POPULATE_3 | live signal received | payload length:", signal.payload.length)
         cacheConsumedIdea("orchestrator", signal.payload)
+        marcusPopulateRef.current = signal.payload
+        setMarcusPopulateTick(t => t + 1)
       }
     }, "orchestrator")
-  }, [subscribeWorkspaceSignal])
+  }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generate = async () => {
     if (!goal.trim()) return
