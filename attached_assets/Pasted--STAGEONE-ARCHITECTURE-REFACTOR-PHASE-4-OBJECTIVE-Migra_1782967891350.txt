@@ -1,0 +1,234 @@
+# STAGEONE ARCHITECTURE REFACTOR — PHASE 4
+
+## OBJECTIVE
+
+Migrate **Chatbot Generator ONLY** to the new Module Architecture.
+
+Business Intelligence and Website Generator are already complete.
+
+Do NOT modify any other module.
+
+---
+
+# IMPORTANT RULES
+
+Do NOT modify:
+
+* Copilot
+* Business Intelligence
+* Website Generator
+* Automation Builder
+* AI Orchestrator
+* API routes
+* SSE implementation
+* Database schema
+* Existing chatbot generation logic
+* Existing project persistence
+* Existing streaming implementation
+
+This phase is ONLY:
+
+* Chatbot bridge
+* Chatbot controller
+* Lifecycle events
+* Controller registration
+
+Nothing else.
+
+---
+
+# GOAL
+
+Chatbot Generator must expose exactly the same lifecycle contract as Business Intelligence and Website Generator.
+
+The controller delegates to the page through a bridge.
+
+There must be ZERO duplicated chatbot generation logic.
+
+---
+
+# CREATE
+
+Create:
+
+src/lib/module-architecture/chatbot-bridge.ts
+
+Responsibilities only:
+
+* populate()
+* triggerGenerate()
+* save()
+
+The bridge must NOT implement chatbot generation.
+
+It only delegates into the existing page.
+
+---
+
+# CONTROLLER
+
+Update:
+
+src/lib/module-architecture/controllers/chatbot-controller.ts
+
+Implement ModuleController.
+
+The controller should:
+
+navigate()
+
+↓
+
+populate()
+
+↓
+
+emitLifecycleEvent("populate.started")
+
+↓
+
+wait for populate completion
+
+↓
+
+triggerGenerate()
+
+↓
+
+emitLifecycleEvent("generate.started")
+
+↓
+
+await chatbot generation
+
+↓
+
+emitLifecycleEvent("generate.complete")
+
+Controller must never duplicate page logic.
+
+---
+
+# CHATBOT PAGE
+
+Register:
+
+registerBridge()
+
+registerController()
+
+on mount.
+
+Unregister both on unmount.
+
+Reuse the existing generateWith() implementation.
+
+Do NOT create a second generation path.
+
+---
+
+# POPULATE COMPLETE
+
+Current chatbot uses a typewriter animation.
+
+Emit:
+
+populate.complete
+
+ONLY after:
+
+* entire description has finished typing
+* form is ready for user review
+
+NOT before.
+
+---
+
+# GENERATE COMPLETE
+
+Emit:
+
+generate.complete
+
+ONLY after:
+
+* SSE streaming finished
+* final chatbot parsed
+* project saved
+* UI updated
+
+Exactly like BI and Website.
+
+---
+
+# SAVE ORDER
+
+Required order:
+
+generate.started
+
+↓
+
+SSE streaming
+
+↓
+
+await saveToProject()
+
+↓
+
+UI updated
+
+↓
+
+generate.complete
+
+Do NOT emit generate.complete before saveToProject() resolves.
+
+---
+
+# COMMAND CLEANUP
+
+The current chatbot workflow contains:
+
+{{WORKSPACE|chatbot}}
+
+followed by
+
+{{WORKSPACE|idea|...}}
+
+This is inconsistent with the other modules.
+
+DO NOT change the Copilot workflow in this phase.
+
+However:
+
+Audit the chatbot page and bridge so they support a future unified command structure.
+
+Do NOT modify Copilot yet.
+
+---
+
+# VALIDATION
+
+Verify:
+
+* standalone chatbot generation still works
+* project saving unchanged
+* streaming unchanged
+* controller delegates through bridge
+* no duplicated generation logic
+* lifecycle events fire in correct order
+* typecheck passes
+
+---
+
+# OUTPUT
+
+Provide:
+
+1. Files modified
+2. Lifecycle sequence
+3. Validation results
+4. Confirmation that ONLY Chatbot Generator changed
+5. Any architectural issues discovered but intentionally left untouched for a later phase
