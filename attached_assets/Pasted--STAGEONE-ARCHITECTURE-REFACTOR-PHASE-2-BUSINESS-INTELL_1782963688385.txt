@@ -1,0 +1,168 @@
+# STAGEONE ARCHITECTURE REFACTOR — PHASE 2
+
+## BUSINESS INTELLIGENCE ONLY
+
+IMPORTANT:
+
+Phase 1 infrastructure is complete.
+
+This phase migrates **ONLY Business Intelligence** to the new ModuleController architecture.
+
+Do NOT migrate:
+
+* Website Generator
+* Chatbot Generator
+* Automation Builder
+* AI Orchestrator
+* Copilot orchestration
+
+Do NOT change application behavior.
+
+Standalone Business Intelligence must continue working exactly as before.
+
+---
+
+# GOAL
+
+Business Intelligence should become the first module implementing the ModuleController contract.
+
+The controller should become the single operational interface for BI generation.
+
+Both standalone usage and future Copilot orchestration must be able to use the same implementation.
+
+---
+
+# TASK 1 — IMPLEMENT IntelligenceController
+
+Replace the placeholder implementation.
+
+Implement:
+
+* navigate()
+* populate(context)
+* generate()
+* save()
+
+These methods should delegate to the existing Business Intelligence logic.
+
+Do NOT duplicate generation logic.
+
+Reuse the existing implementation.
+
+---
+
+# TASK 2 — REGISTER THE CONTROLLER
+
+Register only the Business Intelligence controller.
+
+No other controllers should be registered.
+
+---
+
+# TASK 3 — ADD LIFECYCLE EVENTS
+
+Emit:
+
+populate.started
+
+populate.complete
+
+generate.started
+
+generate.complete
+
+Only from Business Intelligence.
+
+These events must reflect actual execution.
+
+Examples:
+
+populate.started
+
+→ before typewriter begins
+
+populate.complete
+
+→ after typewriter finishes
+
+generate.started
+
+→ immediately before API request
+
+generate.complete
+
+→ only after:
+
+* streaming completed
+* save completed
+* UI updated successfully
+
+---
+
+# TASK 4 — KEEP EXISTING API
+
+Do NOT rewrite:
+
+* handleGenerate
+* SSE parsing
+* API routes
+* project saving
+* partial streaming
+* dashboard state
+* generation context
+
+Only wrap the existing behavior through the controller.
+
+---
+
+# TASK 5 — DO NOT CHANGE COPILOT
+
+Copilot must continue working exactly as it currently does.
+
+Do NOT:
+
+* introduce orchestration
+* change confirmation
+* change commands
+* change workspace tags
+
+Those belong to Phase 7.
+
+---
+
+# VALIDATION
+
+Verify:
+
+Standalone BI
+
+* navigation works
+* populate works
+* generation works
+* streaming works
+* save works
+* completion works
+
+Lifecycle events fire in the correct order:
+
+populate.started
+
+↓
+
+populate.complete
+
+↓
+
+generate.started
+
+↓
+
+generate.complete
+
+Confirm:
+
+No other module was modified.
+
+Stop after Business Intelligence.
+
+Do NOT begin migrating Website Generator.

@@ -22,6 +22,9 @@ import {
   dequeueWorkspaceSignals,
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
+import { registerBridge, unregisterBridge } from "@/lib/module-architecture/intelligence-bridge"
+import { intelligenceController } from "@/lib/module-architecture/controllers/intelligence-controller"
+import { registerController, unregisterController } from "@/lib/module-architecture/registry"
 import { useLang } from "@/lib/i18n"
 import {
   Globe,
@@ -151,6 +154,9 @@ export default function BusinessIntelligencePage() {
   const [marcusPopulate, setMarcusPopulate] = useState<string | null>(null)
   const marcusBiIdeaRef = useRef<string>("")
   const [, setLocation] = useLocation()
+  // Phase 2 architecture: refs used by the IntelligenceBridge
+  const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  const latestResultsRef = useRef<BusinessIntelligence | null>(null)
 
   // Reset state when _r param changes (triggered by "New Analysis" button)
   useEffect(() => {
@@ -246,6 +252,42 @@ export default function BusinessIntelligencePage() {
       }
     }, "intelligence")
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep latestResultsRef in sync for bridge-based save
+  useEffect(() => { latestResultsRef.current = results }, [results])
+
+  // Phase 2 architecture: register the IntelligenceBridge and controller on mount
+  useEffect(() => {
+    registerBridge({
+      navigate: () => setLocation("/business-intelligence"),
+      populate: (idea, onComplete) => {
+        populateCompleteCallbackRef.current = onComplete
+        marcusBiIdeaRef.current = idea
+        setMarcusPopulate(idea)
+      },
+      triggerGenerate: (idea) => handleGenerateRef.current?.(idea) ?? Promise.resolve(),
+      save: async () => {
+        if (!latestResultsRef.current || !draftProjectIdRef.current) return
+        setSaveStatus("saving")
+        try {
+          await api.projects.update(draftProjectIdRef.current, {
+            output: latestResultsRef.current as unknown as Record<string, unknown>,
+            status: "active",
+          })
+          setSaveStatus("saved")
+          setTimeout(() => setSaveStatus("idle"), 3000)
+        } catch {
+          setSaveStatus("idle")
+        }
+      },
+      getCurrentIdea: () => marcusBiIdeaRef.current,
+    })
+    registerController("intelligence", intelligenceController)
+    return () => {
+      unregisterBridge()
+      unregisterController("intelligence")
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist generation results whenever they change
   useEffect(() => {
@@ -632,7 +674,11 @@ export default function BusinessIntelligencePage() {
                 copilotAutorun={autorunIdea}
                 onAutorunConsumed={() => setAutorunIdea(null)}
                 marcusPopulate={marcusPopulate}
-                onMarcusPopulateConsumed={() => setMarcusPopulate(null)}
+                onMarcusPopulateConsumed={() => {
+                  setMarcusPopulate(null)
+                  populateCompleteCallbackRef.current?.()
+                  populateCompleteCallbackRef.current = null
+                }}
               />
               {error && (
                 <motion.div
