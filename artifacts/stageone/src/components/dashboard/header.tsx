@@ -21,7 +21,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
   const d = t.dashboard
 
   const QUICK_LINKS = [
-    { label: d.nav.businessIntelligence, href: "/dashboard?tab=new", hint: "Generate AI analysis" },
+    { label: d.nav.businessIntelligence, href: "/business-intelligence", hint: "Generate AI analysis" },
     { label: d.nav.websiteGenerator, href: "/website-generator", hint: "Build your website" },
     { label: "AI Agent Store", href: "/agents", hint: "Browse 12 agents" },
     { label: d.nav.automationBuilder, href: "/automation-builder", hint: "Create workflows" },
@@ -253,7 +253,7 @@ export function DashboardHeader({ onMenuToggle }: DashboardHeaderProps) {
         <div className="flex items-center gap-2 shrink-0">
           <button
             data-tour="new-analysis"
-            onClick={() => navigate("/dashboard?tab=new&_r=" + Date.now())}
+            onClick={() => navigate("/business-intelligence?_r=" + Date.now())}
             className="hidden sm:flex items-center gap-1.5 rounded-xl border border-primary/25 bg-primary/8 hover:bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-all cursor-pointer"
           >
             <Sparkles className="h-3 w-3" />

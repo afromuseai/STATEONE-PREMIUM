@@ -7,6 +7,7 @@ import {
   Cpu, BarChart3, Shield, ArrowRight, Sparkles, Settings2,
   Activity, Target, Clock, TrendingUp, Lock, Crown,
 } from "lucide-react"
+import { useLocation } from "wouter"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import stageoneIcon from "@/assets/stageone-icon.png"
@@ -19,6 +20,9 @@ import {
 import { useLang } from "@/lib/i18n"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { ensureProject } from "@/lib/ensure-project"
+import { registerBridge, unregisterBridge } from "@/lib/module-architecture/automation-bridge"
+import { automationController } from "@/lib/module-architecture/controllers/automation-controller"
+import { registerController, unregisterController } from "@/lib/module-architecture/registry"
 
 /* ── Types ─────────────────────────────────────────────── */
 type NodeType = "trigger" | "action" | "ai_agent" | "notification" | "crm" | "database" | "webhook"
@@ -305,6 +309,7 @@ function NodeDetailPanel({ node, logic }: { node: WorkflowNode; logic: LogicStep
 export default function AutomationBuilderPage() {
   const { lang } = useLang()
   const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
+  const [, setLocation] = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [businessDesc, setBusinessDesc] = useState("")
   const [workflowType, setWorkflowType] = useState("Lead Capture")
@@ -318,14 +323,49 @@ export default function AutomationBuilderPage() {
   const [copied, setCopied] = useState("")
   const [contextBanner, setContextBanner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+  // Phase 5: tick counter for bridge-driven populate — incremented by the bridge's
+  // populate() to trigger the effect that commits state and fires the callback.
+  const [populateTick, setPopulateTick] = useState(0)
   const { openUpgradeModal } = useUpgradeModal()
   const abortRef = useRef<AbortController | null>(null)
   // Holds the auto-generation payload until businessDesc state has propagated
   const autoGenPending = useRef<{ wt: string; cplx: string } | null>(null)
   const autoGenFired = useRef(false)
-  // Project linkage — loaded once on mount, used to save output back to originating project
+  // Always-current mirrors of mutable state — safe to read inside stable closures
   const businessDescRef = useRef(businessDesc)
+  const workflowTypeRef = useRef(workflowType)
+  const complexityRef = useRef(complexity)
   useEffect(() => { businessDescRef.current = businessDesc }, [businessDesc])
+  useEffect(() => { workflowTypeRef.current = workflowType }, [workflowType])
+  useEffect(() => { complexityRef.current = complexity }, [complexity])
+
+  // Phase 5 — Bridge refs
+  // populateIdeaRef: idea staged by the bridge before incrementing populateTick.
+  // populateCompleteCallbackRef: onComplete stored by bridge's populate(); fired
+  //   after React commits the setBusinessDesc state update.
+  // generateCompleteCallbackRef: resolve stored by bridge's triggerGenerate();
+  //   fired after SSE, save, and UI update are fully done.
+  // latestDataRef: always-current mirror of data state for bridge-based save.
+  const populateIdeaRef = useRef<string>("")
+  const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  const latestDataRef = useRef<AutomationData | null>(null)
+  useEffect(() => { latestDataRef.current = data }, [data])
+
+  // Phase 5 — Bridge populate effect
+  // Runs after populateTick increments (staged by the bridge's populate() call).
+  // Commits state from populateIdeaRef, then fires the onComplete callback after
+  // React has rendered the new value — satisfying the populate.complete contract.
+  useEffect(() => {
+    const idea = populateIdeaRef.current
+    if (!idea) return
+    populateIdeaRef.current = ""
+    setBusinessDesc(idea)
+    setContextBanner(true)
+    const cb = populateCompleteCallbackRef.current
+    populateCompleteCallbackRef.current = null
+    setTimeout(() => cb?.(), 50)
+  }, [populateTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveToProject = useCallback(async (output: AutomationData): Promise<boolean> => {
     console.log("GENERATOR_AUDIT: generator=automation")
@@ -456,6 +496,11 @@ export default function AutomationBuilderPage() {
   // ─── Already-mounted: react to generate_automation fired after page open ──────
   // markPendingIntentAutoGenerate dispatches this event + writes a fresh PendingIntent
   // (with the recovered idea). Consume it and trigger generation directly.
+  //
+  // Phase 5 fix: stable listener with [] deps — avoids the race where the event
+  // fires during a gap between old listener being removed and new one being added.
+  // businessDescRef / workflowTypeRef / complexityRef give access to current values
+  // without re-creating the listener on every state change.
   useEffect(() => {
     const handler = (e: Event) => {
       const { type } = (e as CustomEvent<{ type: string }>).detail
@@ -467,19 +512,19 @@ export default function AutomationBuilderPage() {
       const intent = consumePendingIntent("automation")
       console.log("AUTOMATION_TRACE: Intent consumed (post-mount event) | result:", JSON.stringify(intent))
       if (!intent) return
-      const desc = intent.idea || businessDesc
+      const desc = intent.idea || businessDescRef.current
       console.log("AUTOMATION_TRACE: Textarea populated (post-mount event) | desc (first 120):", JSON.stringify(desc.slice(0, 120)))
       if (!desc.trim()) return
-      if (!businessDesc.trim()) {
+      if (!businessDescRef.current.trim()) {
         setBusinessDesc(desc)
         setContextBanner(true)
       }
-      console.log("AUTOMATION_TRACE: Generation started (post-mount event) | workflowType:", workflowType, "| complexity:", complexity)
-      setTimeout(() => generateWith(desc, workflowType, complexity), 100)
+      console.log("AUTOMATION_TRACE: Generation started (post-mount event) | workflowType:", workflowTypeRef.current, "| complexity:", complexityRef.current)
+      setTimeout(() => generateWith(desc, workflowTypeRef.current, complexityRef.current), 100)
     }
     window.addEventListener("stageone:autoGenerate", handler)
     return () => window.removeEventListener("stageone:autoGenerate", handler)
-  }, [businessDesc, workflowType, complexity]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Post-mount intent sync — handles the case where automation_idea fires while this page
   // is already mounted. The copilot now uses emitWorkspaceSignal (live delivery) instead of
@@ -495,6 +540,36 @@ export default function AutomationBuilderPage() {
       }
     }, "automation")
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Phase 5 — Register bridge + controller on mount, unregister on unmount.
+  // The bridge exposes this page's live handlers so automationController can delegate
+  // without duplicating any generation logic.
+  useEffect(() => {
+    registerBridge({
+      navigate: () => setLocation("/automation"),
+      populate: (idea, onComplete) => {
+        if (!idea) { onComplete(); return }
+        populateIdeaRef.current = idea
+        populateCompleteCallbackRef.current = onComplete
+        setPopulateTick(t => t + 1)
+      },
+      triggerGenerate: (idea) => new Promise<void>((resolve) => {
+        generateCompleteCallbackRef.current = resolve
+        generateWith(idea, workflowTypeRef.current, complexityRef.current)
+      }),
+      save: async () => {
+        if (latestDataRef.current) {
+          await saveToProject(latestDataRef.current)
+        }
+      },
+      getCurrentIdea: () => businessDescRef.current,
+    })
+    registerController('automation', automationController)
+    return () => {
+      unregisterBridge()
+      unregisterController('automation')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateWith = async (desc: string, wt: string, cplx: string) => {
     if (!desc.trim()) return
@@ -539,8 +614,13 @@ export default function AutomationBuilderPage() {
               setStep("done")
               console.log("GENERATOR_AUDIT: generator=automation | generation completed")
               const saved = await saveToProject(msg.data as AutomationData)
-              console.log("[CONFIRM_FLOW:5] generateWith (auto-path) complete — emitting automation.generated | saved:", saved, "| timestamp:", Date.now())
+              console.log("[CONFIRM_FLOW:5] generateWith complete — emitting automation.generated | saved:", saved, "| timestamp:", Date.now())
               emit({ type: "automation.generated", data: { saved } })
+              // Phase 5: resolve the bridge's triggerGenerate Promise only after
+              // SSE streaming, saveToProject, and UI update are fully done.
+              const completeCb = generateCompleteCallbackRef.current
+              generateCompleteCallbackRef.current = null
+              completeCb?.()
             }
           } catch { /* fragment */ }
         }
@@ -550,63 +630,19 @@ export default function AutomationBuilderPage() {
         setGenError("Generation failed — please try again")
         setStep("idle")
       }
+      // Phase 5: ensure bridge Promise resolves even on error so the controller
+      // doesn't hang waiting for a completion that will never arrive.
+      const completeCb = generateCompleteCallbackRef.current
+      generateCompleteCallbackRef.current = null
+      completeCb?.()
     }
   }
 
-  const generate = async () => {
-    if (!businessDesc.trim()) return
-    setGenError(""); setStep("generating"); setStreamText(""); setData(null); setSelectedNode(null)
-    abortRef.current = new AbortController()
-    let buffer = ""
-    try {
-      const res = await fetch("/api/generate/automation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ businessDescription: businessDesc.trim(), workflowType, complexity, language: lang }),
-        signal: abortRef.current.signal,
-      })
-      if (res.status === 403) {
-        const errData = await res.json().catch(() => ({}))
-        if (errData.error === "UPGRADE_REQUIRED") {
-          openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
-          setStep("idle")
-          return
-        }
-      }
-      if (!res.ok || !res.body) throw new Error("Request failed")
-      const reader = res.body.getReader()
-      const dec = new TextDecoder()
-      let carry = ""
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = carry + dec.decode(value, { stream: true })
-        const lines = chunk.split("\n")
-        carry = lines.pop() ?? ""
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
-          try {
-            const msg = JSON.parse(line.slice(6))
-            if (msg.error) { setGenError(msg.error); setStep("idle"); return }
-            if (msg.content) { buffer += msg.content; setStreamText(buffer) }
-            if (msg.done && msg.data) {
-              setData(msg.data)
-              setStep("done")
-              console.log("GENERATOR_AUDIT: generator=automation | generation completed")
-              const saved = await saveToProject(msg.data as AutomationData)
-              console.log("[CONFIRM_FLOW:5] generate() (manual-path) complete — emitting automation.generated | saved:", saved, "| timestamp:", Date.now())
-              emit({ type: "automation.generated", data: { saved } })
-            }
-          } catch { /* fragment */ }
-        }
-      }
-    } catch (e: unknown) {
-      if (e instanceof Error && e.name !== "AbortError") {
-        setGenError("Generation failed — please try again")
-        setStep("idle")
-      }
-    }
+  // Single generation entry point for manual button clicks.
+  // Delegates to generateWith so all paths (manual, Copilot, bridge) share
+  // one implementation — matching the pattern used by Chatbot Generator.
+  const generate = () => {
+    generateWith(businessDescRef.current, workflowTypeRef.current, complexityRef.current)
   }
 
   const selectedNodeData = data?.nodes.find(n => n.id === selectedNode) ?? null

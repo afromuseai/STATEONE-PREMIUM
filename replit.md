@@ -4,8 +4,8 @@ STAGEONE is an AI Business Operating System that transforms any business idea in
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/stageone run dev` — run the frontend (port 22923)
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/stageone run dev` — run the frontend (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8000)
 - `pnpm run typecheck` — full typecheck across all packages
 - Required env: `NVIDIA_API_KEY` — for AI generation via NVIDIA NIM API
 - Required env: `DATABASE_URL` — PostgreSQL connection string

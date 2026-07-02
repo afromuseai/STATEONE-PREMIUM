@@ -1,4 +1,5 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { useEffect } from "react";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ProductTour } from "@/components/dashboard/product-tour";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -22,6 +23,7 @@ import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
 import DashboardPage from "@/pages/dashboard";
+import BusinessIntelligencePage from "@/pages/business-intelligence";
 import ProjectPage from "@/pages/project";
 import SettingsPage from "@/pages/settings";
 import WebsiteGeneratorPage from "@/pages/website-generator";
@@ -55,6 +57,21 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
 
+/**
+ * Injects a wouter navigate function into the ExecutionBus singleton.
+ * Must live inside WouterRouter so useLocation() is available.
+ * Lazy-loads the bus to avoid top-level circular import issues.
+ */
+function ExecutionBusNavigatorSetup() {
+  const [, navigate] = useLocation()
+  useEffect(() => {
+    import("@/lib/execution-bus").then(({ bus }) => {
+      bus.setNavigator(navigate)
+    })
+  }, [navigate])
+  return null
+}
+
 function AnimatedRoutes() {
   const [location] = useLocation()
   return (
@@ -86,6 +103,9 @@ function Router() {
       </Route>
       <Route path="/dashboard">
         <ProtectedRoute><DashboardPage /></ProtectedRoute>
+      </Route>
+      <Route path="/business-intelligence">
+        <ProtectedRoute><BusinessIntelligencePage /></ProtectedRoute>
       </Route>
       <Route path="/projects/:id">
         {(params) => (
@@ -176,6 +196,7 @@ export default function App() {
                           <ErrorBoundary>
                             <ImpersonationBanner />
                             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                              <ExecutionBusNavigatorSetup />
                               <AnimatedRoutes />
                               <CopilotPanel />
                               <ProductTour />

@@ -52,7 +52,7 @@ function SidebarContent({
     {
       label: d.sections.generate,
       items: [
-        { href: "/dashboard?tab=new", icon: BarChart3, label: d.nav.businessIntelligence },
+        { href: "/business-intelligence", icon: BarChart3, label: d.nav.businessIntelligence },
         { href: "/website-generator", icon: Globe, label: d.nav.websiteGenerator },
         { href: "/chatbot-generator", icon: Bot, label: d.nav.aiChatbot },
         { href: "/automation-builder", icon: Workflow, label: d.nav.automationBuilder },
@@ -193,7 +193,7 @@ function SidebarContent({
               {section.items.map(({ href, icon: Icon, label }) => {
                 const active = isActive(href)
                 const TOUR_MAP: Record<string, string> = {
-                  "/dashboard?tab=new": "nav-business-intelligence",
+                  "/business-intelligence": "nav-business-intelligence",
                   "/website-generator": "nav-website-generator",
                   "/chatbot-generator": "nav-chatbot-generator",
                   "/automation-builder": "nav-automation-builder",
@@ -348,7 +348,7 @@ function SidebarContent({
       {!effectiveCollapsed && (
         <div className="px-3 pb-2">
           <button
-            onClick={() => navigate("/dashboard?tab=new&_r=" + Date.now())}
+            onClick={() => navigate("/business-intelligence?_r=" + Date.now())}
             className="w-full flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/8 px-3 py-2.5 text-xs font-semibold text-primary hover:bg-primary/15 transition-all cursor-pointer"
           >
             <Sparkles className="h-3.5 w-3.5 shrink-0" />

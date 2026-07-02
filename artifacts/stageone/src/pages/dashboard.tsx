@@ -3,335 +3,59 @@ import { useLocation, useSearch } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { DashboardHeader } from "@/components/dashboard/header"
-import { InputPanel } from "@/components/dashboard/input-panel"
-import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/output-panel"
-import { WebsitePanel } from "@/components/dashboard/website-panel"
 import { CommandCenterOverview } from "@/components/dashboard/command-center-overview"
 import { useAuth } from "@/lib/auth-context"
-import { useBusinessContext } from "@/lib/business-context"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { api, type Project } from "@/lib/api"
-import { recordRevenueSignal } from "@/lib/intelligence-state"
-import { saveGenerationContext, saveProjectContext, saveDashboardState, loadDashboardState, clearDashboardState, consumeCopilotAutorun, consumeMarcusWorkspaceSignal, dequeueWorkspaceSignals } from "@/lib/generation-context"
-import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang, useFormatters } from "@/lib/i18n"
 import {
   FolderOpen,
   Plus,
   Clock,
-  Sparkles,
-  Trash2,
+  Search,
   BarChart3,
   Globe,
   ChevronRight,
-  Search,
-  AlertTriangle,
+  Trash2,
   Crown,
-  X,
-  Bot,
-  Workflow,
-  Lock,
+  AlertTriangle,
 } from "lucide-react"
 
-type Tab = "overview" | "new" | "projects"
-
+type Tab = "overview" | "projects"
 
 function getTab(search: string): Tab {
   const p = new URLSearchParams(search.replace("?", ""))
   const t = p.get("tab")
-  if (t === "new" || t === "projects") return t
+  if (t === "projects") return t
   return "overview"
 }
 
-// ─── Partial JSON field extractor ────────────────────────────────────────────
-function extractValue(text: string, startIdx: number): { value: unknown; end: number } | null {
-  const remaining = text.slice(startIdx)
-  const c = remaining[0]
-
-  if (c === '"') {
-    // String
-    let i = 1, escaped = false
-    while (i < remaining.length) {
-      if (escaped) { escaped = false; i++; continue }
-      if (remaining[i] === "\\") { escaped = true; i++; continue }
-      if (remaining[i] === '"') {
-        try {
-          return { value: JSON.parse(remaining.slice(0, i + 1)), end: startIdx + i + 1 }
-        } catch { return null }
-      }
-      i++
-    }
-    return null
-  }
-
-  if (c === "{" || c === "[") {
-    const close = c === "{" ? "}" : "]"
-    let depth = 0, i = 0, inStr = false, escaped = false
-    while (i < remaining.length) {
-      const ch = remaining[i]
-      if (escaped) { escaped = false; i++; continue }
-      if (inStr && ch === "\\") { escaped = true; i++; continue }
-      if (ch === '"') { inStr = !inStr; i++; continue }
-      if (!inStr) {
-        if (ch === c || ch === (c === "{" ? "[" : "{")) depth++
-        else if (ch === close || ch === (c === "{" ? "]" : "}")) {
-          depth--
-          if (depth === 0) {
-            try {
-              return { value: JSON.parse(remaining.slice(0, i + 1)), end: startIdx + i + 1 }
-            } catch { return null }
-          }
-        }
-      }
-      i++
-    }
-    return null
-  }
-
-  // Number / bool / null
-  const m = /^(-?\d+\.?\d*(?:[eE][+-]?\d+)?|true|false|null)/.exec(remaining)
-  if (m) {
-    try {
-      return { value: JSON.parse(m[1]), end: startIdx + m[1].length }
-    } catch { return null }
-  }
-
-  return null
-}
-
-function extractPartialFields(text: string): Partial<BusinessIntelligence> {
-  const result: Partial<BusinessIntelligence> = {}
-  const fields: Array<keyof BusinessIntelligence> = [
-    "industry", "metrics", "businessSnapshot", "targetMarket",
-    "strategicInsights", "competitiveAdvantage", "growthPlan",
-    "websitePages", "chatbotRole", "automations", "recommendedStack",
-  ]
-
-  for (const field of fields) {
-    const pattern = new RegExp(`"${field}"\\s*:\\s*`)
-    const m = pattern.exec(text)
-    if (!m) continue
-    const valueStart = m.index + m[0].length
-    if (valueStart >= text.length) continue
-    const extracted = extractValue(text, valueStart)
-    if (extracted !== null) {
-      ;(result as Record<string, unknown>)[field] = extracted.value
-    }
-  }
-
-  return result
-}
-
-function computeStage(partial: Partial<BusinessIntelligence>, text: string): number {
-  if (!text) return 0
-  if (partial.recommendedStack) return 6
-  if (partial.growthPlan && (partial.growthPlan as string[]).length > 0) return 5
-  if (partial.competitiveAdvantage) return 4
-  if (partial.strategicInsights) return 3
-  if (partial.businessSnapshot) return 2
-  if (partial.metrics) return 1
-  // Detect from raw text when field key first appears
-  if (/"recommendedStack"/.test(text)) return 6
-  if (/"growthPlan"/.test(text)) return 5
-  if (/"competitiveAdvantage"/.test(text)) return 4
-  if (/"strategicInsights"/.test(text)) return 3
-  if (/"businessSnapshot"/.test(text)) return 2
-  if (/"metrics"/.test(text)) return 1
-  return 1
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default function DashboardPage() {
-  const { t, lang } = useLang()
+  const { t } = useLang()
   const wp = t.workspace.projects
   const wm = t.workspace.modals
   const { user } = useAuth()
-  const { setBusinessData } = useBusinessContext()
   const { openUpgradeModal } = useUpgradeModal()
-  const { subscribeWorkspaceSignal, emit } = useWorkspaceController()
-  const [location] = useLocation()
   const search = useSearch()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const activeTab = getTab(search)
 
-  // Generation state
-  const [isLoading, setIsLoading] = useState(false)
-  const [results, setResults] = useState<BusinessIntelligence | null>(null)
-  const [partialData, setPartialData] = useState<Partial<BusinessIntelligence>>({})
-  const [generationStage, setGenerationStage] = useState(0)
-  const [currentIdea, setCurrentIdea] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const [streamingText, setStreamingText] = useState("")
-
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
-  const [showWebsite, setShowWebsite] = useState(false)
-  const [reasoningStages, setReasoningStages] = useState<string[]>([])
-  const [detectedIndustry, setDetectedIndustry] = useState<string | undefined>(undefined)
-
   // Projects state
   const [projects, setProjects] = useState<Project[]>([])
   const [projectsLoading, setProjectsLoading] = useState(true)
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
   const projectsRef = useRef<Project[]>([])
-  const draftProjectIdRef = useRef<string | null>(null)
-  const draftCreatingRef = useRef(false)
-  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const latestPartialRef = useRef<Partial<BusinessIntelligence>>({})
   const [memoryCount, setMemoryCount] = useState(0)
   const [agentCount, setAgentCount] = useState(0)
   const [websiteGenerated, setWebsiteGenerated] = useState(false)
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
 
   const [, setLocation] = useLocation()
   const [projectSearch, setProjectSearch] = useState("")
   const [projectStatusFilter, setProjectStatusFilter] = useState<"all" | "active" | "draft" | "completed" | "archived">("all")
 
-  // Subscription state for usage warning + quota enforcement
+  // Subscription state for usage warning
   const [subscription, setSubscription] = useState<{ aiGenerationsUsed: number; aiGenerationsLimit: number; plan: string } | null>(null)
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
-  const [lockedFeature, setLockedFeature] = useState<{ name: string; icon: React.ReactNode; description: string } | null>(null)
-  const [autorunIdea, setAutorunIdea] = useState<string | null>(null)
-  const [marcusPopulate, setMarcusPopulate] = useState<string | null>(null)
-  // Tracks the idea Marcus typed into the textarea so the generate signal can trigger it
-  const marcusBiIdeaRef = useRef<string>("")
-
-  // Restore persisted generation state on mount so navigating away and back
-  // doesn't wipe out the user's current workspace context.
-  useEffect(() => {
-    const saved = loadDashboardState()
-    if (saved?.results) {
-      // ISOLATION: if the saved state carries a userId that doesn't match the
-      // current user, reject it immediately and clear storage.
-      // Records saved before the userId field existed have saved.userId == null
-      // and are treated as safe (backward-compatible).
-      const savedUserId = saved.userId ?? null
-      const currentUserId = user?.id ?? null
-      if (savedUserId !== null && currentUserId !== null && savedUserId !== currentUserId) {
-        console.warn(
-          "[dashboard:isolation] stale session state rejected — userId mismatch",
-          { savedUserId, currentUserId },
-        )
-        clearDashboardState()
-      } else {
-        setResults(saved.results)
-        setCurrentIdea(saved.currentIdea)
-        setGenerationStage(saved.generationStage)
-        setActiveProjectId(saved.activeProjectId)
-        setBusinessData(saved.results as unknown as Record<string, unknown>)
-      }
-    }
-
-    // Copilot autorun: navigate to "new" tab and pass idea to InputPanel
-    // so the user sees it typed live before generation fires.
-    const autorun = consumeCopilotAutorun()
-    if (autorun?.action === "generate_intelligence" && autorun.idea) {
-      setLocation("/dashboard?tab=new")
-      // Small tick to ensure the tab renders before typewriter starts
-      setTimeout(() => setAutorunIdea(autorun.idea!), 150)
-    }
-
-    // Marcus workspace signal: cross-navigation delivery (sessionStorage single-slot, legacy path)
-    const signal = consumeMarcusWorkspaceSignal()
-    if (signal?.target === "intelligence" && signal.type === "populate" && signal.payload) {
-      setLocation("/dashboard?tab=new")
-      const idea = signal.payload
-      marcusBiIdeaRef.current = idea
-      setTimeout(() => setMarcusPopulate(idea), 150)
-    }
-
-    // Workspace signal queue: drain ALL queued signals for this target (new reliable path).
-    // This handles the case where signals fired before this page mounted — they were stored
-    // in sessionStorage by emitWorkspaceSignal when no subscriber was registered.
-    // Must run BEFORE subscribeWorkspaceSignal is called (which happens in the next effect).
-    const queued = dequeueWorkspaceSignals("intelligence")
-    for (const qs of queued) {
-      if (qs.type === "populate" && qs.payload) {
-        setLocation("/dashboard?tab=new")
-        marcusBiIdeaRef.current = qs.payload
-        setTimeout(() => setMarcusPopulate(qs.payload!), 150)
-      } else if (qs.type === "generate") {
-        const idea = qs.payload?.trim() || marcusBiIdeaRef.current.trim()
-        if (idea) setTimeout(() => handleGenerateRef.current?.(idea), 300)
-      }
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Declared before handleGenerate — holds a ref so the signal subscriber
-  // (registered once, stable closure) always calls the latest version.
-  const handleGenerateRef = useRef<((idea: string) => Promise<void>) | null>(null)
-
-  // Marcus signal subscription (live — for when dashboard is already mounted)
-  useEffect(() => {
-    return subscribeWorkspaceSignal((signal) => {
-      // [INSTRUMENT:1] subscriber callback entry
-      console.log("[CONFIRM_FLOW:INTEL:1] intelligence subscriber callback entered | target:", signal.target, "| type:", signal.type, "| payload:", signal.payload ?? "(none)", "| timestamp:", Date.now())
-
-      if (signal.target !== "intelligence") {
-        console.log("[CONFIRM_FLOW:INTEL:early-return:target] signal target is not intelligence — returning | actual target:", signal.target)
-        return
-      }
-
-      if (signal.type === "populate" && signal.payload) {
-        const idea = signal.payload
-        marcusBiIdeaRef.current = idea
-        console.log("[CONFIRM_FLOW:INTEL:2] populate branch | idea set on marcusBiIdeaRef:", idea)
-        setLocation("/dashboard?tab=new")
-        setTimeout(() => setMarcusPopulate(idea), 50)
-      } else if (signal.type === "generate") {
-        // ── GENERATE BRANCH ─────────────────────────────────────────────────
-        // This branch MUST call generateWith. Any path that does not is a bug.
-        // No silent failures: every exit point is logged explicitly.
-        console.log("[CONFIRM_FLOW:INTEL:3] generate branch entered | signal.payload:", JSON.stringify(signal.payload ?? ""), "| marcusBiIdeaRef:", JSON.stringify(marcusBiIdeaRef.current), "| timestamp:", Date.now())
-
-        // Prefer idea carried in signal.payload (set by copilot at emit time).
-        // Fall back to marcusBiIdeaRef which was set by the prior populate signal.
-        // Never read React state here — only refs and signal data.
-        const idea = (signal.payload?.trim() || marcusBiIdeaRef.current.trim())
-        console.log("[CONFIRM_FLOW:INTEL:3a] resolved idea:", JSON.stringify(idea), "| length:", idea.length)
-
-        if (!idea) {
-          console.error("[CONFIRM_FLOW:INTEL:BUG] generate branch — idea is empty in both signal.payload AND marcusBiIdeaRef — this is a bug, generation cannot proceed")
-          return
-        }
-
-        if (!handleGenerateRef.current) {
-          console.error("[CONFIRM_FLOW:INTEL:BUG] generate branch — handleGenerateRef.current is null — ref was not assigned before signal arrived — this is a bug")
-          return
-        }
-
-        console.log("[CONFIRM_FLOW:INTEL:4] CALLING handleGenerate NOW | idea:", JSON.stringify(idea), "| timestamp:", Date.now())
-        handleGenerateRef.current(idea)
-        console.log("[CONFIRM_FLOW:INTEL:5] handleGenerate call dispatched | timestamp:", Date.now())
-      } else {
-        console.log("[CONFIRM_FLOW:INTEL:unhandled] signal type not handled | type:", signal.type)
-      }
-    }, "intelligence")
-  }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Persist generation results whenever they change (non-null only)
-  useEffect(() => {
-    if (results) {
-      saveDashboardState({ userId: user?.id ?? null, results, currentIdea, activeProjectId, generationStage: 6 })
-    }
-  }, [results, currentIdea, activeProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset state when any "New Analysis" button is clicked (detected via _r param)
-  useEffect(() => {
-    const params = new URLSearchParams(search.replace("?", ""))
-    if (params.get("tab") === "new" && params.get("_r")) {
-      setResults(null)
-      setPartialData({})
-      setGenerationStage(0)
-      setCurrentIdea("")
-      setError(null)
-      setStreamingText("")
-      setShowWebsite(false)
-      setActiveProjectId(null)
-      setBusinessData({})
-      clearDashboardState()
-      setLocation("/dashboard?tab=new")
-    }
-  }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     api.projects.list().then(({ projects }) => {
@@ -341,247 +65,21 @@ export default function DashboardPage() {
       if (hasWebsite) setWebsiteGenerated(true)
     }).catch(() => {}).finally(() => setProjectsLoading(false))
 
-    // Fetch memory count for cross-system context
     fetch("/api/memory", { credentials: "include" })
       .then(r => r.json())
       .then(d => { if (Array.isArray(d.memories)) setMemoryCount(d.memories.length) })
       .catch(() => {})
 
-    // Fetch agent count
     fetch("/api/agents?installed=true", { credentials: "include" })
       .then(r => r.json())
-      .then(d => { if (Array.isArray(d.agents)) setAgentCount(d.agents.filter((a: {isActive: boolean}) => a.isActive).length) })
+      .then(d => { if (Array.isArray(d.agents)) setAgentCount(d.agents.filter((a: { isActive: boolean }) => a.isActive).length) })
       .catch(() => {})
 
-    // Fetch subscription for usage warning
     fetch("/api/subscriptions/me", { credentials: "include" })
       .then(r => r.json())
       .then(d => { if (d.subscription) setSubscription(d.subscription) })
       .catch(() => {})
   }, [])
-
-  const handleGenerate = useCallback(async (idea: string) => {
-    // Clear persisted workspace before starting a fresh generation
-    clearDashboardState()
-    setIsLoading(true)
-    setResults(null)
-    setPartialData({})
-    setGenerationStage(1)
-    setCurrentIdea(idea)
-    setError(null)
-    setStreamingText("")
-    setShowWebsite(false)
-    setActiveProjectId(null)
-    setReasoningStages([])
-    setDetectedIndustry(undefined)
-    draftProjectIdRef.current = null
-    draftCreatingRef.current = false
-    if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
-    latestPartialRef.current = {}
-
-    try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ idea, language: lang }),
-      })
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          setShowUpgradeModal(true)
-          setIsLoading(false)
-          setGenerationStage(0)
-          return
-        }
-        const errorData = await response.json().catch(() => ({ error: "Request failed" }))
-        if (response.status === 403 && errorData.error === "UPGRADE_REQUIRED") {
-          openUpgradeModal({ feature: errorData.feature, featureLabel: errorData.featureLabel, requiredPlan: errorData.requiredPlan })
-          setIsLoading(false)
-          setGenerationStage(0)
-          return
-        }
-        throw new Error(errorData.error || `Server error: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error("No response stream available")
-
-      const decoder = new TextDecoder()
-      let lineCarryover = ""
-      let finalData: BusinessIntelligence | null = null
-      let streamError: string | null = null
-      let accumulated = ""
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          const chunk = lineCarryover + decoder.decode(value, { stream: true })
-          const lines = chunk.split("\n")
-          lineCarryover = lines.pop() ?? ""
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue
-            const data = line.slice(6).trim()
-            if (!data) continue
-            try {
-              const parsed = JSON.parse(data)
-              if (parsed.error) { streamError = parsed.error; break }
-              // Handle reasoning/phase events from the intelligence engine
-              if (parsed.reasoning && !parsed.content) {
-                // Pre-flight reasoning events — no UI update needed, backend handles these
-              } else if (parsed.reasoningStages && Array.isArray(parsed.reasoningStages)) {
-                setReasoningStages(parsed.reasoningStages)
-                if (parsed.industry) setDetectedIndustry(parsed.industry)
-              } else if (parsed.done && parsed.data) {
-                finalData = parsed.data as BusinessIntelligence
-              } else if (typeof parsed.content === "string") {
-                accumulated += parsed.content
-                setStreamingText(accumulated)
-                // Progressive parse — update partial data & stage
-                const partial = extractPartialFields(accumulated)
-                const stage = computeStage(partial, accumulated)
-                setPartialData(partial)
-                setGenerationStage(stage)
-                latestPartialRef.current = partial
-                // Auto-persist: create draft on first meaningful partial data, debounce updates
-                if (stage >= 1 && !draftProjectIdRef.current && !draftCreatingRef.current) {
-                  draftCreatingRef.current = true
-                  const draftTitle = idea.length > 60 ? idea.slice(0, 60) + "…" : idea
-                  api.projects.create({ title: draftTitle, businessIdea: idea, status: "draft", output: partial as unknown as Record<string, unknown> })
-                    .then(({ project }) => {
-                      draftProjectIdRef.current = project.id
-                      draftCreatingRef.current = false
-                      setActiveProjectId(project.id)
-                      const updated = [project, ...projectsRef.current].slice(0, 50)
-                      projectsRef.current = updated
-                      setProjects(updated)
-                    }).catch(() => { draftCreatingRef.current = false })
-                } else if (draftProjectIdRef.current) {
-                  if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current)
-                  draftSaveTimerRef.current = setTimeout(() => {
-                    const id = draftProjectIdRef.current
-                    if (id) api.projects.update(id, { output: latestPartialRef.current as unknown as Record<string, unknown> }).catch(() => {})
-                  }, 5000)
-                }
-              }
-            } catch { /* incomplete chunk */ }
-          }
-          if (streamError) break
-        }
-      } finally { reader.releaseLock() }
-
-      if (streamError) throw new Error(streamError)
-      if (!finalData) throw new Error("No analysis data received")
-
-      setResults(finalData)
-      setGenerationStage(6)
-      setBusinessData(finalData as unknown as Record<string, unknown>)
-
-      // Flush any pending debounced save and do a final authoritative save of the complete data
-      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current)
-      console.log("GENERATOR_AUDIT: generator=business-intelligence | generation completed")
-      console.log("PROJECT_SAVE: projectId=" + (draftProjectIdRef.current ?? "(none — draft not yet created)"))
-      let biSaved = false
-      if (draftProjectIdRef.current) {
-        const endpoint = `/api/projects/${draftProjectIdRef.current}`
-        console.log("SAVE_ENDPOINT: " + endpoint)
-        try {
-          await api.projects.update(draftProjectIdRef.current, {
-            output: finalData as unknown as Record<string, unknown>,
-            status: "active",
-          })
-          console.log("SAVE_RESPONSE_STATUS: 200")
-          console.log("SAVE_RESULT: success")
-          biSaved = true
-        } catch (saveErr) {
-          console.error("SAVE_RESULT: failure (exception)", saveErr)
-        }
-      } else {
-        console.log("SAVE_RESULT: failure (no projectId — draft was never created)")
-      }
-      emit({ type: "generation.complete", data: { saved: biSaved } })
-      // Update memory count after auto-save (memories are saved async server-side)
-      setTimeout(() => {
-        fetch("/api/memory", { credentials: "include" })
-          .then(r => r.json())
-          .then(d => { if (Array.isArray(d.memories)) setMemoryCount(d.memories.length) })
-          .catch(() => {})
-      }, 2000)
-
-      // Auto-record revenue intelligence signal (fire-and-forget)
-      recordRevenueSignal({
-        industry: finalData.industry,
-        businessSnapshot: finalData.businessSnapshot,
-        sourceMetrics: {
-          marketDifficulty: finalData.metrics.marketDifficulty,
-          automationPotential: finalData.metrics.automationPotential,
-          revenueScalability: finalData.metrics.revenueScalability,
-          operationalComplexity: finalData.metrics.operationalComplexity,
-          aiAdoptionOpportunity: finalData.metrics.aiAdoptionOpportunity,
-        },
-      }).catch(() => {})
-
-      // Finalize: cancel any pending debounced update, then save/update project
-      if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
-      setSaveStatus("saving")
-      const title = idea.length > 60 ? idea.slice(0, 60) + "…" : idea
-      try {
-        let project: import("@/lib/api").Project
-        if (draftProjectIdRef.current) {
-          // Draft was created during streaming — finalize it
-          ;({ project } = await api.projects.update(draftProjectIdRef.current, {
-            title,
-            status: "active",
-            output: finalData as unknown as Record<string, unknown>,
-          }))
-          setActiveProjectId(project.id)
-          const updated = projectsRef.current.map(p => p.id === project.id ? project : p)
-          projectsRef.current = updated
-          setProjects(updated)
-        } else {
-          // Draft creation failed or was skipped — create fresh
-          ;({ project } = await api.projects.create({
-            title,
-            businessIdea: idea,
-            output: finalData as unknown as Record<string, unknown>,
-          }))
-          setActiveProjectId(project.id)
-          const updated = [project, ...projectsRef.current].slice(0, 50)
-          projectsRef.current = updated
-          setProjects(updated)
-        }
-        // Link revenue signal to project (best-effort)
-        recordRevenueSignal({
-          projectId: project.id,
-          industry: finalData.industry,
-          businessSnapshot: finalData.businessSnapshot,
-          sourceMetrics: {
-            marketDifficulty: finalData.metrics.marketDifficulty,
-            automationPotential: finalData.metrics.automationPotential,
-            revenueScalability: finalData.metrics.revenueScalability,
-            operationalComplexity: finalData.metrics.operationalComplexity,
-            aiAdoptionOpportunity: finalData.metrics.aiAdoptionOpportunity,
-          },
-        }).catch(() => {})
-        setSaveStatus("saved")
-        setTimeout(() => setSaveStatus("idle"), 3000)
-      } catch { setSaveStatus("idle") }
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred")
-    } finally {
-      setIsLoading(false)
-      setStreamingText("")
-      setPartialData({})
-      if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
-    }
-  }, [lang])
-
-  // Synchronous render-time assignment (not a useEffect) — ref is always
-  // current before any subscriber fires, including on the very first render.
-  handleGenerateRef.current = handleGenerate
 
   const handleDeleteProject = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -589,10 +87,7 @@ export default function DashboardPage() {
     const updated = projectsRef.current.filter(p => p.id !== id)
     projectsRef.current = updated
     setProjects(updated)
-    if (activeProjectId === id) {
-      setActiveProjectId(null)
-      setResults(null)
-    }
+    if (activeProjectId === id) setActiveProjectId(null)
   }, [activeProjectId])
 
   const handleOpenProject = useCallback((project: Project) => {
@@ -608,8 +103,8 @@ export default function DashboardPage() {
       projectsLoading={projectsLoading}
       agentCount={agentCount}
       memoryCount={memoryCount}
-      websiteGenerated={websiteGenerated || showWebsite}
-      results={results}
+      websiteGenerated={websiteGenerated}
+      results={null}
       plan={subscription?.plan ?? "free"}
       onNavigate={setLocation}
       onOpenProject={handleOpenProject}
@@ -646,7 +141,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-foreground">{wp.allProjects}</h2>
         <button
-          onClick={() => setLocation("/dashboard?tab=new&_r=" + Date.now())}
+          onClick={() => setLocation("/business-intelligence?_r=" + Date.now())}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           <Plus className="h-4 w-4" />{wp.new}
@@ -751,152 +246,6 @@ export default function DashboardPage() {
     </div>
   )
 
-  const renderNew = () => (
-    <div className="flex flex-1 flex-col lg:flex-row min-h-0">
-      <aside className="w-full border-b border-border/50 bg-secondary/20 p-6 lg:w-[400px] lg:border-b-0 lg:border-r xl:w-[450px] shrink-0">
-        <InputPanel
-          onGenerate={handleGenerate}
-          isLoading={isLoading}
-          copilotAutorun={autorunIdea}
-          onAutorunConsumed={() => setAutorunIdea(null)}
-          marcusPopulate={marcusPopulate}
-          onMarcusPopulateConsumed={() => setMarcusPopulate(null)}
-        />
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400"
-          >
-            {error}
-          </motion.div>
-        )}
-        {saveStatus !== "idle" && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`mt-3 rounded-lg border p-3 text-sm flex items-center gap-2 ${
-              saveStatus === "saved"
-                ? "border-green-500/20 bg-green-500/10 text-green-400"
-                : "border-primary/20 bg-primary/10 text-primary"
-            }`}
-          >
-            {saveStatus === "saving" ? (
-              <><div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" /> {wp.savingProject}</>
-            ) : (
-              <><span className="h-3 w-3 rounded-full bg-green-400 inline-block" /> {wp.projectSaved}</>
-            )}
-          </motion.div>
-        )}
-      </aside>
-
-      <section className={`flex-1 min-h-0 ${showWebsite ? "overflow-hidden flex flex-col" : "overflow-y-auto p-6"}`}>
-        <AnimatePresence mode="wait">
-          {!showWebsite ? (
-            <motion.div key="output" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
-              <OutputPanel
-                data={results}
-                partialData={partialData}
-                isLoading={isLoading}
-                streamingText={streamingText}
-                generationStage={generationStage}
-                reasoningStages={reasoningStages.length > 0 ? reasoningStages : undefined}
-                detectedIndustry={detectedIndustry}
-                onGenerateWebsite={results ? () => {
-                  // Only gate on a confirmed free plan — never on null (still loading)
-                  if (subscription?.plan === "free") {
-                    setLockedFeature({ name: "Website Builder", icon: <Globe className="h-5 w-5" />, description: "Generate a complete, launch-ready website with AI — including copy, design system, React components, and live preview." })
-                    return
-                  }
-                  saveGenerationContext({
-                    idea: currentIdea,
-                    industry: results.industry,
-                    businessSnapshot: results.businessSnapshot,
-                    targetMarket: results.targetMarket,
-                    chatbotRole: results.chatbotRole,
-                    automations: results.automations,
-                    growthPlan: results.growthPlan,
-                    strategicInsights: results.strategicInsights,
-                    recommendedStack: results.recommendedStack,
-                    competitiveAdvantage: results.competitiveAdvantage,
-                  })
-                  setShowWebsite(true)
-                } : undefined}
-                onGenerateChatbot={results ? () => {
-                  if (subscription?.plan === "free") {
-                    setLockedFeature({ name: "AI Chatbot Generator", icon: <Bot className="h-5 w-5" />, description: "Build a fully-configured AI chatbot with conversation flows, system prompts, integrations, and live preview — pre-filled from your business analysis." })
-                    return
-                  }
-                  // Always save context and navigate — the destination page handles its own lock overlay
-                  saveGenerationContext({
-                    idea: currentIdea,
-                    industry: results.industry,
-                    businessSnapshot: results.businessSnapshot,
-                    targetMarket: results.targetMarket,
-                    chatbotRole: results.chatbotRole,
-                    automations: results.automations,
-                    growthPlan: results.growthPlan,
-                    strategicInsights: results.strategicInsights,
-                    recommendedStack: results.recommendedStack,
-                    competitiveAdvantage: results.competitiveAdvantage,
-                  })
-                  if (activeProjectId) {
-                    const activeProject = projects.find(p => p.id === activeProjectId)
-                    saveProjectContext({ projectId: activeProjectId, projectTitle: activeProject?.title ?? currentIdea.slice(0, 60), originatingBusinessIntelligenceId: activeProjectId, continuityMode: "continuation", source: "Existing Project" })
-                  }
-                  setLocation("/chatbot-generator")
-                } : undefined}
-                onBuildAutomation={results ? () => {
-                  if (subscription?.plan === "free") {
-                    setLockedFeature({ name: "Automation Builder", icon: <Workflow className="h-5 w-5" />, description: "Generate end-to-end automation workflows with node-based canvas, AI agent configs, integration maps, and execution logic — auto-populated from your business intelligence." })
-                    return
-                  }
-                  saveGenerationContext({
-                    idea: currentIdea,
-                    industry: results.industry,
-                    businessSnapshot: results.businessSnapshot,
-                    targetMarket: results.targetMarket,
-                    chatbotRole: results.chatbotRole,
-                    automations: results.automations,
-                    growthPlan: results.growthPlan,
-                    strategicInsights: results.strategicInsights,
-                    recommendedStack: results.recommendedStack,
-                    competitiveAdvantage: results.competitiveAdvantage,
-                  })
-                  if (activeProjectId) {
-                    const activeProject = projects.find(p => p.id === activeProjectId)
-                    saveProjectContext({ projectId: activeProjectId, projectTitle: activeProject?.title ?? currentIdea.slice(0, 60), originatingBusinessIntelligenceId: activeProjectId, continuityMode: "continuation", source: "Existing Project" })
-                  }
-                  setLocation("/automation-builder")
-                } : undefined}
-                projectId={activeProjectId ?? undefined}
-                userPlan={subscription?.plan ?? "free"}
-              />
-            </motion.div>
-          ) : (
-            <motion.div key="website" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col flex-1 min-h-0">
-              <div className="px-4 pt-3 pb-0 shrink-0">
-                <button onClick={() => setShowWebsite(false)} className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                  {wp.backToAnalysis}
-                </button>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <WebsitePanel
-                  businessIdea={currentIdea}
-                  businessIntelligence={results}
-                  projectId={activeProjectId}
-                  autoGenerate={!!results}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </section>
-    </div>
-  )
-
-  const tabFromSearch = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null
-
   // Compute usage warning
   const usagePct = subscription && subscription.aiGenerationsLimit > 0
     ? subscription.aiGenerationsUsed / subscription.aiGenerationsLimit
@@ -905,132 +254,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* Feature locked modal (tier gating) */}
-      <AnimatePresence>
-        {lockedFeature && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
-            onClick={() => setLockedFeature(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              onClick={e => e.stopPropagation()}
-              className="w-full max-w-md rounded-2xl border border-primary/20 bg-[#0c0c0c] p-8 shadow-2xl"
-            >
-              <button
-                onClick={() => setLockedFeature(null)}
-                className="absolute top-5 right-5 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary">
-                  {lockedFeature.icon}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-foreground">{lockedFeature.name}</h3>
-                    <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary">
-                      <Lock className="h-2.5 w-2.5" /> Pro
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{wm.upgradeToUnlock}</p>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                {lockedFeature.description}
-              </p>
-              <div className="rounded-xl border border-white/5 bg-white/2 p-4 mb-6 space-y-2">
-                <p className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">{wm.proUnlocks}</p>
-                {wm.proFeatures.map(f => (
-                  <div key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="h-1.5 w-1.5 rounded-full bg-primary/60 shrink-0" />
-                    {f}
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setLockedFeature(null)}
-                  className="flex-1 h-10 rounded-xl border border-white/10 bg-white/5 text-sm font-medium text-foreground hover:bg-white/8 transition-all"
-                >
-                  {wm.maybeLater}
-                </button>
-                <button
-                  onClick={() => { setLockedFeature(null); openUpgradeModal() }}
-                  className="flex-1 h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow flex items-center justify-center gap-2"
-                >
-                  <Crown className="h-3.5 w-3.5" />
-                  {wm.upgradeToPro}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Quota upgrade modal */}
-      <AnimatePresence>
-        {showUpgradeModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0c0c0c] p-8 shadow-2xl"
-            >
-              <button
-                onClick={() => setShowUpgradeModal(false)}
-                className="absolute top-5 right-5 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-                  <AlertTriangle className="h-6 w-6 text-amber-400" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground">{wm.limitReached}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5 capitalize">
-                    {subscription?.plan ?? "free"} plan · {subscription?.aiGenerationsUsed ?? 0} / {subscription?.aiGenerationsLimit ?? 0} used
-                  </p>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                {wm.limitDesc}
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowUpgradeModal(false)}
-                  className="flex-1 h-10 rounded-xl border border-white/10 bg-white/5 text-sm font-medium text-foreground hover:bg-white/8 transition-all"
-                >
-                  {wm.maybeLater}
-                </button>
-                <button
-                  onClick={() => { setShowUpgradeModal(false); openUpgradeModal() }}
-                  className="flex-1 h-10 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all gold-glow flex items-center justify-center gap-2"
-                >
-                  <Crown className="h-3.5 w-3.5" />
-                  {wm.upgradePlan}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <AppSidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(p => !p)}
@@ -1073,13 +296,9 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
 
-        <div className={`flex-1 min-h-0 ${tabFromSearch === "new" ? "overflow-hidden flex flex-col" : "overflow-y-auto"}`}>
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <AnimatePresence mode="wait">
-            {tabFromSearch === "new" ? (
-              <motion.div key="new" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col flex-1 min-h-0">
-                {renderNew()}
-              </motion.div>
-            ) : tabFromSearch === "projects" ? (
+            {activeTab === "projects" ? (
               <motion.div key="projects" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 {renderProjects()}
               </motion.div>
@@ -1091,7 +310,6 @@ export default function DashboardPage() {
           </AnimatePresence>
         </div>
       </div>
-
     </div>
   )
 }
