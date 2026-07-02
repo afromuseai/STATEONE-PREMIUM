@@ -1,33 +1,28 @@
 /**
- * STAGEONE Execution Bus — Central Orchestration Engine
+ * STAGEONE Execution Bus — Central Orchestration Engine (Phase 6.5)
  *
- * ExecutionBus is the single coordination layer for all AI module executions.
- * It does NOT own any UI, SSE, or persistence logic — those remain inside each
- * module's page and controller. The bus controls ONLY:
+ * Navigation-aware and resumable. When execute() is called for a module whose
+ * page is not yet mounted, the bus:
  *
- *   1. Routing — which controller handles a command
- *   2. Phase sequencing — IDLE → ROUTING → POPULATING → CONFIRMATION_WAIT
- *                         → GENERATING → COMPLETED (or ERROR)
- *   3. Confirmation gate — nothing generates before approve() is called
- *                          (auto-fires when payload.autoGenerate = true)
- *   4. Bus-level events — execution:* emitted at each phase boundary
+ *   1. Navigates to the module's route (via the injected navigator function).
+ *   2. Parks in WAITING_FOR_CONTROLLER.
+ *   3. Listens for registerController() to fire (via the registry hook).
+ *   4. Resumes automatically — populate → confirm → generate — without any
+ *      user interaction required.
+ *   5. Times out after 60 s if the controller never registers.
+ *
+ * Call `bus.setNavigator(navigate)` once from inside the WouterRouter tree
+ * (see ExecutionBusNavigatorSetup in App.tsx). Without a navigator the bus
+ * logs a warning and waits; it will still resume if the page mounts another way.
  *
  * Usage:
  *   import { bus } from '@/lib/execution-bus'
- *
- *   // Full run (Copilot or programmatic):
  *   bus.execute({ module: 'website', action: 'run', payload: { idea, autoGenerate: true } })
- *
- *   // Populate only, then wait for the user to click Generate:
- *   const record = await bus.execute({ module: 'website', action: 'populate', payload: { idea } })
- *   // later, when Generate is clicked:
- *   bus.approve(record.executionId)
- *
- *   // Generate immediately (inputs already populated):
- *   bus.execute({ module: 'website', action: 'generate' })
+ *   bus.approve(executionId)    // confirm gate
+ *   bus.cancel(executionId)
  */
 
-import type { ExecutionCommand, ExecutionModuleId, ExecutionRecord } from './types';
+import type { ExecutionAction, ExecutionCommand, ExecutionModuleId, ExecutionPayload, ExecutionRecord } from './types';
 import { emitBusEvent } from './events';
 import {
   createExecution,
@@ -38,14 +33,34 @@ import {
   getActiveExecution,
   getAllExecutions,
 } from './lifecycle-manager';
-import { resolveExecutionModule, parseModuleId } from './module-registry';
+import { resolveExecutionModule, MODULE_ROUTES, type ExecutionModule } from './module-registry';
+import { subscribeControllerRegistration } from '@/lib/module-architecture/registry';
 
-// ── Confirmation gate ─────────────────────────────────────────────────────────
+// ── Pending execution store ───────────────────────────────────────────────────
 
-/** Map of executionId → resolve fn for the confirmation Promise. */
+interface PendingExecution {
+  executionId: string;
+  moduleId: ExecutionModuleId;
+  payload: ExecutionPayload;
+  action: ExecutionAction;
+  /** Called with the resolved ExecutionModule when the controller registers. */
+  resume: (mod: ExecutionModule) => void;
+  /** Called with an Error if the 60 s timeout fires. */
+  reject: (err: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
+const _pendingExecutions = new Map<string, PendingExecution>();
+
+// ── Confirmation gate store ───────────────────────────────────────────────────
+
 const _confirmationGates = new Map<string, (approved: boolean) => void>();
 
-// ── Internal helpers ──────────────────────────────────────────────────────────
+// ── Navigator ─────────────────────────────────────────────────────────────────
+
+let _navigator: ((path: string) => void) | null = null;
+
+// ── Helper ────────────────────────────────────────────────────────────────────
 
 function safeTransition(executionId: string, phase: Parameters<typeof transitionPhase>[1]) {
   try {
@@ -55,97 +70,105 @@ function safeTransition(executionId: string, phase: Parameters<typeof transition
   }
 }
 
-// ── ExecutionBus class ────────────────────────────────────────────────────────
+// ── ExecutionBus ──────────────────────────────────────────────────────────────
 
 class ExecutionBus {
+  constructor() {
+    // Subscribe to controller registration events from the module-architecture
+    // registry. When a page mounts and calls registerController(), this hook
+    // fires synchronously — which resumes any pending execution for that module.
+    subscribeControllerRegistration((registeredId) => {
+      for (const [execId, pending] of _pendingExecutions) {
+        if (pending.moduleId === registeredId) {
+          _pendingExecutions.delete(execId);
+          clearTimeout(pending.timeout);
+
+          const mod = resolveExecutionModule(registeredId);
+          if (mod) {
+            pending.resume(mod);
+          } else {
+            pending.reject(
+              new Error(`[ExecutionBus] Controller registered for '${registeredId}' but resolveExecutionModule returned null`)
+            );
+          }
+          // Only resume one pending execution per registration event.
+          // Multiple pending executions for the same module are unlikely but
+          // possible; subsequent ones will resume on the next registration tick.
+          break;
+        }
+      }
+    });
+  }
+
+  // ── Public API ──────────────────────────────────────────────────────────────
+
+  /**
+   * Inject a navigation function so the bus can drive routing when the target
+   * page is not yet mounted. Call this once from inside the WouterRouter tree:
+   *
+   *   bus.setNavigator(navigate)  // navigate = second element of useLocation()
+   */
+  setNavigator(navigate: (path: string) => void): void {
+    _navigator = navigate;
+  }
+
   /**
    * Execute a command against a module.
    *
-   * Returns the ExecutionRecord for tracking. The Promise resolves once the
-   * execution reaches a terminal state (COMPLETED, ERROR, or cancelled).
+   * If the module controller is not registered yet (page not mounted), the bus:
+   *   - Navigates to the module's route
+   *   - Parks in WAITING_FOR_CONTROLLER
+   *   - Resumes automatically when registerController() fires
+   *   - Times out after 60 s with an error record
    *
-   * Does NOT throw on module-not-ready — returns an error record instead so
-   * callers can react gracefully when the target page is not mounted yet.
-   *
-   * Phase flow by action:
-   *   populate → ROUTING → POPULATING → CONFIRMATION_WAIT  (terminal, waits for approve())
-   *   generate → ROUTING → GENERATING → COMPLETED
-   *   run      → ROUTING → POPULATING → (auto-approve if autoGenerate) → GENERATING → COMPLETED
+   * Returns the ExecutionRecord. Promise resolves when the execution reaches a
+   * terminal state (COMPLETED, ERROR, or cancelled).
    */
   async execute(command: ExecutionCommand): Promise<ExecutionRecord> {
     const payload = command.payload ?? {};
     const moduleId: ExecutionModuleId = command.module;
 
-    // 1. Create record
     const record = createExecution(moduleId, payload);
     const { executionId } = record;
 
-    console.log(`[ExecutionBus] execute | id=${executionId} | module=${moduleId} | action=${command.action} | autoGenerate=${payload.autoGenerate ?? false}`);
+    console.log(
+      `[ExecutionBus] execute | id=${executionId} | module=${moduleId}` +
+      ` | action=${command.action} | autoGenerate=${payload.autoGenerate ?? false}`
+    );
 
     try {
-      // 2. ROUTING
+      // ── ROUTING ─────────────────────────────────────────────────────────────
       safeTransition(executionId, 'ROUTING');
       emitBusEvent('execution:routing', executionId, moduleId, { action: command.action });
 
-      const mod = resolveExecutionModule(moduleId);
+      let mod = resolveExecutionModule(moduleId);
 
-      // ── Generate-only path ────────────────────────────────────────────────
-      if (command.action === 'generate') {
-        if (!mod) {
-          return this._fail(executionId, moduleId, `Module '${moduleId}' not registered — is the page mounted?`);
+      // ── Wait for controller if not mounted ───────────────────────────────────
+      if (!mod) {
+        const route = MODULE_ROUTES[moduleId];
+        if (_navigator && route) {
+          console.log(`[ExecutionBus] navigating to ${route} for module '${moduleId}'`);
+          _navigator(route);
+        } else {
+          console.warn(
+            `[ExecutionBus] No navigator set or no route for '${moduleId}'. ` +
+            `Call bus.setNavigator(navigate) from inside WouterRouter.`
+          );
         }
-        return await this._runGenerate(executionId, moduleId, mod);
+
+        safeTransition(executionId, 'WAITING_FOR_CONTROLLER');
+        emitBusEvent('execution:waiting_for_controller', executionId, moduleId, { route });
+
+        // Park here until registerController() fires or timeout expires.
+        mod = await this._waitForController(executionId, moduleId, payload, command.action);
+
+        // Controller is now available — resume.
+        emitBusEvent('execution:resumed', executionId, moduleId);
+        console.log(`[ExecutionBus] resumed | id=${executionId} | module=${moduleId}`);
       }
 
-      // ── Populate or Run paths ─────────────────────────────────────────────
-      if (command.action === 'populate' || command.action === 'run') {
-        // Navigate first (best-effort: if mod not ready, module's bridge will handle
-        // navigation via the controller's navigate() once mounted).
-        if (mod) {
-          await mod.navigate();
-        } else {
-          // Module not mounted — we cannot populate. Log and return an idle record.
-          // The Copilot's existing navigate + intent mechanism handles pre-mount flows.
-          console.warn(`[ExecutionBus] module '${moduleId}' not registered at execute time; navigation delegated to existing flow.`);
-          // Terminate this bus execution as a no-op (the legacy flow will take over).
-          cancelExecution(executionId);
-          emitBusEvent('execution:cancelled', executionId, moduleId, { reason: 'module-not-mounted' });
-          return getExecution(executionId)!;
-        }
-
-        // POPULATING
-        safeTransition(executionId, 'POPULATING');
-        emitBusEvent('execution:populate_started', executionId, moduleId, { idea: payload.idea });
-
-        await mod.populate(payload);
-
-        emitBusEvent('execution:populate_complete', executionId, moduleId);
-
-        if (command.action === 'populate') {
-          // Park at CONFIRMATION_WAIT — caller must call bus.approve(executionId) to generate.
-          safeTransition(executionId, 'CONFIRMATION_WAIT');
-          emitBusEvent('execution:confirmation_required', executionId, moduleId, { executionId });
-          await this._waitForConfirmation(executionId, moduleId);
-          // After approval, fall through to generate.
-          return await this._runGenerate(executionId, moduleId, mod);
-        }
-
-        // action === 'run'
-        if (payload.autoGenerate) {
-          // Auto-approve immediately — no CONFIRMATION_WAIT for programmatic flows.
-          emitBusEvent('execution:confirmation_approved', executionId, moduleId, { auto: true });
-        } else {
-          // Populate-then-confirm: park and wait for the user to click Generate (or approve()).
-          safeTransition(executionId, 'CONFIRMATION_WAIT');
-          emitBusEvent('execution:confirmation_required', executionId, moduleId, { executionId });
-          await this._waitForConfirmation(executionId, moduleId);
-        }
-
-        return await this._runGenerate(executionId, moduleId, mod);
-      }
-
-      // Unknown action
-      return this._fail(executionId, moduleId, `Unknown action: ${command.action}`);
+      // ── Run the requested action ─────────────────────────────────────────────
+      return await this._runAction(executionId, moduleId, mod, command.action, payload);
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -154,14 +177,11 @@ class ExecutionBus {
   }
 
   /**
-   * Execute a `run` command using a raw module-name string (from Copilot {{WORKSPACE|run|...}} tags).
+   * Convenience method for the Copilot `{{WORKSPACE|run|<module>|<idea>}}` tag.
    * Parses the module name and delegates to execute().
-   *
-   * @param rawModule  Raw module string from the tag payload (e.g. "website", "automation-builder")
-   * @param idea       Business idea text
-   * @param autoGenerate  Whether to skip CONFIRMATION_WAIT (default true for Copilot)
    */
   async executeRun(rawModule: string, idea: string, autoGenerate = true): Promise<ExecutionRecord | null> {
+    const { parseModuleId } = await import('./module-registry');
     const moduleId = parseModuleId(rawModule);
     if (!moduleId) {
       console.warn(`[ExecutionBus] executeRun: unrecognised module "${rawModule}"`);
@@ -172,55 +192,139 @@ class ExecutionBus {
 
   /**
    * Approve a parked CONFIRMATION_WAIT execution.
-   * This is how a Generate button (or any UI) signals that the user confirmed.
+   * This is how a Generate button (or any UI trigger) signals user confirmation.
    */
   approve(executionId: string): void {
     const gate = _confirmationGates.get(executionId);
     if (gate) {
       gate(true);
     } else {
-      console.warn(`[ExecutionBus] approve(): no pending confirmation for executionId=${executionId}`);
+      console.warn(`[ExecutionBus] approve(): no pending confirmation for id=${executionId}`);
     }
   }
 
   /**
-   * Cancel a pending execution.
-   * If it's waiting at CONFIRMATION_WAIT, the gate is resolved as rejected.
+   * Cancel a pending or waiting execution.
+   * Clears both the confirmation gate and the pending controller queue.
    */
   cancel(executionId: string): void {
+    // Cancel confirmation gate if parked there
     const gate = _confirmationGates.get(executionId);
-    if (gate) gate(false);
+    if (gate) { _confirmationGates.delete(executionId); gate(false); }
+
+    // Cancel controller wait if parked there
+    const pending = _pendingExecutions.get(executionId);
+    if (pending) {
+      _pendingExecutions.delete(executionId);
+      clearTimeout(pending.timeout);
+      pending.reject(new Error('Execution cancelled by caller'));
+    }
 
     try {
-      const record = cancelExecution(executionId);
-      const moduleId = record.moduleId;
-      emitBusEvent('execution:cancelled', executionId, moduleId, { manual: true });
+      const cancelled = cancelExecution(executionId);
+      emitBusEvent('execution:cancelled', executionId, cancelled.moduleId, { manual: true });
     } catch { /* already terminal */ }
   }
 
   // ── Accessors ───────────────────────────────────────────────────────────────
 
-  /** The most recently started active execution, or null. */
-  getActiveExecution(): ExecutionRecord | null {
-    return getActiveExecution();
-  }
-
-  /** Get a specific execution record by ID. */
-  getExecution(executionId: string): ExecutionRecord | undefined {
-    return getExecution(executionId);
-  }
-
-  /** All recorded executions, newest-first. */
-  getAllExecutions(): ExecutionRecord[] {
-    return getAllExecutions();
-  }
+  getActiveExecution(): ExecutionRecord | null { return getActiveExecution(); }
+  getExecution(id: string): ExecutionRecord | undefined { return getExecution(id); }
+  getAllExecutions(): ExecutionRecord[] { return getAllExecutions(); }
 
   // ── Internal ────────────────────────────────────────────────────────────────
+
+  /**
+   * Park execution in WAITING_FOR_CONTROLLER. Returns a Promise that resolves
+   * with the ExecutionModule when registerController() fires for this module,
+   * or rejects after 60 s.
+   */
+  private _waitForController(
+    executionId: string,
+    moduleId: ExecutionModuleId,
+    payload: ExecutionPayload,
+    action: ExecutionAction,
+  ): Promise<ExecutionModule> {
+    return new Promise<ExecutionModule>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        _pendingExecutions.delete(executionId);
+        reject(
+          new Error(
+            `[ExecutionBus] Controller registration timeout (60s) for module '${moduleId}' ` +
+            `(executionId=${executionId}). Is the target page reachable?`
+          )
+        );
+      }, 60_000);
+
+      _pendingExecutions.set(executionId, {
+        executionId,
+        moduleId,
+        payload,
+        action,
+        resume: resolve,
+        reject,
+        timeout,
+      });
+    });
+  }
+
+  /**
+   * Run populate → confirm → generate (or just generate) depending on action.
+   * Called once the ExecutionModule is confirmed available.
+   */
+  private async _runAction(
+    executionId: string,
+    moduleId: ExecutionModuleId,
+    mod: ExecutionModule,
+    action: ExecutionAction,
+    payload: ExecutionPayload,
+  ): Promise<ExecutionRecord> {
+    // ── generate-only path ───────────────────────────────────────────────────
+    if (action === 'generate') {
+      return await this._runGenerate(executionId, moduleId, mod);
+    }
+
+    // ── populate / run path ──────────────────────────────────────────────────
+    if (action === 'populate' || action === 'run') {
+      // Navigate (idempotent — controller.navigate() uses setLocation which no-ops if already there)
+      await mod.navigate();
+
+      // POPULATING
+      safeTransition(executionId, 'POPULATING');
+      emitBusEvent('execution:populate_started', executionId, moduleId, { idea: payload.idea });
+      await mod.populate(payload);
+      emitBusEvent('execution:populate_complete', executionId, moduleId);
+
+      // Confirmation gate
+      if (action === 'populate') {
+        // Populate-only: park unconditionally and wait for approve()
+        safeTransition(executionId, 'CONFIRMATION_WAIT');
+        emitBusEvent('execution:confirmation_required', executionId, moduleId, { executionId });
+        await this._waitForConfirmation(executionId, moduleId);
+        return await this._runGenerate(executionId, moduleId, mod);
+      }
+
+      // action === 'run'
+      if (payload.autoGenerate) {
+        // Skip CONFIRMATION_WAIT for programmatic flows
+        emitBusEvent('execution:confirmation_approved', executionId, moduleId, { auto: true });
+      } else {
+        // Park and wait for user to click Generate (or call approve())
+        safeTransition(executionId, 'CONFIRMATION_WAIT');
+        emitBusEvent('execution:confirmation_required', executionId, moduleId, { executionId });
+        await this._waitForConfirmation(executionId, moduleId);
+      }
+
+      return await this._runGenerate(executionId, moduleId, mod);
+    }
+
+    return this._fail(executionId, moduleId, `Unknown action: ${action}`);
+  }
 
   private async _runGenerate(
     executionId: string,
     moduleId: ExecutionModuleId,
-    mod: NonNullable<ReturnType<typeof resolveExecutionModule>>,
+    mod: ExecutionModule,
   ): Promise<ExecutionRecord> {
     safeTransition(executionId, 'GENERATING');
     emitBusEvent('execution:generate_started', executionId, moduleId);
@@ -234,7 +338,7 @@ class ExecutionBus {
     return getExecution(executionId)!;
   }
 
-  private async _waitForConfirmation(executionId: string, moduleId: ExecutionModuleId): Promise<void> {
+  private _waitForConfirmation(executionId: string, moduleId: ExecutionModuleId): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       _confirmationGates.set(executionId, (approved) => {
         _confirmationGates.delete(executionId);
@@ -249,7 +353,7 @@ class ExecutionBus {
   }
 
   private _fail(executionId: string, moduleId: ExecutionModuleId, error: string): ExecutionRecord {
-    console.error(`[ExecutionBus] execution failed | id=${executionId} | error=${error}`);
+    console.error(`[ExecutionBus] failed | id=${executionId} | error=${error}`);
     const record = failExecution(executionId, error);
     emitBusEvent('execution:error', executionId, moduleId, { error });
     return record;
@@ -258,12 +362,5 @@ class ExecutionBus {
 
 // ── Singleton export ──────────────────────────────────────────────────────────
 
-/**
- * The global ExecutionBus singleton.
- *
- * Import this everywhere — do NOT instantiate ExecutionBus directly.
- *
- *   import { bus } from '@/lib/execution-bus'
- */
 export const bus = new ExecutionBus();
 export { ExecutionBus };

@@ -4,8 +4,6 @@
  * Separate from the module-architecture lifecycle events (populate.started, etc.).
  * These events describe coarse execution milestones visible to any consumer:
  * Copilot, UI overlays, analytics, future orchestration layers.
- *
- * Naming convention: execution:<verb>_<noun>
  */
 
 import type { ExecutionModuleId } from './types';
@@ -13,6 +11,8 @@ import type { ExecutionModuleId } from './types';
 /** All bus-level event types. */
 export type BusEventType =
   | 'execution:routing'
+  | 'execution:waiting_for_controller'
+  | 'execution:resumed'
   | 'execution:populate_started'
   | 'execution:populate_complete'
   | 'execution:confirmation_required'
@@ -36,8 +36,6 @@ export interface BusEvent {
 }
 
 export type BusEventHandler = (event: BusEvent) => void;
-
-/** Wildcard subscriber type — receives every event regardless of type. */
 export type BusEventWildcardHandler = (event: BusEvent) => void;
 
 // ── Internal subscriber maps ──────────────────────────────────────────────────
@@ -49,8 +47,8 @@ const _wildcardSubscribers = new Set<BusEventWildcardHandler>();
 
 /**
  * Emit a bus event. Called exclusively by ExecutionBus internals.
- * Errors thrown by subscriber handlers are caught and logged individually
- * so a bad subscriber never kills an execution.
+ * Errors thrown by subscriber handlers are caught individually so a bad
+ * subscriber never kills an execution.
  */
 export function emitBusEvent(
   type: BusEventType,

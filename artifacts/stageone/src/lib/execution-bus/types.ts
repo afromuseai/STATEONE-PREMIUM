@@ -1,28 +1,29 @@
 /**
  * STAGEONE Execution Bus — Shared Types
- *
- * Defines the data model for execution tracking, commands, and payloads.
- * The bus operates on these types; no UI or React dependency belongs here.
  */
 
 /**
  * Every execution passes through these phases in order.
  *
- * IDLE              — No execution in progress.
- * ROUTING           — Command received, resolving module and controller.
- * POPULATING        — Controller.navigate() + controller.populate() running.
- * CONFIRMATION_WAIT — Population complete; waiting for an explicit approve() call.
- *                     (auto-approve fires immediately when payload.autoGenerate = true)
- * GENERATING        — Controller.generate() running (fetch → SSE pipeline active).
- * STREAMING         — SSE chunks actively arriving (sub-phase of GENERATING; tracked
- *                     by module-level lifecycle events, not the bus).
- * SAVING            — Project persistence running (sub-phase; ditto).
- * COMPLETED         — All phases resolved successfully.
- * ERROR             — A phase failed; execution is terminal.
+ * IDLE                  — No execution in progress.
+ * ROUTING               — Command received, resolving module and controller.
+ * WAITING_FOR_CONTROLLER — Controller not yet registered (page not mounted).
+ *                          Bus has navigated and is waiting for registerController()
+ *                          to fire, which will auto-resume the execution.
+ * POPULATING            — controller.navigate() + controller.populate() running.
+ * CONFIRMATION_WAIT     — Population complete; waiting for approve() call.
+ *                         Auto-approves immediately when payload.autoGenerate = true.
+ * GENERATING            — controller.generate() running (SSE pipeline active).
+ * STREAMING             — SSE chunks actively arriving (sub-phase of GENERATING;
+ *                         tracked by module-level lifecycle events, not the bus).
+ * SAVING                — Project persistence running (sub-phase; ditto).
+ * COMPLETED             — All phases resolved successfully.
+ * ERROR                 — A phase failed; execution is terminal.
  */
 export type ExecutionPhase =
   | 'IDLE'
   | 'ROUTING'
+  | 'WAITING_FOR_CONTROLLER'
   | 'POPULATING'
   | 'CONFIRMATION_WAIT'
   | 'GENERATING'

@@ -1,16 +1,11 @@
 /**
  * STAGEONE Execution Bus — Module Registry Adapter
  *
- * The bus does not maintain a separate module registry.
- * Instead, this adapter bridges to the existing module-architecture registry
- * (`src/lib/module-architecture/registry.ts`) so there is exactly ONE place
- * where controllers register/unregister.
+ * Bridges to the existing module-architecture registry (`registry.ts`) so there
+ * is exactly ONE place where controllers register/unregister.
  *
- * Any page that registers via `registerController('website', websiteController)`
- * is automatically available to the bus — no duplicate registration needed.
- *
- * The `ExecutionModule` interface normalises the `ModuleController` contract
- * into the slightly different signature the bus uses internally.
+ * Any page that calls `registerController('website', controller)` is automatically
+ * available to the bus — no duplicate registration needed.
  */
 
 import { getController } from '@/lib/module-architecture/registry';
@@ -18,26 +13,34 @@ import type { ModuleContext } from '@/lib/module-architecture/types';
 import type { ExecutionModuleId, ExecutionPayload } from './types';
 
 /**
- * The interface the ExecutionBus calls into for each module.
+ * Route each module maps to.
+ * Used by ExecutionBus to navigate when the target page is not yet mounted.
+ */
+export const MODULE_ROUTES: Record<ExecutionModuleId, string> = {
+  intelligence: '/business-intelligence',
+  website:      '/website-generator',
+  chatbot:      '/chatbot-generator',
+  automation:   '/automation-builder',
+  orchestrator: '/orchestrator',
+};
+
+/**
+ * The interface ExecutionBus calls into for each module.
  * Implemented by the adapter returned from `resolveExecutionModule()`.
  */
 export interface ExecutionModule {
-  /** Navigate to the module's primary route. */
   navigate(): Promise<void>;
-  /** Hydrate the module's inputs from the given payload. */
   populate(payload: ExecutionPayload): Promise<void>;
-  /** Trigger the module's full AI generation flow. */
   generate(): Promise<void>;
-  /** Re-persist the current output to the project. */
   save(): Promise<void>;
 }
 
 /**
- * Resolve an ExecutionModule for the given module ID by looking up the
- * real controller from the module-architecture registry.
+ * Resolve an ExecutionModule for the given module ID by looking up the real
+ * controller from the module-architecture registry.
  *
- * Returns `null` if the controller is not currently registered (i.e. the
- * target page is not mounted). The caller must handle this case gracefully.
+ * Returns `null` if the controller is not currently registered (target page not mounted).
+ * The bus handles this by parking in WAITING_FOR_CONTROLLER until registration fires.
  */
 export function resolveExecutionModule(moduleId: ExecutionModuleId): ExecutionModule | null {
   const controller = getController(moduleId);
@@ -58,35 +61,33 @@ export function resolveExecutionModule(moduleId: ExecutionModuleId): ExecutionMo
     },
 
     generate: () => controller.generate(),
-
-    save: () => controller.save(),
+    save:     () => controller.save(),
   };
 }
 
 /**
- * Return true if a controller for the given module is currently registered
- * (i.e. the target page is mounted and has registered its bridge).
+ * Return true if a controller for the given module is currently registered.
  */
 export function isModuleReady(moduleId: ExecutionModuleId): boolean {
   return getController(moduleId) !== undefined;
 }
 
 /**
- * Route string to ExecutionModuleId.
- * Useful when the Copilot sends a module name from a `{{WORKSPACE|run|...}}` tag.
+ * Parse a raw module-name string (from Copilot {{WORKSPACE|run|...}} tags)
+ * into an ExecutionModuleId. Returns null for unrecognised values.
  */
 export function parseModuleId(raw: string): ExecutionModuleId | null {
   const map: Record<string, ExecutionModuleId> = {
-    intelligence: 'intelligence',
-    'business-intelligence': 'intelligence',
-    bi: 'intelligence',
-    website: 'website',
-    'website-generator': 'website',
-    chatbot: 'chatbot',
-    'chatbot-generator': 'chatbot',
-    automation: 'automation',
-    'automation-builder': 'automation',
-    orchestrator: 'orchestrator',
+    intelligence:           'intelligence',
+    'business-intelligence':'intelligence',
+    bi:                     'intelligence',
+    website:                'website',
+    'website-generator':    'website',
+    chatbot:                'chatbot',
+    'chatbot-generator':    'chatbot',
+    automation:             'automation',
+    'automation-builder':   'automation',
+    orchestrator:           'orchestrator',
   };
   return map[raw.trim().toLowerCase()] ?? null;
 }
