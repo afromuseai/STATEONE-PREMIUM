@@ -1,0 +1,190 @@
+# MARCUS (copilot) RECOVERY — PHASE 1
+
+## Convert Marcus back into a Workspace Operator
+
+IMPORTANT
+
+Standalone generation and project continuity are now fully working.
+
+DO NOT modify:
+
+* Business Intelligence
+* Website Generator
+* Chatbot Generator
+* Automation Builder
+* AI Orchestrator
+* SSE streaming
+* saveToProject
+* ensureProject
+* project continuity
+* execution pipelines
+
+These systems are now considered stable.
+
+---
+
+## GOAL
+
+Marcus must become a workspace operator.
+
+Marcus does NOT generate content himself.
+
+Marcus operates the existing standalone generators exactly like a human user.
+
+---
+
+## PRINCIPLE
+
+There must be only ONE generation pipeline in STAGEONE.
+
+Marcus must never create a second generation implementation.
+
+Marcus should only:
+
+* navigate
+* populate forms
+* request confirmation
+* trigger the existing standalone Generate button
+* monitor completion
+* report success
+
+---
+
+## WORKFLOW
+
+Example:
+
+User:
+
+"Generate a healthcare scheduling chatbot."
+
+Marcus:
+
+1. Opens Chatbot Generator
+2. Populates the prompt field
+3. User watches the text appear
+4. Marcus says:
+
+"Everything is ready.
+Would you like me to generate it now?"
+
+Marcus waits.
+
+---
+
+User:
+
+"Yes"
+
+Marcus:
+
+Uses the existing standalone generation flow.
+
+Do NOT duplicate generation.
+
+Call the same function used when the user presses:
+
+Generate
+
+Everything else remains unchanged:
+
+* streaming
+* saving
+* project continuity
+* restore
+
+---
+
+## IMPORTANT
+
+Marcus must NOT:
+
+* call NVIDIA directly
+* build prompts separately
+* stream separately
+* save separately
+
+Marcus simply operates the existing page.
+
+---
+
+## ARCHITECTURE
+
+Marcus
+
+↓
+
+Workspace Controller
+
+↓
+
+Standalone Module
+
+↓
+
+Existing Generate Function
+
+↓
+
+Existing Streaming
+
+↓
+
+Existing Save
+
+↓
+
+Existing Project Continuity
+
+---
+
+## CONFIRMATION
+
+Marcus only pauses before generation.
+
+Everything after confirmation uses the existing standalone workflow.
+
+---
+
+## VALIDATION
+
+After implementation verify:
+
+Business Intelligence
+
+Marcus opens page
+
+Marcus populates prompt
+
+Marcus waits
+
+User confirms
+
+Existing standalone generation executes
+
+Streaming appears
+
+Results save
+
+Project continuity remains intact
+
+Repeat the same validation for:
+
+* Website Generator
+* Chatbot Generator
+* Automation Builder
+* AI Orchestrator
+
+---
+
+## DO NOT
+
+Do not redesign STAGEONE.
+
+Do not create new generation code.
+
+Do not recreate an Execution Bus.
+
+Do not bypass standalone.
+
+Marcus must simply become a workspace operator sitting on top of the already working application.
