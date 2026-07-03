@@ -1537,11 +1537,17 @@ export function CopilotPanel() {
         markPendingIntentAutoGenerate("website");
         console.log("WEBSITE_FLOW:G event dispatched | markPendingIntentAutoGenerate(website) called");
       }
+      // generate_intelligence ACTION path: BI page may already be mounted so the mount-time
+      // consumeCopilotAutorun() won't re-fire. Emit a live workspace signal instead so the
+      // subscribeWorkspaceSignal listener in business-intelligence.tsx triggers generation directly.
+      if (action.id === "generate_intelligence") {
+        emitWorkspaceSignal({ target: "intelligence", type: "generate", payload: idea });
+      }
       console.log("NAV_TRACE | source: executeAction ({{ACTION:}} tag) | action.id:", action.id, "| from:", location, "| to:", route, "| stack:", new Error("NAV_TRACE").stack);
       navigate(route);
       setOpen(false);
     },
-    [crossSystem.lastBusinessIdea, navigate, setOpen], // eslint-disable-line react-hooks/exhaustive-deps
+    [crossSystem.lastBusinessIdea, emitWorkspaceSignal, navigate, setOpen], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // When an action is detected after streaming, start a 2-second countdown
