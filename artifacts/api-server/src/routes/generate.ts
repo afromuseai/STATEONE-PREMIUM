@@ -377,6 +377,7 @@ router.post("/generate", requireAuth, async (req, res) => {
         ],
         temperature: 0.7,
         maxTokens,
+        nvextParams: { thinking: { enabled: false } },
       });
     } catch (streamErr) {
       req.log.error({ streamErr, model: MODELS.BUSINESS_INTELLIGENCE }, `[AI:${MODELS.BUSINESS_INTELLIGENCE}] Failed to open stream`);

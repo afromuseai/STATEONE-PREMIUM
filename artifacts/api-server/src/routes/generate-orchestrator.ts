@@ -91,7 +91,8 @@ Create a complete orchestration chain with coordinated AI agents, clear data han
         model: MODELS.ORCHESTRATION,
         messages: [{ role: "system", content: systemPrompt + getLanguageInstruction(language) }, { role: "user", content: userMessage }],
         temperature: 0.65,
-        maxTokens: 3500,
+        maxTokens: 6000,
+        nvextParams: { thinking: { enabled: false } },
       });
     } catch (streamErr) {
       req.log.error({ streamErr, model: MODELS.ORCHESTRATION }, `[AI:${MODELS.ORCHESTRATION}] Failed to open stream`);

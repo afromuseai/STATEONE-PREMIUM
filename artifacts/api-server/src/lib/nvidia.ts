@@ -22,6 +22,9 @@ export interface NvidiaCallOptions {
   topP?: number;
   maxTokens?: number;
   chatTemplateKwargs?: Record<string, unknown>;
+  // nvext controls model-level features — e.g. { thinking: { enabled: false } } to disable
+  // extended thinking on Nemotron 49B so all tokens go directly to output content.
+  nvextParams?: Record<string, unknown>;
   signal?: AbortSignal;
   // ── Observability metadata (optional, does not affect generation) ──────────
   _feature?: string;
@@ -69,7 +72,7 @@ function getApiKey(): string {
 }
 
 function buildBody(options: NvidiaCallOptions, stream: boolean): Record<string, unknown> {
-  const { model, messages, temperature = 0.7, topP, maxTokens = 4000, chatTemplateKwargs } = options;
+  const { model, messages, temperature = 0.7, topP, maxTokens = 4000, chatTemplateKwargs, nvextParams } = options;
 
   const kwargs = chatTemplateKwargs ?? MODEL_KWARGS[model as ModelId];
 
@@ -87,6 +90,10 @@ function buildBody(options: NvidiaCallOptions, stream: boolean): Record<string, 
 
   if (kwargs) {
     body.chat_template_kwargs = kwargs;
+  }
+
+  if (nvextParams) {
+    body.nvext = nvextParams;
   }
 
   return body;

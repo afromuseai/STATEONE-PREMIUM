@@ -126,7 +126,8 @@ Generate a production-ready workflow with real tool integrations, AI agent nodes
           { role: "user", content: userMessage },
         ],
         temperature: 0.7,
-        maxTokens: 4000,
+        maxTokens: 7000,
+        nvextParams: { thinking: { enabled: false } },
       });
     } catch (streamErr) {
       req.log.error({ streamErr, model: MODELS.AUTOMATION }, `[AI:${MODELS.AUTOMATION}] Failed to open stream`);
