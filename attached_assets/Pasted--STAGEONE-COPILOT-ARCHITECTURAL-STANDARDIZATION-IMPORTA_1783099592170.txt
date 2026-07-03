@@ -1,0 +1,270 @@
+# STAGEONE COPILOT — ARCHITECTURAL STANDARDIZATION
+
+IMPORTANT
+
+Do NOT fix individual modules.
+
+Do NOT continue patching Business Intelligence, Chatbot, Automation or Orchestrator independently.
+
+The audit shows there are currently multiple orchestration architectures inside STAGEONE.
+
+That is now the problem.
+
+---
+
+# GOAL
+
+Promote the Website lifecycle into a shared orchestration framework.
+
+Do NOT duplicate Website code.
+
+Instead extract the Website lifecycle into reusable orchestration primitives that every module uses.
+
+Every generator should become a thin implementation layer.
+
+The orchestration lifecycle must exist only once.
+
+---
+
+# WEBSITE IS THE BASELINE
+
+Treat Website as the orchestration reference.
+
+However, preserve Website's existing behaviour while correcting its missing completion event.
+
+Do NOT change Website behaviour.
+
+---
+
+# BUILD A SHARED ORCHESTRATION PIPELINE
+
+Every module must execute the identical lifecycle.
+
+Marcus
+
+↓
+
+Workspace command
+
+↓
+
+PendingIntent
+
+↓
+
+Navigation
+
+↓
+
+Page mount
+
+↓
+
+consumePendingIntent()
+
+↓
+
+Workspace signal restore
+
+↓
+
+Textarea population
+
+↓
+
+Confirmation
+
+↓
+
+markPendingIntentAutoGenerate()
+
+↓
+
+Generation
+
+↓
+
+Streaming
+
+↓
+
+Persistence
+
+↓
+
+Completion event
+
+This lifecycle must become shared infrastructure.
+
+Not copied five times.
+
+---
+
+# REMOVE ARCHITECTURAL DRIFT
+
+Eliminate all module-specific orchestration implementations.
+
+Business Intelligence
+
+Remove:
+
+* special generate path
+* alternate signal flow
+* alternate save flow
+
+Make BI follow the shared orchestration lifecycle.
+
+---
+
+Chatbot
+
+Remove module-specific orchestration logic where it duplicates shared behaviour.
+
+Only chatbot generation should remain unique.
+
+---
+
+Automation
+
+Same.
+
+Only automation generation should remain unique.
+
+---
+
+Orchestrator
+
+Same.
+
+Only orchestrator generation should remain unique.
+
+---
+
+# STANDARDIZE
+
+Every module should use identical:
+
+pendingIntent
+
+consumePendingIntent()
+
+WorkspaceController
+
+emitWorkspaceSignal()
+
+subscribeWorkspaceSignal()
+
+autoGenerate
+
+ensureProject()
+
+saveProjectContext()
+
+completion events
+
+The only things that should differ are:
+
+* route
+* API endpoint
+* generator implementation
+* parser schema
+* generated output
+
+Nothing else.
+
+---
+
+# COMPLETION EVENTS
+
+Standardize:
+
+website.generated
+
+bi.generated
+
+chatbot.generated
+
+automation.generated
+
+orchestrator.generated
+
+Every generator must emit exactly one completion event after persistence succeeds.
+
+Marcus should never guess completion.
+
+Marcus must receive completion from the generator.
+
+---
+
+# PERSISTENCE
+
+Every module must use the same persistence implementation.
+
+No direct create/update logic.
+
+No module-specific save pipeline.
+
+All modules must use:
+
+ensureProject()
+
+followed by
+
+saveProjectContext()
+
+This should behave identically whether generation originates from:
+
+* Marcus
+* standalone UI
+
+Project continuity must be identical.
+
+---
+
+# MODULE REGISTRY
+
+Every module must register itself.
+
+Website
+
+Business Intelligence
+
+Chatbot
+
+Automation
+
+Orchestrator
+
+There should be no exceptions.
+
+---
+
+# AUTO-GENERATION
+
+Every module must trigger generation the same way.
+
+Do not maintain multiple auto-generation mechanisms.
+
+Create one shared auto-generation lifecycle.
+
+Every module should use it.
+
+---
+
+# IMPORTANT
+
+Do not rewrite generators.
+
+Do not modify UI.
+
+Do not change prompts.
+
+Do not change streaming.
+
+Do not change parser schemas.
+
+Only remove orchestration drift.
+
+The objective is that every module shares one orchestration framework while keeping its own generation logic.
+
+The result should be one architecture, not five similar implementations.

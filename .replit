@@ -108,6 +108,10 @@ localPort = 22923
 BASE_PATH = "/"
 PORT = "5000"
 API_PORT = "8000"
+APP_ORIGIN = "https://${REPLIT_DEV_DOMAIN}"
+APP_URL = "https://${REPLIT_DEV_DOMAIN}"
+LOG_LEVEL = "info"
+NODE_ENV = "development"
 
 [nix]
 channel = "stable-25_05"
