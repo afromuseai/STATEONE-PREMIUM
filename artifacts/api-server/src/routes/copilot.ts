@@ -2768,7 +2768,41 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
       orchestrator: "generate_orchestrator",
     };
     const generateCmd = `{{WORKSPACE|${GENERATE_CMD_MAP[confirmationEngine] ?? `generate_${confirmationEngine}`}}}`;
-    const confirmText = "Generating now.";
+
+    // Build a short, readable idea label from the best available source.
+    // Use the top-level project idea (concise, business-level) rather than the
+    // module-specific description which can be several paragraphs long.
+    const rawIdea = (wsProject?.businessIdea ?? clientPendingIntent?.idea ?? "").trim();
+    const ideaLabel = rawIdea.length === 0
+      ? null
+      : rawIdea.length <= 80
+        ? rawIdea
+        : rawIdea.slice(0, 80).replace(/\s\S*$/, "").trimEnd() + "…";
+
+    const hasBi = !!(wsModules?.businessIntelligence);
+
+    const confirmText = (() => {
+      switch (confirmationEngine) {
+        case "bi":
+          return ideaLabel
+            ? `Everything is ready.\n\nI'm generating a business intelligence report for ${ideaLabel}.\n\nI'll attach the results to your current workspace once analysis completes.`
+            : `Everything is ready.\n\nI'm generating a business intelligence report.\n\nI'll attach the results to your current workspace once analysis completes.`;
+        case "website":
+          return hasBi
+            ? `Everything is ready.\n\nI'm generating your website using the business intelligence we created.\n\nI'll save it into the current project.`
+            : ideaLabel
+              ? `Everything is ready.\n\nI'm generating your website for ${ideaLabel}.\n\nI'll save it into the current project.`
+              : `Everything is ready.\n\nI'm generating your website.\n\nI'll save it into the current project.`;
+        case "chatbot":
+          return `Everything is ready.\n\nI'm generating your chatbot using the current project context.\n\nI'll attach it to your current project once complete.`;
+        case "automation":
+          return `Everything is ready.\n\nI'm generating automation workflows based on your business strategy.\n\nI'll save the workflow to your current project.`;
+        case "orchestrator":
+          return `Everything is ready.\n\nI'm preparing the orchestration plan for this business.\n\nI'll attach it to your current workspace once ready.`;
+        default:
+          return `Everything is ready.\n\nGenerating now.`;
+      }
+    })();
 
     req.log.info({
       event: "CONFIRMATION_SERVER_BYPASS",
