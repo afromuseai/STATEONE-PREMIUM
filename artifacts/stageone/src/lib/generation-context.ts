@@ -352,7 +352,7 @@ export function consumeCopilotAutorun(): CopilotAutorun | null {
 // Each page filters by signal.target to handle only its own signals.
 
 export interface MarcusWorkspaceSignal {
-  target: "intelligence" | "website" | "chatbot" | "automation" | "orchestrator"
+  target: "intelligence" | "bi" | "website" | "chatbot" | "automation" | "orchestrator"
   type: "navigate" | "populate" | "generate" | "clear"
   payload?: string
 }

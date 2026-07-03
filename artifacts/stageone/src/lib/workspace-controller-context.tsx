@@ -20,8 +20,10 @@ export type WorkspaceEventType =
   | "project.created"
   | "task.completed"
   | "website.generated"
+  | "bi.generated"
   | "automation.generated"
   | "chatbot.generated"
+  | "orchestrator.generated"
 
 export interface WorkspaceEvent {
   type: WorkspaceEventType
