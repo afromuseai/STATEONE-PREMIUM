@@ -1,46 +1,58 @@
-# STAGEONE-PREMIUM
+# StageOne Premium
 
-An AI Business Operating System — a full-stack pnpm monorepo with a React/Vite frontend, Express API server, and PostgreSQL database.
+An AI Business Operating System — a full-stack pnpm monorepo with a React/Vite frontend, an Express API server, and shared workspace libraries.
 
-## Stack
+## Architecture
 
-- **Frontend**: React 19 + Vite 7 + Tailwind CSS 4 (`artifacts/stageone`, port 5000)
-- **API Server**: Express + TypeScript, built with esbuild (`artifacts/api-server`, port 8000)
-- **Database**: Replit PostgreSQL via Drizzle ORM (`lib/db`)
-- **Shared libs**: `lib/api-spec`, `lib/api-zod`, `lib/api-client-react`, `lib/db`
-- **Package manager**: pnpm workspaces
+| Layer | Location | Port |
+|---|---|---|
+| Frontend (React 19 + Vite + Tailwind) | `artifacts/stageone/` | 5000 |
+| API Server (Express 5 + TypeScript) | `artifacts/api-server/` | 8000 |
+| Database schema & migrations (Drizzle ORM) | `lib/db/` | — |
+| Shared API types / Zod schemas | `lib/api-spec/`, `lib/api-zod/`, `lib/api-client-react/` | — |
+| Mockup sandbox (Shadcn component previews) | `artifacts/mockup-sandbox/` | 8080 |
+
+The frontend proxies all `/api` requests to the API server at `localhost:8000`.
 
 ## How to Run
 
-Three workflows are configured:
+Three workflows are pre-configured:
 
-| Workflow | Command | Port |
-|---|---|---|
-| Start application | `cd artifacts/stageone && PORT=5000 BASE_PATH=/ pnpm run dev` | 5000 |
-| API Server | `cd artifacts/api-server && pnpm run dev` | 8000 |
-| Component Preview Server | `cd artifacts/mockup-sandbox && PORT=8080 ...` | 8080 |
-
-Start all three via the **Project** run button, or individually via the Workflows panel.
-
-## Environment Variables
-
-| Key | Purpose | Required |
-|---|---|---|
-| `DATABASE_URL` | PostgreSQL connection (Replit-managed) | ✅ auto |
-| `SESSION_SECRET` | Session signing | ✅ secret |
-| `JWT_SECRET` | JWT token signing | ✅ env var |
-| `NVIDIA_API_KEY` | NVIDIA AI services | ✅ secret |
-| `API_PORT` | API server port (default 8000) | set to 8000 |
+- **Start application** — starts the Vite dev server on port 5000
+- **API Server** — builds and starts the Express server on port 8000
+- **Component Preview Server** — starts the mockup sandbox on port 8080 (start on demand)
 
 ## Database
 
-Schema is managed with Drizzle ORM. To push schema changes to the development database:
+Uses Replit's built-in PostgreSQL (connection via `DATABASE_URL`). Schema is managed with Drizzle Kit.
+
+To push schema changes to the database:
 
 ```bash
-pnpm --filter @workspace/db run push
+cd lib/db && pnpm run push
 ```
+
+## Required Secrets
+
+| Secret | Purpose |
+|---|---|
+| `JWT_SECRET` | Signs authentication tokens |
+| `SESSION_SECRET` | Session middleware signing |
+| `NVIDIA_API_KEY` | AI model API access |
+
+## Optional Environment Variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SMTP_HOST` | — | Email sending (password reset, notifications) |
+| `SMTP_PORT` | 587 | SMTP port |
+| `SMTP_USER` | — | SMTP username |
+| `SMTP_PASS` | — | SMTP password (set as secret) |
+| `SMTP_FROM` | `noreply@stageone.ai` | Sender address |
+| `LOG_LEVEL` | `info` | Pino log level |
+
+Without SMTP configured, password reset links are logged to the server console (development only).
 
 ## User Preferences
 
-- Keep pnpm workspace structure intact
-- Do not restructure or migrate the existing stack
+- Keep the existing monorepo structure and pnpm workspace setup.

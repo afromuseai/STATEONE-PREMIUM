@@ -311,9 +311,10 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     });
     res.json({ ok: true });
   } else {
-    // Dev mode: no SMTP configured — return the link directly
+    // No SMTP configured — log the link server-side for local development only
     console.log(`[auth] Password reset link for ${user.email}: ${resetLink}`);
-    res.json({ ok: true, devLink: resetLink });
+    const isDev = process.env.NODE_ENV !== "production";
+    res.json({ ok: true, ...(isDev ? { devLink: resetLink } : {}) });
   }
 });
 
