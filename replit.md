@@ -37,7 +37,6 @@ cd lib/db && pnpm run push
 | Secret | Purpose |
 |---|---|
 | `JWT_SECRET` | Signs authentication tokens |
-| `SESSION_SECRET` | Session middleware signing |
 | `NVIDIA_API_KEY` | AI model API access |
 
 ## Optional Environment Variables

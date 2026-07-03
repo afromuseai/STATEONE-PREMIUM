@@ -1,0 +1,276 @@
+# STAGEONE ARCHITECTURAL DIRECTIVE — DO NOT RE-AUDIT
+
+## IMPORTANT
+
+Do **NOT** perform another architecture audit.
+
+The architecture has already been investigated thoroughly.
+
+Assume the following findings are correct unless runtime evidence proves otherwise.
+
+---
+
+# CURRENT ROOT PROBLEM
+
+Marcus currently uses **two parallel orchestration architectures**.
+
+## Legacy execution path
+
+Marcus emits:
+
+* `{{WORKSPACE|generate_intelligence}}`
+* `{{WORKSPACE|generate_website}}`
+* `{{WORKSPACE|generate_chatbot}}`
+* `{{WORKSPACE|generate_automation}}`
+* `{{WORKSPACE|generate_orchestrator}}`
+
+These commands are processed by:
+
+* `fireAndStripTags()`
+* `handleWorkspaceCmdAction()`
+
+which directly invoke legacy mechanisms such as:
+
+* `emitWorkspaceSignal()`
+* `markPendingIntentAutoGenerate()`
+* `stageone:autoGenerate`
+* `consumePendingIntent()`
+* sessionStorage recovery
+* direct page generation
+
+This bypasses the ExecutionBus entirely.
+
+---
+
+## New architecture
+
+ExecutionBus already exists.
+
+It already supports:
+
+* routing
+* navigation
+* controller resolution
+* bridge execution
+* populate
+* confirmation
+* generation
+* completion
+
+However it is only entered by:
+
+`{{WORKSPACE|run|module|idea}}`
+
+Normal Marcus generation requests never use it.
+
+---
+
+# CONCLUSION
+
+ExecutionBus is **NOT** the active orchestration engine for normal user generation requests.
+
+Instead, Marcus is still primarily using the legacy dispatcher.
+
+This split architecture is responsible for much of the instability observed across:
+
+* Business Intelligence
+* Website Generator
+* Chatbot Generator
+* Automation Builder
+* Orchestrator
+
+---
+
+# PROJECT GOAL
+
+Make ExecutionBus the **single orchestration engine** for all Marcus generation requests.
+
+The desired ownership chain is:
+
+Marcus
+
+↓
+
+ExecutionBus
+
+↓
+
+Module Controller
+
+↓
+
+Bridge
+
+↓
+
+React Module
+
+↓
+
+Generation
+
+↓
+
+Persistence
+
+↓
+
+Completion Event
+
+↓
+
+Marcus
+
+Every generation request should follow this path.
+
+---
+
+# IMPLEMENTATION STRATEGY
+
+Do NOT delete legacy code immediately.
+
+Perform a controlled migration.
+
+## Phase 1
+
+Register missing controllers.
+
+ExecutionBus must own all modules:
+
+* intelligence
+* website
+* chatbot
+* automation
+* orchestrator
+
+If chatbot or automation controllers are missing, register them.
+
+---
+
+## Phase 2
+
+Replace every `generate_*` dispatcher branch.
+
+Instead of:
+
+* emitWorkspaceSignal()
+* markPendingIntentAutoGenerate()
+* direct navigation
+
+route every generation request through:
+
+`ExecutionBus.execute()`
+
+or the equivalent execution entrypoint.
+
+This includes:
+
+* generate_intelligence
+* generate_website
+* generate_chatbot
+* generate_automation
+* generate_orchestrator
+
+---
+
+## Phase 3
+
+Verify runtime.
+
+Every Marcus generation request should log something equivalent to:
+
+`ExecutionBus.execute()`
+
+at the beginning.
+
+If any request still bypasses ExecutionBus:
+
+STOP.
+
+Find the remaining legacy entry.
+
+Do not continue until all generation traffic enters the bus.
+
+---
+
+## Phase 4
+
+Once every module successfully generates through ExecutionBus:
+
+THEN remove obsolete generation mechanisms.
+
+Examples include:
+
+* generation emitWorkspaceSignal()
+* markPendingIntentAutoGenerate()
+* stageone:autoGenerate
+* Copilot autorun generation path
+* generation-specific pending intent logic
+
+Only remove code proven to be unused after migration.
+
+---
+
+# IMPORTANT RULES
+
+Do NOT redesign STAGEONE.
+
+Do NOT rewrite modules.
+
+Do NOT modify generation quality.
+
+Do NOT change project persistence.
+
+Do NOT change authentication.
+
+Do NOT change the UI.
+
+This task is purely an orchestration consolidation.
+
+---
+
+# SUCCESS CRITERIA
+
+For every Marcus request such as:
+
+* Generate BI
+* Generate Website
+* Generate Chatbot
+* Generate Automation
+* Generate Orchestrator
+
+the runtime should always follow:
+
+Marcus
+
+↓
+
+ExecutionBus
+
+↓
+
+Controller
+
+↓
+
+Bridge
+
+↓
+
+Module
+
+↓
+
+Generation
+
+↓
+
+Persistence
+
+↓
+
+Completion
+
+with **no legacy generation path involved**.
+
+Focus on implementation, not another investigation.
