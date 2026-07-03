@@ -2,9 +2,9 @@
  * useGeneratorOrchestration — Shared orchestration lifecycle for all STAGEONE generator modules.
  *
  * Encapsulates the identical lifecycle every module must execute:
- *   Marcus → workspace command → PendingIntent → navigation → page mount →
- *   consumePendingIntent → workspace signal restore → textarea population →
- *   confirmation → markPendingIntentAutoGenerate → generation →
+ *   Marcus → ExecutionBus → bridge.navigate() → page mount →
+ *   bridge.populate() → textarea population →
+ *   bridge.triggerGenerate() → generation →
  *   streaming → persistence (ensureProject) → completion event
  *
  * Each generator page provides module-specific callbacks (onPopulate, onAutoGenerate)
@@ -36,12 +36,12 @@ import { ensureProject, type ProjectType, type OutputField, type EnsureProjectRe
 // ─── Module-level mount cache ──────────────────────────────────────────────────
 // Survives AnimatePresence unmount/remount cycles: first mount stores the intent,
 // second mount reads it and clears it so subsequent visits start fresh.
-const _mountCaches = new Map<string, { idea: string; autoGenerate: boolean } | null>()
+const _mountCaches = new Map<string, { idea: string } | null>()
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface UseGeneratorOrchestrationConfig {
-  /** PendingIntent type — used to consume the intent and filter autoGenerate events */
+  /** PendingIntent type — used to consume the intent on mount */
   moduleId: PendingIntent["type"]
   /** Workspace signal target — used for populate signal subscription */
   signalTarget: MarcusWorkspaceSignal["target"]
@@ -121,7 +121,7 @@ export function useGeneratorOrchestration({
     )
 
     const cached = _mountCaches.get(moduleId) ?? undefined
-    let intent: { idea: string; autoGenerate: boolean } | null = null
+    let intent: { idea: string } | null = null
 
     if (cached !== undefined && cached !== null) {
       // Second mount (AnimatePresence remount) — restore from cache
@@ -130,8 +130,8 @@ export function useGeneratorOrchestration({
     } else {
       const fresh = consumePendingIntent(moduleId)
       if (fresh) {
-        _mountCaches.set(moduleId, { idea: fresh.idea, autoGenerate: fresh.autoGenerate })
-        intent = { idea: fresh.idea, autoGenerate: fresh.autoGenerate }
+        _mountCaches.set(moduleId, { idea: fresh.idea })
+        intent = { idea: fresh.idea }
       }
     }
 
@@ -147,42 +147,16 @@ export function useGeneratorOrchestration({
 
     console.log(
       `[ORCH] intent consumed | module=${moduleId}` +
-      ` | autoGenerate=${intent.autoGenerate}` +
       ` | idea(50)="${intent.idea.slice(0, 50)}"`,
     )
     if (intent.idea) {
       cacheConsumedIdea(moduleId, intent.idea)
-      onPopulateRef.current(intent.idea, !intent.autoGenerate)
-    }
-    if (intent.autoGenerate) {
-      const ideaText = intent.idea
-      setTimeout(() => {
-        const text = ideaText || getIdeaRef.current()
-        if (text.trim()) onAutoGenerateRef.current(text)
-      }, 300)
+      // Always animate — generation is triggered exclusively by ExecutionBus
+      onPopulateRef.current(intent.idea, true)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 3. Already-mounted: stageone:autoGenerate event ────────────────────────
-  // Fired by markPendingIntentAutoGenerate when generate_<module> fires while the page
-  // is already mounted. Consume the refreshed intent and trigger generation directly.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { type } = (e as CustomEvent<{ type: string }>).detail
-      if (type !== moduleId) return
-      console.log(`[ORCH] stageone:autoGenerate | module=${moduleId}`)
-      const intent = consumePendingIntent(moduleId)
-      const text = intent?.idea || getIdeaRef.current()
-      if (text.trim()) {
-        if (!getIdeaRef.current().trim()) onPopulateRef.current(text, false)
-        setTimeout(() => onAutoGenerateRef.current(text), 100)
-      }
-    }
-    window.addEventListener("stageone:autoGenerate", handler)
-    return () => window.removeEventListener("stageone:autoGenerate", handler)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── 4. Workspace signal subscription — populate only ─────────────────────────
+  // ── 3. Workspace signal subscription — populate only ─────────────────────────
   // Handles {{WORKSPACE|<module>_idea|...}} populate signals when the page is already
   // mounted. Generation is triggered exclusively via the pendingIntent path above,
   // not via a "generate" signal type. Drains the queue first to catch signals that

@@ -38,7 +38,7 @@ const TONES: ToneOption[] = ["Professional", "Futuristic", "Corporate", "Friendl
 // Module-level: survives AnimatePresence unmount/remount cycles.
 // First mount consumes the intent from sessionStorage; second mount reads this
 // cache instead of getting null. Cleared after use so subsequent visits start fresh.
-let _websiteMountIntentCache: { idea: string; autoGenerate: boolean } | null = null
+let _websiteMountIntentCache: { idea: string } | null = null
 
 const SECTIONS: { key: SectionKey; label: string; icon: React.ReactNode }[] = [
   { key: "hero", label: "Hero", icon: <Zap className="h-3.5 w-3.5" /> },
@@ -150,14 +150,9 @@ export default function WebsiteGeneratorPage() {
 
   // Auto-fill from business intelligence context or Copilot autorun
   useEffect(() => {
-    // Copilot autorun takes priority — it carries the idea directly
-    const autorun = consumeCopilotAutorun()
-    if (autorun?.action === "generate_website" && autorun.idea) {
-      setContextBanner(true)
-      // Let the component mount before starting typewriter
-      setTimeout(() => setAutorunIdea(autorun.idea!), 150)
-      return
-    }
+    // consumeCopilotAutorun generate trigger removed — generation is triggered exclusively by ExecutionBus.
+    // Consume to clear sessionStorage; result intentionally ignored.
+    consumeCopilotAutorun()
 
     // Fallback: auto-fill from saved business intelligence context
     const ctx = loadGenerationContext()
@@ -232,15 +227,15 @@ export default function WebsiteGeneratorPage() {
     // Cache-aware consumption: AnimatePresence may unmount/remount this page during
     // route transitions. The first mount removes the intent from sessionStorage;
     // the second mount reads from the module-level cache instead of returning null.
-    let intent: { type: "website"; idea: string; autoGenerate: boolean; timestamp: number } | null = null
+    let intent: { type: "website"; idea: string; timestamp: number } | null = null
     if (_websiteMountIntentCache) {
       intent = { ..._websiteMountIntentCache, type: "website" as const, timestamp: Date.now() }
       _websiteMountIntentCache = null
     } else {
       const fresh = consumePendingIntent("website")
       if (fresh) {
-        _websiteMountIntentCache = { idea: fresh.idea, autoGenerate: fresh.autoGenerate }
-        intent = { type: "website" as const, idea: fresh.idea, autoGenerate: fresh.autoGenerate, timestamp: fresh.timestamp }
+        _websiteMountIntentCache = { idea: fresh.idea }
+        intent = { type: "website" as const, idea: fresh.idea, timestamp: fresh.timestamp }
       }
     }
     console.log("WEBSITE_FLOW:D idea loaded | consumePendingIntent result:", JSON.stringify(intent))
@@ -265,60 +260,15 @@ export default function WebsiteGeneratorPage() {
       return
     }
     if (intent.idea) {
-        // Cache BEFORE using — so markPendingIntentAutoGenerate can recover the idea
-        // when generate_website fires after this intent has already been consumed.
         cacheConsumedIdea("website", intent.idea)
         console.log("WEBSITE_FLOW:1a cacheConsumedIdea written | idea length:", intent.idea.length)
         marcusWebsiteIdeaRef.current = intent.idea
         ideaRef.current = intent.idea
         setContextBanner(true)
-        if (intent.autoGenerate) {
-          // Direct set — no typewriter animation needed when we're about to generate
-          setIdea(intent.idea)
-        } else {
-          // Typewriter animation for populate-only
-          marcusPopulateRef.current = intent.idea
-          setMarcusPopulateTick(t => t + 1)
-        }
+        // Always use typewriter animation — generation is triggered exclusively by ExecutionBus
+        marcusPopulateRef.current = intent.idea
+        setMarcusPopulateTick(t => t + 1)
       }
-    if (intent.autoGenerate) {
-      setTimeout(() => {
-        const text = intent.idea || marcusWebsiteIdeaRef.current || ideaRef.current
-        if (text.trim()) generateWithIdea(text)
-      }, 300)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Already-mounted: react to generate_website fired after page open ────────
-  // markPendingIntentAutoGenerate dispatches this event + writes a fresh PendingIntent
-  // with the recovered idea. Consume it and trigger generation directly.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { type } = (e as CustomEvent<{ type: string }>).detail
-      console.log("WEBSITE_FLOW:3 stageone:autoGenerate event received | type:", type)
-      if (type !== "website") {
-        console.log("WEBSITE_FLOW:3 ignored — type is not 'website'")
-        return
-      }
-      const intent = consumePendingIntent("website")
-      console.log("WEBSITE_FLOW:3a consumePendingIntent result:", JSON.stringify(intent))
-      const text = intent?.idea || marcusWebsiteIdeaRef.current || ideaRef.current
-      console.log("WEBSITE_FLOW:3b resolved text | length:", text.length, "| source: intent.idea=", !!(intent?.idea), "marcusRef=", !!marcusWebsiteIdeaRef.current, "ideaRef=", !!ideaRef.current)
-      if (text.trim()) {
-        if (!ideaRef.current.trim()) {
-          setIdea(text)
-          setContextBanner(true)
-        }
-        console.log("WEBSITE_FLOW:H generateWithIdea called | idea (first 80):", text.slice(0, 80))
-        setTimeout(() => {
-          generateWithIdea(text)
-        }, 100)
-      } else {
-        console.warn("WEBSITE_FLOW:3c NO idea text found — generation aborted. marcusWebsiteIdeaRef:", marcusWebsiteIdeaRef.current, "ideaRef:", ideaRef.current)
-      }
-    }
-    window.addEventListener("stageone:autoGenerate", handler)
-    return () => window.removeEventListener("stageone:autoGenerate", handler)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Live workspace signal — UI sync only (populate textarea, show banner) ────

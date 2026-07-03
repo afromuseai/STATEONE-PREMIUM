@@ -195,11 +195,9 @@ export default function BusinessIntelligencePage() {
       }
     }
 
-    // Copilot autorun: pass idea to InputPanel so user sees it typed live before generation fires
-    const autorun = consumeCopilotAutorun()
-    if (autorun?.action === "generate_intelligence" && autorun.idea) {
-      setTimeout(() => setAutorunIdea(autorun.idea!), 150)
-    }
+    // Generation is triggered exclusively by ExecutionBus → IntelligenceBridge → handleGenerateRef.
+    // Legacy consumeCopilotAutorun generation trigger removed.
+    consumeCopilotAutorun() // consume to clear sessionStorage; result intentionally ignored
 
     // Primary path: consume pendingIntent written by copilot-panel (same as website/chatbot/automation)
     const intent = consumePendingIntent("bi")
@@ -222,10 +220,8 @@ export default function BusinessIntelligencePage() {
       if (qs.type === "populate" && qs.payload) {
         marcusBiIdeaRef.current = qs.payload
         setTimeout(() => setMarcusPopulate(qs.payload!), 150)
-      } else if (qs.type === "generate") {
-        const idea = qs.payload?.trim() || marcusBiIdeaRef.current.trim()
-        if (idea) setTimeout(() => handleGenerateRef.current?.(idea), 300)
       }
+      // "generate" type signals removed — generation is triggered exclusively by ExecutionBus
     }
 
     // Load subscription for usage enforcement
@@ -253,12 +249,8 @@ export default function BusinessIntelligencePage() {
         const idea = signal.payload
         marcusBiIdeaRef.current = idea
         setTimeout(() => setMarcusPopulate(idea), 50)
-      } else if (signal.type === "generate") {
-        const idea = (signal.payload?.trim() || marcusBiIdeaRef.current.trim())
-        if (!idea) return
-        if (!handleGenerateRef.current) return
-        handleGenerateRef.current(idea)
       }
+      // "generate" type signals removed — generation is triggered exclusively by ExecutionBus
     }, "intelligence")
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 

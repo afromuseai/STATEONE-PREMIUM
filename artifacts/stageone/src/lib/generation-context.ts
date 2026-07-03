@@ -202,7 +202,6 @@ const PENDING_INTENT_KEY = "stageone_pending_intent"
 export interface PendingIntent {
   type: "website" | "chatbot" | "automation" | "bi" | "orchestrator"
   idea: string
-  autoGenerate: boolean
   timestamp: number
 }
 
@@ -214,35 +213,13 @@ export function setPendingIntent(intent: Omit<PendingIntent, "timestamp">): void
 
 // ─── Consumed Idea Cache ───────────────────────────────────────────────────────
 // When a generator page consumes a PendingIntent it saves the idea here so that
-// markPendingIntentAutoGenerate can recover it even after the intent is gone.
+// subsequent bus-driven generation can still resolve the idea after the intent is gone.
 const INTENT_IDEA_CACHE_KEY = "stageone_intent_idea_cache"
 
 export function cacheConsumedIdea(type: PendingIntent["type"], idea: string): void {
   try {
     sessionStorage.setItem(`${INTENT_IDEA_CACHE_KEY}_${type}`, idea)
   } catch { /* quota */ }
-}
-
-function getCachedIdea(type: PendingIntent["type"]): string {
-  try { return sessionStorage.getItem(`${INTENT_IDEA_CACHE_KEY}_${type}`) ?? "" } catch { return "" }
-}
-
-export function markPendingIntentAutoGenerate(type: PendingIntent["type"]): void {
-  try {
-    const raw = sessionStorage.getItem(PENDING_INTENT_KEY)
-    if (raw) {
-      const intent = JSON.parse(raw) as PendingIntent
-      if (intent.type === type) {
-        sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify({ ...intent, autoGenerate: true }))
-        window.dispatchEvent(new CustomEvent("stageone:autoGenerate", { detail: { type } }))
-        return
-      }
-    }
-    // No existing matching intent — recover idea from cache so it is not lost
-    const cachedIdea = getCachedIdea(type)
-    sessionStorage.setItem(PENDING_INTENT_KEY, JSON.stringify({ type, idea: cachedIdea, autoGenerate: true, timestamp: Date.now() }))
-    window.dispatchEvent(new CustomEvent("stageone:autoGenerate", { detail: { type } }))
-  } catch { /* */ }
 }
 
 // Non-consuming read — lets the copilot panel send pendingIntent to the server

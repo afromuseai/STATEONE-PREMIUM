@@ -40,7 +40,6 @@ import {
   setCopilotAutorun,
   setMarcusWorkspaceSignal,
   setPendingIntent,
-  markPendingIntentAutoGenerate,
   saveProjectContext,
   peekPendingIntent,
 } from "@/lib/generation-context";
@@ -106,7 +105,7 @@ interface WorkspaceContext {
   };
   projectCount: number;
   activeAgents: number;
-  pendingIntent: { type: "website" | "chatbot" | "automation" | "bi" | "orchestrator"; idea: string; autoGenerate: boolean } | null;
+  pendingIntent: { type: "website" | "chatbot" | "automation" | "bi" | "orchestrator"; idea: string } | null;
 }
 
 const PAGE_NAMES: Record<string, string> = {
@@ -1075,7 +1074,7 @@ export function CopilotPanel() {
           if (currentProject) {
             saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
           }
-          setPendingIntent({ type: "website", idea, autoGenerate: false });
+          setPendingIntent({ type: "website", idea });
           // Always emit the signal regardless of current location.
           // If the page is mounted the signal delivers live; if not (race: page mounting
           // but subscribeWorkspaceSignal effect hasn't registered yet), the signal is
@@ -1096,7 +1095,7 @@ export function CopilotPanel() {
           if (currentProject) {
             saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
           }
-          setPendingIntent({ type: "automation", idea, autoGenerate: false });
+          setPendingIntent({ type: "automation", idea });
           emitWorkspaceSignal({ target: "automation", type: "populate", payload: idea });
           if (location !== "/automation-builder") {
             console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: automation | from:", location, "| to: /automation-builder | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
@@ -1105,7 +1104,7 @@ export function CopilotPanel() {
         } else if (activeModule === "bi") {
           // Same logic as the "bi_idea" command handler below.
           lastBiIdeaRef.current = idea;
-          setPendingIntent({ type: "bi", idea, autoGenerate: false });
+          setPendingIntent({ type: "bi", idea });
           setMarcusWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea });
           if (!location.startsWith("/business-intelligence")) {
             console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: bi | from:", location, "| to: /business-intelligence | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
@@ -1118,7 +1117,7 @@ export function CopilotPanel() {
           if (currentProject) {
             saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
           }
-          setPendingIntent({ type: "chatbot", idea: idea_c, autoGenerate: false });
+          setPendingIntent({ type: "chatbot", idea: idea_c });
           // Always emit unconditionally — queued if page not yet subscribed, drained on subscribe.
           emitWorkspaceSignal({ target: "chatbot", type: "populate", payload: idea_c });
           if (location !== "/chatbot-generator") {
@@ -1131,7 +1130,7 @@ export function CopilotPanel() {
           if (currentProject) {
             saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
           }
-          setPendingIntent({ type: "orchestrator", idea, autoGenerate: false });
+          setPendingIntent({ type: "orchestrator", idea });
           emitWorkspaceSignal({ target: "orchestrator", type: "populate", payload: idea });
           if (location !== "/orchestrator") {
             console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: orchestrator | from:", location, "| to: /orchestrator | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
@@ -1175,7 +1174,7 @@ export function CopilotPanel() {
         // Write pendingIntent so the server bypass can fire on the next confirmation.
         // BI uses workspace signals for actual generation, but the server needs
         // the pendingIntent to know which bypass command to emit.
-        setPendingIntent({ type: "bi", idea, autoGenerate: false });
+        setPendingIntent({ type: "bi", idea });
         setMarcusWorkspaceSignal({
           target: "intelligence",
           type: "populate",
@@ -1216,7 +1215,7 @@ export function CopilotPanel() {
         if (currentProject) {
           saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
         }
-        setPendingIntent({ type: "website", idea, autoGenerate: false });
+        setPendingIntent({ type: "website", idea });
         if (location === "/website-generator") {
           // Page is already mounted — the mount effect won't re-run, so the pending
           // intent would sit in sessionStorage forever and the textarea stays empty.
@@ -1277,7 +1276,7 @@ export function CopilotPanel() {
           "AUTOMATION_TRACE: PendingIntent written | type: automation | idea:",
           JSON.stringify(idea),
         );
-        setPendingIntent({ type: "automation", idea, autoGenerate: false });
+        setPendingIntent({ type: "automation", idea });
         // 2. Emit workspace signal — if page is mounted, delivers live; if not, queues to
         //    sessionStorage so the page drains it on mount. No timing hacks needed.
         console.log(
@@ -1310,7 +1309,7 @@ export function CopilotPanel() {
         if (currentProject) {
           saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
         }
-        setPendingIntent({ type: "orchestrator", idea, autoGenerate: false });
+        setPendingIntent({ type: "orchestrator", idea });
         emitWorkspaceSignal({ target: "orchestrator", type: "populate", payload: idea });
         if (location !== "/orchestrator") {
           console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: orchestrator_idea | from:", location, "| to: /orchestrator | stack:", new Error("NAV_TRACE").stack);

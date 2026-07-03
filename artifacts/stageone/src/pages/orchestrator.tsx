@@ -12,7 +12,7 @@ import { useLocation } from "wouter"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
-import { loadProjectContext, clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, consumePendingIntent, cacheConsumedIdea, markPendingIntentAutoGenerate, dequeueWorkspaceSignals } from "@/lib/generation-context"
+import { loadProjectContext, clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, consumePendingIntent, cacheConsumedIdea, dequeueWorkspaceSignals } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { orchestratorController } from "@/lib/module-architecture/controllers/orchestrator-controller"
 import { registerController, unregisterController } from "@/lib/module-architecture/registry"
@@ -268,14 +268,12 @@ export default function OrchestratorPage() {
   const [isReplaying, setIsReplaying] = useState(false)
   const [replayStep, setReplayStep] = useState(-1)
   const abortRef = useRef<AbortController | null>(null)
-  const autoGenPendingRef = useRef(false)
   // Bridge refs — kept in sync each render so the OrchestratorBridge can always
   // call the latest version of generate() and read the current goal value.
   const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
   const goalRef = useRef(goal)
   const generateRef = useRef<((ideaOverride?: string) => Promise<void>) | null>(null)
   const [userPlan, setUserPlan] = useState<string | null>(null)
-  const [pendingAutoGenerate, setPendingAutoGenerate] = useState(false)
   // Marcus workspace signal typewriter — same ref+tick pattern as website-generator.
   const [marcusPopulateTick, setMarcusPopulateTick] = useState(0)
   const marcusPopulateRef = useRef<string>("")
@@ -302,17 +300,10 @@ export default function OrchestratorPage() {
     const intent = consumePendingIntent("orchestrator")
     if (intent?.idea) {
       cacheConsumedIdea("orchestrator", intent.idea)
-      console.log("ORCHESTRATOR_TRACE: consumed pendingIntent | autoGenerate:", intent.autoGenerate, "| idea:", intent.idea.slice(0, 60))
-      if (intent.autoGenerate) {
-        // Direct set — about to auto-generate, no animation needed.
-        setGoal(intent.idea)
-        autoGenPendingRef.current = true
-        setPendingAutoGenerate(true)
-      } else {
-        // Non-autoGenerate: use typewriter animation, same as website-generator.
-        marcusPopulateRef.current = intent.idea
-        setMarcusPopulateTick(t => t + 1)
-      }
+      console.log("ORCHESTRATOR_TRACE: consumed pendingIntent | idea:", intent.idea.slice(0, 60))
+      // Always use typewriter animation — generation is triggered exclusively by ExecutionBus
+      marcusPopulateRef.current = intent.idea
+      setMarcusPopulateTick(t => t + 1)
       return
     }
 
@@ -336,30 +327,6 @@ export default function OrchestratorPage() {
   }, [user])
 
   const isFreePlan = user !== null && userPlan === "free"
-
-  // Phase 2 — auto-generate when goal state propagates from pendingIntent
-  useEffect(() => {
-    if (!pendingAutoGenerate || !goal.trim() || step !== "idle") return
-    setPendingAutoGenerate(false)
-    autoGenPendingRef.current = false
-    generate()
-  }, [pendingAutoGenerate, goal, step]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Already-mounted: stageone:autoGenerate event (fired by markPendingIntentAutoGenerate)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { type } = (e as CustomEvent<{ type: string }>).detail
-      if (type !== "orchestrator") return
-      const intent = consumePendingIntent("orchestrator")
-      const text = intent?.idea || goal
-      if (text.trim()) {
-        if (!goal.trim()) setGoal(text)
-        setPendingAutoGenerate(true)
-      }
-    }
-    window.addEventListener("stageone:autoGenerate", handler)
-    return () => window.removeEventListener("stageone:autoGenerate", handler)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Marcus typewriter populate effect — same ref+tick pattern as website-generator.
   useEffect(() => {
