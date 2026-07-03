@@ -1,0 +1,257 @@
+# COPILOT ARCHITECTURE AUDIT — UNIFY ALL WORKSPACE GENERATION FLOWS
+
+IMPORTANT
+
+Do NOT debug the UI.
+
+Do NOT patch individual generators.
+
+Do NOT introduce module-specific fixes unless absolutely required.
+
+The Website flow currently behaves as the reference implementation.
+
+Treat Website as the canonical workflow and audit Marcus (Copilot) so every workspace module follows the exact same lifecycle.
+
+---
+
+# OBJECTIVE
+
+Marcus must operate as a workspace orchestrator.
+
+Regardless of whether the user requests:
+
+* Business Intelligence
+* Website
+* Chatbot
+* Automation
+* Orchestrator
+
+Marcus should execute the exact same orchestration lifecycle.
+
+The destination module is the ONLY thing that should change.
+
+---
+
+# DO NOT START BY WRITING CODE
+
+First perform a complete architectural audit.
+
+Produce a lifecycle comparison for every module.
+
+I want to see:
+
+| Stage                                | Website | Business Intelligence | Chatbot | Automation | Orchestrator |
+| ------------------------------------ | ------- | --------------------- | ------- | ---------- | ------------ |
+| Workspace command emitted            |         |                       |         |            |              |
+| Navigation                           |         |                       |         |            |              |
+| Pending intent written               |         |                       |         |            |              |
+| Pending intent restored              |         |                       |         |            |              |
+| Signal emitted                       |         |                       |         |            |              |
+| Signal consumed                      |         |                       |         |            |              |
+| Live textarea population             |         |                       |         |            |              |
+| Confirmation requested               |         |                       |         |            |              |
+| Generation command emitted           |         |                       |         |            |              |
+| Generation starts                    |         |                       |         |            |              |
+| Streaming begins                     |         |                       |         |            |              |
+| Generation completes                 |         |                       |         |            |              |
+| Output parsed                        |         |                       |         |            |              |
+| Project saved                        |         |                       |         |            |              |
+| Project context updated              |         |                       |         |            |              |
+| Completion event sent back to Marcus |         |                       |         |            |              |
+
+Mark every row as:
+
+* IDENTICAL
+* DIFFERENT
+* MISSING
+
+Do NOT modify anything until this comparison is complete.
+
+---
+
+# CANONICAL REFERENCE
+
+Website is the reference implementation.
+
+Every other module must match Website's lifecycle unless there is a documented architectural reason.
+
+Do NOT compare UI.
+
+Compare execution flow.
+
+---
+
+# MARCUS RESPONSIBILITIES
+
+Marcus should always follow this sequence:
+
+1.
+
+Determine the correct workspace module.
+
+2.
+
+Emit workspace commands.
+
+3.
+
+Open the workspace.
+
+4.
+
+Transfer context.
+
+5.
+
+Populate the textarea using the same live typing behaviour as Website.
+
+6.
+
+Wait for confirmation.
+
+7.
+
+Emit generation command.
+
+8.
+
+Wait for completion.
+
+9.
+
+Ensure results are saved.
+
+10.
+
+Update project continuity.
+
+11.
+
+Report success to the user.
+
+No module should skip or reorder these steps.
+
+---
+
+# VERIFY WORKSPACE COMMANDS
+
+Verify Marcus consistently emits structured commands for every supported module.
+
+Business Intelligence
+
+{{WORKSPACE|bi}}
+{{WORKSPACE|idea|...}}
+
+Website
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|...}}
+
+Chatbot
+
+{{WORKSPACE|chatbot}}
+{{WORKSPACE|idea|...}}
+
+Automation
+
+{{WORKSPACE|automation}}
+{{WORKSPACE|idea|...}}
+
+Orchestrator
+
+{{WORKSPACE|orchestrator}}
+{{WORKSPACE|idea|...}}
+
+Then, after confirmation:
+
+{{WORKSPACE|generate_<module>}}
+
+Marcus must generate these commands dynamically based on the active STAGEONE workspace.
+
+Do NOT hardcode conversational responses.
+
+---
+
+# VERIFY GENERATION PARITY
+
+Compare Website against every module.
+
+Specifically verify:
+
+* identical pendingIntent handling
+* identical workspace signal flow
+* identical textarea population
+* identical confirmation lifecycle
+* identical generation trigger
+* identical streaming lifecycle
+* identical save lifecycle
+* identical saveProjectContext behaviour
+* identical completion callback back to Marcus
+
+If Website performs a step that another module does not, explain exactly why.
+
+---
+
+# VERIFY PERSISTENCE
+
+Every Marcus-triggered generation must behave exactly like a standalone generation.
+
+Verify:
+
+* identical project creation
+* identical project lookup
+* identical save endpoint
+* identical payload
+* identical project context updates
+
+There should be ZERO behavioural differences between:
+
+Standalone Generation
+
+and
+
+Marcus Generation
+
+except for how generation is initiated.
+
+---
+
+# VERIFY COPILOT
+
+Audit Marcus itself.
+
+Determine whether responses are being generated dynamically from the workspace registry and orchestration rules,
+
+or whether module-specific conversational responses have become hardcoded.
+
+Marcus should never rely on hardcoded wording like:
+
+"I'll configure..."
+
+"I'll build..."
+
+"I'll draft..."
+
+Instead, Marcus should:
+
+* inspect the active workspace registry
+* determine the correct module
+* emit the appropriate workspace commands
+* generate natural language around those actions
+
+The orchestration should be data-driven, not template-driven.
+
+---
+
+# OUTPUT
+
+Before making changes, provide:
+
+1. Complete lifecycle comparison.
+2. Every deviation from Website.
+3. Root cause for each deviation.
+4. Exact plan to make every module identical to Website's lifecycle.
+
+Only after that should implementation begin.
+
+The goal is to establish one canonical Marcus orchestration pipeline shared by every workspace module, eliminating module-specific behaviour and future regressions.
