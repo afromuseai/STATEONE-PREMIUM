@@ -23,6 +23,7 @@ import {
   dequeueWorkspaceSignals,
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
+import { ensureProject } from "@/lib/ensure-project"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/intelligence-bridge"
 import { intelligenceController } from "@/lib/module-architecture/controllers/intelligence-controller"
 import { registerController, unregisterController } from "@/lib/module-architecture/registry"
@@ -420,62 +421,41 @@ export default function BusinessIntelligencePage() {
 
       if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current)
       console.log("GENERATOR_AUDIT: generator=business-intelligence | generation completed")
-      let biSaved = false
-      if (draftProjectIdRef.current) {
-        try {
-          await api.projects.update(draftProjectIdRef.current, {
-            output: finalData as unknown as Record<string, unknown>,
-            status: "active",
-          })
-          biSaved = true
-        } catch { /* save error */ }
-      }
-      emit({ type: "generation.complete", data: { saved: biSaved } })
-
-      // Auto-record revenue intelligence signal (fire-and-forget)
-      recordRevenueSignal({
-        industry: finalData.industry,
-        businessSnapshot: finalData.businessSnapshot,
-        sourceMetrics: {
-          marketDifficulty: finalData.metrics.marketDifficulty,
-          automationPotential: finalData.metrics.automationPotential,
-          revenueScalability: finalData.metrics.revenueScalability,
-          operationalComplexity: finalData.metrics.operationalComplexity,
-          aiAdoptionOpportunity: finalData.metrics.aiAdoptionOpportunity,
-        },
-      }).catch(() => {})
-
-      if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
-      setSaveStatus("saving")
       const title = idea.length > 60 ? idea.slice(0, 60) + "…" : idea
-      try {
-        let project: import("@/lib/api").Project
-        if (draftProjectIdRef.current) {
-          ;({ project } = await api.projects.update(draftProjectIdRef.current, {
-            title,
-            status: "active",
-            output: finalData as unknown as Record<string, unknown>,
-          }))
-          setActiveProjectId(project.id)
-          projectsRef.current = projectsRef.current.map(p => p.id === project.id ? project : p)
-        } else {
-          ;({ project } = await api.projects.create({
-            title,
-            businessIdea: idea,
-            output: finalData as unknown as Record<string, unknown>,
-          }))
-          setActiveProjectId(project.id)
-          projectsRef.current = [project, ...projectsRef.current].slice(0, 50)
-        }
+      // Standardized persistence: if a draft project was created during streaming,
+      // register it as the continuation context so ensureProject() patches it instead
+      // of creating a duplicate.
+      if (draftProjectIdRef.current) {
         saveProjectContext({
-          projectId: project.id,
+          projectId: draftProjectIdRef.current,
           projectTitle: title,
-          originatingBusinessIntelligenceId: project.id,
+          continuityMode: "continuation",
+          source: "Marcus",
+        })
+      }
+      setSaveStatus("saving")
+      const biResult = await ensureProject({
+        type: "business_intelligence",
+        idea,
+        outputField: "output",
+        output: finalData as unknown as Record<string, unknown>,
+        title,
+      }).catch(() => ({ projectId: "", created: false, saved: false }))
+      if (biResult.projectId) {
+        setActiveProjectId(biResult.projectId)
+        // Promote draft → active now that generation is complete (ensureProject patches output
+        // only; the draft was created with status="draft" during streaming).
+        api.projects.update(biResult.projectId, { status: "active" }).catch(() => {})
+        // Override with BI-specific context (originatingBusinessIntelligenceId + Marcus source)
+        saveProjectContext({
+          projectId: biResult.projectId,
+          projectTitle: title,
+          originatingBusinessIntelligenceId: biResult.projectId,
           continuityMode: "continuation",
           source: "Marcus",
         })
         recordRevenueSignal({
-          projectId: project.id,
+          projectId: biResult.projectId,
           industry: finalData.industry,
           businessSnapshot: finalData.businessSnapshot,
           sourceMetrics: {
@@ -486,9 +466,10 @@ export default function BusinessIntelligencePage() {
             aiAdoptionOpportunity: finalData.metrics.aiAdoptionOpportunity,
           },
         }).catch(() => {})
-        setSaveStatus("saved")
-        setTimeout(() => setSaveStatus("idle"), 3000)
-      } catch { setSaveStatus("idle") }
+      }
+      emit({ type: "bi.generated", data: { saved: biResult.saved } })
+      setSaveStatus(biResult.saved ? "saved" : "idle")
+      if (biResult.saved) setTimeout(() => setSaveStatus("idle"), 3000)
 
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred")

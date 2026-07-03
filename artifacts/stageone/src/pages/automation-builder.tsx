@@ -14,15 +14,13 @@ import stageoneIcon from "@/assets/stageone-icon.png"
 import {
   loadGenerationContext, clearGenerationContext, clearProjectContext, loadProjectContext,
   loadAutomationRestoreContext, clearAutomationRestoreContext,
-  deriveWorkflowType, buildAutomationDesc, consumePendingIntent, cacheConsumedIdea,
-  dequeueWorkspaceSignals,
+  deriveWorkflowType, buildAutomationDesc, cacheConsumedIdea,
 } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
-import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { ensureProject } from "@/lib/ensure-project"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/automation-bridge"
 import { automationController } from "@/lib/module-architecture/controllers/automation-controller"
-import { registerController, unregisterController } from "@/lib/module-architecture/registry"
+import { useGeneratorOrchestration } from "@/lib/hooks/use-generator-orchestration"
 
 /* ── Types ─────────────────────────────────────────────── */
 type NodeType = "trigger" | "action" | "ai_agent" | "notification" | "crm" | "database" | "webhook"
@@ -308,7 +306,6 @@ function NodeDetailPanel({ node, logic }: { node: WorkflowNode; logic: LogicStep
 /* ── Main Page ──────────────────────────────────────────── */
 export default function AutomationBuilderPage() {
   const { lang } = useLang()
-  const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
   const [, setLocation] = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [businessDesc, setBusinessDesc] = useState("")
@@ -373,16 +370,34 @@ export default function AutomationBuilderPage() {
     setTimeout(() => cb?.(), 50)
   }, [populateTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const saveToProject = useCallback(async (output: AutomationData): Promise<boolean> => {
-    console.log("GENERATOR_AUDIT: generator=automation")
-    const { saved } = await ensureProject({
-      type: "automation",
-      idea: businessDescRef.current || "Automation workflow",
-      outputField: "automationOutput",
-      output: output as unknown as Record<string, unknown>,
-    })
-    return saved
-  }, [])
+  // ─── Shared orchestration lifecycle ─────────────────────────────────────────
+  // intentHandledRef: set by onPopulate so Phase 1 (BI fallback) can detect that
+  // the hook already consumed a pendingIntent and skip the fallback path.
+  const intentHandledRef = useRef(false)
+
+  const { completeGeneration } = useGeneratorOrchestration({
+    moduleId: "automation",
+    signalTarget: "automation",
+    controller: automationController,
+    completionEvent: "automation.generated",
+    projectType: "automation",
+    outputField: "automationOutput",
+    getIdea: () => businessDescRef.current,
+    onPopulate: (idea, animate) => {
+      intentHandledRef.current = true
+      if (animate) {
+        marcusPopulateRef.current = idea
+        setMarcusPopulateTick(t => t + 1)
+      } else {
+        setBusinessDesc(idea)
+        setContextBanner(true)
+      }
+    },
+    onAutoGenerate: (idea) => {
+      autoGenFired.current = true
+      generateWith(idea, workflowTypeRef.current, complexityRef.current)
+    },
+  })
 
   // Check subscription tier
   useEffect(() => {
@@ -414,70 +429,21 @@ export default function AutomationBuilderPage() {
     }
   }, [])
 
-  // Phase 1 — Load context and hydrate state fields
+  // Phase 1 — BI GenerationContext fallback only
+  // pendingIntent consumption, signal drain, and workspace signal subscription are
+  // handled by useGeneratorOrchestration above. This effect handles only the
+  // BI → Automation deep-link path (GenerationContext written by intelligence page).
   useEffect(() => {
     const _mountCtx = loadProjectContext()
     console.log(`GENERATOR_MOUNT | page=automation-builder | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
-    console.log("AUTOMATION_TRACE: Page mounted | Phase 1 starting | checking consumePendingIntent('automation')")
-
-    // Signal queue drain — must run before subscribeWorkspaceSignal registers.
-    // Uses typewriter (ref+tick) so animation matches website-generator exactly.
-    const queued = dequeueWorkspaceSignals("automation")
-    let drainedSignal = false
-    for (const qs of queued) {
-      if (qs.type === "populate" && qs.payload?.trim()) {
-        console.log("AUTOMATION_POPULATE_3 | queued signal drained | payload length:", qs.payload.length)
-        cacheConsumedIdea("automation", qs.payload)
-        marcusPopulateRef.current = qs.payload
-        setMarcusPopulateTick(t => t + 1)
-        drainedSignal = true
-      }
-    }
-
-    // Primary: durable pending intent — written by Copilot before navigating.
-    // Always consume it (removes from sessionStorage), but only act if no signal
-    // was drained (prevents the direct-set overwriting the in-progress typewriter).
-    const intent = consumePendingIntent("automation")
-    console.log("AUTOMATION_TRACE: Intent consumed | result:", JSON.stringify(intent))
-    if (intent && intent.idea) {
-      // Cache the idea so markPendingIntentAutoGenerate can recover it if generate_automation
-      // fires after this intent has already been consumed (page already mounted).
-      cacheConsumedIdea("automation", intent.idea)
-      if (intent.autoGenerate) {
-        // autoGenerate=true: direct set + schedule generation — no typewriter needed.
-        console.log("AUTOMATION_TRACE: autoGenerate=true | businessDesc set directly | autoGenPending queued")
-        setBusinessDesc(intent.idea)
-        setContextBanner(true)
-        autoGenPending.current = { wt: "Lead Capture", cplx: "Intermediate" }
-      } else if (!drainedSignal) {
-        // Non-autoGenerate + no signal drained: use typewriter for populate animation.
-        console.log("AUTOMATION_TRACE: autoGenerate=false | typewriter populate | waiting for user to confirm generation")
-        marcusPopulateRef.current = intent.idea
-        setMarcusPopulateTick(t => t + 1)
-      } else {
-        console.log("AUTOMATION_TRACE: autoGenerate=false | signal already drained — skipping duplicate pendingIntent populate")
-      }
-      return
-    }
-    // Fallback: generation context written by Business Intelligence page
-    console.log("AUTOMATION_TRACE: No PendingIntent found | checking GenerationContext fallback")
+    // If the hook's onPopulate was called (pendingIntent found), skip BI fallback.
+    if (intentHandledRef.current) return
     const ctx = loadGenerationContext()
-    console.log("AUTOMATION_TRACE: GenerationContext loaded:", ctx ? "found (BI fallback)" : "not found — evaluating context before clearing")
     if (!ctx) {
       const isContinuation = _mountCtx?.continuityMode === "continuation" && !!_mountCtx?.projectId
-      const ctxReason = !_mountCtx?.projectId
-        ? "missing_project"
-        : _mountCtx.continuityMode === "continuation"
-          ? "continuation_context"
-          : _mountCtx.continuityMode === "standalone"
-            ? "standalone_context"
-            : "stale_context"
-      console.log(`CONTEXT_DECISION | preserve=${isContinuation} | reason=${ctxReason} | projectId=${_mountCtx?.projectId ?? "(none)"}`)
       if (!isContinuation) {
         console.log("AUTOMATION_TRACE: standalone mount — clearing stale project context")
         clearProjectContext()
-      } else {
-        console.log("AUTOMATION_TRACE: continuation context preserved — will reuse existing project")
       }
       return
     }
@@ -507,39 +473,6 @@ export default function AutomationBuilderPage() {
     generateWith(businessDesc, wt, cplx)
   }, [businessDesc]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Already-mounted: react to generate_automation fired after page open ──────
-  // markPendingIntentAutoGenerate dispatches this event + writes a fresh PendingIntent
-  // (with the recovered idea). Consume it and trigger generation directly.
-  //
-  // Phase 5 fix: stable listener with [] deps — avoids the race where the event
-  // fires during a gap between old listener being removed and new one being added.
-  // businessDescRef / workflowTypeRef / complexityRef give access to current values
-  // without re-creating the listener on every state change.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { type } = (e as CustomEvent<{ type: string }>).detail
-      console.log("AUTOMATION_TRACE: stageone:autoGenerate event received | type:", type)
-      if (type !== "automation") {
-        console.log("AUTOMATION_TRACE: stageone:autoGenerate event ignored | type is not 'automation'")
-        return
-      }
-      const intent = consumePendingIntent("automation")
-      console.log("AUTOMATION_TRACE: Intent consumed (post-mount event) | result:", JSON.stringify(intent))
-      if (!intent) return
-      const desc = intent.idea || businessDescRef.current
-      console.log("AUTOMATION_TRACE: Textarea populated (post-mount event) | desc (first 120):", JSON.stringify(desc.slice(0, 120)))
-      if (!desc.trim()) return
-      if (!businessDescRef.current.trim()) {
-        setBusinessDesc(desc)
-        setContextBanner(true)
-      }
-      console.log("AUTOMATION_TRACE: Generation started (post-mount event) | workflowType:", workflowTypeRef.current, "| complexity:", complexityRef.current)
-      setTimeout(() => generateWith(desc, workflowTypeRef.current, complexityRef.current), 100)
-    }
-    window.addEventListener("stageone:autoGenerate", handler)
-    return () => window.removeEventListener("stageone:autoGenerate", handler)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   // Marcus typewriter populate effect — same ref+tick pattern as website-generator.
   // Reads marcusPopulateRef, clears it (no re-render), then types the idea character
   // by character into businessDesc. Counter dep prevents re-run on every setBusinessDesc.
@@ -567,22 +500,7 @@ export default function AutomationBuilderPage() {
     }
   }, [marcusPopulateTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Post-mount intent sync — handles the case where automation_idea fires while this page
-  // is already mounted. The copilot now uses emitWorkspaceSignal (live delivery) instead of
-  // the old stageone:intentUpdated CustomEvent + 300ms timeout hack.
-  useEffect(() => {
-    return subscribeWorkspaceSignal((signal) => {
-      if (signal.target !== "automation") return
-      if (signal.type === "populate" && signal.payload?.trim()) {
-        console.log("AUTOMATION_POPULATE_3 | live signal received | payload length:", signal.payload.length)
-        cacheConsumedIdea("automation", signal.payload)
-        marcusPopulateRef.current = signal.payload
-        setMarcusPopulateTick(t => t + 1)
-      }
-    }, "automation")
-  }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Phase 5 — Register bridge + controller on mount, unregister on unmount.
+  // Phase 5 — Register bridge on mount, unregister on unmount.
   // The bridge exposes this page's live handlers so automationController can delegate
   // without duplicating any generation logic.
   useEffect(() => {
@@ -599,16 +517,18 @@ export default function AutomationBuilderPage() {
         generateWith(idea, workflowTypeRef.current, complexityRef.current)
       }),
       save: async () => {
-        if (latestDataRef.current) {
-          await saveToProject(latestDataRef.current)
-        }
+        if (!latestDataRef.current) return
+        await ensureProject({
+          type: "automation",
+          idea: businessDescRef.current || "Automation workflow",
+          outputField: "automationOutput",
+          output: latestDataRef.current as unknown as Record<string, unknown>,
+        }).catch(() => {})
       },
       getCurrentIdea: () => businessDescRef.current,
     })
-    registerController('automation', automationController)
     return () => {
       unregisterBridge()
-      unregisterController('automation')
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -654,9 +574,7 @@ export default function AutomationBuilderPage() {
               setData(msg.data)
               setStep("done")
               console.log("GENERATOR_AUDIT: generator=automation | generation completed")
-              const saved = await saveToProject(msg.data as AutomationData)
-              console.log("[CONFIRM_FLOW:5] generateWith complete — emitting automation.generated | saved:", saved, "| timestamp:", Date.now())
-              emit({ type: "automation.generated", data: { saved } })
+              await completeGeneration(msg.data as unknown as Record<string, unknown>, businessDescRef.current || "Automation workflow")
               // Phase 5: resolve the bridge's triggerGenerate Promise only after
               // SSE streaming, saveToProject, and UI update are fully done.
               const completeCb = generateCompleteCallbackRef.current

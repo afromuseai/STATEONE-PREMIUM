@@ -14,6 +14,8 @@ import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
 import { loadProjectContext, clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, consumePendingIntent, cacheConsumedIdea, markPendingIntentAutoGenerate, dequeueWorkspaceSignals } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
+import { orchestratorController } from "@/lib/module-architecture/controllers/orchestrator-controller"
+import { registerController, unregisterController } from "@/lib/module-architecture/registry"
 
 interface Agent {
   id: string; name: string; role: string; model: string
@@ -276,7 +278,7 @@ export default function OrchestratorPage() {
   const { lang } = useLang()
   const [, navigate] = useLocation()
   const { openUpgradeModal } = useUpgradeModal()
-  const { subscribeWorkspaceSignal } = useWorkspaceController()
+  const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
 
   useEffect(() => {
     const _mountCtx = loadProjectContext()
@@ -400,6 +402,12 @@ export default function OrchestratorPage() {
     }, "orchestrator")
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Register orchestrator controller so the workspace knows this module is active
+  useEffect(() => {
+    registerController("orchestrator", orchestratorController)
+    return () => unregisterController("orchestrator")
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const generate = async () => {
     if (!goal.trim()) return
     const goalText = goal.trim()
@@ -432,12 +440,13 @@ export default function OrchestratorPage() {
             if (msg.content) { buffer += msg.content; setStreamText(buffer) }
             if (msg.done && msg.data) {
               setData(msg.data); setStep("done"); setActiveTab("graph")
-              ensureProject({
+              const _orchResult = await ensureProject({
                 type: "orchestration",
                 idea: goalText,
                 outputField: "orchestratorOutput",
                 output: msg.data as Record<string, unknown>,
-              }).catch(() => {})
+              }).catch(() => ({ projectId: "", created: false, saved: false }))
+              emit({ type: "orchestrator.generated", data: { saved: _orchResult.saved } })
             }
           } catch { /* fragment */ }
         }

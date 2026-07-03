@@ -11,27 +11,15 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import {
   loadGenerationContext, clearGenerationContext,
-  loadProjectContext, clearProjectContext,
   loadChatbotRestoreContext, clearChatbotRestoreContext,
   deriveChatbotType, deriveChatbotIndustry, deriveChatbotTone, buildChatbotDesc,
-  consumePendingIntent,
-  cacheConsumedIdea,
-  dequeueWorkspaceSignals,
 } from "@/lib/generation-context"
-import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/chatbot-bridge"
 import { chatbotController } from "@/lib/module-architecture/controllers/chatbot-controller"
-import { registerController, unregisterController } from "@/lib/module-architecture/registry"
+import { useGeneratorOrchestration } from "@/lib/hooks/use-generator-orchestration"
 
-// ─── Module-level intent cache ────────────────────────────────────────────────
-// AnimatedRoutes uses key={location}, so navigation causes an unmount+remount
-// of the entire route tree.  On the FIRST mount consumePendingIntent removes the
-// entry from sessionStorage; on the immediate SECOND mount it would return null.
-// This module variable bridges that gap: the first mount saves the intent here,
-// the second mount reads it and then clears it so subsequent visits start fresh.
-let _mountIntentCache: { idea: string; autoGenerate: boolean } | null = null
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Step = "input" | "generating" | "done"
@@ -141,8 +129,6 @@ export default function ChatbotGeneratorPage() {
   // Holds the auto-generation payload until businessDesc state has propagated
   const autoGenPending = useRef<{ type: ChatbotType; ind: Industry; tn: Tone } | null>(null)
   const autoGenFired = useRef(false)
-  // Project linkage — loaded once on mount, used to save output back to originating project
-  const projectCtxRef = useRef<{ projectId: string; projectTitle: string } | null>(null)
   // Marcus execution engine refs
   const descTextareaRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -152,7 +138,6 @@ export default function ChatbotGeneratorPage() {
   const industryRef = useRef(industry)
   const toneRef = useRef(tone)
 
-  const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
   const [, setLocation] = useLocation()
 
   // Phase 4 — Bridge refs: wired into the ChatbotBridge so the controller can
@@ -201,9 +186,34 @@ export default function ChatbotGeneratorPage() {
     }, 20)
   }, [])
 
-  // ─── Phase 4: Register ChatbotBridge + controller on mount ──────────────────
+  // ─── Shared orchestration lifecycle ─────────────────────────────────────────
+  // Handles pendingIntent consumption, autoGenerate, workspace signal subscription,
+  // and controller registration — replacing the equivalent inline effects below.
+  const { completeGeneration } = useGeneratorOrchestration({
+    moduleId: "chatbot",
+    signalTarget: "chatbot",
+    controller: chatbotController,
+    completionEvent: "chatbot.generated",
+    projectType: "chatbot",
+    outputField: "chatbotOutput",
+    getIdea: () => businessDescRef.current,
+    onPopulate: (idea, animate) => {
+      if (animate) {
+        typewriterPopulate(idea)
+      } else {
+        setBusinessDesc(idea)
+        setContextBanner(true)
+      }
+    },
+    onAutoGenerate: (idea) => {
+      generateWith(idea, chatbotTypeRef.current, industryRef.current, toneRef.current)
+    },
+  })
+
+  // ─── Phase 4: Register ChatbotBridge on mount ────────────────────────────────
   // The bridge delegates all operations to this component's existing handlers.
   // No generation logic is duplicated — the bridge is purely a delegation layer.
+  // Controller registration is handled by useGeneratorOrchestration above.
   useEffect(() => {
     registerBridge({
       navigate: () => setLocation("/chatbot-generator"),
@@ -227,156 +237,10 @@ export default function ChatbotGeneratorPage() {
       },
       getCurrentIdea: () => businessDescRef.current,
     })
-    registerController("chatbot", chatbotController)
     return () => {
       unregisterBridge()
-      unregisterController("chatbot")
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Mount: consume durable intent queue (primary) or legacy signal (fallback) ─
-  useEffect(() => {
-    // Primary: durable pending intent — written by Copilot before navigating.
-    // Does NOT depend on subscriber timing, React effect order, or live signals.
-    const rawSS = sessionStorage.getItem("stageone_pending_intent")
-    const _mountCtx = loadProjectContext()
-    // ── Stage E ────────────────────────────────────────────────────────────────
-    console.log("GENERATE_CHATBOT_MOUNT | pendingIntent:", rawSS, "| autoGenerate:", rawSS ? JSON.parse(rawSS).autoGenerate : null, "| route:", window.location.pathname);
-    console.log(`GENERATOR_MOUNT | page=chatbot-generator | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
-    console.log("[PIPELINE:7a] chatbot-generator mounted | raw sessionStorage:", rawSS)
-    const intent = consumePendingIntent("chatbot")
-    console.log("[PIPELINE:7] consumePendingIntent return value:", JSON.stringify(intent))
-
-    // Resolve: prefer fresh intent from sessionStorage; fall back to module cache
-    // (handles AnimatePresence double-mount where second mount sees null sessionStorage)
-    const effective = intent ?? _mountIntentCache
-
-    if (intent) {
-      // First mount: save to module cache in case of an immediate remount
-      _mountIntentCache = { idea: intent.idea, autoGenerate: intent.autoGenerate }
-      // Also cache so markPendingIntentAutoGenerate can recover it after generate_chatbot fires
-      cacheConsumedIdea("chatbot", intent.idea)
-    } else if (_mountIntentCache) {
-      // Second mount: consumed from cache — clear so the next deliberate visit starts fresh
-      _mountIntentCache = null
-    }
-
-    if (effective) {
-      if (effective.idea) {
-        if (effective.autoGenerate) {
-          // Direct set — no typewriter needed when we're about to generate
-          console.log("[PIPELINE:8] calling setBusinessDesc (autoGenerate) | value:", JSON.stringify(effective.idea))
-          console.log("MARCUS_STAGE_6_POPULATE | mode: direct (autoGenerate) | promptLength:", effective.idea.length, "| first100:", effective.idea.slice(0, 100));
-          setBusinessDesc(effective.idea)
-          setContextBanner(true)
-        } else {
-          console.log("[PIPELINE:8] calling typewriterPopulate | value:", JSON.stringify(effective.idea))
-          typewriterPopulate(effective.idea)
-        }
-      } else {
-        console.log("[PIPELINE:8] intent.idea is EMPTY — no setBusinessDesc call")
-      }
-      if (effective.autoGenerate) {
-        setTimeout(() => {
-          const desc = effective.idea || businessDescRef.current
-          if (desc.trim()) {
-            // ── Stage F ────────────────────────────────────────────────────────
-            console.log("GENERATE_CHATBOT_AUTOSTART | businessDescLength:", desc.trim().length, "| chatbotType:", chatbotTypeRef.current, "| pendingIntent:", JSON.stringify(effective));
-            generateWith(desc, chatbotTypeRef.current, industryRef.current, toneRef.current)
-          }
-        }, 300)
-      }
-      return
-    }
-    // No pending intent — check if a valid continuation context was written by project.tsx
-    // before navigating here. If so, preserve it; only clear on true standalone mounts.
-    const isContinuation = _mountCtx?.continuityMode === "continuation" && !!_mountCtx?.projectId
-    const ctxReason = !_mountCtx?.projectId
-      ? "missing_project"
-      : _mountCtx.continuityMode === "continuation"
-        ? "continuation_context"
-        : _mountCtx.continuityMode === "standalone"
-          ? "standalone_context"
-          : "stale_context"
-    console.log(`CONTEXT_DECISION | preserve=${isContinuation} | reason=${ctxReason} | projectId=${_mountCtx?.projectId ?? "(none)"}`)
-    if (!isContinuation) {
-      console.log("[PIPELINE:7] intent is NULL — standalone mount, clearing stale project context")
-      clearProjectContext()
-    } else {
-      console.log("[PIPELINE:7] intent is NULL but continuation context preserved — will reuse existing project")
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Already-mounted: react to generate_chatbot fired after page open ─────────
-  // markPendingIntentAutoGenerate dispatches this event + writes a fresh PendingIntent
-  // (with the recovered idea). Consume it and trigger generation directly.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { type } = (e as CustomEvent<{ type: string }>).detail
-      if (type !== "chatbot") return
-      const intent = consumePendingIntent("chatbot")
-      if (!intent) return
-      const desc = intent.idea || businessDescRef.current
-      if (desc.trim()) {
-        if (!businessDescRef.current.trim()) {
-          setBusinessDesc(desc)
-          setContextBanner(true)
-        }
-        setTimeout(() => {
-          generateWith(desc, chatbotTypeRef.current, industryRef.current, toneRef.current)
-        }, 100)
-      }
-    }
-    window.addEventListener("stageone:autoGenerate", handler)
-    return () => window.removeEventListener("stageone:autoGenerate", handler)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Workspace signal subscription — same pipeline as website-generator ────────
-  // Drains any signals queued before this page's subscriber registered (race window
-  // between navigation and the effect firing), then subscribes for live delivery.
-  // Both paths call typewriterPopulate — identical to the website module's pattern.
-  useEffect(() => {
-    const queued = dequeueWorkspaceSignals("chatbot")
-    for (const qs of queued) {
-      if (qs.type === "populate" && qs.payload?.trim()) {
-        console.log("CHATBOT_POPULATE_3 | queued signal drained | payload length:", qs.payload.length)
-        if (!businessDescRef.current.trim()) {
-          cacheConsumedIdea("chatbot", qs.payload)
-          typewriterPopulate(qs.payload)
-        }
-      }
-    }
-    return subscribeWorkspaceSignal((signal) => {
-      if (signal.target !== "chatbot") return
-      if (signal.type === "populate" && signal.payload?.trim()) {
-        console.log("CHATBOT_POPULATE_3 | live signal received | payload length:", signal.payload.length)
-        cacheConsumedIdea("chatbot", signal.payload)
-        typewriterPopulate(signal.payload)
-      }
-    }, "chatbot")
-  }, [subscribeWorkspaceSignal, typewriterPopulate]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const ctx = loadProjectContext()
-    projectCtxRef.current = ctx
-    // Proof logs — four IDs must all match for save to succeed
-    console.log("currentProject.id", ctx?.projectId ?? "(none — no project context in sessionStorage)")
-    console.log("projectCtx.id", ctx?.projectId ?? "(none)")
-    console.log("sessionStorage project", ctx)
-  }, [])
-
-  const saveToProject = useCallback(async (output: ChatbotOutput): Promise<boolean> => {
-    console.log("GENERATOR_AUDIT: generator=chatbot")
-    console.log("MARCUS_STAGE_12_SAVE_STARTED | type: chatbot | idea:", (businessDescRef.current || "Chatbot").slice(0, 80));
-    const { saved, projectId } = await ensureProject({
-      type: "chatbot",
-      idea: businessDescRef.current || "Chatbot",
-      outputField: "chatbotOutput",
-      output: output as unknown as Record<string, unknown>,
-    })
-    console.log("MARCUS_STAGE_13_SAVE_COMPLETE | saved:", saved, "| projectId:", projectId || "(none)");
-    return saved
-  }, [])
 
   // Check subscription tier
   useEffect(() => {
@@ -614,8 +478,7 @@ export default function ChatbotGeneratorPage() {
               setStep("done")
               setRightTab("preview")
               console.log("GENERATOR_AUDIT: generator=chatbot | generation completed")
-              const saved = await saveToProject(out)
-              emit({ type: "chatbot.generated", data: { saved } })
+              await completeGeneration(out as unknown as Record<string, unknown>, businessDescRef.current || "Chatbot")
               // Phase 4: signal bridge that generation is fully complete —
               // fires only after SSE streaming, project save, and UI update are done.
               generateCompleteCallbackRef.current?.()

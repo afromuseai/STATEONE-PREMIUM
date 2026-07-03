@@ -122,7 +122,7 @@ export default function WebsiteGeneratorPage() {
   const [marcusPopulateTick, setMarcusPopulateTick] = useState(0)
   const [isTyping, setIsTyping] = useState(false)
   const { openUpgradeModal } = useUpgradeModal()
-  const { subscribeWorkspaceSignal } = useWorkspaceController()
+  const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
   const [, setLocation] = useLocation()
   const exportRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -522,12 +522,13 @@ export default function WebsiteGeneratorPage() {
               updatePreview(out)
               setStep("done")
               console.log("WEBSITE_FLOW:6a step set to done")
-              await ensureProject({
+              const _epResult = await ensureProject({
                 type: "website",
                 idea: ideaOverride,
                 outputField: "websiteOutput",
                 output: out as unknown as Record<string, unknown>,
-              }).catch(() => {})
+              }).catch(() => ({ projectId: "", created: false, saved: false }))
+              emit({ type: "website.generated", data: { saved: _epResult.saved } })
               return
             }
           } catch { /* fragment */ }
@@ -585,12 +586,13 @@ export default function WebsiteGeneratorPage() {
               setData(out)
               updatePreview(out)
               setStep("done")
-              await ensureProject({
+              const _epResult = await ensureProject({
                 type: "website",
                 idea: idea,
                 outputField: "websiteOutput",
                 output: out as unknown as Record<string, unknown>,
-              }).catch(() => {})
+              }).catch(() => ({ projectId: "", created: false, saved: false }))
+              emit({ type: "website.generated", data: { saved: _epResult.saved } })
               return
             }
           } catch { /* fragment */ }

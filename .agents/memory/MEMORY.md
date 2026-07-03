@@ -4,3 +4,4 @@
 - [Admin auth stale JWT fix](admin-auth-stale-jwt.md) — requireAdmin now does DB fallback for isAdmin; promoted admins don't need to re-login
 - [Notification delivery pipeline](notification-delivery.md) — fanOutBroadcast and message-center must call pushNotificationToUser after DB insert; notifications context needs 30s polling fallback
 - [Six missing capability fixes](six-capability-fixes.md) — #4 email, #5 onboarding, #6 error tracking, #8 retention analytics, #9 RBAC, #10 referral program all implemented; ErrorBoundary must live inside AuthProvider not outside it
+- [Generator orchestration standardization](generator-orchestration-std.md) — chatbot+automation migrated to useGeneratorOrchestration hook; website/BI/orchestrator received targeted event+save fixes; BI draft→active status promotion must be explicit after ensureProject
