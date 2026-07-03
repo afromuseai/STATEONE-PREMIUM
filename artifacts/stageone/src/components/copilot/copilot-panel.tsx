@@ -1150,14 +1150,12 @@ export function CopilotPanel() {
           );
         }
       } else if (command === "generate_chatbot") {
-        console.log("MARCUS_STAGE_4_DISPATCH | command: generate_chatbot | action: markPendingIntentAutoGenerate");
-        markPendingIntentAutoGenerate("chatbot");
-        console.log("MARCUS_STAGE_5_TAB_OPEN | command: generate_chatbot | navigating to /chatbot-generator | autoGenerate: true");
-        // ── Stage D ──────────────────────────────────────────────────────────────
-        const _piAfterMark = sessionStorage.getItem("stageone_pending_intent");
-        console.log("GENERATE_CHATBOT_NAVIGATE | destination: /chatbot-generator | pendingIntent:", _piAfterMark);
-        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_chatbot | from:", location, "| to: /chatbot-generator | stack:", new Error("NAV_TRACE").stack);
-        navigate("/chatbot-generator");
+        console.log("[ExecutionBus] generate_chatbot → bus.execute({ module: chatbot, action: generate })");
+        import("@/lib/execution-bus").then(({ bus }) => {
+          bus.execute({ module: "chatbot", action: "generate", payload: {} }).catch((err) => {
+            console.warn("[ExecutionBus] generate_chatbot failed:", err);
+          });
+        });
       } else if (command === "open_orchestrator") {
         activeWorkspaceModuleRef.current = "orchestrator";
         if (location !== "/orchestrator") {
@@ -1193,11 +1191,11 @@ export function CopilotPanel() {
           payload: idea,
         });
       } else if (command === "generate_intelligence") {
-        // Always carry the idea as payload — subscriber must not rely on ref timing
-        emitWorkspaceSignal({
-          target: "intelligence",
-          type: "generate",
-          payload: lastBiIdeaRef.current,
+        console.log("[ExecutionBus] generate_intelligence → bus.execute({ module: intelligence, action: generate })");
+        import("@/lib/execution-bus").then(({ bus }) => {
+          bus.execute({ module: "intelligence", action: "generate", payload: { idea: lastBiIdeaRef.current } }).catch((err) => {
+            console.warn("[ExecutionBus] generate_intelligence failed:", err);
+          });
         });
       } else if (command === "website") {
         // Navigate only — NEVER overwrite a pending intent here.
@@ -1233,11 +1231,12 @@ export function CopilotPanel() {
           navigate("/website-generator");
         }
       } else if (command === "generate_website") {
-        console.log("WEBSITE_FLOW:2 generate_website command received | calling markPendingIntentAutoGenerate(website)");
-        markPendingIntentAutoGenerate("website");
-        console.log("WEBSITE_FLOW:2a markPendingIntentAutoGenerate dispatched | navigating to /website-generator");
-        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_website | from:", location, "| to: /website-generator | stack:", new Error("NAV_TRACE").stack);
-        navigate("/website-generator");
+        console.log("[ExecutionBus] generate_website → bus.execute({ module: website, action: generate })");
+        import("@/lib/execution-bus").then(({ bus }) => {
+          bus.execute({ module: "website", action: "generate", payload: {} }).catch((err) => {
+            console.warn("[ExecutionBus] generate_website failed:", err);
+          });
+        });
       } else if (command === "automation") {
         activeWorkspaceModuleRef.current = "automation";
         console.log(
@@ -1298,28 +1297,12 @@ export function CopilotPanel() {
           navigate("/automation-builder");
         }
       } else if (command === "generate_automation") {
-        console.log(
-          "[CONFIRM_FLOW:3] handleWorkspaceCmdAction invoked | command: generate_automation | timestamp:",
-          Date.now(),
-        );
-        console.log(
-          "AUTOMATION_TRACE: Command received | command: generate_automation | payload:",
-          JSON.stringify(payload),
-        );
-        console.log(
-          "AUTOMATION_TRACE: markPendingIntentAutoGenerate called | type: automation",
-        );
-        markPendingIntentAutoGenerate("automation");
-        const rawAfterMark = sessionStorage.getItem("stageone_pending_intent");
-        console.log(
-          "AUTOMATION_TRACE: SessionStorage value after markPendingIntentAutoGenerate:",
-          rawAfterMark,
-        );
-        console.log(
-          "AUTOMATION_TRACE: Navigation fired | to: /automation-builder",
-        );
-        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_automation | from:", location, "| to: /automation-builder | stack:", new Error("NAV_TRACE").stack);
-        navigate("/automation-builder");
+        console.log("[ExecutionBus] generate_automation → bus.execute({ module: automation, action: generate })");
+        import("@/lib/execution-bus").then(({ bus }) => {
+          bus.execute({ module: "automation", action: "generate", payload: {} }).catch((err) => {
+            console.warn("[ExecutionBus] generate_automation failed:", err);
+          });
+        });
       } else if (command === "orchestrator_idea") {
         const idea = payload.trim();
         if (!idea) return;
@@ -1334,10 +1317,10 @@ export function CopilotPanel() {
           navigate("/orchestrator");
         }
       } else if (command === "generate_orchestrator") {
+        // NOTE: orchestratorController.generate() is a placeholder (Phase 2 pending).
+        // Keep on legacy dispatch until the controller is fully wired.
         console.log("[CONFIRM_FLOW:3] handleWorkspaceCmdAction invoked | command: generate_orchestrator");
         markPendingIntentAutoGenerate("orchestrator");
-        const rawAfterMark = sessionStorage.getItem("stageone_pending_intent");
-        console.log("ORCHESTRATOR_TRACE: SessionStorage after markPendingIntentAutoGenerate:", rawAfterMark);
         console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_orchestrator | from:", location, "| to: /orchestrator | stack:", new Error("NAV_TRACE").stack);
         navigate("/orchestrator");
       } else if (command === "run") {
@@ -1529,19 +1512,25 @@ export function CopilotPanel() {
       // Write autorun intent so target page picks it up and executes immediately
       const idea = crossSystem.lastBusinessIdea ?? undefined;
       setCopilotAutorun({ action: action.id, idea, timestamp: Date.now() });
-      // generate_website ACTION path: setCopilotAutorun alone is not enough —
-      // website-generator only listens for stageone:autoGenerate (via markPendingIntentAutoGenerate).
-      // Without this call, the event is never dispatched and generateWithIdea is never invoked.
+      // generate_website / generate_intelligence ACTION path: route through ExecutionBus.
+      // The bus calls the registered module controller's generate() which drives the
+      // actual generation pipeline — no legacy markPendingIntentAutoGenerate or
+      // emitWorkspaceSignal needed for these two paths.
       if (action.id === "generate_website") {
-        console.log("WEBSITE_FLOW:F autoGenerate requested | executeAction firing for generate_website | idea length:", (idea ?? "").length, "| timestamp:", Date.now());
-        markPendingIntentAutoGenerate("website");
-        console.log("WEBSITE_FLOW:G event dispatched | markPendingIntentAutoGenerate(website) called");
+        console.log("[ExecutionBus] executeAction generate_website → bus.execute({ module: website, action: generate })");
+        import("@/lib/execution-bus").then(({ bus }) => {
+          bus.execute({ module: "website", action: "generate", payload: { idea } }).catch((err) => {
+            console.warn("[ExecutionBus] executeAction generate_website failed:", err);
+          });
+        });
       }
-      // generate_intelligence ACTION path: BI page may already be mounted so the mount-time
-      // consumeCopilotAutorun() won't re-fire. Emit a live workspace signal instead so the
-      // subscribeWorkspaceSignal listener in business-intelligence.tsx triggers generation directly.
       if (action.id === "generate_intelligence") {
-        emitWorkspaceSignal({ target: "intelligence", type: "generate", payload: idea });
+        console.log("[ExecutionBus] executeAction generate_intelligence → bus.execute({ module: intelligence, action: generate })");
+        import("@/lib/execution-bus").then(({ bus }) => {
+          bus.execute({ module: "intelligence", action: "generate", payload: { idea } }).catch((err) => {
+            console.warn("[ExecutionBus] executeAction generate_intelligence failed:", err);
+          });
+        });
       }
       console.log("NAV_TRACE | source: executeAction ({{ACTION:}} tag) | action.id:", action.id, "| from:", location, "| to:", route, "| stack:", new Error("NAV_TRACE").stack);
       navigate(route);
