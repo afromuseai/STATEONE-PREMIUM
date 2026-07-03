@@ -1,0 +1,169 @@
+You are NOT allowed to redesign UI.
+
+You are ONLY auditing and fixing the backend + orchestration layer consistency across STAGEONE modules.
+
+🚨 CORE PROBLEM
+
+Only the Website module works end-to-end.
+
+All other modules (BI, Chatbot, Automation, Orchestrator) are broken in different ways:
+
+BI → sometimes does not navigate
+Chatbot → navigation works, generation fails or parser error
+Automation → navigation works, generation inconsistent
+Orchestrator → inconsistent behavior and naming confusion
+Website → works but does NOT persist correctly in project save flow
+
+Additionally:
+
+Marcus-generated flows do NOT consistently save to project database
+Only some “standalone saves” work (not module-linked persistence)
+🎯 GOAL
+
+Make ALL modules behave EXACTLY like the Website module flow:
+
+Required unified lifecycle:
+Trigger command received ({{WORKSPACE|<module>}})
+Navigate to module page
+Inject idea payload ({{WORKSPACE|idea|...}})
+Populate generator state
+Start generation lifecycle
+Stream output
+SAVE into project (ALWAYS, not optional)
+Persist linked to correct projectId
+❗ CRITICAL RULE
+
+Website is the ONLY reference implementation.
+
+DO NOT invent new flows.
+
+DO NOT treat modules differently.
+
+EVERY module must reuse the SAME pipeline logic.
+
+🔍 REQUIRED AUDIT TASKS
+1. Compare ALL module pipelines
+
+Audit and align:
+
+website-generator
+chatbot-generator
+automation-builder
+orchestrator module
+BI module (if separate)
+
+Find differences in:
+
+navigation trigger
+idea injection
+state hydration
+generation start
+saveToProject call
+projectId handling
+2. FIX MODULE FLOW CONSISTENCY
+
+Ensure ALL modules follow this EXACT pattern:
+
+Step A — Navigate
+{{WORKSPACE|<module>}}
+Step B — Inject idea
+{{WORKSPACE|idea|...}}
+Step C — Generate automatically
+
+Trigger generation immediately after hydration
+
+Step D — Save ALWAYS
+
+Every module MUST call:
+
+saveToProject(projectId)
+PATCH /projects
+include module output
+include timestamps
+include module type
+
+NO EXCEPTIONS
+
+3. FIX BI FAILURE
+
+BI currently sometimes does not navigate.
+
+Check:
+
+signal emission timing
+workspace registry mapping
+route matching
+missing activeModule assignment
+
+BI must behave EXACTLY like Website.
+
+4. FIX CHATBOT / AUTOMATION PARSER ERRORS
+
+Ensure:
+
+consistent parsing pipeline
+identical JSON extraction logic as Website
+no raw stream passed to extractJson without sanitization
+same <think> stripping logic everywhere
+5. FIX PROJECT SAVE PARITY
+
+Website sometimes saves correctly, others do not persist.
+
+ALL modules must:
+
+ALWAYS attach projectId
+ALWAYS call saveToProject
+ALWAYS confirm backend response
+NEVER silently fail
+
+Add logging:
+
+projectId received
+payload sent
+endpoint hit
+response status
+DB confirmation
+6. UNIFY MODULE REGISTRY
+
+Ensure system uses ONE registry:
+
+website
+chatbot
+automation
+orchestrator
+bi
+
+NOT mixed naming like:
+
+automation_idea ❌
+website_idea ❌
+orchestrator_idea ❌
+
+Everything must use:
+
+{{WORKSPACE|<module>}}
+{{WORKSPACE|idea|...}}
+⚠️ IMPORTANT INSIGHT
+
+The issue is NOT UI.
+
+The issue is:
+
+Each module has diverged from the Website pipeline implementation.
+
+Website is the ONLY correct implementation.
+
+Everything else must be made identical.
+
+🎯 FINAL REQUIREMENT
+
+After fixes:
+
+BI works end-to-end like Website
+Chatbot works end-to-end like Website
+Automation works end-to-end like Website
+Orchestrator works end-to-end like Website
+ALL modules save correctly to project
+NO silent failures
+NO missing navigation
+NO missing idea injection
