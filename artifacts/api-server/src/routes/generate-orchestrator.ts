@@ -67,7 +67,10 @@ Rules:
 
 router.post("/generate/orchestrator", requireAuth, async (req, res): Promise<void> => {
   try {
-    const { goal, businessContext = "", language } = req.body;
+    const { goal, businessContext = "", language, projectId } = req.body;
+
+    req.log.info({ event: "ORCHESTRATOR_SAVE_1", projectId: projectId ?? null, goalLength: (goal ?? "").length }, "[ORCHESTRATOR] ORCHESTRATOR_SAVE_1 — generation request received");
+
     if (!goal?.trim()) { res.status(400).json({ error: "goal is required" }); return; }
     if (!process.env.NVIDIA_API_KEY) { res.status(500).json({ error: "NVIDIA_API_KEY not configured" }); return; }
 
@@ -97,20 +100,28 @@ Create a complete orchestration chain with coordinated AI agents, clear data han
       return;
     }
 
+    req.log.info({ event: "ORCHESTRATOR_SAVE_2", model: MODELS.ORCHESTRATION, promptLength: userMessage.length }, "[ORCHESTRATOR] ORCHESTRATOR_SAVE_2 — generation request sent to model");
+
     try {
       const rawBuffer = await forwardStream(streamBody, res, MODELS.ORCHESTRATION);
+
+      req.log.info({ event: "ORCHESTRATOR_SAVE_3", rawLength: rawBuffer.length, hasThinkTags: rawBuffer.includes("<think>"), first200: rawBuffer.slice(0, 200) }, "[ORCHESTRATOR] ORCHESTRATOR_SAVE_3 — raw model response received");
+
       const buffer = rawBuffer.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+      req.log.info({ event: "ORCHESTRATOR_SAVE_4", strippedLength: buffer.length, first200: buffer.slice(0, 200) }, "[ORCHESTRATOR] ORCHESTRATOR_SAVE_4 — parser input after think-tag stripping");
+
       try {
         const finalData = extractJson(buffer);
+        req.log.info({ event: "ORCHESTRATOR_SAVE_5", hasOverview: !!(finalData as Record<string,unknown>)?.overview, agentCount: ((finalData as Record<string,unknown>)?.agents as unknown[])?.length ?? 0, projectId: projectId ?? null, note: "Generation complete — client will PATCH /api/projects/:id with orchestratorOutput" }, "[ORCHESTRATOR] ORCHESTRATOR_SAVE_5 — parsed successfully, delivering to client");
         res.write(`data: ${JSON.stringify({ done: true, data: finalData })}\n\n`);
       } catch (parseErr) {
-        req.log.error({ parseErr, model: MODELS.ORCHESTRATION }, `[AI:${MODELS.ORCHESTRATION}] JSON parse failed`);
+        req.log.error({ event: "ORCHESTRATOR_SAVE_4_PARSE_FAIL", parseErr: String(parseErr), strippedSample: buffer.slice(0, 500) }, "[ORCHESTRATOR] ORCHESTRATOR_SAVE_4 — JSON parse failed");
         res.write(`data: ${JSON.stringify({ error: "Failed to parse AI response — please try again" })}\n\n`);
       }
       res.end();
       const userId = req.user!.userId;
-      const projectId = req.body?.projectId as string | undefined;
-      logEventFireForget({ userId, projectId, type: "orchestrator_generated", data: {}, req });
+      logEventFireForget({ userId, projectId: projectId ?? undefined, type: "orchestrator_generated", data: {}, req });
       trackUsageFireForget(userId, "orchestratorGenerations");
     } catch (streamErr) {
       req.log.error({ streamErr, model: MODELS.ORCHESTRATION }, `[AI:${MODELS.ORCHESTRATION}] Stream error`);

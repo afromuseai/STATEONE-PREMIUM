@@ -200,6 +200,8 @@ router.post("/generate/chatbot", requireAuth, requireFeature("chatbot_generator"
   try {
     const { businessDescription, chatbotType = "Customer Support", tone = "Professional", industry = "SaaS", language } = req.body;
 
+    req.log.info({ event: "CHATBOT_FLOW_1", chatbotType, tone, industry, descriptionLength: (businessDescription ?? "").length }, "[CHATBOT] CHATBOT_FLOW_1 — confirmation received, generation starting");
+
     if (!businessDescription?.trim()) {
       res.status(400).json({ error: "Business description is required" }); return;
     }
@@ -229,6 +231,8 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
+    req.log.info({ event: "CHATBOT_FLOW_2", model: MODELS.CHATBOT, promptLength: userMessage.length }, "[CHATBOT] CHATBOT_FLOW_2 — generation request sent to model");
+
     let streamBody: ReadableStream<Uint8Array>;
     try {
       streamBody = await streamNvidia({
@@ -245,11 +249,30 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
 
     try {
       const rawBuffer = await forwardStream(streamBody, res, MODELS.CHATBOT);
-      const data = extractJson(rawBuffer);
+
+      req.log.info({ event: "CHATBOT_FLOW_3", rawLength: rawBuffer.length, hasThinkTags: rawBuffer.includes("<think>"), first200: rawBuffer.slice(0, 200) }, "[CHATBOT] CHATBOT_FLOW_3 — raw model response received");
+
+      // Strip <think>...</think> reasoning blocks (same as orchestrator route)
+      const stripped = rawBuffer.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+      req.log.info({ event: "CHATBOT_FLOW_4", strippedLength: stripped.length, first200: stripped.slice(0, 200) }, "[CHATBOT] CHATBOT_FLOW_4 — parser input after think-tag stripping");
+
+      let data: unknown;
+      try {
+        data = extractJson(stripped);
+        req.log.info({ event: "CHATBOT_FLOW_6", hasIdentity: !!(data as Record<string,unknown>)?.identity, hasSystemPrompt: !!(data as Record<string,unknown>)?.systemPrompt, hasFlows: !!(data as Record<string,unknown>)?.conversationFlows, topLevelKeys: Object.keys(data as Record<string,unknown>) }, "[CHATBOT] CHATBOT_FLOW_6 — parsed object");
+      } catch (parseErr) {
+        req.log.error({ event: "CHATBOT_FLOW_5", parseErr: String(parseErr), rawLength: stripped.length, rawSample: stripped.slice(0, 500) }, "[CHATBOT] CHATBOT_FLOW_5 — parser error");
+        res.write(`data: ${JSON.stringify({ error: "Failed to parse response — please try again" })}\n\n`);
+        res.end();
+        return;
+      }
+
       res.write(`data: ${JSON.stringify({ done: true, data })}\n\n`);
-    } catch (parseErr) {
-      req.log.error({ parseErr, model: MODELS.CHATBOT }, `[AI:${MODELS.CHATBOT}] Chatbot JSON parse failed`);
-      res.write(`data: ${JSON.stringify({ error: "Failed to parse response — please try again" })}\n\n`);
+      req.log.info({ event: "CHATBOT_FLOW_7", note: "Generation complete — client receives data and will call saveToProject()" }, "[CHATBOT] CHATBOT_FLOW_7 — generation delivered to client");
+    } catch (streamErr) {
+      req.log.error({ streamErr, model: MODELS.CHATBOT }, `[AI:${MODELS.CHATBOT}] Chatbot stream read error`);
+      if (!res.writableEnded) res.write(`data: ${JSON.stringify({ error: String(streamErr) })}\n\n`);
     }
     res.end();
     logEventFireForget({ userId: req.user!.userId, type: "chatbot_generated", data: { chatbotType, industry }, req });

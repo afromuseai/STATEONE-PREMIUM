@@ -91,7 +91,10 @@ router.post("/generate/automation", requireAuth, requireFeature("automation_buil
       workflowType = "Lead Capture",
       complexity = "Intermediate",
       language,
+      projectId,
     } = req.body;
+
+    req.log.info({ event: "AUTOMATION_SAVE_1", projectId: projectId ?? null, workflowType, complexity, descriptionLength: (businessDescription ?? "").length }, "[AUTOMATION] AUTOMATION_SAVE_1 — generation request received");
 
     if (!businessDescription?.trim()) {
       res.status(400).json({ error: "businessDescription is required" });
@@ -111,6 +114,8 @@ Generate a production-ready workflow with real tool integrations, AI agent nodes
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
+
+    req.log.info({ event: "AUTOMATION_SAVE_2", model: MODELS.AUTOMATION, promptLength: userMessage.length }, "[AUTOMATION] AUTOMATION_SAVE_2 — generation request sent to model");
 
     let streamBody: ReadableStream<Uint8Array>;
     try {
@@ -132,11 +137,17 @@ Generate a production-ready workflow with real tool integrations, AI agent nodes
 
     try {
       const buffer = await forwardStream(streamBody, res, MODELS.AUTOMATION);
+
+      req.log.info({ event: "AUTOMATION_SAVE_3", rawLength: buffer.length, hasThinkTags: buffer.includes("<think>"), first200: buffer.slice(0, 200) }, "[AUTOMATION] AUTOMATION_SAVE_3 — raw model response received");
+
+      const stripped = buffer.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
       try {
-        const finalData = extractJson(buffer);
+        const finalData = extractJson(stripped);
+        req.log.info({ event: "AUTOMATION_SAVE_4", hasOverview: !!(finalData as Record<string,unknown>)?.overview, nodeCount: ((finalData as Record<string,unknown>)?.nodes as unknown[])?.length ?? 0, projectId: projectId ?? null, note: "Generation complete — client will PATCH /api/projects/:id with automationOutput" }, "[AUTOMATION] AUTOMATION_SAVE_4 — parsed successfully, delivering to client");
         res.write(`data: ${JSON.stringify({ done: true, data: finalData })}\n\n`);
       } catch (parseErr) {
-        req.log.error({ parseErr, model: MODELS.AUTOMATION }, `[AI:${MODELS.AUTOMATION}] JSON parse failed`);
+        req.log.error({ event: "AUTOMATION_SAVE_3_PARSE_FAIL", parseErr: String(parseErr), strippedSample: stripped.slice(0, 500) }, "[AUTOMATION] AUTOMATION_SAVE_3 — JSON parse failed");
         res.write(`data: ${JSON.stringify({ error: "Failed to parse AI response — please try again" })}\n\n`);
       }
       res.end();

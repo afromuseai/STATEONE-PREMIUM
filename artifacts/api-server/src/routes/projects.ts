@@ -100,8 +100,29 @@ router.get("/projects/:id", requireAuth, async (req, res): Promise<void> => {
 router.patch("/projects/:id", requireAuth, async (req, res): Promise<void> => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const userId = req.user!.userId;
+
+  // Determine which module is being saved for targeted logging
+  const savingChatbot = "chatbotOutput" in req.body;
+  const savingAutomation = "automationOutput" in req.body;
+  const savingOrchestrator = "orchestratorOutput" in req.body;
+  const savingWebsite = "websiteOutput" in req.body;
+  const savingBI = "output" in req.body;
+
+  if (savingChatbot) {
+    req.log.info({ event: "CHATBOT_FLOW_7", projectId: id, hasChatbotOutput: req.body.chatbotOutput !== null && req.body.chatbotOutput !== undefined }, "[CHATBOT] CHATBOT_FLOW_7 — PATCH /api/projects/:id received with chatbotOutput");
+  }
+  if (savingAutomation) {
+    req.log.info({ event: "AUTOMATION_SAVE_5", projectId: id, endpoint: `PATCH /api/projects/${id}`, hasAutomationOutput: req.body.automationOutput !== null && req.body.automationOutput !== undefined }, "[AUTOMATION] AUTOMATION_SAVE_5 — PATCH /api/projects/:id received with automationOutput");
+  }
+  if (savingOrchestrator) {
+    req.log.info({ event: "ORCHESTRATOR_SAVE_6", projectId: id, endpoint: `PATCH /api/projects/${id}`, hasOrchestratorOutput: req.body.orchestratorOutput !== null && req.body.orchestratorOutput !== undefined }, "[ORCHESTRATOR] ORCHESTRATOR_SAVE_6 — PATCH /api/projects/:id received with orchestratorOutput");
+  }
+
+  req.log.info({ event: "PROJECT_SAVE_INCOMING", projectId: id, userId, fields: Object.keys(req.body), savingChatbot, savingAutomation, savingOrchestrator, savingWebsite, savingBI }, "[PROJECTS] PATCH incoming — logging payload shape");
+
   const parsed = UpdateProjectBody.safeParse(req.body);
   if (!parsed.success) {
+    req.log.warn({ event: "PROJECT_SAVE_VALIDATION_FAIL", projectId: id, issues: parsed.error.issues }, "[PROJECTS] PATCH validation failed — Zod rejected the payload");
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
     return;
   }
@@ -149,8 +170,19 @@ router.patch("/projects/:id", requireAuth, async (req, res): Promise<void> => {
     .where(and(eq(projectsTable.id, id), eq(projectsTable.userId, userId)))
     .returning();
   if (!project) {
+    req.log.warn({ event: "PROJECT_SAVE_NOT_FOUND", projectId: id, userId }, "[PROJECTS] PATCH DB returned no rows — project not found or userId mismatch");
     res.status(404).json({ error: "Project not found" });
     return;
+  }
+
+  if (savingChatbot) {
+    req.log.info({ event: "CHATBOT_FLOW_7_OK", projectId: id, hasChatbotOutput: !!project.chatbotOutput }, "[CHATBOT] CHATBOT_FLOW_7 — chatbot saved to DB successfully");
+  }
+  if (savingAutomation) {
+    req.log.info({ event: "AUTOMATION_SAVE_6", projectId: id, hasAutomationOutput: !!project.automationOutput }, "[AUTOMATION] AUTOMATION_SAVE_6 — automation saved to DB successfully");
+  }
+  if (savingOrchestrator) {
+    req.log.info({ event: "ORCHESTRATOR_SAVE_7", projectId: id, hasOrchestratorOutput: !!project.orchestratorOutput }, "[ORCHESTRATOR] ORCHESTRATOR_SAVE_7 — orchestrator saved to DB successfully");
   }
 
   // Auto-record project history events on significant saves (best-effort, non-blocking)

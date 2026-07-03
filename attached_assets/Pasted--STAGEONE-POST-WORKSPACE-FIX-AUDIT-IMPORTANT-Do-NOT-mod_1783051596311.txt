@@ -1,0 +1,197 @@
+# STAGEONE — POST-WORKSPACE FIX AUDIT
+
+IMPORTANT:
+
+Do NOT modify the UI.
+
+Do NOT modify navigation.
+
+Do NOT modify textarea population.
+
+Those systems are now working correctly.
+
+Evidence:
+
+* Website populates correctly with live typing.
+* Chatbot now navigates and populates.
+* Automation now navigates and populates.
+* Orchestrator now navigates and populates.
+
+The remaining failures occur AFTER workspace control.
+
+---
+
+## ISSUE 1 — CHATBOT GENERATION FAILS AFTER CONFIRMATION
+
+Observed:
+
+* Marcus opens Chatbot Generator.
+* Textarea populates correctly.
+* Confirmation appears.
+* User confirms.
+* Generation begins.
+* Parser error occurs.
+
+Investigate ONLY the generation pipeline.
+
+Trace:
+
+Confirmation
+→ generate_chatbot
+→ API request
+→ model response
+→ parser
+→ structured output
+
+Add logs:
+
+CHATBOT_FLOW_1 confirmation received
+CHATBOT_FLOW_2 generation request sent
+CHATBOT_FLOW_3 raw model response
+CHATBOT_FLOW_4 parser input
+CHATBOT_FLOW_5 parser error (if any)
+CHATBOT_FLOW_6 parsed object
+CHATBOT_FLOW_7 saveToProject
+
+If parsing fails, print:
+
+* raw response
+* parser exception
+* expected schema
+* actual response
+
+Do not guess.
+
+Show the exact failure.
+
+---
+
+## ISSUE 2 — AUTOMATION PERSISTENCE
+
+Observed:
+
+Automation generates.
+
+But project persistence fails.
+
+Trace:
+
+Generation
+→ output object
+→ saveToProject()
+→ backend
+→ database
+
+Add logs:
+
+AUTOMATION_SAVE_1 projectId
+AUTOMATION_SAVE_2 generated object
+AUTOMATION_SAVE_3 endpoint
+AUTOMATION_SAVE_4 request payload
+AUTOMATION_SAVE_5 response status
+AUTOMATION_SAVE_6 response body
+AUTOMATION_SAVE_7 project successfully updated
+
+Determine whether:
+
+* projectId is invalid
+* save endpoint fails
+* database rejects the update
+* generated output is malformed
+
+---
+
+## ISSUE 3 — ORCHESTRATOR PERSISTENCE
+
+Same investigation as Automation.
+
+Add:
+
+ORCHESTRATOR_SAVE_1
+through
+ORCHESTRATOR_SAVE_7
+
+Do not assume the same root cause.
+
+Prove it.
+
+---
+
+## ISSUE 4 — MARCUS WORKSPACE UNDERSTANDING
+
+Marcus is still reasoning as if some capabilities are standalone generators.
+
+Example:
+
+"Execution Plan"
+
+Marcus treats this like a separate module.
+
+Instead Marcus should understand the actual STAGEONE workspace.
+
+Workspace registry should be:
+
+* Business Intelligence
+* Website Architect
+* Chatbot Generator
+* Automation Builder
+* Execution Engine (Orchestrator)
+
+Marcus should map user intent to these modules.
+
+Example:
+
+User:
+"Create an execution plan"
+
+Marcus should reason:
+
+Intent:
+Execution planning
+
+Module:
+Execution Engine
+
+Commands:
+
+{{WORKSPACE|orchestrator}}
+{{WORKSPACE|idea|...}}
+
+Natural language should reflect the actual workspace.
+
+For example:
+
+"Opening the Execution Engine..."
+
+NOT:
+
+"Opening the plan generator."
+
+Do NOT hardcode responses.
+
+Marcus should derive available modules from the workspace registry.
+
+---
+
+## IMPORTANT
+
+Do not change:
+
+* UI
+* Navigation
+* Workspace signal pipeline
+* Live typing
+* Confirmation flow
+
+Those systems are already functioning.
+
+Focus ONLY on:
+
+1. Chatbot parser failure
+2. Automation persistence
+3. Orchestrator persistence
+4. Marcus workspace reasoning
+
+Provide evidence for every conclusion using logs.
+
+Do not report a fix without proving the failing stage.
