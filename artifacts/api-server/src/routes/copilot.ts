@@ -116,7 +116,7 @@ Respond with JSON array only. No explanation.`;
 // decision end-to-end — does not affect parsing/dispatch behavior, which is
 // handled independently by the frontend's own WORKSPACE_CMD_RE.
 const NAVIGATE_COMMANDS = new Set(["chatbot", "website", "automation", "open_orchestrator", "intelligence"]);
-const POPULATE_COMMANDS = new Set(["idea", "bi_idea", "website_idea", "automation_idea", "orchestrator_idea"]);
+const POPULATE_COMMANDS = new Set(["idea", "bi_idea"]);
 const GENERATE_COMMANDS = new Set(["generate_chatbot", "generate_website", "generate_automation", "generate_intelligence", "generate_orchestrator"]);
 
 interface ExtractedWorkspaceTag { tag: string; command: string; payload: string }
@@ -946,7 +946,7 @@ ${summary}
   // 1. pendingIntent (when user confirmed) — never requires artifact keywords
   // 2. activePagePath (confirmation fallback when no pendingIntent)
   // 3. Message keywords (direct request, no confirmation needed)
-  const ORCHESTRATOR_SIGNALS = ["orchestrator", "multi-agent", "agent pipeline", "agent network", "coordinate agents", "orchestrate agents"];
+  const ORCHESTRATOR_SIGNALS = ["orchestrator", "multi-agent", "agent pipeline", "agent network", "coordinate agents", "orchestrate agents", "execution plan", "build a plan", "create a plan", "ai pipeline", "agent system"];
 
   const isChatbotRequest      = confirmationEngine === "chatbot"      || CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
   const isAutomationRequest   = !isChatbotRequest && (confirmationEngine === "automation"   || AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s)));
@@ -2193,20 +2193,22 @@ The user will watch the tab open and text appear live — this feels like a real
 
 AVAILABLE COMMANDS:
 
-1. Open automation builder AND populate it in one atomic step:
-   {{WORKSPACE|automation_idea|<description>}}
-   — This single command opens the tab AND populates the textarea. Do NOT emit {{WORKSPACE|automation}} separately.
+1. Open automation builder tab:
+   {{WORKSPACE|automation}}
+
+2. Populate automation form with a tailored description (user sees text appear live via typewriter):
+   {{WORKSPACE|idea|<description>}}
    — Description should be 2–3 sentences, specific to the user's business.
    — If project intelligence exists: use business summary, automations list, target operations, and integrations.
    — If no project context: use the user's stated request to craft a relevant description.
 
-2. Trigger automation generation (ONLY after explicit user confirmation — never automatically):
+3. Trigger automation generation (ONLY after explicit user confirmation — never automatically):
    {{WORKSPACE|generate_automation}}
 
 EXECUTION FLOW for automation requests:
 Step 1 — Parse: Understand what kind of automation is needed (lead capture, onboarding, support, sales pipeline, etc.)
 Step 2 — Prepare: Build a description from project intelligence or stated context.
-Step 3 — Open + Populate: Emit ONLY {{WORKSPACE|automation_idea|<description>}} — one command, not two. This opens the builder and populates the form atomically.
+Step 3 — Open + Populate: Emit {{WORKSPACE|automation}} followed immediately by {{WORKSPACE|idea|<description>}} in the same response.
 Step 4 — Confirm: End your response with: "Everything is set. Would you like me to generate it now?"
 Step 5 — Execute: ONLY when the user says YES → emit {{WORKSPACE|generate_automation}}.
 
@@ -2219,8 +2221,9 @@ Marcus response:
 
 Opening the builder now."
 
-Command (appended after response text):
-{{WORKSPACE|automation_idea|Customer onboarding automation for SaaS businesses. Triggers on signup, sends welcome email, schedules a 3-step drip sequence, assigns a success rep, and notifies the team in Slack. Handles edge cases: free vs paid tiers, missing profile fields, and failed payment on upgrade.}}
+Commands (appended after response text, in order):
+{{WORKSPACE|automation}}
+{{WORKSPACE|idea|Customer onboarding automation for SaaS businesses. Triggers on signup, sends welcome email, schedules a 3-step drip sequence, assigns a success rep, and notifies the team in Slack. Handles edge cases: free vs paid tiers, missing profile fields, and failed payment on upgrade.}}
 
 Then Marcus ends with: "Everything is set. Would you like me to generate it now?"
 
@@ -2229,8 +2232,8 @@ Marcus: "Generating now."
 {{WORKSPACE|generate_automation}}
 
 CRITICAL RULES:
-- NEVER emit {{WORKSPACE|automation}} — use {{WORKSPACE|automation_idea|...}} only. The old two-command approach caused a race condition where the textarea would not populate.
 - NEVER emit {{WORKSPACE|generate_automation}} without explicit user confirmation ("yes", "go ahead", "generate it", "do it").
+- {{WORKSPACE|automation}} and {{WORKSPACE|idea|...}} must appear together — they work as a pair.
 - The idea description must be specific. Generic descriptions produce generic automations.
 - If project intelligence is available, always reference it — business summary, automations, audience, integrations.
 - These commands are INVISIBLE to the user — do not describe them in your response text. Just emit them after the text.
@@ -2242,20 +2245,22 @@ The user will watch the tab open and text appear live — this feels like a real
 
 AVAILABLE COMMANDS:
 
-1. Open website generator AND populate the prompt (single atomic command — opens the tab and seeds the idea):
-   {{WORKSPACE|website_idea|<description>}}
+1. Open website generator tab:
+   {{WORKSPACE|website}}
+
+2. Populate website prompt with a tailored description (user sees text appear live via typewriter):
+   {{WORKSPACE|idea|<description>}}
    — Description should be 2–3 sentences, specific to the user's business.
    — If project intelligence exists: use business summary, target audience, brand positioning, and value proposition.
    — If no project context: craft a precise description from the user's stated request.
-   — This command opens the Website Generator tab AND populates the prompt in one step.
 
-2. Trigger website generation (ONLY after explicit user confirmation — never automatically):
+3. Trigger website generation (ONLY after explicit user confirmation — never automatically):
    {{WORKSPACE|generate_website}}
 
 EXECUTION FLOW for website requests:
 Step 1 — Parse: Understand what kind of website is needed (SaaS, landing page, corporate, etc.)
 Step 2 — Prepare: Build a description from project intelligence or stated context.
-Step 3 — Open + Populate: Emit {{WORKSPACE|website_idea|<description>}} ONLY. This opens the tab and seeds the idea in one atomic step.
+Step 3 — Open + Populate: Emit {{WORKSPACE|website}} followed immediately by {{WORKSPACE|idea|<description>}} in the same response.
 Step 4 — Confirm: End your response with: "Everything is ready. Would you like me to generate this website?"
 Step 5 — Execute: ONLY when the user says YES → emit {{WORKSPACE|generate_website}}.
 
@@ -2268,8 +2273,9 @@ Marcus response:
 
 Opening the Website Generator now."
 
-Commands (appended after response text):
-{{WORKSPACE|website_idea|AI-powered business operating system for founders and operators. Transforms any business idea into a complete strategic blueprint and launch-ready website — market analysis, growth plans, competitive insights, and exportable React code. Built for speed: from idea to production in under 60 seconds.}}
+Commands (appended after response text, in order):
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|AI-powered business operating system for founders and operators. Transforms any business idea into a complete strategic blueprint and launch-ready website — market analysis, growth plans, competitive insights, and exportable React code. Built for speed: from idea to production in under 60 seconds.}}
 
 Then Marcus ends with: "Everything is ready. Would you like me to generate this website?"
 
@@ -2280,8 +2286,7 @@ Marcus: "Generating now."
 CRITICAL RULES:
 - NEVER emit {{WORKSPACE|generate_website}} as the first command. It is only valid after the user explicitly confirms.
 - NEVER emit {{WORKSPACE|generate_website}} without explicit user confirmation ("yes", "go ahead", "generate it", "do it").
-- NEVER emit {{WORKSPACE|website}} alone — use {{WORKSPACE|website_idea|...}} which opens the tab and populates the form atomically.
-- NEVER emit {{WORKSPACE|website}} followed by {{WORKSPACE|website_idea|...}} — use {{WORKSPACE|website_idea|...}} alone.
+- {{WORKSPACE|website}} and {{WORKSPACE|idea|...}} must appear together — they work as a pair.
 - The idea description must be specific. Generic descriptions produce generic websites.
 - If project intelligence is available, always reference it — business summary, audience, positioning, brand tone.
 - These commands are INVISIBLE to the user — do not describe them in your response text. Just emit them after the text.
@@ -2340,15 +2345,15 @@ CRITICAL RULES:
 [end business intelligence execution engine]` : ''}
 
 ${isOrchestratorRequest ? `[orchestrator execution engine]
-You are now operating as the AI Orchestrator Architect. The user wants to design a multi-agent AI pipeline.
+You are now operating as the AI Orchestrator Architect. The user wants to design a multi-agent AI pipeline or execution plan.
 
 AVAILABLE COMMANDS:
 
 1. Open Orchestrator page:
    {{WORKSPACE|open_orchestrator}}
 
-2. Populate goal field with a tailored orchestration goal (user sees it appear live):
-   {{WORKSPACE|orchestrator_idea|<goal description>}}
+2. Populate goal field with a tailored orchestration goal (user sees it appear live via typewriter):
+   {{WORKSPACE|idea|<goal description>}}
    — Goal should be 1–3 sentences describing the end-to-end pipeline objective.
    — Be specific: name the trigger event, the agents involved, and the final output.
 
@@ -2358,7 +2363,7 @@ AVAILABLE COMMANDS:
 EXECUTION FLOW for orchestration requests:
 Step 1 — Parse: Understand what multi-agent pipeline or coordination goal they want.
 Step 2 — Prepare: Build a precise orchestration goal from project context or stated request.
-Step 3 — Open + Populate: Emit {{WORKSPACE|open_orchestrator}} followed by {{WORKSPACE|orchestrator_idea|<goal>}} in the same response.
+Step 3 — Open + Populate: Emit {{WORKSPACE|open_orchestrator}} followed immediately by {{WORKSPACE|idea|<goal>}} in the same response.
 Step 4 — Confirm: End your response with: "Everything is ready. Would you like me to generate this multi-agent pipeline?"
 Step 5 — Execute: ONLY when the user says YES → emit {{WORKSPACE|generate_orchestrator}}.
 
@@ -2373,7 +2378,7 @@ Opening the Orchestrator now."
 
 Commands (appended after response text, in order):
 {{WORKSPACE|open_orchestrator}}
-{{WORKSPACE|orchestrator_idea|Lead capture and qualification pipeline. Agent 1 captures inbound leads from web forms and email. Agent 2 scores each lead using firmographic data and intent signals. Agent 3 routes qualified leads to the CRM with enriched context and sets follow-up tasks for the sales team.}}
+{{WORKSPACE|idea|Lead capture and qualification pipeline. Agent 1 captures inbound leads from web forms and email. Agent 2 scores each lead using firmographic data and intent signals. Agent 3 routes qualified leads to the CRM with enriched context and sets follow-up tasks for the sales team.}}
 
 Then Marcus ends with: "Everything is ready. Would you like me to generate this multi-agent pipeline?"
 
@@ -2383,7 +2388,7 @@ Marcus: "Generating now."
 
 CRITICAL RULES:
 - NEVER emit {{WORKSPACE|generate_orchestrator}} without explicit user confirmation.
-- {{WORKSPACE|open_orchestrator}} and {{WORKSPACE|orchestrator_idea|...}} may appear in the same response.
+- {{WORKSPACE|open_orchestrator}} and {{WORKSPACE|idea|...}} must appear together — they work as a pair.
 - The goal must be specific — name agents, triggers, handoffs, and outputs.
 - These commands are INVISIBLE to the user — do not describe them in your response text.
 [end orchestrator execution engine]` : ''}
