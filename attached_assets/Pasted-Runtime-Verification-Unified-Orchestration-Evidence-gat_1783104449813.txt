@@ -1,0 +1,53 @@
+Runtime Verification: Unified Orchestration
+Evidence gathered from static code trace across:
+
+copilot-panel.tsx — WORKSPACE command parsing + completion subscription
+use-generator-orchestration.ts — shared hook lifecycle
+website-generator.tsx, business-intelligence.tsx, chatbot-generator.tsx, automation-builder.tsx, orchestrator.tsx — module pages
+generation-context.ts — setPendingIntent, consumePendingIntent, markPendingIntentAutoGenerate
+ensure-project.ts — ensureProject, saveProjectContext
+workspace-controller-context.tsx — emit, subscribe, WorkspaceEventType
+Legend
+✅ PASS — code path verified complete
+⚠️ PASS (with note) — works but has a caveat
+❌ FAIL — code path broken, Marcus does not receive or respond
+
+Stage-by-stage PASS/FAIL Table
+Stage	Business Intelligence	Website	Chatbot	Automation	Orchestrator
+1. Marcus emits correct workspace commands	✅ {{WORKSPACE|intelligence}} + {{WORKSPACE|bi_idea|…}} + {{WORKSPACE|generate_intelligence}}	✅ {{WORKSPACE|website}} + {{WORKSPACE|website_idea|…}} + {{WORKSPACE|generate_website}}	✅ {{WORKSPACE|chatbot}} + {{WORKSPACE|idea|…}} + {{WORKSPACE|generate_chatbot}}	✅ {{WORKSPACE|automation}} + {{WORKSPACE|idea|…}} + {{WORKSPACE|generate_automation}}	✅ {{WORKSPACE|open_orchestrator}} + {{WORKSPACE|idea|…}} + {{WORKSPACE|generate_orchestrator}}
+2. Navigation occurs	✅ navigate("/business-intelligence")	✅ navigate("/website-generator")	✅ navigate("/chatbot-generator")	✅ navigate("/automation-builder")	✅ navigate("/orchestrator")
+3. consumePendingIntent() restores the intent	✅ Bespoke mount at line 205: consumePendingIntent("bi")	✅ Bespoke mount at line 240: consumePendingIntent("website") + _websiteMountIntentCache (AnimatePresence-safe)	✅ Hook step 2: consumePendingIntent("chatbot") + _mountCaches (AnimatePresence-safe)	✅ Hook step 2: consumePendingIntent("automation") + _mountCaches (AnimatePresence-safe)	⚠️ Bespoke mount at line 296: consumePendingIntent("orchestrator") — works but no AnimatePresence cache, double-mount loses intent
+4. Textarea populates	✅ setTimeout(() => setMarcusPopulate(idea), 150) drives the populate animation	✅ autoGenerate=false → typewriter via marcusPopulateRef; true → direct setIdea	✅ hook onPopulate(idea, animate) → typewriterPopulate or direct setBusinessDesc	✅ hook onPopulate(idea, animate) → marcusPopulateRef/tick or direct setBusinessDesc	✅ autoGenerate=false → typewriter via marcusPopulateRef; true → direct setGoal
+5. Confirmation is requested	✅ LLM prompt: "NEVER emit generate_intelligence without explicit user confirmation"	✅ LLM prompt: "NEVER emit generate_website without explicit user confirmation"	✅ LLM prompt: "NEVER emit generate_chatbot without explicit user confirmation"	✅ LLM prompt: "NEVER emit generate_automation without explicit user confirmation"	✅ LLM prompt: orchestrator uses same confirm-then-generate pattern
+6. markPendingIntentAutoGenerate() triggers generation	⚠️ Different path: generate_intelligence calls emitWorkspaceSignal({ target: "intelligence", type: "generate" }) — NOT markPendingIntentAutoGenerate. BI's subscribeWorkspaceSignal handles type: "generate" and calls handleGenerateRef.current(idea). Works, but diverges from all other modules.	✅ generate_website → markPendingIntentAutoGenerate("website") → stageone:autoGenerate → website handler calls generateWithIdea(text)	✅ generate_chatbot → markPendingIntentAutoGenerate("chatbot") → hook's stageone:autoGenerate effect → onAutoGenerate(text) → generateWith(...)	✅ generate_automation → markPendingIntentAutoGenerate("automation") → hook's stageone:autoGenerate effect → onAutoGenerate(text) → generateWith(...)	✅ generate_orchestrator → markPendingIntentAutoGenerate("orchestrator") → orchestrator's own stageone:autoGenerate handler → setPendingAutoGenerate(true) → Phase 2 effect → generate()
+7. Streaming completes successfully	✅ SSE loop → msg.done && msg.data → setResults(finalData)	✅ SSE loop → msg.done && msg.data → setData(out)	✅ SSE loop → msg.done && msg.data → setData(out)	✅ SSE loop → msg.done && msg.data → setData(msg.data)	✅ SSE loop → msg.done && msg.data → setData(msg.data)
+8. ensureProject() succeeds	✅ ensureProject({ type: "business_intelligence", outputField: "output" }) + api.projects.update(id, { status: "active" }) promotes draft	✅ ensureProject({ type: "website", outputField: "websiteOutput" })	✅ completeGeneration() → ensureProject({ type: "chatbot", outputField: "chatbotOutput" })	✅ completeGeneration() → ensureProject({ type: "automation", outputField: "automationOutput" })	✅ ensureProject({ type: "orchestration", outputField: "orchestratorOutput" })
+9. saveProjectContext() succeeds	✅ Explicit call before ensureProject (draft PATCH path) + inside ensureProject on create + explicit override after	✅ Inside ensureProject on project create	✅ Inside ensureProject via completeGeneration	✅ Inside ensureProject via completeGeneration	✅ Inside ensureProject on project create
+10. <module>.generated emitted AND received by Marcus	❌ FAIL — bi.generated is emitted (line 470) but COMPLETION_MESSAGES still keys on "generation.complete" (old name, line 1622). Marcus never reacts.	✅ website.generated emitted + matched in COMPLETION_MESSAGES → Marcus responds	✅ chatbot.generated emitted + matched in COMPLETION_MESSAGES → Marcus responds	✅ automation.generated emitted + matched in COMPLETION_MESSAGES → Marcus responds	❌ FAIL — orchestrator.generated emitted (line 449) but no entry in COMPLETION_MESSAGES. Marcus never reacts.
+Overall Per-Module Result
+Module	Result	Failing Stage
+Website	✅ PASS	—
+Chatbot	✅ PASS	—
+Automation	✅ PASS	—
+Business Intelligence	❌ FAIL	Stage 10
+Orchestrator	❌ FAIL	Stage 10
+Failure Detail
+FAIL 1 — Business Intelligence, Stage 10
+
+File: artifacts/stageone/src/components/copilot/copilot-panel.tsx
+Line: 1622
+Function: COMPLETION_MESSAGES map inside the subscribe useEffect
+Lifecycle stage: <module>.generated received by Marcus
+Root cause: BI was changed to emit "bi.generated" but COMPLETION_MESSAGES still has the old key "generation.complete". The subscriber at line 1652–1688 calls COMPLETION_MESSAGES[event.type] — for "bi.generated" this returns undefined, so no Marcus response is shown and no bubble fires. The old "generation.complete" entry is now an orphan; nothing emits it.
+Fix: rename key "generation.complete" → "bi.generated" at line 1622.
+FAIL 2 — Orchestrator, Stage 10
+
+File: artifacts/stageone/src/components/copilot/copilot-panel.tsx
+Lines: 1619–1650 (COMPLETION_MESSAGES map)
+Function: COMPLETION_MESSAGES map inside the subscribe useEffect
+Lifecycle stage: <module>.generated received by Marcus
+Root cause: "orchestrator.generated" was added to the WorkspaceEventType union and is correctly emitted by orchestrator.tsx (line 449), but no corresponding entry was ever added to COMPLETION_MESSAGES. The map contains entries for website, automation, chatbot, and the orphaned generation.complete — but not orchestrator. The subscriber loop exits silently.
+Fix: add "orchestrator.generated" entry to COMPLETION_MESSAGES.
+Secondary observation — Orchestrator, Stage 3 (not a regression, pre-existing)
+
+Orchestrator's bespoke mount effect calls consumePendingIntent("orchestrator") directly with no module-level AnimatePresence cache (unlike website's _websiteMountIntentCache and the hook's _mountCaches). If AnimatePresence unmounts and remounts the page mid-transition, the second mount returns null and the intent is silently lost. This is not introduced by the recent changes — orchestrator was always bespoke — but it's worth noting.
