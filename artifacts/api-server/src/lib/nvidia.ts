@@ -344,6 +344,7 @@ export async function forwardStream(
 // ─── JSON extraction helper ────────────────────────────────────────────────────
 export function extractJson(raw: string): unknown {
   let clean = raw.trim();
+  clean = clean.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
   if (clean.startsWith("```json")) clean = clean.slice(7);
   else if (clean.startsWith("```")) clean = clean.slice(3);
   if (clean.endsWith("```")) clean = clean.slice(0, -3);

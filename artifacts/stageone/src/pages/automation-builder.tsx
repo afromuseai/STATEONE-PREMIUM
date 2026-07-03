@@ -587,7 +587,7 @@ export default function AutomationBuilderPage() {
   // without duplicating any generation logic.
   useEffect(() => {
     registerBridge({
-      navigate: () => setLocation("/automation"),
+      navigate: () => setLocation("/automation-builder"),
       populate: (idea, onComplete) => {
         if (!idea) { onComplete(); return }
         populateIdeaRef.current = idea

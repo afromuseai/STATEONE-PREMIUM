@@ -1166,8 +1166,10 @@ export function CopilotPanel() {
         }
       } else if (command === "intelligence") {
         activeWorkspaceModuleRef.current = "bi";
-        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: intelligence | from:", location, "| to: /business-intelligence | stack:", new Error("NAV_TRACE").stack);
-        navigate("/business-intelligence");
+        if (!location.startsWith("/business-intelligence")) {
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: intelligence | from:", location, "| to: /business-intelligence | stack:", new Error("NAV_TRACE").stack);
+          navigate("/business-intelligence");
+        }
       } else if (command === "bi_idea") {
         const idea = payload.trim();
         if (!idea) return;

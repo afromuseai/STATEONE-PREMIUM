@@ -19,6 +19,7 @@ import {
   clearDashboardState,
   consumeCopilotAutorun,
   consumeMarcusWorkspaceSignal,
+  consumePendingIntent,
   dequeueWorkspaceSignals,
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
@@ -199,12 +200,19 @@ export default function BusinessIntelligencePage() {
       setTimeout(() => setAutorunIdea(autorun.idea!), 150)
     }
 
+    // Primary path: consume pendingIntent written by copilot-panel (same as website/chatbot/automation)
+    const intent = consumePendingIntent("bi")
+    if (intent?.idea) {
+      marcusBiIdeaRef.current = intent.idea
+      setTimeout(() => setMarcusPopulate(intent.idea), 150)
+    }
+
     // Marcus workspace signal: cross-navigation delivery (sessionStorage single-slot, legacy path)
     const signal = consumeMarcusWorkspaceSignal()
     if (signal?.target === "intelligence" && signal.type === "populate" && signal.payload) {
       const idea = signal.payload
-      marcusBiIdeaRef.current = idea
-      setTimeout(() => setMarcusPopulate(idea), 150)
+      if (!marcusBiIdeaRef.current) marcusBiIdeaRef.current = idea
+      if (!intent?.idea) setTimeout(() => setMarcusPopulate(idea), 150)
     }
 
     // Workspace signal queue: drain ALL queued signals for this target (new reliable path)
@@ -459,6 +467,13 @@ export default function BusinessIntelligencePage() {
           setActiveProjectId(project.id)
           projectsRef.current = [project, ...projectsRef.current].slice(0, 50)
         }
+        saveProjectContext({
+          projectId: project.id,
+          projectTitle: title,
+          originatingBusinessIntelligenceId: project.id,
+          continuityMode: "continuation",
+          source: "Marcus",
+        })
         recordRevenueSignal({
           projectId: project.id,
           industry: finalData.industry,
