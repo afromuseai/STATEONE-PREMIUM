@@ -248,6 +248,66 @@ router.get("/admin/events/stream", requireAdmin, (req, res): void => {
   });
 });
 
+// ─── Module Pipeline Dashboard ───────────────────────────────────────────────
+router.get("/admin/pipeline", requireAdmin, async (_req, res): Promise<void> => {
+  const MODULE_TYPES = [
+    "bi_generated",
+    "website_generated",
+    "chatbot_generated",
+    "automation_created",
+    "orchestrator_generated",
+  ];
+
+  const [statsRows, recentEvents, trendRows] = await Promise.all([
+    db.execute(sql`
+      SELECT
+        type,
+        COUNT(*)::int                                                             AS total,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::int   AS last24h,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int     AS last7d,
+        MAX(created_at)                                                            AS last_at
+      FROM events
+      WHERE type IN ('bi_generated','website_generated','chatbot_generated','automation_created','orchestrator_generated')
+      GROUP BY type
+    `),
+    db
+      .select({
+        id: eventsTable.id,
+        type: eventsTable.type,
+        userId: eventsTable.userId,
+        projectId: eventsTable.projectId,
+        country: eventsTable.country,
+        city: eventsTable.city,
+        data: eventsTable.data,
+        createdAt: eventsTable.createdAt,
+        userEmail: usersTable.email,
+        userName: usersTable.name,
+      })
+      .from(eventsTable)
+      .leftJoin(usersTable, eq(eventsTable.userId, usersTable.id))
+      .where(inArray(eventsTable.type, MODULE_TYPES))
+      .orderBy(desc(eventsTable.createdAt))
+      .limit(60),
+    db.execute(sql`
+      SELECT
+        TO_CHAR(DATE_TRUNC('day', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS date,
+        type,
+        COUNT(*)::int AS count
+      FROM events
+      WHERE type IN ('bi_generated','website_generated','chatbot_generated','automation_created','orchestrator_generated')
+        AND created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY 1, 2
+      ORDER BY 1 ASC
+    `),
+  ]);
+
+  res.json({
+    moduleStats: statsRows.rows,
+    recentEvents,
+    trend: trendRows.rows,
+  });
+});
+
 // ─── NEW: Events CRUD ─────────────────────────────────────────────────────────
 
 router.get("/admin/events", requireAdmin, async (req, res): Promise<void> => {

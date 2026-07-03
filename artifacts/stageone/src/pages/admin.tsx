@@ -28,7 +28,7 @@ import { AdminIncidents } from "@/components/dashboard/admin-incidents"
 import { AdminBackups } from "@/components/dashboard/admin-backups"
 
 type Plan = "free" | "pro" | "startup" | "enterprise"
-type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition" | "feature-flags" | "system-health" | "ai-models" | "security" | "incidents" | "backups"
+type AdminTab = "users" | "stats" | "billing" | "billing-intel" | "events" | "analytics" | "intelligence" | "messages" | "broadcasts" | "waitlist" | "coupons" | "audit" | "sessions" | "audit-logs" | "geo" | "support" | "impersonation-logs" | "crm" | "acquisition" | "feature-flags" | "system-health" | "ai-models" | "security" | "incidents" | "backups" | "pipeline"
 
 interface AdminUser {
   id: string
@@ -88,6 +88,24 @@ interface Analytics {
   recentEvents: AdminEvent[]
   dailySignups: Array<{ date: string; signups: number }>
   topUsers: Array<{ userId: string | null; email: string | null; name: string | null; total: number }>
+}
+
+interface PipelineModuleStat {
+  type: string
+  total: number
+  last24h: number
+  last7d: number
+  last_at: string | null
+}
+
+interface PipelineEvent extends AdminEvent {
+  data?: Record<string, unknown> | null
+}
+
+interface PipelineData {
+  moduleStats: PipelineModuleStat[]
+  recentEvents: PipelineEvent[]
+  trend: Array<{ date: string; type: string; count: number }>
 }
 
 interface GeoIntelligence {
@@ -681,6 +699,7 @@ export default function AdminPage() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [eventTypeFilter, setEventTypeFilter] = useState<string>("all")
   const [liveEvents, setLiveEvents] = useState<AdminEvent[]>([])
+  const [pipeline, setPipeline] = useState<PipelineData | null>(null)
   const [sseConnected, setSseConnected] = useState(false)
   const sseRef = useRef<EventSource | null>(null)
   const tabBarRef = useRef<HTMLDivElement>(null)
@@ -863,6 +882,13 @@ export default function AdminPage() {
       setEvents(data.events ?? [])
     } catch (_) {}
   }, [eventTypeFilter])
+
+  const loadPipeline = useCallback(async () => {
+    try {
+      const data = await fetch("/api/admin/pipeline", { credentials: "include" }).then(r => r.json())
+      if (data?.recentEvents) setPipeline(data)
+    } catch (_) {}
+  }, [])
 
   const loadBroadcasts = useCallback(async () => {
     try {
@@ -1182,7 +1208,8 @@ export default function AdminPage() {
     else if (activeTab === "impersonation-logs") loadImpersonationLogs(1)
     else if (activeTab === "crm") loadCrm()
     else if (activeTab === "acquisition") loadAcquisition()
-  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages, loadSupport, loadImpersonationLogs, loadCrm, loadAcquisition])
+    else if (activeTab === "pipeline") loadPipeline()
+  }, [activeTab, loadAnalytics, loadEvents, loadBroadcasts, loadIntelligence, loadBilling, loadBillingIntelligence, loadWaitlist, loadCoupons, loadAudit, loadAdminAuditLogs, loadGeoIntelligence, loadMessages, loadSupport, loadImpersonationLogs, loadCrm, loadAcquisition, loadPipeline])
 
   // Session Monitor: auto-refresh every 30s while tab is active
   useEffect(() => {
@@ -1389,6 +1416,7 @@ export default function AdminPage() {
     { id: "security",           label: "Security",       icon: Shield },
     { id: "incidents",          label: "Incidents",      icon: AlertTriangle },
     { id: "backups",            label: "Backups",        icon: Database },
+    { id: "pipeline",           label: "Pipeline",       icon: Layers },
   ]
 
   if (!user?.isAdmin) return null
@@ -5474,6 +5502,196 @@ export default function AdminPage() {
           {activeTab === "backups" && (
             <AdminBackups />
           )}
+
+          {/* ── Module Pipeline Tab ─────────────────────────────────────── */}
+          {activeTab === "pipeline" && (() => {
+            const MODULE_META: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+              bi_generated:           { label: "Business Intelligence", color: "#F59E0B", icon: BarChart3 },
+              website_generated:      { label: "Website Generator",     color: "#8B5CF6", icon: Globe },
+              chatbot_generated:      { label: "Chatbot Builder",       color: "#EC4899", icon: Bot },
+              automation_created:     { label: "Automation Builder",    color: "#F97316", icon: Zap },
+              orchestrator_generated: { label: "Orchestrator",          color: "#7C3AED", icon: Cpu },
+            }
+            const MODULE_KEYS = Object.keys(MODULE_META)
+
+            const statMap: Record<string, PipelineModuleStat> = {}
+            for (const s of (pipeline?.moduleStats ?? [])) statMap[s.type] = s
+
+            const totalAll = MODULE_KEYS.reduce((acc, k) => acc + (statMap[k]?.total ?? 0), 0)
+
+            const trendByDate: Record<string, Record<string, number>> = {}
+            for (const row of (pipeline?.trend ?? [])) {
+              if (!trendByDate[row.date]) trendByDate[row.date] = {}
+              trendByDate[row.date][row.type] = row.count
+            }
+            const trendDates = Object.keys(trendByDate).sort().slice(-30)
+            const trendMaxDay = Math.max(1, ...trendDates.map(d => MODULE_KEYS.reduce((s, k) => s + (trendByDate[d]?.[k] ?? 0), 0)))
+
+            const pipelineLive = liveEvents.filter(e => MODULE_KEYS.includes(e.type))
+
+            return (
+              <div className="space-y-6">
+                {/* ── Live indicator ── */}
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-full border ${sseConnected ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" : "text-muted-foreground border-white/8 bg-white/3"}`}>
+                    <div className={`h-1.5 w-1.5 rounded-full ${sseConnected ? "bg-emerald-400 animate-pulse" : "bg-muted-foreground"}`} />
+                    {sseConnected ? "Live" : "Disconnected"}
+                  </div>
+                  <span className="text-xs text-muted-foreground">Module generation pipeline across all 5 AI modules</span>
+                  <button onClick={loadPipeline} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/3 border border-white/8 text-xs text-muted-foreground hover:text-foreground transition-all">
+                    <RefreshCw className="h-3 w-3" /> Refresh
+                  </button>
+                </div>
+
+                {/* ── Module stat cards ── */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {MODULE_KEYS.map(key => {
+                    const meta = MODULE_META[key]
+                    const Icon = meta.icon
+                    const stat = statMap[key]
+                    const total = stat?.total ?? 0
+                    const last24h = stat?.last24h ?? 0
+                    const sharePct = totalAll > 0 ? Math.round((total / totalAll) * 100) : 0
+                    return (
+                      <div key={key} className="rounded-2xl border border-white/6 bg-white/2 p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg" style={{ background: `${meta.color}18`, border: `1px solid ${meta.color}28` }}>
+                            <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
+                          </div>
+                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-tight">{meta.label}</span>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-black text-foreground tabular-nums">{total.toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">all-time generations</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-muted-foreground/60">24h</span>
+                            <span className="font-black" style={{ color: last24h > 0 ? meta.color : undefined }}>{last24h}</span>
+                          </div>
+                          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${sharePct}%` }} transition={{ duration: 0.6 }}
+                              className="h-full rounded-full" style={{ background: meta.color }} />
+                          </div>
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-muted-foreground/60">7d</span>
+                            <span className="font-black text-muted-foreground">{stat?.last7d ?? 0}</span>
+                          </div>
+                        </div>
+                        {stat?.last_at && (
+                          <p className="text-[9px] text-muted-foreground/40 truncate">Last: {timeAgo(stat.last_at)}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* ── 30-day trend ── */}
+                {trendDates.length > 0 && (
+                  <div className="rounded-2xl border border-white/6 bg-white/2 p-5">
+                    <h3 className="text-sm font-black text-foreground mb-1">30-Day Activity</h3>
+                    <p className="text-[10px] text-muted-foreground mb-4">Daily generations across all modules</p>
+                    <div className="space-y-1">
+                      {trendDates.map((date, i) => {
+                        const dayTotal = MODULE_KEYS.reduce((s, k) => s + (trendByDate[date]?.[k] ?? 0), 0)
+                        const barPct = (dayTotal / trendMaxDay) * 100
+                        return (
+                          <div key={date} className="flex items-center gap-3">
+                            <span className="text-[9px] text-muted-foreground/50 w-14 shrink-0 font-mono">{date.slice(5)}</span>
+                            <div className="flex-1 h-3 bg-white/4 rounded-full overflow-hidden flex">
+                              {MODULE_KEYS.map(key => {
+                                const cnt = trendByDate[date]?.[key] ?? 0
+                                const pct = dayTotal > 0 ? (cnt / dayTotal) * barPct : 0
+                                return pct > 0 ? (
+                                  <motion.div key={key} initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                                    transition={{ delay: i * 0.01, duration: 0.4 }}
+                                    style={{ background: MODULE_META[key].color, opacity: 0.75 }} className="h-full" />
+                                ) : null
+                              })}
+                            </div>
+                            <span className="text-[9px] font-black text-muted-foreground w-5 text-right tabular-nums">{dayTotal}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-white/5">
+                      {MODULE_KEYS.map(key => (
+                        <div key={key} className="flex items-center gap-1.5">
+                          <div className="h-2 w-2 rounded-full" style={{ background: MODULE_META[key].color }} />
+                          <span className="text-[10px] text-muted-foreground">{MODULE_META[key].label.split(" ")[0]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Live pipeline events ── */}
+                {pipelineLive.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Live</p>
+                    {pipelineLive.slice(0, 5).map((e, i) => {
+                      const meta = MODULE_META[e.type]
+                      const Icon = meta?.icon ?? Layers
+                      return (
+                        <motion.div key={`live-pipeline-${i}`} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                          className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-emerald-500/15 bg-emerald-500/5">
+                          <div className="p-1 rounded-lg shrink-0" style={{ background: `${meta?.color ?? "#6B7280"}18` }}>
+                            <Icon className="h-3 w-3" style={{ color: meta?.color ?? "#6B7280" }} />
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full font-mono"
+                            style={{ background: `${meta?.color ?? "#6B7280"}15`, color: meta?.color ?? "#6B7280", border: `1px solid ${meta?.color ?? "#6B7280"}30` }}>
+                            {meta?.label ?? e.type}
+                          </span>
+                          <span className="text-xs text-muted-foreground truncate flex-1">{e.userName ?? e.userEmail ?? "anonymous"}</span>
+                          <span className="text-[10px] text-muted-foreground/50 shrink-0">{timeAgo(e.createdAt)}</span>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* ── Recent events feed ── */}
+                <div className="rounded-2xl border border-white/6 bg-white/2 p-5">
+                  <h3 className="text-sm font-black text-foreground mb-4">Recent Pipeline Events</h3>
+                  {!pipeline ? (
+                    <p className="text-xs text-muted-foreground">Loading…</p>
+                  ) : pipeline.recentEvents.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No module generations recorded yet.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {pipeline.recentEvents.map((e, i) => {
+                        const meta = MODULE_META[e.type]
+                        const Icon = meta?.icon ?? Layers
+                        return (
+                          <motion.div key={e.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.008 }}
+                            className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-white/5 bg-white/1.5 hover:bg-white/3 transition-all">
+                            <div className="p-1.5 rounded-lg shrink-0" style={{ background: `${meta?.color ?? "#6B7280"}15`, border: `1px solid ${meta?.color ?? "#6B7280"}25` }}>
+                              <Icon className="h-3 w-3" style={{ color: meta?.color ?? "#6B7280" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-foreground truncate">{e.userName ?? e.userEmail ?? "anonymous"}</span>
+                                {e.projectId && (
+                                  <span className="text-[9px] font-mono text-muted-foreground/50 shrink-0 hidden md:block">#{e.projectId.slice(0, 8)}</span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground truncate">{meta?.label ?? e.type}</p>
+                            </div>
+                            {(e.city || e.country) && (
+                              <span className="text-[10px] text-muted-foreground/50 hidden lg:flex items-center gap-0.5 shrink-0">
+                                <MapPin className="h-2.5 w-2.5" />{[e.city, e.country].filter(Boolean).join(", ")}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground/40 shrink-0">{timeAgo(e.createdAt)}</span>
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
 
         </div>
       </div>
