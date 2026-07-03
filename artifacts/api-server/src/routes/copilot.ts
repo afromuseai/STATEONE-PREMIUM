@@ -2770,6 +2770,7 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     websiteEngine: isWebsiteRequest,
     automationEngine: isAutomationRequest,
     biEngine: isBiRequest,
+    orchestratorEngine: isOrchestratorRequest,
     executionConfirmationMode: confirmationEngineInjected,
     selectedEngine,
     selectionSource,
@@ -2780,6 +2781,44 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     systemPromptLength: systemPrompt.length,
     containsPendingConfirmationBlock: systemPrompt.includes("PENDING CONFIRMATION"),
   }, "[MARCUS] SYSTEM_PROMPT_FLAGS");
+
+  // ── PROMPT_BLOCK_PROOF — verify each execution engine block is physically present ──
+  // Checks whether the conditional template strings actually expanded into the
+  // assembled systemPrompt. A flag=true with blockPresent=false means the template
+  // expansion failed. A flag=false with blockPresent=true means a logic error.
+  const BLOCK_MARKERS = {
+    chatbot:      "[Workspace Execution Engine — direct workspace control for EXECUTION INTENTS]",
+    automation:   "[Automation Execution Engine — direct workspace control for automation building]",
+    website:      "[Website Execution Engine — direct workspace control for website generation]",
+    bi:           "[Business Intelligence Execution Engine — direct workspace control for BI generation]",
+    orchestrator: "[orchestrator execution engine]",
+  };
+  const blockProof = {
+    chatbot:      { flag: isChatbotRequest,      blockPresent: systemPrompt.includes(BLOCK_MARKERS.chatbot),      hasWorkspaceCmd: systemPrompt.includes("{{WORKSPACE|chatbot}}") },
+    automation:   { flag: isAutomationRequest,   blockPresent: systemPrompt.includes(BLOCK_MARKERS.automation),   hasWorkspaceCmd: systemPrompt.includes("{{WORKSPACE|automation}}") },
+    website:      { flag: isWebsiteRequest,       blockPresent: systemPrompt.includes(BLOCK_MARKERS.website),      hasWorkspaceCmd: systemPrompt.includes("{{WORKSPACE|website}}") },
+    bi:           { flag: isBiRequest,            blockPresent: systemPrompt.includes(BLOCK_MARKERS.bi),           hasWorkspaceCmd: systemPrompt.includes("{{WORKSPACE|intelligence}}") },
+    orchestrator: { flag: isOrchestratorRequest,  blockPresent: systemPrompt.includes(BLOCK_MARKERS.orchestrator), hasWorkspaceCmd: systemPrompt.includes("{{WORKSPACE|open_orchestrator}}") },
+  };
+  const blockMismatches = Object.entries(blockProof)
+    .filter(([, v]) => v.flag !== v.blockPresent)
+    .map(([k, v]) => `${k}: flag=${v.flag} blockPresent=${v.blockPresent}`);
+
+  req.log.info({
+    event: "PROMPT_BLOCK_PROOF",
+    userMessage: latestUserMessage.slice(0, 200),
+    selectedEngine,
+    blocks: blockProof,
+    mismatches: blockMismatches,
+    mismatchCount: blockMismatches.length,
+    signalMatches: {
+      chatbot:      CHATBOT_SIGNALS.filter(s => latestUserMessage.includes(s)),
+      automation:   AUTOMATION_SIGNALS.filter(s => latestUserMessage.includes(s)),
+      website:      WEBSITE_SIGNALS.filter(s => latestUserMessage.includes(s)),
+      bi:           BI_SIGNALS.filter(s => latestUserMessage.includes(s)),
+      orchestrator: ORCHESTRATOR_SIGNALS.filter(s => latestUserMessage.includes(s)),
+    },
+  }, "[MARCUS] PROMPT_BLOCK_PROOF — execution engine blocks present in assembled prompt");
 
   const copilotPayload = {
     messages: [{ role: "system" as const, content: systemPrompt }, ...trimmedMessages],
