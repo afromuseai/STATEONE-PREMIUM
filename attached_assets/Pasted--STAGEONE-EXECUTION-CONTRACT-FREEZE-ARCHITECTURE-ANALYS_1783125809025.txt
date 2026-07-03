@@ -1,0 +1,109 @@
+# STAGEONE EXECUTION CONTRACT — FREEZE ARCHITECTURE ANALYSIS
+
+## IMPORTANT
+
+Do NOT perform any further architecture audits.
+
+Do NOT re-map or re-discover system structure.
+
+The architecture is already known and validated.
+
+---
+
+# VERIFIED CURRENT STATE
+
+The system currently contains **4 execution systems**:
+
+1. Legacy dispatcher (`handleWorkspaceCmdAction`)
+2. Window event system (`stageone:autoGenerate`)
+3. Hook-based generation system (`useGeneratorOrchestration`)
+4. ExecutionBus (`bus.execute`)
+
+These systems are ALL active in production.
+
+---
+
+# CRITICAL FINDING
+
+ExecutionBus is NOT currently the single execution engine.
+
+It is only used by:
+
+* `{{WORKSPACE|run|module|idea}}`
+
+All real-world user generation flows still bypass it.
+
+---
+
+# REQUIRED NEXT STEP
+
+Do NOT modify code yet.
+
+Instead, implement a **single execution contract layer**:
+
+## RULE
+
+All generation requests MUST follow this chain:
+
+```
+Marcus Input
+→ ExecutionBus.execute()
+→ Module Controller
+→ Bridge
+→ Page Generator
+→ Streaming
+→ Persistence
+→ Completion
+```
+
+No exceptions.
+
+---
+
+# BLOCKED PATHS (MUST BE ELIMINATED AFTER CONTRACT IS APPLIED)
+
+* emitWorkspaceSignal({ type: "generate" })
+* markPendingIntentAutoGenerate()
+* stageone:autoGenerate event system
+* sessionStorage autorun system
+* direct handleGenerateRef.current() invocation
+* executeAction() generation branch bypass
+
+---
+
+# REQUIREMENT
+
+Before any code changes:
+
+1. Ensure ExecutionBus is reachable from ALL generate_* commands
+2. Ensure all modules have working controllers
+3. Ensure controllers call real page generation functions
+4. Ensure no generation path bypasses ExecutionBus
+
+---
+
+# SUCCESS CRITERION
+
+The system is only valid when:
+
+ALL generation requests enter:
+
+ExecutionBus → Controller → Bridge → Page → Output
+
+and **no legacy path can trigger generation independently**
+
+---
+
+# IMPORTANT
+
+This is NOT a redesign.
+
+This is a **unification contract enforcement step**.
+
+No new features.
+
+No UI changes.
+
+No architecture expansion.
+
+Only enforcement of a single execution entry rule.

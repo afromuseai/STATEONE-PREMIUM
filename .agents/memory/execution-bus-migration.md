@@ -13,6 +13,10 @@ All `generate_*` WORKSPACE commands and ACTION tags now route through `bus.execu
 When wiring up the orchestrator controller (Phase 2), implement `orchestratorController.generate()` to call the page's actual generation logic, then replace the legacy `generate_orchestrator` handler in `copilot-panel.tsx` with `bus.execute({ module: "orchestrator", action: "generate" })`.
 
 ## Migrated paths (all in `copilot-panel.tsx`)
-- `handleWorkspaceCmdAction`: generate_chatbot, generate_intelligence, generate_website, generate_automation → bus
+- `handleWorkspaceCmdAction`: all 5 generate_* commands → bus (orchestrator now included, controller is real)
 - `executeAction` ({{ACTION:}} tag path): generate_website, generate_intelligence → bus
-- `handleWorkspaceCmdAction`: generate_orchestrator → legacy (intentional, see above)
+
+## Orchestrator bridge wiring notes
+- Bridge: `lib/module-architecture/orchestrator-bridge.ts` (singleton, same pattern as automation-bridge)
+- Controller: `lib/module-architecture/controllers/orchestrator-controller.ts` (real, delegates to bridge)
+- Page: `pages/orchestrator.tsx` — generate() has `ideaOverride?` param; try/finally ensures completion callback always fires; latest-ref pattern (goalRef.current = goal, generateRef.current = generate in render body) ensures bridge never sees stale/null refs; triggerGenerate resolves prior orphaned promise before replacing.

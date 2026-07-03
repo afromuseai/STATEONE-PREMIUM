@@ -1317,12 +1317,12 @@ export function CopilotPanel() {
           navigate("/orchestrator");
         }
       } else if (command === "generate_orchestrator") {
-        // NOTE: orchestratorController.generate() is a placeholder (Phase 2 pending).
-        // Keep on legacy dispatch until the controller is fully wired.
-        console.log("[CONFIRM_FLOW:3] handleWorkspaceCmdAction invoked | command: generate_orchestrator");
-        markPendingIntentAutoGenerate("orchestrator");
-        console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: generate_orchestrator | from:", location, "| to: /orchestrator | stack:", new Error("NAV_TRACE").stack);
-        navigate("/orchestrator");
+        console.log("[ExecutionBus] generate_orchestrator → bus.execute({ module: orchestrator, action: generate })");
+        import("@/lib/execution-bus").then(({ bus }) => {
+          bus.execute({ module: "orchestrator", action: "generate", payload: {} }).catch((err) => {
+            console.warn("[ExecutionBus] generate_orchestrator failed:", err);
+          });
+        });
       } else if (command === "run") {
         // ExecutionBus unified run command: {{WORKSPACE|run|<module>|<idea>}}
         // Routes through the global ExecutionBus so execution is tracked, sequenced,

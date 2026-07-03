@@ -16,6 +16,7 @@ import { loadProjectContext, clearProjectContext, loadOrchestratorContext, clear
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { orchestratorController } from "@/lib/module-architecture/controllers/orchestrator-controller"
 import { registerController, unregisterController } from "@/lib/module-architecture/registry"
+import { registerBridge, unregisterBridge } from "@/lib/module-architecture/orchestrator-bridge"
 
 interface Agent {
   id: string; name: string; role: string; model: string
@@ -268,6 +269,11 @@ export default function OrchestratorPage() {
   const [replayStep, setReplayStep] = useState(-1)
   const abortRef = useRef<AbortController | null>(null)
   const autoGenPendingRef = useRef(false)
+  // Bridge refs — kept in sync each render so the OrchestratorBridge can always
+  // call the latest version of generate() and read the current goal value.
+  const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  const goalRef = useRef(goal)
+  const generateRef = useRef<((ideaOverride?: string) => Promise<void>) | null>(null)
   const [userPlan, setUserPlan] = useState<string | null>(null)
   const [pendingAutoGenerate, setPendingAutoGenerate] = useState(false)
   // Marcus workspace signal typewriter — same ref+tick pattern as website-generator.
@@ -402,15 +408,44 @@ export default function OrchestratorPage() {
     }, "orchestrator")
   }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Register orchestrator controller so the workspace knows this module is active
+  // Register orchestrator controller and bridge so the ExecutionBus can drive this page.
   useEffect(() => {
     registerController("orchestrator", orchestratorController)
-    return () => unregisterController("orchestrator")
+    registerBridge({
+      navigate: () => navigate("/orchestrator"),
+      populate: (idea, onComplete) => {
+        setGoal(idea)
+        goalRef.current = idea
+        // Defer onComplete so React has time to commit the state update.
+        setTimeout(onComplete, 0)
+      },
+      triggerGenerate: (idea) => new Promise<void>((resolve) => {
+        // Resolve any in-flight promise before replacing — prevents orphaned Promises
+        // if two triggerGenerate() calls overlap (e.g. rapid bus.execute() calls).
+        const prior = generateCompleteCallbackRef.current
+        if (prior) { generateCompleteCallbackRef.current = null; prior() }
+        generateCompleteCallbackRef.current = resolve
+        generateRef.current?.(idea)
+      }),
+      save: () => Promise.resolve(),
+      getCurrentIdea: () => goalRef.current,
+    })
+    return () => {
+      unregisterController("orchestrator")
+      unregisterBridge()
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const generate = async () => {
-    if (!goal.trim()) return
-    const goalText = goal.trim()
+  const generate = async (ideaOverride?: string) => {
+    const goalText = (ideaOverride ?? goal).trim()
+    // Early exit: resolve any pending bridge promise so triggerGenerate() doesn't hang.
+    if (!goalText) {
+      const cb = generateCompleteCallbackRef.current; generateCompleteCallbackRef.current = null; cb?.()
+      return
+    }
+    // If the bridge supplied an idea override, commit it to state for UI consistency.
+    if (ideaOverride && ideaOverride !== goal) setGoal(ideaOverride)
+
     setGenError(""); setStep("generating"); setStreamText(""); setData(null); setReplayStep(-1)
     abortRef.current = new AbortController()
     let buffer = ""
@@ -453,8 +488,19 @@ export default function OrchestratorPage() {
       }
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") { setGenError("Generation failed — please try again"); setStep("idle") }
+    } finally {
+      // Always resolve the bridge's triggerGenerate() promise (no-op when called directly).
+      // try/finally ensures this runs on every exit path including msg.error early returns.
+      const cb = generateCompleteCallbackRef.current
+      generateCompleteCallbackRef.current = null
+      cb?.()
     }
   }
+
+  // Latest-ref pattern: keep both refs in sync on every render so the OrchestratorBridge
+  // always has the current goal string and generate function before mount effects run.
+  goalRef.current = goal
+  generateRef.current = generate
 
   const replayExecution = useCallback(async () => {
     if (!data) return
@@ -560,7 +606,7 @@ export default function OrchestratorPage() {
               </div>
             )}
 
-            <button onClick={generate}
+            <button onClick={() => generate()}
               disabled={!goal.trim() || step === "generating"}
               className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black uppercase tracking-wider hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_0_20px_rgba(212,175,55,0.25)] hover:shadow-[0_0_28px_rgba(212,175,55,0.4)] flex items-center justify-center gap-2">
               {step === "generating"
