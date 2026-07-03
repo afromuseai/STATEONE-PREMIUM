@@ -1,0 +1,297 @@
+# STAGEONE COPILOT — STRUCTURAL ORCHESTRATION AUDIT (NO IMPLEMENTATION)
+
+## IMPORTANT
+
+Do **NOT** begin implementing fixes.
+
+Do **NOT** copy Website code into the other modules.
+
+Do **NOT** rewrite any module.
+
+This task is an **architectural audit only**.
+
+The objective is to identify **why Website is the only module that consistently works end-to-end**, while the other modules diverge.
+
+---
+
+# GOAL
+
+Treat **Website** as the reference implementation.
+
+Determine **every architectural difference** between:
+
+* Website
+* Business Intelligence
+* Chatbot
+* Automation
+* Orchestrator
+
+The goal is **NOT** to make the modules visually identical.
+
+The goal is to make every module follow **one identical orchestration lifecycle**.
+
+---
+
+# IMPORTANT
+
+Do NOT compare UI.
+
+Do NOT compare layouts.
+
+Do NOT compare generators.
+
+Compare only the orchestration pipeline.
+
+---
+
+# AUDIT THE COMPLETE LIFECYCLE
+
+For each module inspect:
+
+## Stage 1
+
+Marcus response generation
+
+Verify:
+
+* routing prompt
+* workspace command generation
+* structured command output
+* confirmation behaviour
+
+---
+
+## Stage 2
+
+Workspace commands
+
+Verify:
+
+* navigate command
+* populate command
+* generate command
+
+Example:
+
+Website
+
+{{WORKSPACE|website}}
+
+{{WORKSPACE|idea|...}}
+
+{{WORKSPACE|generate_website}}
+
+Every module should follow the same structural pattern.
+
+---
+
+## Stage 3
+
+Workspace Controller
+
+Compare:
+
+* emitWorkspaceSignal()
+* subscribeWorkspaceSignal()
+* queue handling
+* dequeueWorkspaceSignals()
+* pendingIntent
+* consumePendingIntent()
+* autoGenerate
+
+---
+
+## Stage 4
+
+Navigation
+
+Verify:
+
+* route
+* mount timing
+* race handling
+
+---
+
+## Stage 5
+
+Textarea population
+
+Verify:
+
+* signal reception
+* queue drain
+* typewriter animation
+* state hydration
+
+Determine why Website behaves correctly.
+
+---
+
+## Stage 6
+
+Confirmation
+
+Verify:
+
+* confirmation detection
+* confirmation persistence
+* autoGenerate transition
+
+---
+
+## Stage 7
+
+Generation trigger
+
+Verify:
+
+* trigger source
+* pendingIntent
+* signal
+* direct invocation
+
+Determine whether every module enters generation the same way.
+
+---
+
+## Stage 8
+
+Streaming
+
+Compare:
+
+* SSE
+* parser
+* JSON extraction
+* <think> stripping
+* completion handling
+
+---
+
+## Stage 9
+
+Persistence
+
+Compare:
+
+* ensureProject()
+* saveToProject()
+* project linkage
+* saveProjectContext()
+* project restoration
+
+Determine why standalone generations save correctly while Marcus-triggered generations do not.
+
+---
+
+## Stage 10
+
+Completion callback
+
+Compare:
+
+* *.generated events
+* Marcus completion handling
+* workspace notifications
+
+---
+
+# MOST IMPORTANT AUDIT
+
+Determine why Website works while the others do not.
+
+Do **NOT** answer:
+
+"They are different."
+
+Instead answer:
+
+"What exact architectural differences make Website succeed?"
+
+---
+
+# REQUIRED OUTPUT
+
+For each module provide:
+
+## Website
+
+Reference implementation
+
+---
+
+## Business Intelligence
+
+Architectural differences from Website:
+
+* ...
+
+---
+
+## Chatbot
+
+Architectural differences from Website:
+
+* ...
+
+---
+
+## Automation
+
+Architectural differences from Website:
+
+* ...
+
+---
+
+## Orchestrator
+
+Architectural differences from Website:
+
+* ...
+
+---
+
+# FINAL REPORT
+
+Produce:
+
+## Differences that are intentional
+
+Examples:
+
+* Different API endpoint
+* Different UI component
+
+These should remain.
+
+---
+
+## Differences that are architectural drift
+
+Examples:
+
+* Different save pipeline
+* Different signal flow
+* Different pendingIntent handling
+* Different completion events
+* Different orchestration lifecycle
+
+These should eventually be unified.
+
+---
+
+# DO NOT IMPLEMENT
+
+Do not write code.
+
+Do not patch files.
+
+Do not copy Website into the other modules.
+
+First identify **every architectural divergence**.
+
+Only after the audit is complete should implementation be proposed.
+
+The long-term objective is **one shared orchestration framework** that every module uses, rather than five similar-but-different implementations.
