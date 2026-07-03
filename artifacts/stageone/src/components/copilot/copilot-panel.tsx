@@ -1619,7 +1619,7 @@ export function CopilotPanel() {
     const COMPLETION_MESSAGES: Partial<
       Record<string, { open: string; bubble: string; openSaveFailed: string; bubbleSaveFailed: string }>
     > = {
-      "generation.complete": {
+      "bi.generated": {
         open: "Business Intelligence generation completed successfully.\n\nI've attached the report to this project and reviewed the analysis.\n\nIf you'd like to discuss assumptions, risks, growth strategy, or any part of the report, I'm here.",
         bubble:
           "Analysis done. The biggest unknown isn't strategy — it's whether customers agree.",
@@ -1646,6 +1646,13 @@ export function CopilotPanel() {
           "Chatbot ready. What's the first real conversation you want it to handle?",
         openSaveFailed: "Chatbot generation completed, but saving to the project failed.\n\nThe output is visible here but was not persisted. You may want to re-run the generation from the project page.",
         bubbleSaveFailed: "Chatbot generated — but it didn't save to the project. Open to sort it out.",
+      },
+      "orchestrator.generated": {
+        open: "Orchestration design completed successfully.\n\nThe workflow blueprint has been attached to this project.\n\nIf you'd like to review agent roles, task sequencing, or integration touchpoints, I'm ready to go deeper.",
+        bubble:
+          "Orchestration ready. Let's make sure the agent handoffs match your real process.",
+        openSaveFailed: "Orchestration design completed, but saving to the project failed.\n\nThe output is visible here but was not persisted. You may want to re-run the generation from the project page.",
+        bubbleSaveFailed: "Orchestration designed — but it didn't save to the project. Open to sort it out.",
       },
     };
 

@@ -16,7 +16,6 @@ export type { MarcusWorkspaceSignal }
 // ─── Event types ──────────────────────────────────────────────────────────────
 
 export type WorkspaceEventType =
-  | "generation.complete"
   | "project.created"
   | "task.completed"
   | "website.generated"
