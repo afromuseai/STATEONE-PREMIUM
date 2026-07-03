@@ -9,7 +9,10 @@ import crypto from "crypto";
 
 const router = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "stageone-dev-secret-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required but not set");
+}
 const IMPERSONATION_TTL_SECONDS = 30 * 60; // 30 minutes
 
 export interface ImpersonationPayload {
