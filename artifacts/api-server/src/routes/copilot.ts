@@ -169,6 +169,8 @@ router.post("/copilot", requireAuth, requireFeature("marcus_copilot"), async (re
   console.log(`[RUNTIME_TRACE] 01_REQUEST_RECEIVED | /api/copilot | ts=${Date.now()}`);
   const parsed = CopilotBody.safeParse(req.body);
   if (!parsed.success) {
+    console.log(`[RUNTIME_TRACE] 01b_SCHEMA_VALIDATION_FAILED | issues=${JSON.stringify(parsed.error.issues)}`);
+    console.log(`[RUNTIME_TRACE] 01c_RAW_BODY_RECEIVED | body=${JSON.stringify(req.body)}`);
     res.status(400).json({ error: "Invalid request" });
     return;
   }
