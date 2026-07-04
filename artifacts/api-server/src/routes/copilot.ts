@@ -976,14 +976,15 @@ ${summary}
     new Set(moduleConfidences.flatMap(m => m.matchedContextSignals))
   );
 
-  // workspaceIntent: the single highest-confidence module, or null when no
-  // explicit workspace signal was found anywhere in the message (a message
-  // that is purely business context, e.g. "I need a scheduling assistant",
-  // does NOT select a workspace by itself).
+  // classifierIntent: the signal-matcher's raw output — the highest-scoring
+  // module with at least one workspace-signal hit, or null when the message
+  // contains no explicit workspace signal (e.g. a pure business description).
+  // This is an INTERMEDIATE value. The canonical workspaceIntent is computed
+  // below after the confirmation path is resolved and merges both inputs.
   const topModuleConfidence = moduleConfidences.reduce((best, current) =>
     current.score > best.score ? current : best
   );
-  const workspaceIntent: ModuleName | null = topModuleConfidence.score > 0 ? topModuleConfidence.module : null;
+  const classifierIntent: ModuleName | null = topModuleConfidence.score > 0 ? topModuleConfidence.module : null;
 
   // Workspace-only signal lists for diagnostic logging.
   // These contain ONLY workspace signals (explicit tool requests), never context
@@ -996,8 +997,7 @@ ${summary}
 
   // Detect which module the user's message explicitly names, independent of any
   // pending intent. This runs unconditionally so a stale intent cannot mask it.
-  // (Name preserved for the stale-intent detection immediately below.)
-  const explicitModuleFromSignals: ModuleName | null = workspaceIntent;
+  const explicitModuleFromSignals: ModuleName | null = classifierIntent;
 
   // A pending intent is superseded when the user's message explicitly names a
   // DIFFERENT module. Example: pendingIntent.type="chatbot" but user says
@@ -1009,12 +1009,51 @@ ${summary}
     clientPendingIntent !== null &&
     explicitModuleFromSignals !== clientPendingIntent.type;
 
-  // Confirmation engine priority: pendingIntent → pagePathEngine → null
-  // Guard: if the pending intent is superseded by an explicit new module request,
-  // drop it — treat the message as a fresh EXECUTION, not a confirmation.
-  const confirmationEngine = isConfirmationResponse && !pendingIntentSuperseded
+  // Intermediate: confirmation path resolution.
+  // pendingIntent → pagePathEngine → null. Dropped if pendingIntent is superseded.
+  const _confirmationEngine = isConfirmationResponse && !pendingIntentSuperseded
     ? (clientPendingIntent?.type ?? pagePathEngine ?? null)
     : null;
+
+  // intentIsFromConfirmation: computed from _confirmationEngine before
+  // workspaceIntent is declared so that _confirmationEngine is never read
+  // after the canonical value is set. True when the user is confirming a
+  // pending intent; false for fresh signal-matched requests.
+  const intentIsFromConfirmation = _confirmationEngine !== null;
+
+  // ── Canonical workspaceIntent — determined once, consumed everywhere ──────
+  // This is THE single source of truth for which workspace engine is active.
+  // Every downstream system — prompts, ExecutionBus, routing, population,
+  // confirmation bypass, logging, and generation — reads this value and
+  // nothing else. It is a const and is never reassigned or overridden.
+  //
+  // Resolution priority (first non-null wins):
+  //   1. _confirmationEngine — user explicitly approved a pending intent
+  //   2. classifierIntent    — fresh request with an explicit workspace signal
+  //   3. "none"              — no workspace selected; strategic/conversational
+  //
+  // detectedBusinessContext (industry, product type, audience) is structurally
+  // independent metadata. It is never read here and cannot influence this value.
+  // _confirmationEngine is not read again after this line.
+  const workspaceIntent: ModuleName | "none" =
+    _confirmationEngine ?? classifierIntent ?? "none";
+
+  // intentSource: how workspaceIntent was determined — diagnostic only.
+  // Never used for routing or engine selection decisions.
+  const intentSource: "pendingIntent" | "pagePathEngine" | "keyword" | "none" =
+    intentIsFromConfirmation
+      ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
+      : workspaceIntent !== "none"
+        ? "keyword"
+        : "none";
+
+  // Derived booleans — each is a direct equality check against the single
+  // canonical workspaceIntent; mutually exclusive by construction.
+  const isChatbotRequest      = workspaceIntent === "chatbot";
+  const isAutomationRequest   = workspaceIntent === "automation";
+  const isWebsiteRequest      = workspaceIntent === "website";
+  const isBiRequest           = workspaceIntent === "bi";
+  const isOrchestratorRequest = workspaceIntent === "orchestrator";
 
   // ── Gate mode override ────────────────────────────────────────────────────
   // "sounds good" / "yes, go ahead" / "ok, do it" carry no generative keywords,
@@ -1023,11 +1062,11 @@ ${summary}
   // causing the model to respond "Understood." instead of emitting the generate
   // command. When a confirmed pendingIntent is present, force GENERATIVE so the
   // EXECUTION MODE header fires and all conversational/validation layers are off.
-  if (isConfirmationResponse && confirmationEngine !== null) {
+  if (isConfirmationResponse && intentIsFromConfirmation) {
     // Legitimate confirmation of the active pending intent.
     serverGateMode = "GENERATIVE";
     serverIntentType = "EXECUTION";
-    console.log(`[MARCUS] GATE_MODE_OVERRIDE | confirmation+pendingIntent active | serverGateMode overridden to GENERATIVE | engine=${confirmationEngine}`);
+    console.log(`[MARCUS] GATE_MODE_OVERRIDE | confirmation+pendingIntent active | serverGateMode overridden to GENERATIVE | workspaceIntent=${workspaceIntent}`);
   } else if (pendingIntentSuperseded) {
     // User explicitly requested a different module — the stale pending intent is
     // discarded. The initial classifier may have labelled the message CONFIRM
@@ -1036,7 +1075,7 @@ ${summary}
     // fresh EXECUTION so the correct engine block fires.
     serverGateMode = "GENERATIVE";
     serverIntentType = "EXECUTION";
-    console.log(`[MARCUS] GATE_MODE_OVERRIDE | stale "${clientPendingIntent?.type}" pendingIntent superseded by explicit "${explicitModuleFromSignals}" signal — fresh EXECUTION | engine=${explicitModuleFromSignals}`);
+    console.log(`[MARCUS] GATE_MODE_OVERRIDE | stale "${clientPendingIntent?.type}" pendingIntent superseded by explicit "${classifierIntent}" signal — fresh EXECUTION | workspaceIntent=${workspaceIntent}`);
   }
 
   req.log.info({
@@ -1048,44 +1087,13 @@ ${summary}
     pendingIntent: clientPendingIntent?.type ?? null,
     activePagePath,
     pagePathEngine,
-    confirmationEngine,
     pendingIntentSuperseded,
-    explicitModuleFromSignals,
+    classifierIntent,
+    intentIsFromConfirmation,
     workspaceIntent,
+    intentSource,
     detectedBusinessContext,
-    selectedEngine: confirmationEngine ?? "pending_keyword_match",
   }, "[MARCUS] CONFIRM_INTENT_DETECTED");
-
-  // ─── Engine loading priority ──────────────────────────────────────────────────
-  // 1. pendingIntent (when user confirmed) — never requires artifact keywords
-  // 2. activePagePath (confirmation fallback when no pendingIntent)
-  // 3. Message keywords (direct request, no confirmation needed)
-
-  // resolvedEngine: the single authoritative engine for this request.
-  // confirmationEngine wins when the user is confirming a prior pending intent
-  // (e.g. "yes, go ahead"). Otherwise the confidence-scored workspaceIntent
-  // from the structured classifier wins. Exactly one value — no precedence
-  // chain, no short-circuiting, no first-match-wins ordering.
-  const resolvedEngine: ModuleName | "none" = confirmationEngine ?? workspaceIntent ?? "none";
-
-  // Flat booleans derived directly from resolvedEngine — mutually exclusive
-  // by construction, not by chained negation guards.
-  const isChatbotRequest      = resolvedEngine === "chatbot";
-  const isAutomationRequest   = resolvedEngine === "automation";
-  const isWebsiteRequest      = resolvedEngine === "website";
-  const isBiRequest           = resolvedEngine === "bi";
-  const isOrchestratorRequest = resolvedEngine === "orchestrator";
-
-  const selectedEngine = resolvedEngine;
-
-  const selectionSource: string =
-    (confirmationEngine === "chatbot"      && isChatbotRequest)      ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
-    : (confirmationEngine === "automation"   && isAutomationRequest)   ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
-    : (confirmationEngine === "website"      && isWebsiteRequest)      ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
-    : (confirmationEngine === "bi"           && isBiRequest)           ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
-    : (confirmationEngine === "orchestrator" && isOrchestratorRequest) ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
-    : selectedEngine !== "none" ? "keyword"
-    : "none";
 
   // ─── ROUTING_TRACE (log-only, diagnostic) ─────────────────────────────────────
   // Full trace of the signal-matching layer that decides which execution engine
@@ -1122,34 +1130,22 @@ ${summary}
     clientPendingIntentType: clientPendingIntent?.type ?? null,
     activePagePath,
     pagePathEngine,
-    confirmationEngine,
-    selectedEngineFromSignals: selectedEngine,
-    selectionSource,
+    classifierIntent,
+    intentIsFromConfirmation,
+    workspaceIntent,
+    intentSource,
   }, "[MARCUS][ROUTING_TRACE] Signal-matching layer — engine selected before LLM call");
-
-  // Log forced engine activation when pendingIntent wins over keyword matching
-  if (selectionSource === "pendingIntent") {
-    req.log.info({
-      event: "EXECUTION_ENGINE_FORCED",
-      engine: selectedEngine,
-      source: "pendingIntent",
-      pendingIntentType: clientPendingIntent?.type,
-      confirmIntent: confirmationResult.intent,
-      confidence: confirmationResult.confidence,
-      matchedSignals: confirmationResult.matchedSignals,
-    }, "[MARCUS] EXECUTION_ENGINE_FORCED");
-  }
 
   req.log.info({
     event: "ENGINE_SELECTION_CONTEXT",
     latestUserMessage: latestUserMessage.slice(0, 200),
     activePagePath,
     pendingIntent: clientPendingIntent?.type ?? null,
-    selectedEngine,
-    selectionSource,
-    selectionReason: selectedEngine !== "none"
-      ? `engine=${selectedEngine} loaded via ${selectionSource}`
-      : `engine=none — message="${latestUserMessage.slice(0, 40)}" has no keywords and no confirmationEngine`,
+    workspaceIntent,
+    intentSource,
+    selectionReason: workspaceIntent !== "none"
+      ? `engine=${workspaceIntent} loaded via ${intentSource}`
+      : `engine=none — message="${latestUserMessage.slice(0, 40)}" has no workspace signals and no pendingIntent`,
     isConfirmationResponse,
     confirmIntent: confirmationResult.intent,
     confirmConfidence: confirmationResult.confidence,
@@ -1172,13 +1168,13 @@ ${summary}
     isWebsiteRequest,
     isBiRequest,
     chatbotEngineIncluded: isChatbotRequest,
-    selectionSource,
+    intentSource,
     reason: isChatbotRequest
-      ? `chatbot_execution engine WILL be injected (source: ${selectionSource})`
+      ? `chatbot_execution engine WILL be injected (source: ${intentSource})`
       : isAutomationRequest
-        ? `automation_execution engine WILL be injected (source: ${selectionSource})`
+        ? `automation_execution engine WILL be injected (source: ${intentSource})`
         : isWebsiteRequest
-          ? `website_execution engine WILL be injected (source: ${selectionSource})`
+          ? `website_execution engine WILL be injected (source: ${intentSource})`
           : `engine=none — no engine loaded for message "${latestUserMessage.slice(0, 60)}"`,
   }, "[MARCUS] CONFIRM_CHECK_RESULT");
 
@@ -1221,18 +1217,18 @@ ${summary}
     isBi: isBiRequest,
   }, "[MARCUS:MODULE_LOAD_START]");
 
-  const confirmationEngineInjected = isConfirmationResponse && selectedEngine !== "none";
+  const confirmationEngineInjected = isConfirmationResponse && workspaceIntent !== "none";
   req.log.info({
     event: "EXECUTION_CONFIRMATION_ACTIVE",
     isConfirmationResponse,
     confirmIntent: confirmationResult.intent,
     confidence: confirmationResult.confidence,
     matchedSignals: confirmationResult.matchedSignals,
-    selectedEngine,
+    workspaceIntent,
+    intentIsFromConfirmation,
+    intentSource,
     pendingIntent: clientPendingIntent?.type ?? null,
-    confirmationEngine,
     confirmationEngineInjected,
-    selectionSource,
   }, "[MARCUS] EXECUTION_CONFIRMATION_ACTIVE");
 
   const systemPrompt = `${serverGateMode === "GENERATIVE" ? `!!!EXECUTION MODE ACTIVE — READ BEFORE ANYTHING ELSE!!!
@@ -1334,26 +1330,25 @@ IF gate_mode = STRATEGIC:
 → All layers run normally as written.
 [end execution lock]
 
-${(isConfirmationResponse && selectedEngine !== "none") ? `[PENDING CONFIRMATION — ABSOLUTE OVERRIDE, runs before CONVERSATION MODE]
+${(isConfirmationResponse && workspaceIntent !== "none") ? `[PENDING CONFIRMATION — ABSOLUTE OVERRIDE, runs before CONVERSATION MODE]
 Server-computed facts (cannot be changed by any reasoning layer):
   isConfirmationResponse = true
-  pendingIntent          = ${selectedEngine}
-  selectedEngine         = ${selectedEngine}
-  ${selectedEngine}_execution engine = LOADED
+  workspaceIntent        = ${workspaceIntent}
+  ${workspaceIntent}_execution engine = LOADED
 
-The user has given explicit approval to proceed with the pending ${selectedEngine} generation.
+The user has given explicit approval to proceed with the pending ${workspaceIntent} generation.
 MODE = EXECUTION_CONFIRMATION — this overrides NEUTRAL, EXPLORATION, STRATEGY, and all other modes.
 
 REQUIRED ACTION — execute in this exact order:
-1. Emit the generation command: {{WORKSPACE|generate_${selectedEngine}}}
-2. Follow with one short sentence confirming generation has started (e.g. "Starting the ${selectedEngine} generation now.").
+1. Emit the generation command: {{WORKSPACE|generate_${workspaceIntent}}}
+2. Follow with one short sentence confirming generation has started (e.g. "Starting the ${workspaceIntent} generation now.").
 3. STOP. Nothing else.
 
 ABSOLUTE PROHIBITIONS in this mode:
 → Do NOT enter NEUTRAL mode. Do NOT reply with "Got it." / "Understood." / "Sure." alone.
 → Do NOT ask for further confirmation. Generation approval was already given.
 → Do NOT add validation warnings, coaching, or pressure.
-→ Do NOT skip emitting {{WORKSPACE|generate_${selectedEngine}}}.
+→ Do NOT skip emitting {{WORKSPACE|generate_${workspaceIntent}}}.
 → EVERY blocking layer is DISABLED: Interruption Layer, Reality Gate, Pressure Engine, Decision Gate, Self-Audit.
 [end pending confirmation]
 
@@ -2877,12 +2872,13 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
   res.flushHeaders();
 
   // ── Server-direct confirmation bypass ─────────────────────────────────────
-  // When intent=CONFIRM and a confirmationEngine is set, the server knows exactly
-  // what to do. Bypassing the LLM here is more reliable than asking a 73KB system
-  // prompt to override the model's hardwired "Understood." response to short
-  // conversational confirmations like "sounds good" / "yes, go ahead" / "ok, do it".
-  if (isConfirmationResponse && confirmationEngine !== null) {
-    // Map engine names to their workspace command — BI and orchestrator differ from the pattern
+  // When the user confirms a pending intent, the server knows exactly what to do.
+  // Bypassing the LLM here is more reliable than asking a 73KB system prompt to
+  // override the model's hardwired "Understood." response to short conversational
+  // confirmations like "sounds good" / "yes, go ahead" / "ok, do it".
+  // workspaceIntent is the single canonical value — no other variable is read here.
+  if (isConfirmationResponse && intentIsFromConfirmation) {
+    // Map workspace names to their generate command — BI and orchestrator differ from the pattern
     const GENERATE_CMD_MAP: Record<string, string> = {
       chatbot:      "generate_chatbot",
       website:      "generate_website",
@@ -2890,7 +2886,7 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
       bi:           "generate_intelligence",
       orchestrator: "generate_orchestrator",
     };
-    const generateCmd = `{{WORKSPACE|${GENERATE_CMD_MAP[confirmationEngine] ?? `generate_${confirmationEngine}`}}}`;
+    const generateCmd = `{{WORKSPACE|${GENERATE_CMD_MAP[workspaceIntent] ?? `generate_${workspaceIntent}`}}}`;
 
     // Build a short, readable idea label from the best available source.
     // Use the top-level project idea (concise, business-level) rather than the
@@ -2905,7 +2901,7 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     const hasBi = !!(wsModules?.businessIntelligence);
 
     const confirmText = (() => {
-      switch (confirmationEngine) {
+      switch (workspaceIntent) {
         case "bi":
           return ideaLabel
             ? `Everything is ready.\n\nI'm generating a business intelligence report for ${ideaLabel}.\n\nI'll attach the results to your current workspace once analysis completes.`
@@ -2929,12 +2925,12 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
 
     req.log.info({
       event: "CONFIRMATION_SERVER_BYPASS",
-      engine: confirmationEngine,
+      workspaceIntent,
+      intentSource,
       emittedCommand: generateCmd,
       confirmIntent: confirmationResult.intent,
       confidence: confirmationResult.confidence,
       matchedSignals: confirmationResult.matchedSignals,
-      selectionSource,
     }, "[MARCUS] CONFIRMATION_SERVER_BYPASS — emitting generate command directly, bypassing LLM");
 
     res.write(`data: ${JSON.stringify({ content: confirmText })}\n\n`);
@@ -2958,12 +2954,12 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     biEngine: isBiRequest,
     orchestratorEngine: isOrchestratorRequest,
     executionConfirmationMode: confirmationEngineInjected,
-    selectedEngine,
-    selectionSource,
+    workspaceIntent,
+    intentSource,
+    intentIsFromConfirmation,
     isConfirmationResponse,
     confirmIntent: confirmationResult.intent,
     pendingIntent: clientPendingIntent?.type ?? null,
-    confirmationEngine,
     systemPromptLength: systemPrompt.length,
     containsPendingConfirmationBlock: systemPrompt.includes("PENDING CONFIRMATION"),
   }, "[MARCUS] SYSTEM_PROMPT_FLAGS");
@@ -2993,7 +2989,7 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
   req.log.info({
     event: "PROMPT_BLOCK_PROOF",
     userMessage: latestUserMessage.slice(0, 200),
-    selectedEngine,
+    workspaceIntent,
     blocks: blockProof,
     mismatches: blockMismatches,
     mismatchCount: blockMismatches.length,
@@ -3129,7 +3125,7 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
       model: activeModel,
       isConfirmationResponse,
       confirmIntent: confirmationResult.intent,
-      selectedEngine,
+      workspaceIntent,
       confirmationEngineInjected,
       rawResponseLength: result?.length ?? 0,
       rawResponse: (result ?? "").slice(0, 1000),
@@ -3147,10 +3143,10 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     //   4. every parsed command + payload derived from those tags
     //   5. module selected by the signal-matching layer (see ROUTING_TRACE_SIGNAL_MATCH above)
     //   6/7/8. navigate / populate / generate targets found among the emitted tags
-    // Compare selectedEngineFromSignalMatching (step 5) against the module implied
-    // by the emitted tags (steps 6-8) to see whether the mismatch originates in the
-    // signal-matching layer (wrong engine block injected into the prompt) or in the
-    // LLM's own tag emission (right engine injected, but LLM emitted the wrong tag).
+    // Compare workspaceIntent (step 5) against the module implied by the emitted
+    // tags (steps 6-8) to see whether the mismatch originates in the signal-matching
+    // layer (wrong engine block injected into the prompt) or in the LLM's own tag
+    // emission (right engine injected, but LLM emitted the wrong tag).
     const emittedWorkspaceTags = extractWorkspaceTags(result ?? "");
     const parsedCommands = emittedWorkspaceTags.map(t => ({ command: t.command, payload: t.payload.slice(0, 200) }));
     const navigateTag = emittedWorkspaceTags.find(t => NAVIGATE_COMMANDS.has(t.command)) ?? null;
@@ -3163,12 +3159,12 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
       rawLLMResponse: result ?? "",
       emittedWorkspaceTags: emittedWorkspaceTags.map(t => t.tag),
       parsedCommands,
-      moduleSelectedBySignalMatching: selectedEngine,
+      workspaceIntent,
       navigateTarget: navigateTag ? { command: navigateTag.command, tag: navigateTag.tag } : null,
       populateTarget: populateTag ? { command: populateTag.command, payload: populateTag.payload.slice(0, 200), tag: populateTag.tag } : null,
       generateTarget: generateTag ? { command: generateTag.command, tag: generateTag.tag } : null,
       // Maps every LLM-emitted tag type to the module it implies, so the
-      // mismatch check can compare against selectedEngine regardless of
+      // mismatch check can compare against workspaceIntent regardless of
       // whether the LLM emitted a navigate, populate, or generate tag.
       // Previously only generate tags were checked — navigate tags were
       // structurally invisible to the mismatch flag even though they reveal
@@ -3208,7 +3204,7 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
               : navigateTag.command === "open_orchestrator" ? "orchestrator"
               : null)
             : null;
-        return impliedModule !== null ? impliedModule !== selectedEngine : false;
+        return impliedModule !== null ? impliedModule !== workspaceIntent : false;
       })(),
     }, "[MARCUS][ROUTING_TRACE] Full routing trace — user message → LLM output → parsed commands → navigate/populate/generate targets");
 
