@@ -392,7 +392,11 @@ export default function OrchestratorPage() {
         const prior = generateCompleteCallbackRef.current
         if (prior) { generateCompleteCallbackRef.current = null; prior() }
         generateCompleteCallbackRef.current = resolve
-        generateRef.current?.(idea)
+        // Guard: if generate ref is not set, resolve immediately rather than
+        // leaving the bus Promise hanging. Matches chatbot's guaranteed-call contract.
+        const gen = generateRef.current
+        if (!gen) { generateCompleteCallbackRef.current = null; resolve(); return }
+        gen(idea)
       }),
       save: () => Promise.resolve(),
       getCurrentIdea: () => goalRef.current,

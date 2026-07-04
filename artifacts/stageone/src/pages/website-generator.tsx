@@ -139,6 +139,9 @@ export default function WebsiteGeneratorPage() {
   const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
   const latestDataRef = useRef<WebsiteOutput | null>(null)
   const generateWithIdeaRef = useRef<((idea: string) => Promise<void>) | null>(null)
+  // Phase 5: bridge completion callback — matches chatbot reference pattern.
+  // Set by triggerGenerate(), fired explicitly at the success path in generateWithIdea().
+  const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
 
   // Check subscription tier
   useEffect(() => {
@@ -198,7 +201,10 @@ export default function WebsiteGeneratorPage() {
         marcusPopulateRef.current = idea
         setMarcusPopulateTick(t => t + 1)
       },
-      triggerGenerate: (idea) => generateWithIdeaRef.current?.(idea) ?? Promise.resolve(),
+      triggerGenerate: (idea) => new Promise<void>((resolve) => {
+        generateCompleteCallbackRef.current = resolve
+        generateWithIdeaRef.current?.(idea)
+      }),
       save: async () => {
         if (!latestDataRef.current) return
         await ensureProject({
@@ -479,6 +485,11 @@ export default function WebsiteGeneratorPage() {
                 output: out as unknown as Record<string, unknown>,
               }).catch(() => ({ projectId: "", created: false, saved: false }))
               emit({ type: "website.generated", data: { saved: _epResult.saved } })
+              // Phase 5: signal bridge that generation is fully complete —
+              // fires only after SSE streaming, project save, and UI update are done.
+              // Matches chatbot reference pattern.
+              generateCompleteCallbackRef.current?.()
+              generateCompleteCallbackRef.current = null
               return
             }
           } catch { /* fragment */ }

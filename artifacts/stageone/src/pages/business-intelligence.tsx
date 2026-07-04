@@ -239,6 +239,9 @@ export default function BusinessIntelligencePage() {
   // Declared before handleGenerate — holds a ref so the signal subscriber
   // (registered once, stable closure) always calls the latest version.
   const handleGenerateRef = useRef<((idea: string) => Promise<void>) | null>(null)
+  // Phase 5: bridge completion callback — matches chatbot reference pattern.
+  // Set by triggerGenerate(), fired explicitly at the success path in handleGenerate().
+  const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
 
   // Marcus signal subscription (live — for when page is already mounted)
   useEffect(() => {
@@ -266,7 +269,10 @@ export default function BusinessIntelligencePage() {
         marcusBiIdeaRef.current = idea
         setMarcusPopulate(idea)
       },
-      triggerGenerate: (idea) => handleGenerateRef.current?.(idea) ?? Promise.resolve(),
+      triggerGenerate: (idea) => new Promise<void>((resolve) => {
+        generateCompleteCallbackRef.current = resolve
+        handleGenerateRef.current?.(idea)
+      }),
       save: async () => {
         if (!latestResultsRef.current || !draftProjectIdRef.current) return
         setSaveStatus("saving")
@@ -460,6 +466,11 @@ export default function BusinessIntelligencePage() {
         }).catch(() => {})
       }
       emit({ type: "bi.generated", data: { saved: biResult.saved } })
+      // Phase 5: signal bridge that generation is fully complete —
+      // fires only after SSE streaming, project save, and UI update are done.
+      // Matches chatbot reference pattern.
+      generateCompleteCallbackRef.current?.()
+      generateCompleteCallbackRef.current = null
       setSaveStatus(biResult.saved ? "saved" : "idle")
       if (biResult.saved) setTimeout(() => setSaveStatus("idle"), 3000)
 
