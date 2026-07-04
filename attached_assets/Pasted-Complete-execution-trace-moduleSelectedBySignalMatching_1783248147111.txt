@@ -1,0 +1,74 @@
+Complete execution trace: moduleSelectedBySignalMatching
+Test case (from the captured log):
+userMessage: "generate a website for ai scheduling assistant for healthcare clinics that handles patient booking, reminders, and follow-ups automatically"
+
+raw user message
+  "generate a website for ai scheduling assistant for healthcare clinics
+   that handles patient booking, reminders, and follow-ups automatically"
+↓
+preprocessing            [copilot.ts:701]
+  const latestUserMessage = (messages[messages.length - 1]?.content ?? "").toLowerCase();
+  → entire message lowercased, no trimming/normalization beyond that, no punctuation
+    stripping. Result is identical to input (already lowercase).
+↓
+tokenization
+  NONE. There is no tokenizer. Every "signal" check is a raw substring test:
+  `latestUserMessage.includes(s)` against the whole, unsplit string.
+↓
+keyword extraction        [copilot.ts:909-913]
+  CHATBOT_SIGNALS      = ["chatbot","chat bot","scheduling assistant","booking assistant","ai scheduling"]
+  AUTOMATION_SIGNALS   = ["automation", ...]
+  WEBSITE_SIGNALS      = ["website","landing page","fintech landing","saas landing","homepage"]
+  BI_SIGNALS           = [...]
+  ORCHESTRATOR_SIGNALS = [...]
+  Substring hits against this message:
+    CHATBOT_SIGNALS  → "ai scheduling" ✔ (found in "...for ai scheduling assistant...")
+                      → "scheduling assistant" ✔ (found in "...ai scheduling assistant...")
+    WEBSITE_SIGNALS  → "website" ✔ (found in "generate a website for...")
+↓
+signal scores
+  NONE. There is no scoring/weighting system for this classifier (a separate
+  weighted CONFIRM_SIGNALS/REJECT_SIGNALS system exists at lines 794-863, but it is
+  used only for yes/no confirmation detection, not for module selection).
+  Module selection is a fixed-order boolean ternary chain, evaluated twice,
+  independently, with identical hardcoded precedence both times:
+    chatbot → automation → website → bi → orchestrator
+↓
+selected module            [copilot.ts:917-923 and again 985-989]
+  First computation (explicitModuleFromSignals, line 917-923):
+    CHATBOT_SIGNALS.some(...) is TRUE  → short-circuits immediately
+    → explicitModuleFromSignals = "chatbot"    (WEBSITE_SIGNALS never even evaluated)
+  Second, independent computation (selectedEngine, line 985-994):
+    isChatbotRequest = CHATBOT_SIGNALS.some(...) = TRUE
+    isAutomationRequest = !isChatbotRequest && ...  → false (short-circuited)
+    isWebsiteRequest    = !isChatbotRequest && !isAutomationRequest && ... → false
+                           (short-circuited to false because isChatbotRequest is true,
+                            WEBSITE_SIGNALS.some(...) is NEVER EVALUATED at all here)
+    → selectedEngine = "chatbot"
+↓
+overwrite (if any)
+  NONE. confirmationEngine (line 938-940) is null here because isConfirmationResponse
+  is false (this is a fresh EXECUTION message, not a "yes/confirm" reply), so it
+  cannot override anything. No other code path reassigns selectedEngine after
+  line 991-994. The value is never touched again before logging.
+↓
+logged value               [copilot.ts:3077]
+  moduleSelectedBySignalMatching: selectedEngine   // = "chatbot"
+
+Root cause — the first incorrect assignment
+Line 918 (explicitModuleFromSignals) and line 985 (isChatbotRequest) — both places evaluate CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s)) first, before WEBSITE_SIGNALS is ever checked. This is the exact point of first incorrect assignment.
+
+Two compounding defects, both inside the signal matcher, both present at that line:
+
+Keyword list defect — CHATBOT_SIGNALS contains the generic phrases "scheduling assistant" and "ai scheduling". These are substrings of the phrase "ai scheduling assistant", which in this message describes the subject of the website being built, not a request to build a chatbot. The keyword table cannot distinguish "build a chatbot" from "build a website about a scheduling assistant."
+Precedence defect — module selection uses fixed first-match-wins ternary ordering (chatbot checked before website, unconditionally, every time), not a score/count of matched signals. Because it's !isChatbotRequest && ... short-circuiting, WEBSITE_SIGNALS.some(...) is never evaluated once isChatbotRequest is true — even though "website" is a stronger, earlier, and more explicit signal in the actual message ("generate a **website**..." appears before "...ai scheduling assistant..."). Position/strength of the match is not considered at all.
+Why mismatchBetweenSignalMatchingAndLLMOutput stays false
+Line 3089-3099 defines the flag as:
+
+mismatchBetweenSignalMatchingAndLLMOutput: generateTag
+  ? (impliedModule !== selectedEngine)
+  : false
+
+It only compares selectedEngine against the module implied by a generate_* tag (generateTag, derived from GENERATE_COMMANDS). In this request, the LLM emitted {{WORKSPACE|website}} (a NAVIGATE_COMMAND) and {{WORKSPACE|idea|...}} (a POPULATE_COMMAND) — this is the "open the workspace" step, not the final "generate" confirmation step, so no generate_* tag is present, generateTag is null, and the ternary falls straight to the hardcoded false — regardless of the fact that navigateTarget.command ("website") actually disagrees with selectedEngine ("chatbot"). The mismatch flag was built to only ever check against generateTag, so it is structurally blind to a mismatch surfaced through navigateTarget/populateTarget, which is precisely where this divergence is visible.
+
+Summary of first incorrect assignment: copilot.ts:918 (mirrored at :985) — CHATBOT_SIGNALS.some(...) evaluates true on "ai scheduling" before WEBSITE_SIGNALS is checked, due to fixed chatbot-first precedence with no scoring, causing moduleSelectedBySignalMatching to become "chatbot" instead of "website". No code has been modified.
