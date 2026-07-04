@@ -197,6 +197,7 @@ export default function WebsiteGeneratorPage() {
     registerBridge({
       navigate: () => setLocation("/website-generator"),
       populate: (idea, onComplete) => {
+        console.log('[PROBE] WEBSITE_BRIDGE_POPULATE | idea:', JSON.stringify(idea?.slice(0, 60)), '| empty?', !idea)
         if (!idea) { onComplete(); return }
         populateCompleteCallbackRef.current = onComplete
         marcusPopulateRef.current = idea
@@ -328,6 +329,7 @@ export default function WebsiteGeneratorPage() {
   // killed before typing a single character.
   useEffect(() => {
     const text = marcusPopulateRef.current
+    console.log('[PROBE] WEBSITE_TYPEWRITER_START | marcusPopulateRef:', JSON.stringify(text?.slice(0, 60)), '| tick fired, has text?', !!text)
     if (!text) return
     marcusPopulateRef.current = "" // clear ref — no re-render, no cleanup triggered
 
@@ -340,7 +342,11 @@ export default function WebsiteGeneratorPage() {
     if (typewriterRef.current) clearInterval(typewriterRef.current)
     typewriterRef.current = setInterval(() => {
       i++
-      setIdea(text.slice(0, i))
+      const partial = text.slice(0, i)
+      setIdea(partial)
+      if (i === 1) {
+        console.log('[PROBE] TEXTAREA_STATE_UPDATED | first tick | char:', JSON.stringify(partial))
+      }
       if (ideaTextareaRef.current) {
         ideaTextareaRef.current.scrollTop = ideaTextareaRef.current.scrollHeight
       }
@@ -349,6 +355,7 @@ export default function WebsiteGeneratorPage() {
         typewriterRef.current = null
         setIsTyping(false)
         console.log("WEBSITE_POPULATE_5 | textarea fully populated | idea length:", text.length)
+        console.log('[PROBE] TEXTAREA_STATE_UPDATED | complete | length:', text.length)
         populateCompleteCallbackRef.current?.()
         populateCompleteCallbackRef.current = null
       }

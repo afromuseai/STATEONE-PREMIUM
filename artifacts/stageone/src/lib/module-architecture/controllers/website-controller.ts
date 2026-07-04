@@ -37,7 +37,9 @@ export const websiteController: ModuleController = {
    * Emits populate.started before the animation and populate.complete when it finishes.
    */
   async populate(context: ModuleContext): Promise<void> {
+    console.log('[PROBE] WEBSITE_CONTROLLER_POPULATE_START | businessIdea:', JSON.stringify(context.businessIdea?.slice(0, 60)));
     const bridge = getBridge();
+    console.log('[PROBE] getBridge() result inside populate:', bridge ? 'BRIDGE PRESENT' : 'NULL — will silent-return');
     if (!bridge) {
       console.warn('[WebsiteController] populate() — bridge not registered; is the Website page mounted?');
       return;

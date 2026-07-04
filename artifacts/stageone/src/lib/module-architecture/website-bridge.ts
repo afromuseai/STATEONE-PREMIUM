@@ -41,11 +41,13 @@ let _bridge: WebsiteBridge | null = null;
 
 /** Called by WebsiteGeneratorPage on mount to register its handlers. */
 export function registerBridge(bridge: WebsiteBridge): void {
+  console.log('[PROBE] WEBSITE_BRIDGE_REGISTER | _bridge was:', _bridge ? 'set' : 'null', '| caller:', new Error().stack?.split('\n')[2]?.trim());
   _bridge = bridge;
 }
 
 /** Called by WebsiteGeneratorPage on unmount to clean up. */
 export function unregisterBridge(): void {
+  console.log('[PROBE] WEBSITE_BRIDGE_UNREGISTER | caller:', new Error().stack?.split('\n')[2]?.trim());
   _bridge = null;
 }
 
