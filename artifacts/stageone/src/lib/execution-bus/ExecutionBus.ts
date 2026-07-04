@@ -294,6 +294,20 @@ class ExecutionBus {
         reject,
         timeout,
       });
+
+      // TOCTOU guard: registerController() fires synchronously inside React's
+      // useEffect commit phase. If the component remounted between the null check
+      // in execute() and _pendingExecutions.set() above, the subscription callback
+      // already fired against an empty map and the resume was silently dropped.
+      // Re-check now that the entry is registered — if the module is already
+      // available, resolve immediately rather than waiting for an event that
+      // will never fire again.
+      const immediate = resolveExecutionModule(moduleId);
+      if (immediate) {
+        _pendingExecutions.delete(executionId);
+        clearTimeout(timeout);
+        resolve(immediate);
+      }
     });
   }
 
@@ -311,8 +325,6 @@ class ExecutionBus {
   ): Promise<ExecutionRecord> {
     // ── generate-only path ───────────────────────────────────────────────────
     if (action === 'generate') {
-      // PROBE: stash payload.idea so the bridge triggerGenerate can read it
-      (window as Record<string, unknown>).__probe_payloadIdea = payload.idea ?? '(undefined in payload)';
       return await this._runGenerate(executionId, moduleId, mod, traceId);
     }
 

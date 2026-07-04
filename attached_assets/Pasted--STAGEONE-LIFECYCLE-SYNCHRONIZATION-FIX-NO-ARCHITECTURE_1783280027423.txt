@@ -1,0 +1,282 @@
+# STAGEONE LIFECYCLE SYNCHRONIZATION FIX — NO ARCHITECTURE REWRITE
+
+## IMPORTANT
+
+Do NOT redesign STAGEONE.
+
+Do NOT modify:
+
+* Business Intelligence
+* Website Generator
+* Chatbot Generator
+* Automation Builder
+* AI Orchestrator
+* ExecutionBus architecture
+* Generation pipelines
+* SSE streaming
+* Persistence
+* Routing structure
+* Marcus conversation flow
+
+This task is ONLY to fix the lifecycle synchronization bug between React navigation and ExecutionBus.
+
+---
+
+# CONFIRMED RUNTIME EVIDENCE
+
+Runtime traces show:
+
+```
+WEBSITE_BRIDGE_UNREGISTER
+↓
+
+generate_website command dispatched
+
+↓
+
+ExecutionBus.execute()
+
+↓
+
+resolveExecutionModule("website")
+
+↓
+
+Controller not mounted
+
+↓
+
+Execution stalls
+```
+
+This proves the failure is NOT:
+
+* LLM
+* confirmation logic
+* workspace intent
+* payload generation
+* controller implementation
+
+The failure is caused by a race between:
+
+* React component unmount/remount
+* controller registration
+* bridge registration
+* ExecutionBus resume
+
+---
+
+# GOAL
+
+Guarantee that an execution command can NEVER be processed while the target module is in an unmounted or transitional state.
+
+ExecutionBus must synchronize with controller availability.
+
+---
+
+# REQUIRED INVESTIGATION
+
+Trace the complete lifecycle:
+
+```
+Route transition
+
+↓
+
+React unmount
+
+↓
+
+unregisterBridge()
+
+↓
+
+unregisterController()
+
+↓
+
+registerBridge()
+
+↓
+
+registerController()
+
+↓
+
+ExecutionBus resume()
+```
+
+Determine exactly when:
+
+* controller becomes unavailable
+* controller becomes available again
+* pending execution resumes
+
+Use runtime evidence only.
+
+Do NOT infer.
+
+---
+
+# IMPLEMENTATION REQUIREMENTS
+
+## 1. Controller readiness
+
+ExecutionBus must never continue execution unless the controller is confirmed registered.
+
+Do NOT rely on timing.
+
+Do NOT rely on setTimeout().
+
+Wait on an explicit readiness condition.
+
+---
+
+## 2. Stable lifecycle
+
+Prevent execution from occurring during:
+
+* AnimatePresence exit
+* route transition
+* bridge teardown
+* controller teardown
+
+Execution should continue only after the module reaches a stable mounted state.
+
+---
+
+## 3. Pending execution
+
+If execution arrives before registration:
+
+Store it safely.
+
+Resume automatically after:
+
+```
+registerController(module)
+```
+
+fires.
+
+No manual retry.
+
+No user interaction.
+
+---
+
+## 4. No arbitrary delays
+
+Do NOT introduce:
+
+* setTimeout(...)
+* artificial waits
+* retry loops
+* polling
+
+Use lifecycle events or explicit registration notifications.
+
+---
+
+## 5. Preserve architecture
+
+Do NOT:
+
+* duplicate generation
+* recreate controllers
+* bypass ExecutionBus
+* bypass bridges
+* call generators directly
+* remove AnimatePresence
+
+Maintain the existing architecture.
+
+Fix synchronization only.
+
+---
+
+# VALIDATION
+
+Repeat this workflow:
+
+```
+Marcus
+↓
+
+populate Website Generator
+
+↓
+
+confirmation
+
+↓
+
+generate_website
+
+↓
+
+ExecutionBus
+
+↓
+
+controller resolved
+
+↓
+
+bridge invoked
+
+↓
+
+generation starts
+
+↓
+
+SSE streaming
+
+↓
+
+save
+
+↓
+
+completion
+```
+
+The following trace must appear in order:
+
+```
+Stage 1 ✓ Intent parsed
+Stage 2 ✓ Command dispatched
+Stage 3 ✓ ExecutionBus entered
+Stage 4 ✓ Controller resolved
+Stage 5 ✓ Bridge invoked
+Stage 6 ✓ Generation started
+Stage 7 ✓ HTTP request
+Stage 8 ✓ Streaming
+Stage 9 ✓ Persistence
+Stage 10 ✓ Completion
+```
+
+No "Controller not mounted" message should appear after confirmation.
+
+---
+
+# OUTPUT
+
+Before changing code:
+
+Explain:
+
+* the exact lifecycle race
+* why it occurs
+* why the chosen synchronization mechanism eliminates it
+
+After implementation:
+
+Provide runtime logs proving:
+
+* controller registration timing
+* ExecutionBus waiting correctly
+* successful end-to-end execution
+
+Do not declare success without runtime evidence.
