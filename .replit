@@ -112,6 +112,7 @@ APP_ORIGIN = "https://${REPLIT_DEV_DOMAIN}"
 APP_URL = "https://${REPLIT_DEV_DOMAIN}"
 LOG_LEVEL = "info"
 NODE_ENV = "development"
+JWT_SECRET = "a57eaaf7e59b8971fc09dc7917d71cea1fd807778bcb3ac5ba3ca622f724b6b2275d7e924f22c877895af1a3c67cb6da"
 
 [nix]
 channel = "stable-25_05"
