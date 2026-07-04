@@ -166,6 +166,7 @@ const CopilotBody = z.object({
 });
 
 router.post("/copilot", requireAuth, requireFeature("marcus_copilot"), async (req, res): Promise<void> => {
+  console.log(`[RUNTIME_TRACE] 01_REQUEST_RECEIVED | /api/copilot | ts=${Date.now()}`);
   const parsed = CopilotBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request" });
@@ -2932,6 +2933,8 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
       confidence: confirmationResult.confidence,
       matchedSignals: confirmationResult.matchedSignals,
     }, "[MARCUS] CONFIRMATION_SERVER_BYPASS — emitting generate command directly, bypassing LLM");
+    console.log(`[RUNTIME_TRACE] 02_WORKSPACE_INTENT | workspaceIntent=${workspaceIntent} | intentSource=${intentSource}`);
+    console.log(`[RUNTIME_TRACE] 03_COMMAND_GENERATED | ${generateCmd}`);
 
     res.write(`data: ${JSON.stringify({ content: confirmText })}\n\n`);
     res.write(`data: ${JSON.stringify({ content: `\n${generateCmd}` })}\n\n`);
