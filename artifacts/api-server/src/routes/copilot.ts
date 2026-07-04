@@ -4,6 +4,7 @@ import { requireFeature } from "../middleware/planGuard";
 import { db, projectsTable, agentsTable, aiMemoryTable, workspaceTasksTable, subscriptionsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
+import { PendingIntentSchema } from "@workspace/api-zod";
 
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, callNvidia, extractJson, isModelDegradedError } from "../lib/nvidia";
@@ -151,11 +152,7 @@ const WorkspaceContextSchema = z.object({
   }).optional(),
   projectCount: z.number().optional(),
   activeAgents: z.number().optional(),
-  pendingIntent: z.object({
-    type: z.enum(["website", "chatbot", "automation", "bi", "orchestrator"]),
-    idea: z.string(),
-    autoGenerate: z.boolean(),
-  }).nullable().optional(),
+  pendingIntent: PendingIntentSchema.nullable().optional(),
 }).optional();
 
 const CopilotBody = z.object({

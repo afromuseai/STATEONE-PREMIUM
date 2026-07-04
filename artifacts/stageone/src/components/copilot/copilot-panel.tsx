@@ -43,6 +43,7 @@ import {
   setPendingIntent,
   saveProjectContext,
   peekPendingIntent,
+  type PendingIntent,
 } from "@/lib/generation-context";
 import { useWorkspaceController } from "@/lib/workspace-controller-context";
 import { useUpgradeModal } from "@/lib/upgrade-modal-context";
@@ -106,7 +107,7 @@ interface WorkspaceContext {
   };
   projectCount: number;
   activeAgents: number;
-  pendingIntent: { type: "website" | "chatbot" | "automation" | "bi" | "orchestrator"; idea: string } | null;
+  pendingIntent: PendingIntent | null;
 }
 
 const PAGE_NAMES: Record<string, string> = {
