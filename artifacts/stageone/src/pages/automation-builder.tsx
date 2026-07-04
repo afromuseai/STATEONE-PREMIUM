@@ -540,6 +540,7 @@ export default function AutomationBuilderPage() {
     abortRef.current = new AbortController()
     let buffer = ""
     const traceId = tracer.getActiveExecutionId("automation")
+    let traceOutcome: { success: boolean; reason?: string } | null = null
     try {
       if (traceId) {
         tracer.logStage(traceId, 9, "HTTP request", {
@@ -568,12 +569,12 @@ export default function AutomationBuilderPage() {
         if (errData.error === "UPGRADE_REQUIRED") {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("idle")
-          if (traceId) tracer.endExecution(traceId, false, "UPGRADE_REQUIRED")
+          traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
           return
         }
       }
       if (!res.ok || !res.body) {
-        if (traceId) tracer.endExecution(traceId, false, `HTTP ${res.status}`)
+        traceOutcome = { success: false, reason: `HTTP ${res.status}` }
         throw new Error("Request failed")
       }
       const reader = res.body.getReader()
@@ -589,7 +590,7 @@ export default function AutomationBuilderPage() {
           if (!line.startsWith("data: ")) continue
           try {
             const msg = JSON.parse(line.slice(6))
-            if (msg.error) { setGenError(msg.error); setStep("idle"); return }
+            if (msg.error) { setGenError(msg.error); setStep("idle"); traceOutcome = { success: false, reason: msg.error }; return }
             if (msg.content) { buffer += msg.content; setStreamText(buffer) }
             if (msg.done && msg.data) {
               setData(msg.data)
@@ -609,13 +610,19 @@ export default function AutomationBuilderPage() {
       if (e instanceof Error && e.name !== "AbortError") {
         setGenError("Generation failed — please try again")
         setStep("idle")
-        if (traceId) tracer.endExecution(traceId, false, e.message)
+        traceOutcome = { success: false, reason: e.message }
+      } else if (e instanceof Error) {
+        traceOutcome = { success: false, reason: "aborted" }
       }
       // Phase 5: ensure bridge Promise resolves even on error so the controller
       // doesn't hang waiting for a completion that will never arrive.
       const completeCb = generateCompleteCallbackRef.current
       generateCompleteCallbackRef.current = null
       completeCb?.()
+    } finally {
+      if (traceId && traceOutcome) {
+        tracer.endExecution(traceId, traceOutcome.success, traceOutcome.reason)
+      }
     }
   }
 

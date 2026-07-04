@@ -439,6 +439,7 @@ export default function WebsiteGeneratorPage() {
     abortRef.current = new AbortController()
     let buffer = ""
     const traceId = tracer.getActiveExecutionId("website")
+    let traceOutcome: { success: boolean; reason?: string } | null = null
     try {
       if (traceId) {
         tracer.logStage(traceId, 9, "HTTP request", {
@@ -468,15 +469,18 @@ export default function WebsiteGeneratorPage() {
         if (errData.error === "UPGRADE_REQUIRED") {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("input")
-          if (traceId) tracer.endExecution(traceId, false, "UPGRADE_REQUIRED")
+          traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
           return
         }
       }
       if (!res.ok) {
-        if (traceId) tracer.endExecution(traceId, false, `HTTP ${res.status}`)
+        traceOutcome = { success: false, reason: `HTTP ${res.status}` }
         throw new Error("Request failed")
       }
-      if (!res.body) throw new Error("No response stream")
+      if (!res.body) {
+        traceOutcome = { success: false, reason: "No response stream" }
+        throw new Error("No response stream")
+      }
       const reader = res.body.getReader()
       const dec = new TextDecoder()
       let carry = ""
@@ -491,7 +495,7 @@ export default function WebsiteGeneratorPage() {
           try {
             const msg = JSON.parse(line.slice(6))
             if (msg.content) buffer += msg.content
-            if (msg.error) { setGenError(msg.error); setStep("input"); return }
+            if (msg.error) { setGenError(msg.error); setStep("input"); traceOutcome = { success: false, reason: msg.error }; return }
             if (msg.done && msg.data) {
               console.log("WEBSITE_FLOW:6 generation completed | data keys:", Object.keys(msg.data as object).join(","))
               const out = msg.data as WebsiteOutput
@@ -520,8 +524,8 @@ export default function WebsiteGeneratorPage() {
                   success: true,
                   data: { event: "website.generated" },
                 })
-                tracer.endExecution(traceId, true)
               }
+              traceOutcome = { success: true }
               // Phase 5: signal bridge that generation is fully complete —
               // fires only after SSE streaming, project save, and UI update are done.
               // Matches chatbot reference pattern.
@@ -533,12 +537,17 @@ export default function WebsiteGeneratorPage() {
         }
       }
       setGenError("Generation ended unexpectedly. Try again."); setStep("input")
+      traceOutcome = { success: false, reason: "stream ended without completion data" }
     } catch (err: unknown) {
-      if ((err as Error).name === "AbortError") { setStep("input"); return }
+      if ((err as Error).name === "AbortError") { setStep("input"); traceOutcome = { success: false, reason: "aborted" }; return }
       console.error("WEBSITE_FLOW:5b error:", (err as Error).message)
       setGenError("Connection error. Check your API key and try again.")
       setStep("input")
-      if (traceId) tracer.endExecution(traceId, false, (err as Error).message)
+      traceOutcome = { success: false, reason: (err as Error).message }
+    } finally {
+      if (traceId) {
+        tracer.endExecution(traceId, traceOutcome?.success ?? false, traceOutcome?.reason ?? "execution ended without explicit completion")
+      }
     }
   }
 

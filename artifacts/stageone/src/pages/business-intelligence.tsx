@@ -331,6 +331,7 @@ export default function BusinessIntelligencePage() {
     latestPartialRef.current = {}
 
     const traceId = tracer.getActiveExecutionId("intelligence")
+    let traceOutcome: { success: boolean; reason?: string } | null = null
     try {
       if (traceId) {
         tracer.logStage(traceId, 9, "HTTP request", {
@@ -360,7 +361,7 @@ export default function BusinessIntelligencePage() {
           setShowUpgradeModal(true)
           setIsLoading(false)
           setGenerationStage(0)
-          if (traceId) tracer.endExecution(traceId, false, "rate limited (429)")
+          traceOutcome = { success: false, reason: "rate limited (429)" }
           return
         }
         const errorData = await response.json().catch(() => ({ error: "Request failed" }))
@@ -368,10 +369,10 @@ export default function BusinessIntelligencePage() {
           openUpgradeModal({ feature: errorData.feature, featureLabel: errorData.featureLabel, requiredPlan: errorData.requiredPlan })
           setIsLoading(false)
           setGenerationStage(0)
-          if (traceId) tracer.endExecution(traceId, false, "UPGRADE_REQUIRED")
+          traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
           return
         }
-        if (traceId) tracer.endExecution(traceId, false, errorData.error || `Server error: ${response.status}`)
+        traceOutcome = { success: false, reason: errorData.error || `Server error: ${response.status}` }
         throw new Error(errorData.error || `Server error: ${response.status}`)
       }
 
@@ -509,8 +510,8 @@ export default function BusinessIntelligencePage() {
           success: true,
           data: { event: "bi.generated" },
         })
-        tracer.endExecution(traceId, true)
       }
+      traceOutcome = { success: true }
       // Phase 5: signal bridge that generation is fully complete —
       // fires only after SSE streaming, project save, and UI update are done.
       // Matches chatbot reference pattern.
@@ -521,8 +522,11 @@ export default function BusinessIntelligencePage() {
 
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
-      if (traceId) tracer.endExecution(traceId, false, err instanceof Error ? err.message : "An unexpected error occurred")
+      traceOutcome = { success: false, reason: err instanceof Error ? err.message : "An unexpected error occurred" }
     } finally {
+      if (traceId) {
+        tracer.endExecution(traceId, traceOutcome?.success ?? false, traceOutcome?.reason ?? "execution ended without explicit completion")
+      }
       setIsLoading(false)
       setStreamingText("")
       setPartialData({})

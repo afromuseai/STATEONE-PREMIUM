@@ -427,6 +427,7 @@ export default function ChatbotGeneratorPage() {
     let buffer = ""
     let _s10 = false
     const traceId = tracer.getActiveExecutionId("chatbot")
+    let traceOutcome: { success: boolean; reason?: string } | null = null
     try {
       // ── Stage H ────────────────────────────────────────────────────────────────
       console.log("GENERATE_CHATBOT_FETCH_START | endpoint: /api/generate/chatbot | descLength:", desc.trim().length, "| type:", type);
@@ -457,12 +458,12 @@ export default function ChatbotGeneratorPage() {
         if (errData.error === "UPGRADE_REQUIRED") {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("input")
-          if (traceId) tracer.endExecution(traceId, false, "UPGRADE_REQUIRED")
+          traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
           return
         }
       }
       if (!res.ok || !res.body) {
-        if (traceId) tracer.endExecution(traceId, false, `HTTP ${res.status}`)
+        traceOutcome = { success: false, reason: `HTTP ${res.status}` }
         throw new Error("Request failed")
       }
       const reader = res.body.getReader()
@@ -487,7 +488,7 @@ export default function ChatbotGeneratorPage() {
               }
               buffer += msg.content
             }
-            if (msg.error) { setGenError(msg.error); setStep("input"); return }
+            if (msg.error) { setGenError(msg.error); setStep("input"); traceOutcome = { success: false, reason: msg.error }; return }
             if (msg.done && msg.data) {
               const out = msg.data as ChatbotOutput
               // ── Stage J ────────────────────────────────────────────────────────
@@ -511,11 +512,18 @@ export default function ChatbotGeneratorPage() {
       }
       setGenError("Generation ended unexpectedly. Please try again.")
       setStep("input")
+      traceOutcome = { success: false, reason: "stream ended without completion data" }
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
         setGenError("Generation failed — please try again")
         setStep("input")
-        if (traceId) tracer.endExecution(traceId, false, e.message)
+        traceOutcome = { success: false, reason: e.message }
+      } else if (e instanceof Error) {
+        traceOutcome = { success: false, reason: "aborted" }
+      }
+    } finally {
+      if (traceId && traceOutcome) {
+        tracer.endExecution(traceId, traceOutcome.success, traceOutcome.reason)
       }
     }
   }

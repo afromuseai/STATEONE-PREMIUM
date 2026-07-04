@@ -422,6 +422,7 @@ export default function OrchestratorPage() {
     abortRef.current = new AbortController()
     let buffer = ""
     const traceId = tracer.getActiveExecutionId("orchestrator")
+    let traceOutcome: { success: boolean; reason?: string } | null = null
     try {
       if (traceId) {
         tracer.logStage(traceId, 9, "HTTP request", {
@@ -446,7 +447,7 @@ export default function OrchestratorPage() {
         })
       }
       if (!res.ok || !res.body) {
-        if (traceId) tracer.endExecution(traceId, false, `HTTP ${res.status}`)
+        traceOutcome = { success: false, reason: `HTTP ${res.status}` }
         throw new Error("Request failed")
       }
       const reader = res.body.getReader()
@@ -462,7 +463,7 @@ export default function OrchestratorPage() {
           if (!line.startsWith("data: ")) continue
           try {
             const msg = JSON.parse(line.slice(6))
-            if (msg.error) { setGenError(msg.error); setStep("idle"); return }
+            if (msg.error) { setGenError(msg.error); setStep("idle"); traceOutcome = { success: false, reason: msg.error }; return }
             if (msg.content) { buffer += msg.content; setStreamText(buffer) }
             if (msg.done && msg.data) {
               setData(msg.data); setStep("done"); setActiveTab("graph")
@@ -487,8 +488,8 @@ export default function OrchestratorPage() {
                   success: true,
                   data: { event: "orchestrator.generated" },
                 })
-                tracer.endExecution(traceId, true)
               }
+              traceOutcome = { success: true }
             }
           } catch { /* fragment */ }
         }
@@ -496,9 +497,14 @@ export default function OrchestratorPage() {
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
         setGenError("Generation failed — please try again"); setStep("idle")
-        if (traceId) tracer.endExecution(traceId, false, e.message)
+        traceOutcome = { success: false, reason: e.message }
+      } else if (e instanceof Error) {
+        traceOutcome = { success: false, reason: "aborted" }
       }
     } finally {
+      if (traceId) {
+        tracer.endExecution(traceId, traceOutcome?.success ?? false, traceOutcome?.reason ?? "execution ended without explicit completion")
+      }
       // Always resolve the bridge's triggerGenerate() promise (no-op when called directly).
       // try/finally ensures this runs on every exit path including msg.error early returns.
       const cb = generateCompleteCallbackRef.current
