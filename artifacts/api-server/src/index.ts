@@ -3,7 +3,7 @@ import { logger } from "./lib/logger";
 import { worker } from "./lib/worker";
 import "./lib/job-handlers"; // register all built-in handlers at startup
 
-const rawPort = process.env["API_PORT"] ?? process.env["PORT"] ?? "8080";
+const rawPort = process.env["API_PORT"] ?? process.env["PORT"] ?? "8000";
 
 const port = Number(rawPort);
 
