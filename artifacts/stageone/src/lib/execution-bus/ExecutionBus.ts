@@ -311,6 +311,8 @@ class ExecutionBus {
   ): Promise<ExecutionRecord> {
     // ── generate-only path ───────────────────────────────────────────────────
     if (action === 'generate') {
+      // PROBE: stash payload.idea so the bridge triggerGenerate can read it
+      (window as Record<string, unknown>).__probe_payloadIdea = payload.idea ?? '(undefined in payload)';
       return await this._runGenerate(executionId, moduleId, mod, traceId);
     }
 

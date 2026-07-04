@@ -203,9 +203,15 @@ export default function WebsiteGeneratorPage() {
         marcusPopulateRef.current = idea
         setMarcusPopulateTick(t => t + 1)
       },
-      triggerGenerate: (idea) => new Promise<void>((resolve) => {
+      triggerGenerate: (bridgeIdea) => new Promise<void>((resolve) => {
+        console.log('[PROBE] PRE_TRIGGER_GENERATE', {
+          'payload.idea':           (window as Record<string, unknown>).__probe_payloadIdea,
+          'bridge.getCurrentIdea()': bridgeIdea,
+          'ideaRef.current':         ideaRef.current,
+          'idea (textarea state)':   idea,
+        })
         generateCompleteCallbackRef.current = resolve
-        generateWithIdeaRef.current?.(idea)
+        generateWithIdeaRef.current?.(bridgeIdea)
       }),
       save: async () => {
         if (!latestDataRef.current) return
