@@ -96,6 +96,7 @@ export default function IntegrationsPage() {
   }
 
   return (
+    <>
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
@@ -313,6 +314,7 @@ export default function IntegrationsPage() {
           </>
         )}
       </AnimatePresence>
+    </>
   )
 }
 

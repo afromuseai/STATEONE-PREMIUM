@@ -32,6 +32,7 @@ function ImportanceDots({ value, onChange }: { value: number; onChange?: (v: num
           <Star className={`h-3 w-3 transition-colors ${i <= value ? "fill-primary text-primary" : "text-muted-foreground/30"}`} />
         </button>
       ))}
+    </div>
   )
 }
 
@@ -110,6 +111,7 @@ export default function AiMemoryPage() {
   }, {} as Record<string, number>)
 
   return (
+    <>
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
           <div className="flex items-center gap-3">
@@ -309,6 +311,6 @@ export default function AiMemoryPage() {
           </>
         )}
       </AnimatePresence>
-    </div>
+    </>
   )
 }

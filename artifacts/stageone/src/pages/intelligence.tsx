@@ -61,6 +61,7 @@ function ScoreRing({ score }: { score: number }) {
         <span className="text-2xl font-black text-foreground">{score}</span>
         <span className="text-[9px] text-muted-foreground uppercase tracking-wider">score</span>
       </div>
+    </div>
   )
 }
 
@@ -383,6 +384,5 @@ export default function IntelligencePage() {
           )}
         </div>
       </div>
-    </div>
   )
 }

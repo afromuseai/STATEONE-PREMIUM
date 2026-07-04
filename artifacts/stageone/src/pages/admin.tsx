@@ -672,6 +672,7 @@ function MiniBar({ pct, color }: { pct: number; color: string }) {
     <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
       <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(pct, 100)}%` }}
         transition={{ duration: 0.8 }} className="h-full rounded-full" style={{ background: color }} />
+    </div>
   )
 }
 
@@ -5690,6 +5691,5 @@ export default function AdminPage() {
 
         </div>
       </div>
-    </div>
   )
 }

@@ -301,6 +301,5 @@ export default function DashboardPage() {
           </AnimatePresence>
         </div>
       </div>
-    </div>
   )
 }

@@ -113,6 +113,7 @@ export default function TemplatesMarketplacePage() {
   }
 
   return (
+    <>
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
           <div className="flex items-center gap-3">
@@ -376,5 +377,6 @@ export default function TemplatesMarketplacePage() {
           </>
         )}
       </AnimatePresence>
+    </>
   )
 }

@@ -58,6 +58,7 @@ function MetricBar({ value, max = 100, color }: { value: number; max?: number; c
     <div className="h-1 rounded-full bg-white/8 overflow-hidden">
       <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, ease: "easeOut" }}
         className="h-full rounded-full" style={{ background: color }} />
+    </div>
   )
 }
 
@@ -164,6 +165,7 @@ export default function DeploymentsPage() {
   const avgUptime = deployments.filter(d => d.uptime != null).reduce((s, d, _, a) => s + (d.uptime ?? 0) / a.length, 0)
 
   return (
+    <>
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
@@ -587,6 +589,6 @@ export default function DeploymentsPage() {
           </>
         )}
       </AnimatePresence>
-    </div>
+    </>
   )
 }

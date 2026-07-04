@@ -228,6 +228,7 @@ function TasksTab({ projectId }: { projectId: string }) {
           <p className="text-sm text-muted-foreground">No tasks yet. Add your first task above.</p>
         </div>
       )}
+    </div>
   )
 }
 
@@ -458,8 +459,7 @@ export default function ProjectPage({ id }: ProjectPageProps) {
   const isFullHeightTab = isWebsiteTab || isChatbotPanel || isAutomationPanel || isOrchestratorPanel
 
   return (
-      <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
-
+    <>
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* ── Header ── */}
         <header className="flex h-14 items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-6 shrink-0">
@@ -706,6 +706,6 @@ export default function ProjectPage({ id }: ProjectPageProps) {
           </AnimatePresence>
         </div>
       </div>
-    </div>
+    </>
   )
 }

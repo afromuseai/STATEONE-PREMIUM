@@ -716,7 +716,7 @@ export default function WebsiteGeneratorPage() {
   }
 
   return (
-
+    <>
       {/* Locked overlay for free users */}
       {isLocked && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md" style={{ left: sidebarCollapsed ? 64 : 220 }}>
@@ -1220,6 +1220,6 @@ export default function WebsiteGeneratorPage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

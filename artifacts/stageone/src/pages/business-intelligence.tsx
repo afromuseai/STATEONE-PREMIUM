@@ -852,6 +852,6 @@ export default function BusinessIntelligencePage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

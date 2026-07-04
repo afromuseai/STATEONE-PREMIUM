@@ -230,8 +230,7 @@ export default function SettingsPage() {
   }
 
   return (
-      <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
-
+    <>
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Header */}
         <header className="flex h-14 items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-6 shrink-0">
@@ -594,5 +593,6 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </>
   )
 }

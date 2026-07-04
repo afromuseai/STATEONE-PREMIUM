@@ -648,7 +648,7 @@ export default function AutomationBuilderPage() {
       : "bg-white/5 text-muted-foreground border-white/10"
 
   return (
-
+    <>
       {/* Locked overlay for free users */}
       {isLocked && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md" style={{ left: collapsed ? 64 : 220 }}>
@@ -1156,6 +1156,6 @@ export default function AutomationBuilderPage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

@@ -250,6 +250,7 @@ function AgentGraph({ agents, dataFlow, replayStep, executionLog, isReplaying }:
           )
         })}
       </div>
+    </div>
   )
 }
 
@@ -539,7 +540,7 @@ export default function OrchestratorPage() {
   ]
 
   return (
-      {isFreePlan ? (
+    isFreePlan ? (
         <div className="flex-1 flex items-center justify-center p-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -989,7 +990,6 @@ export default function OrchestratorPage() {
           </div>
         </div>
       </div>
-      )}
-    </div>
+      )
   )
 }

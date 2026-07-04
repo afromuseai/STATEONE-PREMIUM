@@ -27,6 +27,7 @@ function SimpleMarkdown({ text }: { text: string }) {
         const rendered = line.replace(/\*\*([^*]+)\*\*/g, "$1")
         return <p key={i} className="text-[10px] text-foreground/70 leading-relaxed">{rendered}</p>
       })}
+    </div>
   )
 }
 
@@ -306,8 +307,7 @@ export default function OSHubPage() {
   const s = state
 
   return (
-      <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
-
+    <>
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <div className="flex h-14 items-center justify-between border-b border-white/5 bg-[#080808] px-6 shrink-0">
@@ -744,6 +744,6 @@ export default function OSHubPage() {
           )}
         </div>
       </div>
-    </div>
+    </>
   )
 }

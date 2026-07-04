@@ -31,6 +31,7 @@ const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
           <span className="font-bold text-foreground">{p.value}</span>
         </div>
       ))}
+    </div>
   )
 }
 
@@ -445,6 +446,5 @@ export default function AnalyticsPage() {
 
         </div>
       </div>
-    </div>
   )
 }

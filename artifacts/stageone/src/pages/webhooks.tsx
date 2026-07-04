@@ -119,7 +119,7 @@ export default function WebhooksPage() {
   }
 
   return (
-
+    <>
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="border-b border-white/5 bg-[#0a0a0a] px-8 py-5 shrink-0">
@@ -428,5 +428,6 @@ export default function WebhooksPage() {
           </>
         )}
       </AnimatePresence>
+    </>
   )
 }

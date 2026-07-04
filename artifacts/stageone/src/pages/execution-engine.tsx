@@ -92,6 +92,7 @@ function SystemImpactGrid({ activeSystem }: { activeSystem: string | null }) {
           </motion.div>
         )
       })}
+    </div>
   )
 }
 
@@ -550,6 +551,5 @@ export default function ExecutionEnginePage() {
           </AnimatePresence>
         </div>
       </div>
-    </div>
   )
 }
