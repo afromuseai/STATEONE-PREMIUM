@@ -967,10 +967,10 @@ ${summary}
     };
   });
 
-  // businessContext: every business-domain phrase detected across all
+  // detectedContextSignals: every business-domain phrase detected across all
   // modules, independent of which workspace ends up selected. Informational
   // only — no routing decision anywhere may read this value.
-  const businessContext: string[] = Array.from(
+  const detectedContextSignals: string[] = Array.from(
     new Set(moduleConfidences.flatMap(m => m.matchedContextSignals))
   );
 
@@ -1050,7 +1050,7 @@ ${summary}
     pendingIntentSuperseded,
     explicitModuleFromSignals,
     workspaceIntent,
-    businessContext,
+    detectedContextSignals,
     selectedEngine: confirmationEngine ?? "pending_keyword_match",
   }, "[MARCUS] CONFIRM_INTENT_DETECTED");
 
@@ -1105,7 +1105,7 @@ ${summary}
     // reported here for visibility but never contribute to score/selection.
     moduleConfidences,
     workspaceIntent,
-    businessContext,
+    detectedContextSignals,
     evaluationOrder: ["chatbot", "automation", "website", "bi", "orchestrator"],
     flags: {
       isChatbotRequest,
