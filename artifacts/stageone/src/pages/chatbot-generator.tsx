@@ -426,9 +426,17 @@ export default function ChatbotGeneratorPage() {
     console.log("MARCUS_STAGE_9_GENERATION_STARTED | endpoint: /api/generate/chatbot | trigger: auto-generate | chatbotType:", type, "| industry:", ind, "| tone:", tn);
     let buffer = ""
     let _s10 = false
+    const traceId = tracer.getActiveExecutionId("chatbot")
     try {
       // ── Stage H ────────────────────────────────────────────────────────────────
       console.log("GENERATE_CHATBOT_FETCH_START | endpoint: /api/generate/chatbot | descLength:", desc.trim().length, "| type:", type);
+      if (traceId) {
+        tracer.logStage(traceId, 9, "HTTP request", {
+          functionName: "generateWith",
+          success: true,
+          data: { method: "POST", endpoint: "/api/generate/chatbot" },
+        })
+      }
       const res = await fetch("/api/generate/chatbot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -436,15 +444,27 @@ export default function ChatbotGeneratorPage() {
         body: JSON.stringify({ businessDescription: desc.trim(), chatbotType: type, tone: tn, industry: ind, language: lang }),
         signal: abortRef.current.signal,
       })
+      if (traceId) {
+        tracer.logStage(traceId, 10, "HTTP response", {
+          functionName: "generateWith",
+          success: res.ok,
+          reason: res.ok ? undefined : `HTTP ${res.status}`,
+          data: { status: res.status, endpoint: "/api/generate/chatbot" },
+        })
+      }
       if (res.status === 403) {
         const errData = await res.json().catch(() => ({}))
         if (errData.error === "UPGRADE_REQUIRED") {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("input")
+          if (traceId) tracer.endExecution(traceId, false, "UPGRADE_REQUIRED")
           return
         }
       }
-      if (!res.ok || !res.body) throw new Error("Request failed")
+      if (!res.ok || !res.body) {
+        if (traceId) tracer.endExecution(traceId, false, `HTTP ${res.status}`)
+        throw new Error("Request failed")
+      }
       const reader = res.body.getReader()
       const dec = new TextDecoder()
       let carry = ""
@@ -495,6 +515,7 @@ export default function ChatbotGeneratorPage() {
       if (e instanceof Error && e.name !== "AbortError") {
         setGenError("Generation failed — please try again")
         setStep("input")
+        if (traceId) tracer.endExecution(traceId, false, e.message)
       }
     }
   }

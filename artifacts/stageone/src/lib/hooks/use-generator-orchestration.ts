@@ -32,6 +32,7 @@ import {
 } from "@/lib/module-architecture"
 import type { ModuleController } from "@/lib/module-architecture"
 import { ensureProject, type ProjectType, type OutputField, type EnsureProjectResult } from "@/lib/ensure-project"
+import { tracer } from "@/lib/execution-tracer"
 
 // ─── Module-level mount cache ──────────────────────────────────────────────────
 // Survives AnimatePresence unmount/remount cycles: first mount stores the intent,
@@ -191,13 +192,30 @@ export function useGeneratorOrchestration({
     output: Record<string, unknown>,
     idea: string,
   ): Promise<EnsureProjectResult> => {
+    const traceId = tracer.getActiveExecutionId(effectiveRegistryId)
     const result = await ensureProject({
       type: projectTypeStable,
       idea,
       outputField: outputFieldStable,
       output,
     }).catch(() => ({ projectId: "", created: false, saved: false }))
+    if (traceId) {
+      tracer.logStage(traceId, 11, "Persistence", {
+        functionName: "useGeneratorOrchestration.completeGeneration",
+        success: !!result.saved,
+        reason: result.saved ? undefined : "ensureProject did not report saved=true",
+        data: { projectId: result.projectId, created: result.created },
+      })
+    }
     emitRef.current({ type: completionEventStable, data: { saved: result.saved } })
+    if (traceId) {
+      tracer.logStage(traceId, 12, "Completion event", {
+        functionName: "useGeneratorOrchestration.completeGeneration",
+        success: true,
+        data: { event: completionEventStable },
+      })
+      tracer.endExecution(traceId, true)
+    }
     return result
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

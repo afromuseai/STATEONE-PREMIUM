@@ -64,6 +64,13 @@ export interface ExecutionPayload {
   autoGenerate?: boolean;
   /** Arbitrary extra data forwarded to the module controller. */
   metadata?: Record<string, unknown>;
+  /**
+   * Execution trace ID (from the execution-tracer). Set by the caller (Marcus /
+   * copilot-panel) at Stage 1 so the bus and downstream module pages can log
+   * against the same trace via tracer.getActiveExecutionId(module).
+   * Tracing-only field — does not affect dispatch behaviour.
+   */
+  _traceId?: string;
 }
 
 /** Execution command — the input to ExecutionBus.execute(). */

@@ -193,6 +193,9 @@ class ExecutionBus {
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (traceId) {
+        tracer.endExecution(traceId, false, msg);
+      }
       return this._fail(executionId, moduleId, msg);
     }
   }
@@ -206,14 +209,14 @@ class ExecutionBus {
    * for explicit user approval before the standalone module's generate() fires —
    * mirroring the confirmation flow used by the generate_* WORKSPACE commands.
    */
-  async executeRun(rawModule: string, idea: string, autoGenerate = false): Promise<ExecutionRecord | null> {
+  async executeRun(rawModule: string, idea: string, autoGenerate = false, traceId?: string): Promise<ExecutionRecord | null> {
     const { parseModuleId } = await import('./module-registry');
     const moduleId = parseModuleId(rawModule);
     if (!moduleId) {
       console.warn(`[ExecutionBus] executeRun: unrecognised module "${rawModule}"`);
       return null;
     }
-    return this.execute({ module: moduleId, action: 'run', payload: { idea, autoGenerate } });
+    return this.execute({ module: moduleId, action: 'run', payload: { idea, autoGenerate, _traceId: traceId } });
   }
 
   /**
@@ -304,10 +307,11 @@ class ExecutionBus {
     mod: ExecutionModule,
     action: ExecutionAction,
     payload: ExecutionPayload,
+    traceId?: string,
   ): Promise<ExecutionRecord> {
     // ── generate-only path ───────────────────────────────────────────────────
     if (action === 'generate') {
-      return await this._runGenerate(executionId, moduleId, mod);
+      return await this._runGenerate(executionId, moduleId, mod, traceId);
     }
 
     // ── populate / run path ──────────────────────────────────────────────────
@@ -318,48 +322,132 @@ class ExecutionBus {
       // POPULATING
       safeTransition(executionId, 'POPULATING');
       emitBusEvent('execution:populate_started', executionId, moduleId, { idea: payload.idea });
+
+      // ── Execution trace — Stage 5 ──────────────────────────────────────────
+      if (traceId) {
+        tracer.logStage(traceId, 5, "Bridge called", {
+          functionName: "ExecutionModule.populate",
+          success: true,
+          data: { module: moduleId },
+        });
+      }
+
       await mod.populate(payload);
       emitBusEvent('execution:populate_complete', executionId, moduleId);
+
+      // ── Execution trace — Stage 6 ──────────────────────────────────────────
+      if (traceId) {
+        tracer.logStage(traceId, 6, "Populate", {
+          functionName: "ExecutionModule.populate",
+          success: true,
+          data: { module: moduleId },
+        });
+      }
 
       // Confirmation gate
       if (action === 'populate') {
         // Populate-only: park unconditionally and wait for approve()
         safeTransition(executionId, 'CONFIRMATION_WAIT');
         emitBusEvent('execution:confirmation_required', executionId, moduleId, { executionId });
-        await this._waitForConfirmation(executionId, moduleId);
-        return await this._runGenerate(executionId, moduleId, mod);
+        await this._waitForConfirmationTraced(executionId, moduleId, traceId);
+        return await this._runGenerate(executionId, moduleId, mod, traceId);
       }
 
       // action === 'run'
       if (payload.autoGenerate) {
         // Skip CONFIRMATION_WAIT for programmatic flows
         emitBusEvent('execution:confirmation_approved', executionId, moduleId, { auto: true });
+        // ── Execution trace — Stage 7 ────────────────────────────────────────
+        if (traceId) {
+          tracer.logStage(traceId, 7, "Confirmation", {
+            functionName: "ExecutionBus._runAction",
+            success: true,
+            reason: "auto-approved (autoGenerate=true)",
+          });
+        }
       } else {
         // Park and wait for user to click Generate (or call approve())
         safeTransition(executionId, 'CONFIRMATION_WAIT');
         emitBusEvent('execution:confirmation_required', executionId, moduleId, { executionId });
-        await this._waitForConfirmation(executionId, moduleId);
+        await this._waitForConfirmationTraced(executionId, moduleId, traceId);
       }
 
-      return await this._runGenerate(executionId, moduleId, mod);
+      return await this._runGenerate(executionId, moduleId, mod, traceId);
     }
 
     return this._fail(executionId, moduleId, `Unknown action: ${action}`);
+  }
+
+  /**
+   * Wraps _waitForConfirmation with Stage 7 "Confirmation" tracing.
+   * Logs success on approval, failure (with reason) on cancellation, then rethrows.
+   */
+  private async _waitForConfirmationTraced(
+    executionId: string,
+    moduleId: ExecutionModuleId,
+    traceId?: string,
+  ): Promise<void> {
+    try {
+      await this._waitForConfirmation(executionId, moduleId);
+      if (traceId) {
+        tracer.logStage(traceId, 7, "Confirmation", {
+          functionName: "ExecutionBus._waitForConfirmation",
+          success: true,
+        });
+      }
+    } catch (err) {
+      if (traceId) {
+        const reason = err instanceof Error ? err.message : String(err);
+        tracer.logStage(traceId, 7, "Confirmation", {
+          functionName: "ExecutionBus._waitForConfirmation",
+          success: false,
+          reason,
+        });
+        tracer.endExecution(traceId, false, reason);
+      }
+      throw err;
+    }
   }
 
   private async _runGenerate(
     executionId: string,
     moduleId: ExecutionModuleId,
     mod: ExecutionModule,
+    traceId?: string,
   ): Promise<ExecutionRecord> {
     safeTransition(executionId, 'GENERATING');
     emitBusEvent('execution:generate_started', executionId, moduleId);
 
-    await mod.generate();
+    // ── Execution trace — Stage 8 ────────────────────────────────────────────
+    if (traceId) {
+      tracer.logStage(traceId, 8, "Generate started", {
+        functionName: "ExecutionModule.generate",
+        success: true,
+        data: { module: moduleId },
+      });
+    }
+
+    try {
+      await mod.generate();
+    } catch (err) {
+      if (traceId) {
+        const reason = err instanceof Error ? err.message : String(err);
+        tracer.endExecution(traceId, false, reason);
+      }
+      throw err;
+    }
 
     safeTransition(executionId, 'COMPLETED');
     emitBusEvent('execution:generate_complete', executionId, moduleId);
     emitBusEvent('execution:completed', executionId, moduleId);
+
+    // Safety net: mod.generate() (via the page's bridge) should have already
+    // logged Stages 9-12 and called tracer.endExecution() itself. This is
+    // idempotent (guarded by trace.complete) so it only fires if the page
+    // didn't already close out the trace.
+    if (traceId) {
+      tracer.endExecution(traceId, true);
+    }
 
     return getExecution(executionId)!;
   }

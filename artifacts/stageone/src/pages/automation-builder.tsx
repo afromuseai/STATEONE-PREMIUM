@@ -539,7 +539,15 @@ export default function AutomationBuilderPage() {
     setGenError(""); setStep("generating"); setStreamText(""); setData(null); setSelectedNode(null)
     abortRef.current = new AbortController()
     let buffer = ""
+    const traceId = tracer.getActiveExecutionId("automation")
     try {
+      if (traceId) {
+        tracer.logStage(traceId, 9, "HTTP request", {
+          functionName: "generateWith",
+          success: true,
+          data: { method: "POST", endpoint: "/api/generate/automation" },
+        })
+      }
       const res = await fetch("/api/generate/automation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -547,15 +555,27 @@ export default function AutomationBuilderPage() {
         body: JSON.stringify({ businessDescription: desc.trim(), workflowType: wt, complexity: cplx, language: lang }),
         signal: abortRef.current.signal,
       })
+      if (traceId) {
+        tracer.logStage(traceId, 10, "HTTP response", {
+          functionName: "generateWith",
+          success: res.ok,
+          reason: res.ok ? undefined : `HTTP ${res.status}`,
+          data: { status: res.status, endpoint: "/api/generate/automation" },
+        })
+      }
       if (res.status === 403) {
         const errData = await res.json().catch(() => ({}))
         if (errData.error === "UPGRADE_REQUIRED") {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("idle")
+          if (traceId) tracer.endExecution(traceId, false, "UPGRADE_REQUIRED")
           return
         }
       }
-      if (!res.ok || !res.body) throw new Error("Request failed")
+      if (!res.ok || !res.body) {
+        if (traceId) tracer.endExecution(traceId, false, `HTTP ${res.status}`)
+        throw new Error("Request failed")
+      }
       const reader = res.body.getReader()
       const dec = new TextDecoder()
       let carry = ""
@@ -589,6 +609,7 @@ export default function AutomationBuilderPage() {
       if (e instanceof Error && e.name !== "AbortError") {
         setGenError("Generation failed — please try again")
         setStep("idle")
+        if (traceId) tracer.endExecution(traceId, false, e.message)
       }
       // Phase 5: ensure bridge Promise resolves even on error so the controller
       // doesn't hang waiting for a completion that will never arrive.

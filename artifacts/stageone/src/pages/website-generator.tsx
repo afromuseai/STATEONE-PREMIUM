@@ -438,7 +438,15 @@ export default function WebsiteGeneratorPage() {
     setStep("generating")
     abortRef.current = new AbortController()
     let buffer = ""
+    const traceId = tracer.getActiveExecutionId("website")
     try {
+      if (traceId) {
+        tracer.logStage(traceId, 9, "HTTP request", {
+          functionName: "generateWithIdea",
+          success: true,
+          data: { method: "POST", endpoint: "/api/generate/website" },
+        })
+      }
       const res = await fetch("/api/generate/website", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -447,15 +455,27 @@ export default function WebsiteGeneratorPage() {
         signal: abortRef.current.signal,
       })
       console.log("WEBSITE_FLOW:5a fetch response status:", res.status)
+      if (traceId) {
+        tracer.logStage(traceId, 10, "HTTP response", {
+          functionName: "generateWithIdea",
+          success: res.ok,
+          reason: res.ok ? undefined : `HTTP ${res.status}`,
+          data: { status: res.status, endpoint: "/api/generate/website" },
+        })
+      }
       if (res.status === 403) {
         const errData = await res.json().catch(() => ({}))
         if (errData.error === "UPGRADE_REQUIRED") {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("input")
+          if (traceId) tracer.endExecution(traceId, false, "UPGRADE_REQUIRED")
           return
         }
       }
-      if (!res.ok) throw new Error("Request failed")
+      if (!res.ok) {
+        if (traceId) tracer.endExecution(traceId, false, `HTTP ${res.status}`)
+        throw new Error("Request failed")
+      }
       if (!res.body) throw new Error("No response stream")
       const reader = res.body.getReader()
       const dec = new TextDecoder()
@@ -485,7 +505,23 @@ export default function WebsiteGeneratorPage() {
                 outputField: "websiteOutput",
                 output: out as unknown as Record<string, unknown>,
               }).catch(() => ({ projectId: "", created: false, saved: false }))
+              if (traceId) {
+                tracer.logStage(traceId, 11, "Persistence", {
+                  functionName: "generateWithIdea",
+                  success: !!_epResult.saved,
+                  reason: _epResult.saved ? undefined : "ensureProject did not report saved=true",
+                  data: { projectId: _epResult.projectId, created: _epResult.created },
+                })
+              }
               emit({ type: "website.generated", data: { saved: _epResult.saved } })
+              if (traceId) {
+                tracer.logStage(traceId, 12, "Completion event", {
+                  functionName: "generateWithIdea",
+                  success: true,
+                  data: { event: "website.generated" },
+                })
+                tracer.endExecution(traceId, true)
+              }
               // Phase 5: signal bridge that generation is fully complete —
               // fires only after SSE streaming, project save, and UI update are done.
               // Matches chatbot reference pattern.
@@ -502,6 +538,7 @@ export default function WebsiteGeneratorPage() {
       console.error("WEBSITE_FLOW:5b error:", (err as Error).message)
       setGenError("Connection error. Check your API key and try again.")
       setStep("input")
+      if (traceId) tracer.endExecution(traceId, false, (err as Error).message)
     }
   }
 

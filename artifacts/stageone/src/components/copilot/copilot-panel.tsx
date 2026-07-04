@@ -1151,8 +1151,11 @@ export function CopilotPanel() {
         }
       } else if (command === "generate_chatbot") {
         console.log("[ExecutionBus] generate_chatbot → bus.execute({ module: chatbot, action: generate })");
+        const traceId = tracer.startExecution("chatbot");
+        tracer.logStage(traceId, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "generate_chatbot" } });
         import("@/lib/execution-bus").then(({ bus }) => {
-          bus.execute({ module: "chatbot", action: "generate", payload: {} }).catch((err) => {
+          tracer.logStage(traceId, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "chatbot", action: "generate" } });
+          bus.execute({ module: "chatbot", action: "generate", payload: { _traceId: traceId } }).catch((err) => {
             console.warn("[ExecutionBus] generate_chatbot failed:", err);
           });
         });
@@ -1199,8 +1202,11 @@ export function CopilotPanel() {
         if (lastBiIdeaRef.current) {
           setPendingIntent({ type: "bi", idea: lastBiIdeaRef.current });
         }
+        const traceIdBi = tracer.startExecution("intelligence");
+        tracer.logStage(traceIdBi, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "generate_intelligence" } });
         import("@/lib/execution-bus").then(({ bus }) => {
-          bus.execute({ module: "intelligence", action: "generate", payload: { idea: lastBiIdeaRef.current } }).catch((err) => {
+          tracer.logStage(traceIdBi, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "intelligence", action: "generate" } });
+          bus.execute({ module: "intelligence", action: "generate", payload: { idea: lastBiIdeaRef.current, _traceId: traceIdBi } }).catch((err) => {
             console.warn("[ExecutionBus] generate_intelligence failed:", err);
           });
         });
@@ -1239,8 +1245,11 @@ export function CopilotPanel() {
         }
       } else if (command === "generate_website") {
         console.log("[ExecutionBus] generate_website → bus.execute({ module: website, action: generate })");
+        const traceId = tracer.startExecution("website");
+        tracer.logStage(traceId, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "generate_website" } });
         import("@/lib/execution-bus").then(({ bus }) => {
-          bus.execute({ module: "website", action: "generate", payload: {} }).catch((err) => {
+          tracer.logStage(traceId, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "website", action: "generate" } });
+          bus.execute({ module: "website", action: "generate", payload: { _traceId: traceId } }).catch((err) => {
             console.warn("[ExecutionBus] generate_website failed:", err);
           });
         });
@@ -1305,8 +1314,11 @@ export function CopilotPanel() {
         }
       } else if (command === "generate_automation") {
         console.log("[ExecutionBus] generate_automation → bus.execute({ module: automation, action: generate })");
+        const traceId = tracer.startExecution("automation");
+        tracer.logStage(traceId, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "generate_automation" } });
         import("@/lib/execution-bus").then(({ bus }) => {
-          bus.execute({ module: "automation", action: "generate", payload: {} }).catch((err) => {
+          tracer.logStage(traceId, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "automation", action: "generate" } });
+          bus.execute({ module: "automation", action: "generate", payload: { _traceId: traceId } }).catch((err) => {
             console.warn("[ExecutionBus] generate_automation failed:", err);
           });
         });
@@ -1325,8 +1337,11 @@ export function CopilotPanel() {
         }
       } else if (command === "generate_orchestrator") {
         console.log("[ExecutionBus] generate_orchestrator → bus.execute({ module: orchestrator, action: generate })");
+        const traceId = tracer.startExecution("orchestrator");
+        tracer.logStage(traceId, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "generate_orchestrator" } });
         import("@/lib/execution-bus").then(({ bus }) => {
-          bus.execute({ module: "orchestrator", action: "generate", payload: {} }).catch((err) => {
+          tracer.logStage(traceId, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "orchestrator", action: "generate" } });
+          bus.execute({ module: "orchestrator", action: "generate", payload: { _traceId: traceId } }).catch((err) => {
             console.warn("[ExecutionBus] generate_orchestrator failed:", err);
           });
         });
@@ -1340,10 +1355,13 @@ export function CopilotPanel() {
         const idea = payload.slice(sepIdx + 1).trim();
         if (!rawModule || !idea) return;
         console.log("[ExecutionBus] run command received | module:", rawModule, "| idea length:", idea.length);
+        const traceIdRun = tracer.startExecution(rawModule);
+        tracer.logStage(traceIdRun, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "run", module: rawModule } });
         import("@/lib/execution-bus").then(({ bus }) => {
+          tracer.logStage(traceIdRun, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: rawModule, action: "run" } });
           // autoGenerate=false: pause at the confirmation gate and wait for the
           // user to approve before the standalone module's generate() fires.
-          bus.executeRun(rawModule, idea, false).catch((err) => {
+          bus.executeRun(rawModule, idea, false, traceIdRun).catch((err) => {
             console.warn("[ExecutionBus] executeRun failed:", err);
           });
         });
@@ -1525,16 +1543,22 @@ export function CopilotPanel() {
       // emitWorkspaceSignal needed for these two paths.
       if (action.id === "generate_website") {
         console.log("[ExecutionBus] executeAction generate_website → bus.execute({ module: website, action: generate })");
+        const traceIdWeb = tracer.startExecution("website");
+        tracer.logStage(traceIdWeb, 1, "Intent parsed", { functionName: "executeAction", success: true, data: { actionId: action.id } });
         import("@/lib/execution-bus").then(({ bus }) => {
-          bus.execute({ module: "website", action: "generate", payload: { idea } }).catch((err) => {
+          tracer.logStage(traceIdWeb, 2, "Command dispatched", { functionName: "executeAction", success: true, data: { module: "website", action: "generate" } });
+          bus.execute({ module: "website", action: "generate", payload: { idea, _traceId: traceIdWeb } }).catch((err) => {
             console.warn("[ExecutionBus] executeAction generate_website failed:", err);
           });
         });
       }
       if (action.id === "generate_intelligence") {
         console.log("[ExecutionBus] executeAction generate_intelligence → bus.execute({ module: intelligence, action: generate })");
+        const traceIdIntel = tracer.startExecution("intelligence");
+        tracer.logStage(traceIdIntel, 1, "Intent parsed", { functionName: "executeAction", success: true, data: { actionId: action.id } });
         import("@/lib/execution-bus").then(({ bus }) => {
-          bus.execute({ module: "intelligence", action: "generate", payload: { idea } }).catch((err) => {
+          tracer.logStage(traceIdIntel, 2, "Command dispatched", { functionName: "executeAction", success: true, data: { module: "intelligence", action: "generate" } });
+          bus.execute({ module: "intelligence", action: "generate", payload: { idea, _traceId: traceIdIntel } }).catch((err) => {
             console.warn("[ExecutionBus] executeAction generate_intelligence failed:", err);
           });
         });

@@ -421,7 +421,15 @@ export default function OrchestratorPage() {
     setGenError(""); setStep("generating"); setStreamText(""); setData(null); setReplayStep(-1)
     abortRef.current = new AbortController()
     let buffer = ""
+    const traceId = tracer.getActiveExecutionId("orchestrator")
     try {
+      if (traceId) {
+        tracer.logStage(traceId, 9, "HTTP request", {
+          functionName: "generate",
+          success: true,
+          data: { method: "POST", endpoint: "/api/generate/orchestrator" },
+        })
+      }
       const res = await fetch("/api/generate/orchestrator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -429,7 +437,18 @@ export default function OrchestratorPage() {
         body: JSON.stringify({ goal: goalText, businessContext, language: lang }),
         signal: abortRef.current.signal,
       })
-      if (!res.ok || !res.body) throw new Error("Request failed")
+      if (traceId) {
+        tracer.logStage(traceId, 10, "HTTP response", {
+          functionName: "generate",
+          success: res.ok,
+          reason: res.ok ? undefined : `HTTP ${res.status}`,
+          data: { status: res.status, endpoint: "/api/generate/orchestrator" },
+        })
+      }
+      if (!res.ok || !res.body) {
+        if (traceId) tracer.endExecution(traceId, false, `HTTP ${res.status}`)
+        throw new Error("Request failed")
+      }
       const reader = res.body.getReader()
       const dec = new TextDecoder()
       let carry = ""
@@ -453,13 +472,32 @@ export default function OrchestratorPage() {
                 outputField: "orchestratorOutput",
                 output: msg.data as Record<string, unknown>,
               }).catch(() => ({ projectId: "", created: false, saved: false }))
+              if (traceId) {
+                tracer.logStage(traceId, 11, "Persistence", {
+                  functionName: "generate",
+                  success: !!_orchResult.saved,
+                  reason: _orchResult.saved ? undefined : "ensureProject did not report saved=true",
+                  data: { projectId: _orchResult.projectId, created: _orchResult.created },
+                })
+              }
               emit({ type: "orchestrator.generated", data: { saved: _orchResult.saved } })
+              if (traceId) {
+                tracer.logStage(traceId, 12, "Completion event", {
+                  functionName: "generate",
+                  success: true,
+                  data: { event: "orchestrator.generated" },
+                })
+                tracer.endExecution(traceId, true)
+              }
             }
           } catch { /* fragment */ }
         }
       }
     } catch (e: unknown) {
-      if (e instanceof Error && e.name !== "AbortError") { setGenError("Generation failed — please try again"); setStep("idle") }
+      if (e instanceof Error && e.name !== "AbortError") {
+        setGenError("Generation failed — please try again"); setStep("idle")
+        if (traceId) tracer.endExecution(traceId, false, e.message)
+      }
     } finally {
       // Always resolve the bridge's triggerGenerate() promise (no-op when called directly).
       // try/finally ensures this runs on every exit path including msg.error early returns.

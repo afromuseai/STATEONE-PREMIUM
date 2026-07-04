@@ -330,7 +330,15 @@ export default function BusinessIntelligencePage() {
     if (draftSaveTimerRef.current) { clearTimeout(draftSaveTimerRef.current); draftSaveTimerRef.current = null }
     latestPartialRef.current = {}
 
+    const traceId = tracer.getActiveExecutionId("intelligence")
     try {
+      if (traceId) {
+        tracer.logStage(traceId, 9, "HTTP request", {
+          functionName: "handleGenerate",
+          success: true,
+          data: { method: "POST", endpoint: "/api/generate" },
+        })
+      }
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -338,11 +346,21 @@ export default function BusinessIntelligencePage() {
         body: JSON.stringify({ idea, language: lang }),
       })
 
+      if (traceId) {
+        tracer.logStage(traceId, 10, "HTTP response", {
+          functionName: "handleGenerate",
+          success: response.ok,
+          reason: response.ok ? undefined : `HTTP ${response.status}`,
+          data: { status: response.status, endpoint: "/api/generate" },
+        })
+      }
+
       if (!response.ok) {
         if (response.status === 429) {
           setShowUpgradeModal(true)
           setIsLoading(false)
           setGenerationStage(0)
+          if (traceId) tracer.endExecution(traceId, false, "rate limited (429)")
           return
         }
         const errorData = await response.json().catch(() => ({ error: "Request failed" }))
@@ -350,8 +368,10 @@ export default function BusinessIntelligencePage() {
           openUpgradeModal({ feature: errorData.feature, featureLabel: errorData.featureLabel, requiredPlan: errorData.requiredPlan })
           setIsLoading(false)
           setGenerationStage(0)
+          if (traceId) tracer.endExecution(traceId, false, "UPGRADE_REQUIRED")
           return
         }
+        if (traceId) tracer.endExecution(traceId, false, errorData.error || `Server error: ${response.status}`)
         throw new Error(errorData.error || `Server error: ${response.status}`)
       }
 
@@ -448,6 +468,14 @@ export default function BusinessIntelligencePage() {
         output: finalData as unknown as Record<string, unknown>,
         title,
       }).catch(() => ({ projectId: "", created: false, saved: false }))
+      if (traceId) {
+        tracer.logStage(traceId, 11, "Persistence", {
+          functionName: "handleGenerate",
+          success: !!biResult.saved,
+          reason: biResult.saved ? undefined : "ensureProject did not report saved=true",
+          data: { projectId: biResult.projectId, created: biResult.created },
+        })
+      }
       if (biResult.projectId) {
         setActiveProjectId(biResult.projectId)
         // Promote draft → active now that generation is complete (ensureProject patches output
@@ -475,6 +503,14 @@ export default function BusinessIntelligencePage() {
         }).catch(() => {})
       }
       emit({ type: "bi.generated", data: { saved: biResult.saved } })
+      if (traceId) {
+        tracer.logStage(traceId, 12, "Completion event", {
+          functionName: "handleGenerate",
+          success: true,
+          data: { event: "bi.generated" },
+        })
+        tracer.endExecution(traceId, true)
+      }
       // Phase 5: signal bridge that generation is fully complete —
       // fires only after SSE streaming, project save, and UI update are done.
       // Matches chatbot reference pattern.
@@ -485,6 +521,7 @@ export default function BusinessIntelligencePage() {
 
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
+      if (traceId) tracer.endExecution(traceId, false, err instanceof Error ? err.message : "An unexpected error occurred")
     } finally {
       setIsLoading(false)
       setStreamingText("")
