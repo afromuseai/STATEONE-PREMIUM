@@ -904,10 +904,38 @@ ${summary}
     : activePagePath.includes("/orchestrator")        ? "orchestrator"
     : null;
 
+  // ── Module signal arrays ─────────────────────────────────────────────────────
+  // Defined before confirmationEngine so stale-intent detection can use them.
+  const CHATBOT_SIGNALS      = ["chatbot", "chat bot", "scheduling assistant", "booking assistant", "ai scheduling"];
+  const AUTOMATION_SIGNALS   = ["automation", "onboarding automation", "workflow automation", "email sequence", "drip sequence", "lead capture automation"];
+  const WEBSITE_SIGNALS      = ["website", "landing page", "fintech landing", "saas landing", "homepage"];
+  const BI_SIGNALS           = ["business intelligence", "intelligence report", "run business intelligence", "generate intelligence", "run bi report"];
+  const ORCHESTRATOR_SIGNALS = ["orchestrator", "multi-agent", "agent pipeline", "agent network", "coordinate agents", "orchestrate agents", "execution plan", "build a plan", "create a plan", "ai pipeline", "agent system"];
+
+  // Detect which module the user's message explicitly names, independent of any
+  // pending intent. This runs unconditionally so a stale intent cannot mask it.
+  const explicitModuleFromSignals: "chatbot" | "automation" | "website" | "bi" | "orchestrator" | null =
+    CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s))      ? "chatbot"
+    : AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s))   ? "automation"
+    : WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s))      ? "website"
+    : BI_SIGNALS.some(s => latestUserMessage.includes(s))           ? "bi"
+    : ORCHESTRATOR_SIGNALS.some(s => latestUserMessage.includes(s)) ? "orchestrator"
+    : null;
+
+  // A pending intent is superseded when the user's message explicitly names a
+  // DIFFERENT module. Example: pendingIntent.type="chatbot" but user says
+  // "Build Automation" — automation signal wins; chatbot intent is stale.
+  // A pure confirmation ("yes", "go ahead", "ok, do it") has no module signal,
+  // so explicitModuleFromSignals is null and the existing flow is unchanged.
+  const pendingIntentSuperseded =
+    explicitModuleFromSignals !== null &&
+    clientPendingIntent !== null &&
+    explicitModuleFromSignals !== clientPendingIntent.type;
+
   // Confirmation engine priority: pendingIntent → pagePathEngine → null
-  // When intent is CONFIRM and pendingIntent is present, the pending workflow type
-  // always wins — no artifact keywords needed in the confirmation message.
-  const confirmationEngine = isConfirmationResponse
+  // Guard: if the pending intent is superseded by an explicit new module request,
+  // drop it — treat the message as a fresh EXECUTION, not a confirmation.
+  const confirmationEngine = isConfirmationResponse && !pendingIntentSuperseded
     ? (clientPendingIntent?.type ?? pagePathEngine ?? null)
     : null;
 
@@ -919,9 +947,19 @@ ${summary}
   // command. When a confirmed pendingIntent is present, force GENERATIVE so the
   // EXECUTION MODE header fires and all conversational/validation layers are off.
   if (isConfirmationResponse && confirmationEngine !== null) {
+    // Legitimate confirmation of the active pending intent.
     serverGateMode = "GENERATIVE";
     serverIntentType = "EXECUTION";
     console.log(`[MARCUS] GATE_MODE_OVERRIDE | confirmation+pendingIntent active | serverGateMode overridden to GENERATIVE | engine=${confirmationEngine}`);
+  } else if (pendingIntentSuperseded) {
+    // User explicitly requested a different module — the stale pending intent is
+    // discarded. The initial classifier may have labelled the message CONFIRM
+    // (because the prior turn ended with "Would you like me to generate it now?"),
+    // but the explicit module signal overrides that classification. Treat it as a
+    // fresh EXECUTION so the correct engine block fires.
+    serverGateMode = "GENERATIVE";
+    serverIntentType = "EXECUTION";
+    console.log(`[MARCUS] GATE_MODE_OVERRIDE | stale "${clientPendingIntent?.type}" pendingIntent superseded by explicit "${explicitModuleFromSignals}" signal — fresh EXECUTION | engine=${explicitModuleFromSignals}`);
   }
 
   req.log.info({
@@ -934,19 +972,15 @@ ${summary}
     activePagePath,
     pagePathEngine,
     confirmationEngine,
+    pendingIntentSuperseded,
+    explicitModuleFromSignals,
     selectedEngine: confirmationEngine ?? "pending_keyword_match",
   }, "[MARCUS] CONFIRM_INTENT_DETECTED");
-
-  const CHATBOT_SIGNALS    = ["chatbot", "chat bot", "scheduling assistant", "booking assistant", "ai scheduling"];
-  const AUTOMATION_SIGNALS = ["automation", "onboarding automation", "workflow automation", "email sequence", "drip sequence", "lead capture automation"];
-  const WEBSITE_SIGNALS    = ["website", "landing page", "fintech landing", "saas landing", "homepage"];
-  const BI_SIGNALS         = ["business intelligence", "intelligence report", "run business intelligence", "generate intelligence", "run bi report"];
 
   // ─── Engine loading priority ──────────────────────────────────────────────────
   // 1. pendingIntent (when user confirmed) — never requires artifact keywords
   // 2. activePagePath (confirmation fallback when no pendingIntent)
   // 3. Message keywords (direct request, no confirmation needed)
-  const ORCHESTRATOR_SIGNALS = ["orchestrator", "multi-agent", "agent pipeline", "agent network", "coordinate agents", "orchestrate agents", "execution plan", "build a plan", "create a plan", "ai pipeline", "agent system"];
 
   const isChatbotRequest      = confirmationEngine === "chatbot"      || CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
   const isAutomationRequest   = !isChatbotRequest && (confirmationEngine === "automation"   || AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s)));
