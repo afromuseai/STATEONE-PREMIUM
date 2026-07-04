@@ -967,10 +967,12 @@ ${summary}
     };
   });
 
-  // detectedContextSignals: every business-domain phrase detected across all
-  // modules, independent of which workspace ends up selected. Informational
-  // only — no routing decision anywhere may read this value.
-  const detectedContextSignals: string[] = Array.from(
+  // detectedBusinessContext: every business-domain phrase detected across all
+  // modules, independent of which workspace ends up selected. This is the
+  // second output of the structured classifier (alongside workspaceIntent).
+  // It describes what the user is building, not which tool they want to use.
+  // Informational only — no routing decision anywhere may read this value.
+  const detectedBusinessContext: string[] = Array.from(
     new Set(moduleConfidences.flatMap(m => m.matchedContextSignals))
   );
 
@@ -983,14 +985,14 @@ ${summary}
   );
   const workspaceIntent: ModuleName | null = topModuleConfidence.score > 0 ? topModuleConfidence.module : null;
 
-  // Backward-compatible flat signal lists — used only by the diagnostic
-  // ROUTING_TRACE_SIGNAL_MATCH / PROMPT_BLOCK_PROOF logs below. Never used
-  // for routing.
-  const CHATBOT_SIGNALS      = [...MODULE_SIGNALS.chatbot.workspace,      ...MODULE_SIGNALS.chatbot.context];
-  const AUTOMATION_SIGNALS   = [...MODULE_SIGNALS.automation.workspace,   ...MODULE_SIGNALS.automation.context];
-  const WEBSITE_SIGNALS      = [...MODULE_SIGNALS.website.workspace,      ...MODULE_SIGNALS.website.context];
-  const BI_SIGNALS           = [...MODULE_SIGNALS.bi.workspace,           ...MODULE_SIGNALS.bi.context];
-  const ORCHESTRATOR_SIGNALS = [...MODULE_SIGNALS.orchestrator.workspace, ...MODULE_SIGNALS.orchestrator.context];
+  // Workspace-only signal lists for diagnostic logging.
+  // These contain ONLY workspace signals (explicit tool requests), never context
+  // signals (business descriptions). Never used for routing — diagnostic only.
+  const CHATBOT_SIGNALS      = MODULE_SIGNALS.chatbot.workspace;
+  const AUTOMATION_SIGNALS   = MODULE_SIGNALS.automation.workspace;
+  const WEBSITE_SIGNALS      = MODULE_SIGNALS.website.workspace;
+  const BI_SIGNALS           = MODULE_SIGNALS.bi.workspace;
+  const ORCHESTRATOR_SIGNALS = MODULE_SIGNALS.orchestrator.workspace;
 
   // Detect which module the user's message explicitly names, independent of any
   // pending intent. This runs unconditionally so a stale intent cannot mask it.
@@ -1050,7 +1052,7 @@ ${summary}
     pendingIntentSuperseded,
     explicitModuleFromSignals,
     workspaceIntent,
-    detectedContextSignals,
+    detectedBusinessContext,
     selectedEngine: confirmationEngine ?? "pending_keyword_match",
   }, "[MARCUS] CONFIRM_INTENT_DETECTED");
 
@@ -1059,21 +1061,22 @@ ${summary}
   // 2. activePagePath (confirmation fallback when no pendingIntent)
   // 3. Message keywords (direct request, no confirmation needed)
 
-  // All downstream routing uses workspaceIntent (the confidence-scored
-  // classifier output) exclusively — never raw keyword arrays. confirmationEngine
-  // still takes priority when the user is confirming a prior pending intent.
-  const isChatbotRequest      = confirmationEngine === "chatbot"      || workspaceIntent === "chatbot";
-  const isAutomationRequest   = !isChatbotRequest && (confirmationEngine === "automation"   || workspaceIntent === "automation");
-  const isWebsiteRequest      = !isChatbotRequest && !isAutomationRequest && (confirmationEngine === "website"      || workspaceIntent === "website");
-  const isBiRequest           = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && (confirmationEngine === "bi"          || workspaceIntent === "bi");
-  const isOrchestratorRequest = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && !isBiRequest && (confirmationEngine === "orchestrator" || workspaceIntent === "orchestrator");
+  // resolvedEngine: the single authoritative engine for this request.
+  // confirmationEngine wins when the user is confirming a prior pending intent
+  // (e.g. "yes, go ahead"). Otherwise the confidence-scored workspaceIntent
+  // from the structured classifier wins. Exactly one value — no precedence
+  // chain, no short-circuiting, no first-match-wins ordering.
+  const resolvedEngine: ModuleName | "none" = confirmationEngine ?? workspaceIntent ?? "none";
 
-  const selectedEngine = isChatbotRequest      ? "chatbot"
-    : isAutomationRequest   ? "automation"
-    : isWebsiteRequest      ? "website"
-    : isBiRequest           ? "bi"
-    : isOrchestratorRequest ? "orchestrator"
-    : "none";
+  // Flat booleans derived directly from resolvedEngine — mutually exclusive
+  // by construction, not by chained negation guards.
+  const isChatbotRequest      = resolvedEngine === "chatbot";
+  const isAutomationRequest   = resolvedEngine === "automation";
+  const isWebsiteRequest      = resolvedEngine === "website";
+  const isBiRequest           = resolvedEngine === "bi";
+  const isOrchestratorRequest = resolvedEngine === "orchestrator";
+
+  const selectedEngine = resolvedEngine;
 
   const selectionSource: string =
     (confirmationEngine === "chatbot"      && isChatbotRequest)      ? (clientPendingIntent ? "pendingIntent" : "pagePathEngine")
@@ -1105,7 +1108,7 @@ ${summary}
     // reported here for visibility but never contribute to score/selection.
     moduleConfidences,
     workspaceIntent,
-    detectedContextSignals,
+    detectedBusinessContext,
     evaluationOrder: ["chatbot", "automation", "website", "bi", "orchestrator"],
     flags: {
       isChatbotRequest,
@@ -3164,25 +3167,49 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
       navigateTarget: navigateTag ? { command: navigateTag.command, tag: navigateTag.tag } : null,
       populateTarget: populateTag ? { command: populateTag.command, payload: populateTag.payload.slice(0, 200), tag: populateTag.tag } : null,
       generateTarget: generateTag ? { command: generateTag.command, tag: generateTag.tag } : null,
+      // Maps every LLM-emitted tag type to the module it implies, so the
+      // mismatch check can compare against selectedEngine regardless of
+      // whether the LLM emitted a navigate, populate, or generate tag.
+      // Previously only generate tags were checked — navigate tags were
+      // structurally invisible to the mismatch flag even though they reveal
+      // the same routing divergence one step earlier in the flow.
       moduleImpliedByGenerateTag: generateTag
-        ? (generateTag.command === "generate_chatbot" ? "chatbot"
-          : generateTag.command === "generate_website" ? "website"
-          : generateTag.command === "generate_automation" ? "automation"
-          : generateTag.command === "generate_intelligence" ? "bi"
-          : generateTag.command === "generate_orchestrator" ? "orchestrator"
+        ? (generateTag.command === "generate_chatbot"      ? "chatbot"
+          : generateTag.command === "generate_website"     ? "website"
+          : generateTag.command === "generate_automation"  ? "automation"
+          : generateTag.command === "generate_intelligence"? "bi"
+          : generateTag.command === "generate_orchestrator"? "orchestrator"
           : "unknown")
         : null,
-      mismatchBetweenSignalMatchingAndLLMOutput: generateTag
-        ? (() => {
-            const impliedModule = generateTag.command === "generate_chatbot" ? "chatbot"
-              : generateTag.command === "generate_website" ? "website"
-              : generateTag.command === "generate_automation" ? "automation"
-              : generateTag.command === "generate_intelligence" ? "bi"
-              : generateTag.command === "generate_orchestrator" ? "orchestrator"
-              : "unknown";
-            return impliedModule !== selectedEngine;
-          })()
-        : false,
+      moduleImpliedByNavigateTag: navigateTag
+        ? (navigateTag.command === "chatbot"           ? "chatbot"
+          : navigateTag.command === "website"          ? "website"
+          : navigateTag.command === "automation"       ? "automation"
+          : navigateTag.command === "intelligence"     ? "bi"
+          : navigateTag.command === "open_orchestrator"? "orchestrator"
+          : "unknown")
+        : null,
+      mismatchBetweenSignalMatchingAndLLMOutput: (() => {
+        // Resolve the module the LLM implied, preferring generate > navigate.
+        // A generate tag is definitive; a navigate tag is the "open workspace"
+        // step that precedes generation and reveals the same intent.
+        const impliedModule: string | null = generateTag
+          ? (generateTag.command === "generate_chatbot"       ? "chatbot"
+            : generateTag.command === "generate_website"      ? "website"
+            : generateTag.command === "generate_automation"   ? "automation"
+            : generateTag.command === "generate_intelligence" ? "bi"
+            : generateTag.command === "generate_orchestrator" ? "orchestrator"
+            : null)
+          : navigateTag
+            ? (navigateTag.command === "chatbot"            ? "chatbot"
+              : navigateTag.command === "website"           ? "website"
+              : navigateTag.command === "automation"        ? "automation"
+              : navigateTag.command === "intelligence"      ? "bi"
+              : navigateTag.command === "open_orchestrator" ? "orchestrator"
+              : null)
+            : null;
+        return impliedModule !== null ? impliedModule !== selectedEngine : false;
+      })(),
     }, "[MARCUS][ROUTING_TRACE] Full routing trace — user message → LLM output → parsed commands → navigate/populate/generate targets");
 
     req.log.info(
