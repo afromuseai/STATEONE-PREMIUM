@@ -1,0 +1,71 @@
+Everything is ready. Would you like me to generate this website?
+injected.js:37 [PROBE] WEBSITE_TYPEWRITER_START | marcusPopulateRef: "SaaS project management tool designed for modern teams. Auto" | tick fired, has text? true
+injected.js:37 WEBSITE_POPULATE_4 | setIdea typewriter started | idea length: 291 | first 80: SaaS project management tool designed for modern teams. Automates task assignmen
+injected.js:37 [PROBE] WEBSITE_TYPEWRITER_START | marcusPopulateRef: "SaaS project management tool designed for modern teams. Auto" | tick fired, has text? true
+injected.js:37 WEBSITE_POPULATE_4 | setIdea typewriter started | idea length: 291 | first 80: SaaS project management tool designed for modern teams. Automates task assignmen
+2injected.js:37 [PROBE] TEXTAREA_STATE_UPDATED | first tick | char: "S"
+injected.js:37 [PROBE] WEBSITE_BRIDGE_UNREGISTER | caller: at https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/pages/website-generator.tsx:243:7
+injected.js:37 WEBSITE_POPULATE_5 | textarea fully populated | idea length: 291
+injected.js:37 [PROBE] TEXTAREA_STATE_UPDATED | complete | length: 291
+injected.js:37 userId 0bfbd05e-dfb0-444f-aa4a-7139f28e0e08
+injected.js:37 projectId null
+injected.js:37 conversationId 0bfbd05e-dfb0-444f-aa4a-7139f28e0e08:copilot
+injected.js:37 storageKey copilot:msgs:0bfbd05e-dfb0-444f-aa4a-7139f28e0e08
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 166 | content: Everything is ready.
+
+I'm generating your website for SaaS project management tool designed for modern teams. Automates task….
+
+I'll save it into the current project.
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: Everything is ready.
+
+I'm generating your website for SaaS project management tool designed for modern teams. Automates task….
+
+I'll save it into the current project.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 197 | content: Everything is ready.
+
+I'm generating your website for SaaS project management tool designed for modern teams. Automates task….
+
+I'll save it into the current project.
+{{WORKSPACE|generate_website}}
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|generate_website}} | already fired: false
+injected.js:37 [WEBSITE TRACE] parser detected generate_website | tag: {{WORKSPACE|generate_website}}
+injected.js:37 [CONFIRM_FLOW:2] fireAndStripTags detected generation command | command: generate_website | timestamp: 1783274652906
+injected.js:37 MARCUS_STAGE_2_COMMAND_EMITTED | command: generate_website | payloadLength: 0 | payload: 
+injected.js:37 ROUTING_TRACE_CLIENT | parsed command: generate_website | payload:  | dispatchedToModule: website | currentLocation: /website-generator | currentRoute: /website-generator
+injected.js:37 MARCUS_STAGE_3_COMMAND_RECEIVED | command: generate_website | payloadLength: 0 | payload: 
+injected.js:37 [ExecutionBus] generate_website → bus.execute({ module: website, action: generate })
+injected.js:37 [Tracer] ▶ START | id=a97a1043 | module=website
+injected.js:37 [Tracer] Stage 1 ✓ | Intent parsed | fn=handleWorkspaceCmdAction | id=a97a1043 | +0ms
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: Everything is ready.
+
+I'm generating your website for SaaS project management tool designed for modern teams. Automates task….
+
+I'll save it into the current project.
+injected.js:37 [TRACE] RAW ASSISTANT RESPONSE | length: 197 | content: Everything is ready.
+
+I'm generating your website for SaaS project management tool designed for modern teams. Automates task….
+
+I'll save it into the current project.
+{{WORKSPACE|generate_website}}
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 197 | content: Everything is ready.
+
+I'm generating your website for SaaS project management tool designed for modern teams. Automates task….
+
+I'll save it into the current project.
+{{WORKSPACE|generate_website}}
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|generate_website}} | already fired: true
+injected.js:37 [TRACE] OUTPUT AFTER fireAndStripTags | display: Everything is ready.
+
+I'm generating your website for SaaS project management tool designed for modern teams. Automates task….
+
+I'll save it into the current project.
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: Everything is ready.
+
+I'm generating your website for SaaS project management tool designed for modern teams. Automates task….
+
+I'll save it into the current project.
+injected.js:37 [Tracer] Stage 2 ✓ | Command dispatched | fn=handleWorkspaceCmdAction | id=a97a1043 | +41ms
+injected.js:37 [ExecutionBus] execute | id=exec-1783274652950-1 | module=website | action=generate | autoGenerate=false
+injected.js:37 [Tracer] Stage 3 ✓ | ExecutionBus entered | fn=ExecutionBus.execute | id=a97a1043 | +42ms
+injected.js:37 [Tracer] Stage 4 ✗ | Controller resolved | fn=resolveExecutionModule | id=a97a1043 | +43ms | Controller not mounted for 'website' — navigating and waiting
+injected.js:37 [ExecutionBus] navigating to /website-generator for module 'website'
