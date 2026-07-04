@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { tracer } from "@/lib/execution-tracer";
 import { useCopilot } from "@/lib/copilot-context";
 import { useLang } from "@/lib/i18n";
 import { motion, AnimatePresence } from "framer-motion";

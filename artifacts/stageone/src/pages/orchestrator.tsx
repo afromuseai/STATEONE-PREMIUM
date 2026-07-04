@@ -17,6 +17,7 @@ import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { orchestratorController } from "@/lib/module-architecture/controllers/orchestrator-controller"
 import { registerController, unregisterController } from "@/lib/module-architecture/registry"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/orchestrator-bridge"
+import { tracer } from "@/lib/execution-tracer"
 
 interface Agent {
   id: string; name: string; role: string; model: string

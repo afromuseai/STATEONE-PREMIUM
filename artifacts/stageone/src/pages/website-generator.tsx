@@ -16,6 +16,7 @@ import { useLocation } from "wouter"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/website-bridge"
 import { websiteController } from "@/lib/module-architecture/controllers/website-controller"
 import { registerController, unregisterController } from "@/lib/module-architecture/registry"
+import { tracer } from "@/lib/execution-tracer"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Step = "input" | "generating" | "done"

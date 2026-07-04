@@ -21,6 +21,7 @@ import { ensureProject } from "@/lib/ensure-project"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/automation-bridge"
 import { automationController } from "@/lib/module-architecture/controllers/automation-controller"
 import { useGeneratorOrchestration } from "@/lib/hooks/use-generator-orchestration"
+import { tracer } from "@/lib/execution-tracer"
 
 /* ── Types ─────────────────────────────────────────────── */
 type NodeType = "trigger" | "action" | "ai_agent" | "notification" | "crm" | "database" | "webhook"

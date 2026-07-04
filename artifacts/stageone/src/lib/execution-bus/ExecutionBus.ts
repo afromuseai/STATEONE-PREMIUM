@@ -24,6 +24,7 @@
 
 import type { ExecutionAction, ExecutionCommand, ExecutionModuleId, ExecutionPayload, ExecutionRecord } from './types';
 import { emitBusEvent } from './events';
+import { tracer } from '@/lib/execution-tracer';
 import {
   createExecution,
   transitionPhase,
@@ -136,12 +137,32 @@ class ExecutionBus {
       ` | action=${command.action} | autoGenerate=${payload.autoGenerate ?? false}`
     );
 
+    // ── Execution trace — Stage 3 ────────────────────────────────────────────
+    const traceId = (payload as Record<string, unknown>)._traceId as string | undefined;
+    if (traceId) {
+      tracer.logStage(traceId, 3, "ExecutionBus entered", {
+        functionName: "ExecutionBus.execute",
+        success: true,
+        data: { busExecutionId: executionId, module: moduleId, action: command.action },
+      });
+    }
+
     try {
       // ── ROUTING ─────────────────────────────────────────────────────────────
       safeTransition(executionId, 'ROUTING');
       emitBusEvent('execution:routing', executionId, moduleId, { action: command.action });
 
       let mod = resolveExecutionModule(moduleId);
+
+      // ── Execution trace — Stage 4 ──────────────────────────────────────────
+      if (traceId) {
+        tracer.logStage(traceId, 4, "Controller resolved", {
+          functionName: "resolveExecutionModule",
+          success: !!mod,
+          reason: mod ? undefined : `Controller not mounted for '${moduleId}' — navigating and waiting`,
+          data: { immediate: !!mod },
+        });
+      }
 
       // ── Wait for controller if not mounted ───────────────────────────────────
       if (!mod) {
@@ -168,7 +189,7 @@ class ExecutionBus {
       }
 
       // ── Run the requested action ─────────────────────────────────────────────
-      return await this._runAction(executionId, moduleId, mod, command.action, payload);
+      return await this._runAction(executionId, moduleId, mod, command.action, payload, traceId);
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

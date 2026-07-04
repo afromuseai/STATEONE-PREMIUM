@@ -19,6 +19,7 @@ import { ensureProject } from "@/lib/ensure-project"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/chatbot-bridge"
 import { chatbotController } from "@/lib/module-architecture/controllers/chatbot-controller"
 import { useGeneratorOrchestration } from "@/lib/hooks/use-generator-orchestration"
+import { tracer } from "@/lib/execution-tracer"
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────

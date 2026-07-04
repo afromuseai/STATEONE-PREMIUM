@@ -23,6 +23,7 @@ import {
   dequeueWorkspaceSignals,
 } from "@/lib/generation-context"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
+import { tracer } from "@/lib/execution-tracer"
 import { ensureProject } from "@/lib/ensure-project"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/intelligence-bridge"
 import { intelligenceController } from "@/lib/module-architecture/controllers/intelligence-controller"
