@@ -1,0 +1,62 @@
+userId 4e46f549-32f0-4c08-bc4d-6f8772aaecf3
+copilot-panel.tsx:1359 projectId null
+copilot-panel.tsx:1360 conversationId 4e46f549-32f0-4c08-bc4d-6f8772aaecf3:copilot
+copilot-panel.tsx:1361 storageKey copilot:msgs:4e46f549-32f0-4c08-bc4d-6f8772aaecf3
+copilot-panel.tsx:408 [TRACE] INPUT TO fireAndStripTags | buffer length: 1 | content: I
+copilot-panel.tsx:1386 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I
+copilot-panel.tsx:408 [TRACE] INPUT TO fireAndStripTags | buffer length: 61 | content: I'll open the Business Intelligence module now to analyze the
+copilot-panel.tsx:1386 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll open the Business Intelligence module now to analyze the
+copilot-panel.tsx:408 [TRACE] INPUT TO fireAndStripTags | buffer length: 129 | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics,
+copilot-panel.tsx:1386 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics,
+copilot-panel.tsx:408 [TRACE] INPUT TO fireAndStripTags | buffer length: 190 | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow
+copilot-panel.tsx:1386 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow
+copilot-panel.tsx:408 [TRACE] INPUT TO fireAndStripTags | buffer length: 230 | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like
+copilot-panel.tsx:1386 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like
+copilot-panel.tsx:408 [TRACE] INPUT TO fireAndStripTags | buffer length: 269 | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like me to generate the report now?
+
+{{WORK
+copilot-panel.tsx:1386 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like me to generate the report now?
+copilot-panel.tsx:408 [TRACE] INPUT TO fireAndStripTags | buffer length: 298 | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like me to generate the report now?
+
+{{WORKSPACE|generate_intelligence}}
+copilot-panel.tsx:418 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|generate_intelligence}} | already fired: false
+copilot-panel.tsx:456 [WEBSITE TRACE] parser detected generate_intelligence | tag: {{WORKSPACE|generate_intelligence}}
+copilot-panel.tsx:458 [CONFIRM_FLOW:2] fireAndStripTags detected generation command | command: generate_intelligence | timestamp: 1783125255945
+copilot-panel.tsx:465 MARCUS_STAGE_2_COMMAND_EMITTED | command: generate_intelligence | payloadLength: 0 | payload: 
+copilot-panel.tsx:1026 ROUTING_TRACE_CLIENT | parsed command: generate_intelligence | payload:  | dispatchedToModule: bi | currentLocation: /dashboard | currentRoute: /dashboard
+copilot-panel.tsx:1038 MARCUS_STAGE_3_COMMAND_RECEIVED | command: generate_intelligence | payloadLength: 0 | payload: 
+copilot-panel.tsx:1193 [ExecutionBus] generate_intelligence → bus.execute({ module: intelligence, action: generate })
+copilot-panel.tsx:1386 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like me to generate the report now?
+copilot-panel.tsx:538 [TRACE] RAW ASSISTANT RESPONSE | length: 298 | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like me to generate the report now?
+
+{{WORKSPACE|generate_intelligence}}
+copilot-panel.tsx:408 [TRACE] INPUT TO fireAndStripTags | buffer length: 298 | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like me to generate the report now?
+
+{{WORKSPACE|generate_intelligence}}
+copilot-panel.tsx:418 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|generate_intelligence}} | already fired: true
+copilot-panel.tsx:546 [TRACE] OUTPUT AFTER fireAndStripTags | display: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like me to generate the report now?
+copilot-panel.tsx:1386 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll open the Business Intelligence module now to analyze the market for an AI scheduling assistant targeting healthcare clinics, focusing on patient booking, automated reminders, and follow-ups.
+
+Everything is set. Would you like me to generate the report now?
+ExecutionBus.ts:134 [ExecutionBus] execute | id=exec-1783125255983-1 | module=intelligence | action=generate | autoGenerate=false
+ExecutionBus.ts:150 [ExecutionBus] navigating to /business-intelligence for module 'intelligence'
+ExecutionBus.ts:167 [ExecutionBus] resumed | id=exec-1783125255983-1 | module=intelligence
+business-intelligence.tsx:325  POST https://93921a54-63de-447d-97e1-7f56eccde33d-00-34q068x9ysltn.janeway.replit.dev:3000/api/generate 400 (Bad Request)

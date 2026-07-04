@@ -304,6 +304,14 @@ export default function BusinessIntelligencePage() {
   }, [results, currentIdea, activeProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGenerate = useCallback(async (idea: string) => {
+    // Guard: matches the empty-idea early-return in every other module (chatbot, website,
+    // automation, orchestrator). Without this, an empty idea reaches the API and returns 400.
+    if (!idea.trim()) {
+      setError("No business idea was provided — please describe your business above, or ask Marcus to re-prepare the analysis.")
+      generateCompleteCallbackRef.current?.()
+      generateCompleteCallbackRef.current = null
+      return
+    }
     clearDashboardState()
     setIsLoading(true)
     setResults(null)

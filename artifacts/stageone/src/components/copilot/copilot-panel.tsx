@@ -1191,6 +1191,13 @@ export function CopilotPanel() {
         });
       } else if (command === "generate_intelligence") {
         console.log("[ExecutionBus] generate_intelligence → bus.execute({ module: intelligence, action: generate })");
+        // Ensure idea is reachable when the bus navigates to BI and the page mounts fresh.
+        // The mount effect calls consumePendingIntent("bi") before the bridge registers,
+        // so writing the intent here lets it set marcusBiIdeaRef.current correctly even
+        // when bi_idea was not fired in the same session (e.g. LLM skipped it).
+        if (lastBiIdeaRef.current) {
+          setPendingIntent({ type: "bi", idea: lastBiIdeaRef.current });
+        }
         import("@/lib/execution-bus").then(({ bus }) => {
           bus.execute({ module: "intelligence", action: "generate", payload: { idea: lastBiIdeaRef.current } }).catch((err) => {
             console.warn("[ExecutionBus] generate_intelligence failed:", err);
