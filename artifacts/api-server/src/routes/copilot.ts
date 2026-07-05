@@ -904,23 +904,98 @@ ${summary}
     : activePagePath.includes("/orchestrator")        ? "orchestrator"
     : null;
 
-  // ── Module signal arrays ─────────────────────────────────────────────────────
-  // Defined before confirmationEngine so stale-intent detection can use them.
-  const CHATBOT_SIGNALS      = ["chatbot", "chat bot", "scheduling assistant", "booking assistant", "ai scheduling"];
-  const AUTOMATION_SIGNALS   = ["automation", "onboarding automation", "workflow automation", "email sequence", "drip sequence", "lead capture automation"];
-  const WEBSITE_SIGNALS      = ["website", "landing page", "fintech landing", "saas landing", "homepage"];
-  const BI_SIGNALS           = ["business intelligence", "intelligence report", "run business intelligence", "generate intelligence", "run bi report"];
-  const ORCHESTRATOR_SIGNALS = ["orchestrator", "multi-agent", "agent pipeline", "agent network", "coordinate agents", "orchestrate agents", "execution plan", "build a plan", "create a plan", "ai pipeline", "agent system"];
+  // ── Structured intent classifier ─────────────────────────────────────────────
+  // Replaces the old first-match-wins keyword precedence chain. This classifier
+  // separates two concerns that were previously conflated in a single keyword
+  // list per module:
+  //   - "workspace" signals: an explicit request to open/use THIS tool
+  //     (e.g. "chatbot", "website"). These are the ONLY signals allowed to
+  //     select a workspace.
+  //   - "context" signals: phrases describing the BUSINESS/PRODUCT domain
+  //     being built (e.g. "AI scheduling assistant", "booking assistant",
+  //     "customer support bot"). These routinely appear inside requests for
+  //     ANY module (a website *about* a scheduling assistant, an automation
+  //     *for* a booking assistant, etc.) and must never select a workspace on
+  //     their own — they are business context, not tool selection, unless the
+  //     user's requested workspace is explicitly the Chatbot module itself.
+  //
+  // Every module is evaluated (no short-circuiting on the first match). Each
+  // module gets a confidence score derived ONLY from its workspace-signal
+  // hits; context-signal hits never contribute to the score. The
+  // highest-confidence module with score > 0 is selected as workspaceIntent.
+  // A tie falls back to MODULE_ORDER purely as a stable tiebreaker — not as a
+  // precedence gate the way the old chain was.
+  type ModuleName = "chatbot" | "automation" | "website" | "bi" | "orchestrator";
+
+  const MODULE_SIGNALS: Record<ModuleName, { workspace: string[]; context: string[] }> = {
+    chatbot: {
+      workspace: ["chatbot", "chat bot"],
+      context: ["scheduling assistant", "booking assistant", "ai scheduling", "customer support bot"],
+    },
+    automation: {
+      workspace: ["automation", "onboarding automation", "workflow automation", "email sequence", "drip sequence", "lead capture automation"],
+      context: [],
+    },
+    website: {
+      workspace: ["website", "landing page", "fintech landing", "saas landing", "homepage"],
+      context: [],
+    },
+    bi: {
+      workspace: ["business intelligence", "intelligence report", "run business intelligence", "generate intelligence", "run bi report"],
+      context: [],
+    },
+    orchestrator: {
+      workspace: ["orchestrator", "multi-agent", "agent pipeline", "agent network", "coordinate agents", "orchestrate agents", "execution plan", "build a plan", "create a plan", "ai pipeline", "agent system"],
+      context: [],
+    },
+  };
+
+  const MODULE_ORDER: ModuleName[] = ["chatbot", "automation", "website", "bi", "orchestrator"];
+
+  const moduleConfidences = MODULE_ORDER.map(module => {
+    const { workspace, context } = MODULE_SIGNALS[module];
+    const matchedWorkspaceSignals = workspace.filter(s => latestUserMessage.includes(s));
+    const matchedContextSignals = context.filter(s => latestUserMessage.includes(s));
+    // Confidence score comes ONLY from explicit workspace signals. Context
+    // signals are recorded but never counted — they cannot select a
+    // workspace, only describe one once a real signal has already won.
+    return {
+      module,
+      score: matchedWorkspaceSignals.length,
+      matchedWorkspaceSignals,
+      matchedContextSignals,
+    };
+  });
+
+  // businessContext: every business-domain phrase detected across all
+  // modules, independent of which workspace ends up selected. Informational
+  // only — no routing decision anywhere may read this value.
+  const businessContext: string[] = Array.from(
+    new Set(moduleConfidences.flatMap(m => m.matchedContextSignals))
+  );
+
+  // workspaceIntent: the single highest-confidence module, or null when no
+  // explicit workspace signal was found anywhere in the message (a message
+  // that is purely business context, e.g. "I need a scheduling assistant",
+  // does NOT select a workspace by itself).
+  const topModuleConfidence = moduleConfidences.reduce((best, current) =>
+    current.score > best.score ? current : best
+  );
+  const workspaceIntent: ModuleName | null = topModuleConfidence.score > 0 ? topModuleConfidence.module : null;
+
+  // Backward-compatible flat signal lists — used only by the diagnostic
+  // ROUTING_TRACE_SIGNAL_MATCH / PROMPT_BLOCK_PROOF logs below. Never used
+  // for routing.
+  const CHATBOT_SIGNALS      = [...MODULE_SIGNALS.chatbot.workspace,      ...MODULE_SIGNALS.chatbot.context];
+  const AUTOMATION_SIGNALS   = [...MODULE_SIGNALS.automation.workspace,   ...MODULE_SIGNALS.automation.context];
+  const WEBSITE_SIGNALS      = [...MODULE_SIGNALS.website.workspace,      ...MODULE_SIGNALS.website.context];
+  const BI_SIGNALS           = [...MODULE_SIGNALS.bi.workspace,           ...MODULE_SIGNALS.bi.context];
+  const ORCHESTRATOR_SIGNALS = [...MODULE_SIGNALS.orchestrator.workspace, ...MODULE_SIGNALS.orchestrator.context];
 
   // Detect which module the user's message explicitly names, independent of any
   // pending intent. This runs unconditionally so a stale intent cannot mask it.
-  const explicitModuleFromSignals: "chatbot" | "automation" | "website" | "bi" | "orchestrator" | null =
-    CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s))      ? "chatbot"
-    : AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s))   ? "automation"
-    : WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s))      ? "website"
-    : BI_SIGNALS.some(s => latestUserMessage.includes(s))           ? "bi"
-    : ORCHESTRATOR_SIGNALS.some(s => latestUserMessage.includes(s)) ? "orchestrator"
-    : null;
+  // (Name preserved for the stale-intent detection immediately below.)
+  const explicitModuleFromSignals: ModuleName | null = workspaceIntent;
 
   // A pending intent is superseded when the user's message explicitly names a
   // DIFFERENT module. Example: pendingIntent.type="chatbot" but user says
@@ -974,6 +1049,8 @@ ${summary}
     confirmationEngine,
     pendingIntentSuperseded,
     explicitModuleFromSignals,
+    workspaceIntent,
+    businessContext,
     selectedEngine: confirmationEngine ?? "pending_keyword_match",
   }, "[MARCUS] CONFIRM_INTENT_DETECTED");
 
@@ -982,11 +1059,14 @@ ${summary}
   // 2. activePagePath (confirmation fallback when no pendingIntent)
   // 3. Message keywords (direct request, no confirmation needed)
 
-  const isChatbotRequest      = confirmationEngine === "chatbot"      || CHATBOT_SIGNALS.some(s => latestUserMessage.includes(s));
-  const isAutomationRequest   = !isChatbotRequest && (confirmationEngine === "automation"   || AUTOMATION_SIGNALS.some(s => latestUserMessage.includes(s)));
-  const isWebsiteRequest      = !isChatbotRequest && !isAutomationRequest && (confirmationEngine === "website"      || WEBSITE_SIGNALS.some(s => latestUserMessage.includes(s)));
-  const isBiRequest           = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && (confirmationEngine === "bi"          || BI_SIGNALS.some(s => latestUserMessage.includes(s)));
-  const isOrchestratorRequest = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && !isBiRequest && (confirmationEngine === "orchestrator" || ORCHESTRATOR_SIGNALS.some(s => latestUserMessage.includes(s)));
+  // All downstream routing uses workspaceIntent (the confidence-scored
+  // classifier output) exclusively — never raw keyword arrays. confirmationEngine
+  // still takes priority when the user is confirming a prior pending intent.
+  const isChatbotRequest      = confirmationEngine === "chatbot"      || workspaceIntent === "chatbot";
+  const isAutomationRequest   = !isChatbotRequest && (confirmationEngine === "automation"   || workspaceIntent === "automation");
+  const isWebsiteRequest      = !isChatbotRequest && !isAutomationRequest && (confirmationEngine === "website"      || workspaceIntent === "website");
+  const isBiRequest           = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && (confirmationEngine === "bi"          || workspaceIntent === "bi");
+  const isOrchestratorRequest = !isChatbotRequest && !isAutomationRequest && !isWebsiteRequest && !isBiRequest && (confirmationEngine === "orchestrator" || workspaceIntent === "orchestrator");
 
   const selectedEngine = isChatbotRequest      ? "chatbot"
     : isAutomationRequest   ? "automation"
@@ -1020,6 +1100,12 @@ ${summary}
       bi:           BI_SIGNALS.filter(s => latestUserMessage.includes(s)),
       orchestrator: ORCHESTRATOR_SIGNALS.filter(s => latestUserMessage.includes(s)),
     },
+    // Confidence-based classifier output (see MODULE_SIGNALS above). Score is
+    // derived only from workspace-role signals; context-role signals are
+    // reported here for visibility but never contribute to score/selection.
+    moduleConfidences,
+    workspaceIntent,
+    businessContext,
     evaluationOrder: ["chatbot", "automation", "website", "bi", "orchestrator"],
     flags: {
       isChatbotRequest,
