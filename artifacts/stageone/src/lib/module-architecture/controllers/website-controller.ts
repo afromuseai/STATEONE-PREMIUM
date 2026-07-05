@@ -61,17 +61,21 @@ export const websiteController: ModuleController = {
    * generate.complete only after streaming, saving, and UI update are all done.
    */
   async generate(): Promise<void> {
+    console.log(`[RUNTIME_TRACE] 06_CONTROLLER_GENERATE_ENTERED | ts=${Date.now()}`);
     const bridge = getBridge();
     if (!bridge) {
       console.warn('[WebsiteController] generate() — bridge not registered; is the Website page mounted?');
+      console.log(`[RUNTIME_TRACE] 06_CONTROLLER_GENERATE_ABORTED | reason=bridge_null`);
       return;
     }
 
     const idea = bridge.getCurrentIdea();
+    console.log(`[RUNTIME_TRACE] 07_BRIDGE_TRIGGER_GENERATE_CALLED | ideaLength=${idea?.length ?? 0}`);
     emitLifecycleEvent('generate.started', 'website', { idea });
 
     await bridge.triggerGenerate(idea);
 
+    console.log(`[RUNTIME_TRACE] 12_CONTROLLER_GENERATE_RETURNED | ts=${Date.now()}`);
     emitLifecycleEvent('generate.complete', 'website', { idea });
   },
 

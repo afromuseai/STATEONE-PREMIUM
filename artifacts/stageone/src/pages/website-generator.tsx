@@ -488,6 +488,7 @@ export default function WebsiteGeneratorPage() {
         traceOutcome = { success: false, reason: "No response stream" }
         throw new Error("No response stream")
       }
+      console.log(`[RUNTIME_TRACE] 09_SSE_STREAM_START | ts=${Date.now()}`)
       const reader = res.body.getReader()
       const dec = new TextDecoder()
       let carry = ""
@@ -533,11 +534,13 @@ export default function WebsiteGeneratorPage() {
                 })
               }
               traceOutcome = { success: true }
+              console.log(`[RUNTIME_TRACE] 11_COMPLETION_CALLBACK_ABOUT_TO_FIRE | hasCallback=${!!generateCompleteCallbackRef.current} | ts=${Date.now()}`)
               // Phase 5: signal bridge that generation is fully complete —
               // fires only after SSE streaming, project save, and UI update are done.
               // Matches chatbot reference pattern.
               generateCompleteCallbackRef.current?.()
               generateCompleteCallbackRef.current = null
+              console.log(`[RUNTIME_TRACE] 12_COMPLETION_CALLBACK_FIRED | ts=${Date.now()}`)
               return
             }
           } catch { /* fragment */ }

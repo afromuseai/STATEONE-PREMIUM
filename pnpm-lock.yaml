@@ -438,6 +438,9 @@ importers:
       '@emotion/is-prop-valid':
         specifier: ^1.4.0
         version: 1.4.0
+      '@workspace/api-zod':
+        specifier: workspace:*
+        version: link:../../lib/api-zod
       jszip:
         specifier: ^3.10.1
         version: 3.10.1

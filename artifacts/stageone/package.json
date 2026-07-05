@@ -72,6 +72,7 @@
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
+    "@workspace/api-zod": "workspace:*",
     "jszip": "^3.10.1",
     "react-simple-maps": "^3.0.0"
   }

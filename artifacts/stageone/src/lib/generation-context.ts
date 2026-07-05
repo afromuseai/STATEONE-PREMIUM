@@ -199,11 +199,12 @@ export function clearDashboardState(): void {
 
 const PENDING_INTENT_KEY = "stageone_pending_intent"
 
-export interface PendingIntent {
-  type: "website" | "chatbot" | "automation" | "bi" | "orchestrator"
-  idea: string
-  timestamp: number
-}
+// Canonical shape lives in @workspace/api-zod (PendingIntentSchema) so the
+// client sessionStorage read/write, the client -> server network payload,
+// and the server's WorkspaceContextSchema all stay in sync. Do not redeclare
+// this shape locally anywhere else.
+import type { PendingIntent } from "@workspace/api-zod"
+export type { PendingIntent }
 
 export function setPendingIntent(intent: Omit<PendingIntent, "timestamp">): void {
   try {

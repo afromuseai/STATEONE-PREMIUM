@@ -4,6 +4,7 @@ import { requireFeature } from "../middleware/planGuard";
 import { db, projectsTable, agentsTable, aiMemoryTable, workspaceTasksTable, subscriptionsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
+import { PendingIntentSchema } from "@workspace/api-zod";
 
 import { MODELS } from "../lib/models";
 import { streamNvidia, forwardStream, callNvidia, extractJson, isModelDegradedError } from "../lib/nvidia";
@@ -151,11 +152,7 @@ const WorkspaceContextSchema = z.object({
   }).optional(),
   projectCount: z.number().optional(),
   activeAgents: z.number().optional(),
-  pendingIntent: z.object({
-    type: z.enum(["website", "chatbot", "automation", "bi", "orchestrator"]),
-    idea: z.string(),
-    autoGenerate: z.boolean(),
-  }).nullable().optional(),
+  pendingIntent: PendingIntentSchema.nullable().optional(),
 }).optional();
 
 const CopilotBody = z.object({
@@ -166,8 +163,11 @@ const CopilotBody = z.object({
 });
 
 router.post("/copilot", requireAuth, requireFeature("marcus_copilot"), async (req, res): Promise<void> => {
+  console.log(`[RUNTIME_TRACE] 01_REQUEST_RECEIVED | /api/copilot | ts=${Date.now()}`);
   const parsed = CopilotBody.safeParse(req.body);
   if (!parsed.success) {
+    console.log(`[RUNTIME_TRACE] 01b_SCHEMA_VALIDATION_FAILED | issues=${JSON.stringify(parsed.error.issues)}`);
+    console.log(`[RUNTIME_TRACE] 01c_RAW_BODY_RECEIVED | body=${JSON.stringify(req.body)}`);
     res.status(400).json({ error: "Invalid request" });
     return;
   }
@@ -2932,6 +2932,8 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
       confidence: confirmationResult.confidence,
       matchedSignals: confirmationResult.matchedSignals,
     }, "[MARCUS] CONFIRMATION_SERVER_BYPASS — emitting generate command directly, bypassing LLM");
+    console.log(`[RUNTIME_TRACE] 02_WORKSPACE_INTENT | workspaceIntent=${workspaceIntent} | intentSource=${intentSource}`);
+    console.log(`[RUNTIME_TRACE] 03_COMMAND_GENERATED | ${generateCmd}`);
 
     res.write(`data: ${JSON.stringify({ content: confirmText })}\n\n`);
     res.write(`data: ${JSON.stringify({ content: `\n${generateCmd}` })}\n\n`);
