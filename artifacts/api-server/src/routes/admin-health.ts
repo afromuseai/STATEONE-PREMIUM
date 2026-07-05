@@ -274,7 +274,7 @@ router.post("/admin/health/alerts", requireAdmin, async (req, res) => {
 // ─── PATCH /api/admin/health/alerts/:id/dismiss ─────────────────────────────
 router.patch("/admin/health/alerts/:id/dismiss", requireAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const [alert] = await db
       .update(healthAlertsTable)
       .set({ dismissed: true, dismissedAt: new Date(), dismissedBy: req.user!.userId })
@@ -290,7 +290,7 @@ router.patch("/admin/health/alerts/:id/dismiss", requireAdmin, async (req, res) 
 // ─── DELETE /api/admin/health/alerts/:id ────────────────────────────────────
 router.delete("/admin/health/alerts/:id", requireAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     await db.delete(healthAlertsTable).where(eq(healthAlertsTable.id, id));
     res.json({ ok: true });
   } catch (err) {

@@ -25,12 +25,12 @@ export interface ImpersonationPayload {
 }
 
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, JWT_SECRET!, { expiresIn: "7d" });
 }
 
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
+    return jwt.verify(token, JWT_SECRET!) as unknown as JwtPayload;
   } catch {
     return null;
   }
@@ -38,7 +38,7 @@ export function verifyToken(token: string): JwtPayload | null {
 
 function verifyImpersonationToken(token: string): ImpersonationPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as ImpersonationPayload;
+    const decoded = jwt.verify(token, JWT_SECRET!) as unknown as ImpersonationPayload;
     if (!decoded.isImpersonation) return null;
     return decoded;
   } catch {

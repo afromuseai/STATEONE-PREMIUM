@@ -102,6 +102,7 @@ function UsageBar({ used, limit, color }: { used: number; limit: number; color: 
         className="h-full rounded-full"
         style={{ background: color }}
       />
+    </div>
   )
 }
 
@@ -360,6 +361,5 @@ export default function BillingPage() {
           )}
         </div>
       </div>
-    </div>
   )
 }

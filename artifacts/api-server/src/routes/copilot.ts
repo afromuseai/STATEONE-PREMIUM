@@ -1132,7 +1132,6 @@ ${summary}
     pagePathEngine,
     classifierIntent,
     intentIsFromConfirmation,
-    workspaceIntent,
     intentSource,
   }, "[MARCUS][ROUTING_TRACE] Signal-matching layer — engine selected before LLM call");
 
@@ -3275,7 +3274,9 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     if (!matchedKey) return;
 
     // Only trigger if the user actually has this agent installed and active
-    const activeAgentsList = await discoverActiveAgents(userId).catch(() => []);
+    const activeAgentsList = await discoverActiveAgents(userId).catch(
+      (): Awaited<ReturnType<typeof discoverActiveAgents>> => []
+    );
     const installedAgent = activeAgentsList.find(a => a.agentId === matchedKey);
     if (!installedAgent) return;
 

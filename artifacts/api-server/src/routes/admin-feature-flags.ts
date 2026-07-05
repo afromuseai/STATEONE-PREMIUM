@@ -10,7 +10,7 @@ const router = Router();
 // ─── Public: check a single flag for the current user ─────────────────────────
 router.get("/feature-flags/:key", requireAuth, async (req, res) => {
   try {
-    const { key } = req.params;
+    const key = req.params.key as string;
     const userId = req.user!.userId;
     const enabled = await FeatureFlagService.isEnabledForUser(key, userId);
     res.json({ enabled });
@@ -102,7 +102,7 @@ router.post("/admin/feature-flags", requireAdmin, async (req, res) => {
 // ─── Admin: update flag ───────────────────────────────────────────────────────
 router.patch("/admin/feature-flags/:id", requireAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { enabled, rolloutPercentage, name, description } = req.body as {
       enabled?: boolean; rolloutPercentage?: number; name?: string; description?: string;
     };
@@ -115,7 +115,7 @@ router.patch("/admin/feature-flags/:id", requireAdmin, async (req, res) => {
 
     const [flag] = await db
       .update(featureFlagsTable)
-      .set(updates)
+      .set(updates as any)
       .where(eq(featureFlagsTable.id, id))
       .returning();
 
@@ -145,7 +145,7 @@ router.patch("/admin/feature-flags/:id", requireAdmin, async (req, res) => {
 // ─── Admin: delete flag ───────────────────────────────────────────────────────
 router.delete("/admin/feature-flags/:id", requireAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const existing = await db
       .select()
@@ -177,7 +177,7 @@ router.delete("/admin/feature-flags/:id", requireAdmin, async (req, res) => {
 // ─── Admin: add rule to flag ──────────────────────────────────────────────────
 router.post("/admin/feature-flags/:id/rules", requireAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { ruleType, ruleValue } = req.body as { ruleType: "plan" | "user" | "segment"; ruleValue: string };
 
     if (!ruleType || !ruleValue) {
@@ -218,7 +218,7 @@ router.post("/admin/feature-flags/:id/rules", requireAdmin, async (req, res) => 
 // ─── Admin: delete rule ───────────────────────────────────────────────────────
 router.delete("/admin/feature-flags/rules/:ruleId", requireAdmin, async (req, res) => {
   try {
-    const { ruleId } = req.params;
+    const ruleId = req.params.ruleId as string;
 
     const existing = await db
       .select()

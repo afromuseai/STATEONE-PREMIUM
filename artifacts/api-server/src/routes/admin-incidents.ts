@@ -67,9 +67,8 @@ router.post("/admin/incidents", requireAdmin, async (req, res) => {
       .returning();
 
     Promise.resolve().then(() => db.insert(adminAuditLogsTable).values({
-      adminId: req.user!.userId, action: "create_incident",
-      targetType: "incident", targetId: incident.id,
-      metadata: { title: incident.title, severity: incident.severity },
+      adminId: req.user!.userId, adminEmail: req.user!.email, action: "create_incident",
+      details: { targetType: "incident", targetId: incident.id, title: incident.title, severity: incident.severity },
     }));
 
     logger.info({ adminId: req.user!.userId, incidentId: incident.id, severity: parsed.data.severity }, "[incidents] Created");
@@ -81,7 +80,7 @@ router.post("/admin/incidents", requireAdmin, async (req, res) => {
 
 // ─── PATCH /api/admin/incidents/:id ──────────────────────────────────────────
 router.patch("/admin/incidents/:id", requireAdmin, async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const parsed = UpdateIncidentBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
@@ -96,16 +95,15 @@ router.patch("/admin/incidents/:id", requireAdmin, async (req, res) => {
   try {
     const [incident] = await db
       .update(incidentsTable)
-      .set(updates as Parameters<typeof incidentsTable.$inferInsert>[0])
-      .where(eq(incidentsTable.id, id))
+      .set(updates as any)
+      .where(eq(incidentsTable.id, id as string))
       .returning();
 
     if (!incident) { res.status(404).json({ error: "Incident not found" }); return; }
 
     Promise.resolve().then(() => db.insert(adminAuditLogsTable).values({
-      adminId: req.user!.userId, action: "update_incident",
-      targetType: "incident", targetId: id,
-      metadata: { changes: parsed.data },
+      adminId: req.user!.userId, adminEmail: req.user!.email, action: "update_incident",
+      details: { targetType: "incident", targetId: id, changes: parsed.data },
     }));
 
     res.json({ ok: true, incident });
@@ -116,7 +114,7 @@ router.patch("/admin/incidents/:id", requireAdmin, async (req, res) => {
 
 // ─── DELETE /api/admin/incidents/:id ─────────────────────────────────────────
 router.delete("/admin/incidents/:id", requireAdmin, async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   try {
     const [deleted] = await db
       .delete(incidentsTable)

@@ -93,7 +93,6 @@ export function shouldBlock(): boolean {
         {
           event:            "COPILOT_CIRCUIT_HALF_OPEN",
           model:            MODELS.COPILOT,
-          recoveryAttempts: health.recoveryAttempts,
           ...health,
         },
         "[CIRCUIT] COPILOT_CIRCUIT_HALF_OPEN — test probe allowed"
@@ -138,7 +137,6 @@ export function shouldBlock(): boolean {
       {
         event:            "CIRCUIT_PROBE_START",
         model:            MODELS.COPILOT,
-        recoveryAttempts: health.recoveryAttempts,
         ...health,
       },
       "[CIRCUIT] CIRCUIT_PROBE_START — allowing single test probe through"
@@ -283,9 +281,6 @@ function _maybeOpen(triggerType: string): void {
         model:               MODELS.COPILOT,
         triggerType,
         previousState,
-        consecutiveFailures: health.consecutiveFailures,
-        timeouts:            health.timeouts,
-        degraded:            health.degraded,
         cooldownUntil:       new Date(openedAt + COOLDOWN_MS).toISOString(),
         ...health,
       },
@@ -296,7 +291,6 @@ function _maybeOpen(triggerType: string): void {
       {
         event:               "COPILOT_HEALTH_STATUS",
         model:               MODELS.COPILOT,
-        consecutiveFailures: health.consecutiveFailures,
         threshold:           FAILURE_THRESHOLD,
         ...health,
       },

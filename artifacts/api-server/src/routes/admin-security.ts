@@ -123,7 +123,7 @@ router.get("/admin/security/abuse-alerts", requireAdmin, async (req, res) => {
 // ─── PATCH /api/admin/security/abuse-alerts/:id ───────────────────────────────
 const AbuseActionBody = z.object({ action: z.enum(["dismiss", "action"]) });
 router.patch("/admin/security/abuse-alerts/:id", requireAdmin, async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const parsed = AbuseActionBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid action" }); return; }
 
@@ -137,9 +137,8 @@ router.patch("/admin/security/abuse-alerts/:id", requireAdmin, async (req, res) 
     if (!updated) { res.status(404).json({ error: "Alert not found" }); return; }
 
     Promise.resolve().then(() => db.insert(adminAuditLogsTable).values({
-      adminId: req.user!.userId, action: `${parsed.data.action}_abuse`,
-      targetType: "abuse_alert", targetId: id,
-      metadata: { alertType: updated.alertType, userId: updated.userId },
+      adminId: req.user!.userId, adminEmail: req.user!.email, action: `${parsed.data.action}_abuse`,
+      details: { targetType: "abuse_alert", targetId: id, alertType: updated.alertType, userId: updated.userId },
     }));
 
     res.json({ ok: true, alert: updated });
@@ -165,7 +164,7 @@ router.get("/admin/security/suspended", requireAdmin, async (_req, res) => {
 // ─── POST /api/admin/security/suspend/:userId ─────────────────────────────────
 const SuspendBody = z.object({ reason: z.string().min(3).max(500) });
 router.post("/admin/security/suspend/:userId", requireAdmin, async (req, res) => {
-  const { userId } = req.params;
+  const userId = req.params.userId as string;
   const parsed = SuspendBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Reason required (3-500 chars)" }); return; }
 
@@ -179,9 +178,8 @@ router.post("/admin/security/suspend/:userId", requireAdmin, async (req, res) =>
     if (!user) { res.status(404).json({ error: "User not found or cannot suspend admin" }); return; }
 
     Promise.resolve().then(() => db.insert(adminAuditLogsTable).values({
-      adminId: req.user!.userId, action: "suspend_user",
-      targetType: "user", targetId: userId,
-      metadata: { reason: parsed.data.reason, email: user.email },
+      adminId: req.user!.userId, adminEmail: req.user!.email, action: "suspend_user",
+      details: { targetType: "user", targetId: userId, reason: parsed.data.reason, email: user.email },
     }));
 
     logger.info({ adminId: req.user!.userId, userId, reason: parsed.data.reason }, "[admin-security] User suspended");
@@ -193,7 +191,7 @@ router.post("/admin/security/suspend/:userId", requireAdmin, async (req, res) =>
 
 // ─── POST /api/admin/security/reactivate/:userId ──────────────────────────────
 router.post("/admin/security/reactivate/:userId", requireAdmin, async (req, res) => {
-  const { userId } = req.params;
+  const userId = req.params.userId as string;
   try {
     const [user] = await db
       .update(usersTable)
@@ -204,9 +202,8 @@ router.post("/admin/security/reactivate/:userId", requireAdmin, async (req, res)
     if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
     Promise.resolve().then(() => db.insert(adminAuditLogsTable).values({
-      adminId: req.user!.userId, action: "reactivate_user",
-      targetType: "user", targetId: userId,
-      metadata: { email: user.email },
+      adminId: req.user!.userId, adminEmail: req.user!.email, action: "reactivate_user",
+      details: { targetType: "user", targetId: userId, email: user.email },
     }));
 
     logger.info({ adminId: req.user!.userId, userId }, "[admin-security] User reactivated");
