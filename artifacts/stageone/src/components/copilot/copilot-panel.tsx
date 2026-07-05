@@ -1081,9 +1081,9 @@ export function CopilotPanel() {
           // If the page is mounted the signal delivers live; if not (race: page mounting
           // but subscribeWorkspaceSignal effect hasn't registered yet), the signal is
           // queued and drained by the effect when it runs. This mirrors automation_idea.
-          console.log("WEBSITE_POPULATE_2 | emitWorkspaceSignal called | onPage:", location === "/website-generator");
+          console.log("WEBSITE_POPULATE_2 | emitWorkspaceSignal called | onPage:", window.location.pathname === "/website-generator");
           emitWorkspaceSignal({ target: "website", type: "populate", payload: idea });
-          if (location !== "/website-generator") {
+          if (window.location.pathname !== "/website-generator") {
             console.log("WEBSITE_FLOW:B navigation triggered (generic idea command) | pending intent written first");
             console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: website | from:", location, "| to: /website-generator | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
             navigate("/website-generator");

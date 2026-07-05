@@ -1,0 +1,326 @@
+userId 0bfbd05e-dfb0-444f-aa4a-7139f28e0e08
+injected.js:37 projectId null
+injected.js:37 conversationId 0bfbd05e-dfb0-444f-aa4a-7139f28e0e08:copilot
+injected.js:37 storageKey copilot:msgs:0bfbd05e-dfb0-444f-aa4a-7139f28e0e08
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 1 | content: I
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 54 | content: I can build that. I'll configure the Website Architect
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 103 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 171 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 224 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 268 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 296 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: false
+injected.js:37 [WEBSITE TRACE] parser detected website | tag: {{WORKSPACE|website}}
+injected.js:37 MARCUS_STAGE_2_COMMAND_EMITTED | command: website | payloadLength: 0 | payload: 
+injected.js:37 ROUTING_TRACE_CLIENT | parsed command: website | payload:  | dispatchedToModule: website | currentLocation: /dashboard | currentRoute: /dashboard
+injected.js:37 MARCUS_STAGE_3_COMMAND_RECEIVED | command: website | payloadLength: 0 | payload: 
+injected.js:37 WEBSITE_FLOW:B navigation triggered (website command) | NOT writing pending intent
+injected.js:37 NAV_TRACE | source: handleWorkspaceCmdAction | command: website | from: /dashboard | to: /website-generator | activeWorkspaceModuleRef: website | stack: Error: NAV_TRACE
+    at https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1116:210
+    at https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1313:13
+    at fireAndStripTags (https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:513:27)
+    at streamCopilot (https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:564:11)
+    at async https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1275:9
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+injected.js:37 [PROBE] WEBSITE_BRIDGE_REGISTER | _bridge was: null | caller: at https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/pages/website-generator.tsx:207:5
+injected.js:37 GENERATOR_MOUNT | page=website-generator | projectId=(none) | continuityMode=(none) | source=(none)
+injected.js:37 WEBSITE_FLOW:C page mounted
+injected.js:37 WEBSITE_FLOW:D idea loaded | consumePendingIntent result: null
+injected.js:37 CONTEXT_DECISION | preserve=false | reason=missing_project | projectId=(none)
+injected.js:37 WEBSITE_FLOW:D no pending intent — standalone mount, clearing stale project context
+injected.js:37 [PROBE] WEBSITE_TYPEWRITER_START | marcusPopulateRef: "" | tick fired, has text? false
+injected.js:37 [PROBE] WEBSITE_BRIDGE_REGISTER | _bridge was: set | caller: at https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/pages/website-generator.tsx:207:5
+injected.js:37 GENERATOR_MOUNT | page=website-generator | projectId=(none) | continuityMode=(none) | source=(none)
+injected.js:37 WEBSITE_FLOW:C page mounted
+injected.js:37 WEBSITE_FLOW:D idea loaded | consumePendingIntent result: null
+injected.js:37 CONTEXT_DECISION | preserve=false | reason=missing_project | projectId=(none)
+injected.js:37 WEBSITE_FLOW:D no pending intent — standalone mount, clearing stale project context
+injected.js:37 [PROBE] WEBSITE_TYPEWRITER_START | marcusPopulateRef: "" | tick fired, has text? false
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 354 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 422 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 466 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views,
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 531 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 582 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 636 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 689 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 731 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a free trial.}}
+
+Everything is ready. Would
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a free trial.}} | already fired: false
+injected.js:37 [WEBSITE TRACE] parser detected idea | tag: {{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a free trial.}}
+injected.js:37 MARCUS_STAGE_2_COMMAND_EMITTED | command: idea | payloadLength: 413 | payload: A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, auto
+injected.js:37 ROUTING_TRACE_CLIENT | parsed command: idea | payload: A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration  | dispatchedToModule: chatbot | currentLocation: /dashboard | currentRoute: /website-generator
+injected.js:37 MARCUS_STAGE_3_COMMAND_RECEIVED | command: idea | payloadLength: 413 | payload: A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, auto
+injected.js:37 [PIPELINE:4] idea command received | raw payload: "A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a free trial." | activeWorkspaceModule: website
+injected.js:37 ROUTING_TRACE_CLIENT | generic idea command resolved | activeWorkspaceModule: website
+injected.js:37 WEBSITE_POPULATE_1 | idea command received | activeModule: website | length: 413 | first 80: A modern SaaS project management tool designed for high-performing teams. Featur
+injected.js:37 WEBSITE_FLOW:A idea stored via generic idea command | length: 413 | first 80: A modern SaaS project management tool designed for high-performing teams. Featur
+injected.js:37 WEBSITE_POPULATE_2 | emitWorkspaceSignal called | onPage: false
+injected.js:37 [WS] emitWorkspaceSignal | target: website | type: populate | mounted: true | subscribers: 2
+2injected.js:37 WEBSITE_POPULATE_3 | live signal received | type: populate | payload length: 413
+injected.js:37 WEBSITE_FLOW:B navigation triggered (generic idea command) | pending intent written first
+injected.js:37 NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: website | from: /dashboard | to: /website-generator | activeWorkspaceModuleRef: website | stack: Error: NAV_TRACE
+    at https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1000:233
+    at https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1313:13
+    at fireAndStripTags (https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:513:27)
+    at streamCopilot (https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:564:11)
+    at async https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1275:9
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+
+
+
+Everything is ready. Would
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 769 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a free trial.}}
+
+Everything is ready. Would you like me to generate this website?
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a free trial.}} | already fired: true
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+
+
+
+Everything is ready. Would you like me to generate this website?
+injected.js:37 [TRACE] RAW ASSISTANT RESPONSE | length: 769 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a free trial.}}
+
+Everything is ready. Would you like me to generate this website?
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 769 | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+{{WORKSPACE|website}}
+{{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a free trial.}}
+
+Everything is ready. Would you like me to generate this website?
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|website}} | already fired: true
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|idea|A modern SaaS project management tool designed for high-performing teams. Features include real-time collaboration, automated workflow triggers, intuitive Kanban and Gantt views, and deep integration with communication platforms. The site will emphasize speed, clarity, and the ability to scale from small startups to enterprise teams, with a clean, professional design and clear calls to action for a free trial.}} | already fired: true
+injected.js:37 [TRACE] OUTPUT AFTER fireAndStripTags | display: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+
+
+
+Everything is ready. Would you like me to generate this website?
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I can build that. I'll configure the Website Architect with a focus on a modern SaaS project management tool, highlighting features like real-time collaboration, automated workflows, and intuitive task tracking.
+
+Opening the Website Architect now.
+
+
+
+
+Everything is ready. Would you like me to generate this website?
+injected.js:37 [PROBE] WEBSITE_TYPEWRITER_START | marcusPopulateRef: "A modern SaaS project management tool designed for high-perf" | tick fired, has text? true
+injected.js:37 WEBSITE_POPULATE_4 | setIdea typewriter started | idea length: 413 | first 80: A modern SaaS project management tool designed for high-performing teams. Featur
+injected.js:37 [PROBE] WEBSITE_TYPEWRITER_START | marcusPopulateRef: "A modern SaaS project management tool designed for high-perf" | tick fired, has text? true
+injected.js:37 WEBSITE_POPULATE_4 | setIdea typewriter started | idea length: 413 | first 80: A modern SaaS project management tool designed for high-performing teams. Featur
+2injected.js:37 [PROBE] TEXTAREA_STATE_UPDATED | first tick | char: "A"
+injected.js:37 [PROBE] WEBSITE_BRIDGE_UNREGISTER | caller: at https://d1ec1c6a-61c8-4def-82ce-4ce521c86d1b-00-67no00gk8akx.riker.replit.dev:3000/src/pages/website-generator.tsx:237:7
+injected.js:37 WEBSITE_POPULATE_5 | textarea fully populated | idea length: 413
+injected.js:37 [PROBE] TEXTAREA_STATE_UPDATED | complete | length: 413
+injected.js:37 userId 0bfbd05e-dfb0-444f-aa4a-7139f28e0e08
+injected.js:37 projectId null
+injected.js:37 conversationId 0bfbd05e-dfb0-444f-aa4a-7139f28e0e08:copilot
+injected.js:37 storageKey copilot:msgs:0bfbd05e-dfb0-444f-aa4a-7139f28e0e08
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 169 | content: Everything is ready.
+
+I'm generating your website for A modern SaaS project management tool designed for high-performing teams.….
+
+I'll save it into the current project.
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: Everything is ready.
+
+I'm generating your website for A modern SaaS project management tool designed for high-performing teams.….
+
+I'll save it into the current project.
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 200 | content: Everything is ready.
+
+I'm generating your website for A modern SaaS project management tool designed for high-performing teams.….
+
+I'll save it into the current project.
+{{WORKSPACE|generate_website}}
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|generate_website}} | already fired: false
+injected.js:37 [WEBSITE TRACE] parser detected generate_website | tag: {{WORKSPACE|generate_website}}
+injected.js:37 [CONFIRM_FLOW:2] fireAndStripTags detected generation command | command: generate_website | timestamp: 1783210826243
+injected.js:37 MARCUS_STAGE_2_COMMAND_EMITTED | command: generate_website | payloadLength: 0 | payload: 
+injected.js:37 ROUTING_TRACE_CLIENT | parsed command: generate_website | payload:  | dispatchedToModule: website | currentLocation: /website-generator | currentRoute: /website-generator
+injected.js:37 MARCUS_STAGE_3_COMMAND_RECEIVED | command: generate_website | payloadLength: 0 | payload: 
+injected.js:37 [ExecutionBus] generate_website → bus.execute({ module: website, action: generate })
+injected.js:37 [Tracer] ▶ START | id=73812c15 | module=website
+injected.js:37 [Tracer] Stage 1 ✓ | Intent parsed | fn=handleWorkspaceCmdAction | id=73812c15 | +0ms
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: Everything is ready.
+
+I'm generating your website for A modern SaaS project management tool designed for high-performing teams.….
+
+I'll save it into the current project.
+injected.js:37 [TRACE] RAW ASSISTANT RESPONSE | length: 200 | content: Everything is ready.
+
+I'm generating your website for A modern SaaS project management tool designed for high-performing teams.….
+
+I'll save it into the current project.
+{{WORKSPACE|generate_website}}
+injected.js:37 [TRACE] INPUT TO fireAndStripTags | buffer length: 200 | content: Everything is ready.
+
+I'm generating your website for A modern SaaS project management tool designed for high-performing teams.….
+
+I'll save it into the current project.
+{{WORKSPACE|generate_website}}
+injected.js:37 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|generate_website}} | already fired: true
+injected.js:37 [TRACE] OUTPUT AFTER fireAndStripTags | display: Everything is ready.
+
+I'm generating your website for A modern SaaS project management tool designed for high-performing teams.….
+
+I'll save it into the current project.
+injected.js:37 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: Everything is ready.
+
+I'm generating your website for A modern SaaS project management tool designed for high-performing teams.….
+
+I'll save it into the current project.
+injected.js:37 [Tracer] Stage 2 ✓ | Command dispatched | fn=handleWorkspaceCmdAction | id=73812c15 | +69ms
+injected.js:37 [ExecutionBus] execute | id=exec-1783210826314-1 | module=website | action=generate | autoGenerate=false
+injected.js:37 [Tracer] Stage 3 ✓ | ExecutionBus entered | fn=ExecutionBus.execute | id=73812c15 | +69ms
+injected.js:37 [Tracer] Stage 4 ✗ | Controller resolved | fn=resolveExecutionModule | id=73812c15 | +70ms | Controller not mounted for 'website' — navigating and waiting
+injected.js:37 [ExecutionBus] navigating to /website-generator for module 'website'
+injected.js:37 [Tracer] ✗ END | id=73812c15 | module=website | [ExecutionBus] Controller registration timeout (60s) for module 'website' (executionId=exec-1783210826314-1). Is the target page reachable?
+injected.js:37 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  EXECUTION TRACE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Execution ID : 73812c15
+  Module       : website
+  Started      : 2026-07-05T00:20:26.245Z
+  Stages       : 4
+
+  ──────────────────────────────────────────────────
+  Stage 1   Intent parsed ✓
+    fn        : handleWorkspaceCmdAction
+    time      : 2026-07-05T00:20:26.245Z (+0ms)
+    command   : generate_website
+  ──────────────────────────────────────────────────
+  Stage 2   Command dispatched ✓
+    fn        : handleWorkspaceCmdAction
+    time      : 2026-07-05T00:20:26.314Z (+69ms)
+    module    : website
+    action    : generate
+  ──────────────────────────────────────────────────
+  Stage 3   ExecutionBus entered ✓
+    fn        : ExecutionBus.execute
+    time      : 2026-07-05T00:20:26.314Z (+69ms)
+    busExecutionId: exec-1783210826314-1
+    module    : website
+    action    : generate
+  ──────────────────────────────────────────────────
+  Stage 4   Controller resolved ✗
+    fn        : resolveExecutionModule
+    time      : 2026-07-05T00:20:26.315Z (+70ms)
+    reason    : Controller not mounted for 'website' — navigating and waiting
+    immediate : false
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+injected.js:37 [ExecutionBus] failed | id=exec-1783210826314-1 | error=[ExecutionBus] Controller registration timeout (60s) for module 'website' (executionId=exec-1783210826314-1). Is the target page reachable?
