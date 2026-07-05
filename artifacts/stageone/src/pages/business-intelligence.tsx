@@ -262,7 +262,7 @@ export default function BusinessIntelligencePage() {
 
   // Phase 2 architecture: register the IntelligenceBridge and controller on mount
   useEffect(() => {
-    registerBridge({
+    const regId = registerBridge({
       navigate: () => setLocation("/business-intelligence"),
       populate: (idea, onComplete) => {
         // Guard: matches Website / Chatbot / Automation pattern — if there is nothing
@@ -294,7 +294,7 @@ export default function BusinessIntelligencePage() {
     })
     registerController("intelligence", intelligenceController)
     return () => {
-      unregisterBridge()
+      unregisterBridge(regId)
       unregisterController("intelligence")
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

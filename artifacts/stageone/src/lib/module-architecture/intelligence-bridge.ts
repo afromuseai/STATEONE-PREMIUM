@@ -39,13 +39,29 @@ export interface IntelligenceBridge {
 
 let _bridge: IntelligenceBridge | null = null;
 
+// Monotonically increasing counter — each registerBridge call gets a unique ID.
+// Used for PROBE logging only. The registration-ID guard is NOT yet applied;
+// unregisterBridge always clears the bridge so we can observe the stale-cleanup
+// behaviour in runtime logs before deciding to implement the guard.
+let _currentRegId = 0;
+
 /** Called by BusinessIntelligencePage on mount to register its handlers. */
-export function registerBridge(bridge: IntelligenceBridge): void {
+export function registerBridge(bridge: IntelligenceBridge): number {
+  const id = ++_currentRegId;
+  console.log(
+    `[PROBE] BI_BRIDGE_REGISTER | registrationId=${id} | bridge=${bridge ? 'INSTANCE' : 'null'}`
+  );
   _bridge = bridge;
+  return id;
 }
 
 /** Called by BusinessIntelligencePage on unmount to clean up. */
-export function unregisterBridge(): void {
+export function unregisterBridge(registrationId: number): void {
+  const isStale = _currentRegId !== registrationId;
+  console.log(
+    `[PROBE] BI_BRIDGE_UNREGISTER | registrationId=${registrationId} | currentRegId=${_currentRegId} | ${isStale ? 'CLEARED (stale — would be SKIPPED with guard)' : 'CLEARED'} | caller=useEffect cleanup`
+  );
+  // NOTE: guard NOT applied — always clears. Probe only.
   _bridge = null;
 }
 
