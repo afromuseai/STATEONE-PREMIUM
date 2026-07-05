@@ -38,16 +38,29 @@ export interface WebsiteBridge {
 }
 
 let _bridge: WebsiteBridge | null = null;
+// Monotonically increasing counter. Each call to registerBridge gets a unique ID.
+// unregisterBridge(id) is a no-op when id !== _currentRegId, which prevents a
+// stale cleanup (from a concurrently unmounted duplicate fiber) from nullifying
+// the registration of the live instance.
+let _currentRegId = 0;
 
-/** Called by WebsiteGeneratorPage on mount to register its handlers. */
-export function registerBridge(bridge: WebsiteBridge): void {
-  console.log('[PROBE] WEBSITE_BRIDGE_REGISTER | _bridge was:', _bridge ? 'set' : 'null', '| caller:', new Error().stack?.split('\n')[2]?.trim());
+/** Called by WebsiteGeneratorPage on mount to register its handlers.
+ *  Returns a registration ID that must be passed to unregisterBridge(). */
+export function registerBridge(bridge: WebsiteBridge): number {
+  const id = ++_currentRegId;
+  console.log('[PROBE] WEBSITE_BRIDGE_REGISTER | _bridge was:', _bridge ? 'set' : 'null', '| regId:', id, '| caller:', new Error().stack?.split('\n')[2]?.trim());
   _bridge = bridge;
+  return id;
 }
 
-/** Called by WebsiteGeneratorPage on unmount to clean up. */
-export function unregisterBridge(): void {
-  console.log('[PROBE] WEBSITE_BRIDGE_UNREGISTER | full stack:\n' + (new Error().stack ?? '(no stack)'));
+/** Called by WebsiteGeneratorPage on unmount to clean up.
+ *  Pass the ID returned by registerBridge(). Stale IDs are silently ignored. */
+export function unregisterBridge(registrationId: number): void {
+  if (_currentRegId !== registrationId) {
+    console.log('[PROBE] WEBSITE_BRIDGE_UNREGISTER | SKIPPED stale cleanup | regId:', registrationId, '| currentRegId:', _currentRegId);
+    return;
+  }
+  console.log('[PROBE] WEBSITE_BRIDGE_UNREGISTER | regId:', registrationId, '| caller:', new Error().stack?.split('\n')[2]?.trim());
   _bridge = null;
 }
 

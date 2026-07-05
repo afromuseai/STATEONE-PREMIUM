@@ -6,6 +6,10 @@ import type { ModuleController } from './controller';
 import type { ModuleId } from './types';
 
 const _registry = new Map<ModuleId, ModuleController>();
+// Per-module registration IDs — prevent a stale cleanup from a dead duplicate
+// fiber from removing the controller registered by the live instance.
+const _regIds = new Map<ModuleId, number>();
+let _regIdCounter = 0;
 
 // ── Registration hooks ────────────────────────────────────────────────────────
 // External subscribers (e.g. ExecutionBus) can listen for controller registration
@@ -32,22 +36,31 @@ export function subscribeControllerRegistration(handler: RegistrationHandler): (
  * Register a controller for the given module ID.
  * Overwrites any previously registered controller for that ID.
  * Notifies all registration subscribers after storing.
+ * Returns a registration ID that must be passed to unregisterController().
  */
-export function registerController(id: ModuleId, controller: ModuleController): void {
+export function registerController(id: ModuleId, controller: ModuleController): number {
+  const regId = ++_regIdCounter;
   _registry.set(id, controller);
+  _regIds.set(id, regId);
   _registrationHandlers.forEach((h) => {
     try { h(id, controller); } catch (err) {
       console.error('[ModuleRegistry] registration handler threw:', err);
     }
   });
+  return regId;
 }
 
 /**
  * Remove the controller registered for the given module ID.
+ * When registrationId is supplied, the removal is a no-op if the stored ID
+ * does not match — this prevents a stale cleanup from a dead duplicate fiber
+ * from removing the live instance's controller.
  * No-op if the module was not registered.
  */
-export function unregisterController(id: ModuleId): void {
+export function unregisterController(id: ModuleId, registrationId?: number): void {
+  if (registrationId !== undefined && _regIds.get(id) !== registrationId) return;
   _registry.delete(id);
+  _regIds.delete(id);
 }
 
 /**

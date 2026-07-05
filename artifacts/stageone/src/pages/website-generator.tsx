@@ -194,7 +194,7 @@ export default function WebsiteGeneratorPage() {
 
   // Phase 3 architecture: register the WebsiteBridge and controller on mount
   useEffect(() => {
-    registerBridge({
+    const _bridgeRegId = registerBridge({
       navigate: () => setLocation("/website-generator"),
       populate: (idea, onComplete) => {
         console.log('[PROBE] WEBSITE_BRIDGE_POPULATE | idea:', JSON.stringify(idea?.slice(0, 60)), '| empty?', !idea)
@@ -218,10 +218,10 @@ export default function WebsiteGeneratorPage() {
       },
       getCurrentIdea: () => ideaRef.current,
     })
-    registerController("website", websiteController)
+    const _controllerRegId = registerController("website", websiteController)
     return () => {
-      unregisterBridge()
-      unregisterController("website")
+      unregisterBridge(_bridgeRegId)
+      unregisterController("website", _controllerRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

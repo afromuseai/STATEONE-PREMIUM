@@ -71,19 +71,9 @@ export const websiteController: ModuleController = {
       return;
     }
 
-    // Temporary diagnostic log — will be removed after confirming fallback behaviour.
-    const liveIdea = bridge.getCurrentIdea();
-    const payloadIdea = context?.businessIdea;
-    console.log(
-      '[DIAG] websiteController.generate |',
-      'bridge.getCurrentIdea():', JSON.stringify(liveIdea),
-      '| context.businessIdea:', JSON.stringify(payloadIdea),
-      '| will use:', JSON.stringify(liveIdea || payloadIdea || ''),
-    );
-
     // Prefer the live textarea value; fall back to the payload idea forwarded
-    // by the bus when the component remounted and ideaRef is not yet populated.
-    const idea = liveIdea || payloadIdea || '';
+    // by the bus if ideaRef is not yet populated (e.g. remount before typewriter).
+    const idea = bridge.getCurrentIdea() || context?.businessIdea || '';
     emitLifecycleEvent('generate.started', 'website', { idea });
 
     await bridge.triggerGenerate(idea);
