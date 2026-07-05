@@ -599,9 +599,13 @@ export default function AutomationBuilderPage() {
               await completeGeneration(msg.data as unknown as Record<string, unknown>, businessDescRef.current || "Automation workflow")
               // Phase 5: resolve the bridge's triggerGenerate Promise only after
               // SSE streaming, saveToProject, and UI update are fully done.
+              // return immediately — matches Website's pattern of exiting the generation
+              // function as soon as the done block completes, preventing any further
+              // SSE message processing after the stream has signalled completion.
               const completeCb = generateCompleteCallbackRef.current
               generateCompleteCallbackRef.current = null
               completeCb?.()
+              return
             }
           } catch { /* fragment */ }
         }

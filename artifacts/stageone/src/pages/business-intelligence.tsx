@@ -265,6 +265,9 @@ export default function BusinessIntelligencePage() {
     registerBridge({
       navigate: () => setLocation("/business-intelligence"),
       populate: (idea, onComplete) => {
+        // Guard: matches Website / Chatbot / Automation pattern — if there is nothing
+        // to populate, resolve the callback immediately so the bridge doesn't hang.
+        if (!idea) { onComplete(); return }
         populateCompleteCallbackRef.current = onComplete
         marcusBiIdeaRef.current = idea
         setMarcusPopulate(idea)

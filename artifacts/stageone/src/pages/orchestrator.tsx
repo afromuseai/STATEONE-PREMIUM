@@ -488,6 +488,10 @@ export default function OrchestratorPage() {
                 })
               }
               traceOutcome = { success: true }
+              // return immediately — matches Website's pattern of exiting as soon as
+              // the done block completes. The finally block fires next and resolves
+              // the bridge's triggerGenerate() Promise via generateCompleteCallbackRef.
+              return
             }
           } catch { /* fragment */ }
         }
