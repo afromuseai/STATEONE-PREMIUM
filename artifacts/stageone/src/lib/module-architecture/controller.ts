@@ -25,8 +25,11 @@ export interface ModuleController {
 
   /**
    * Trigger the module's primary AI generation workflow.
+   * @param context - Optional context forwarded from the execution payload.
+   *   The controller may use context.businessIdea as a fallback when the module's
+   *   internal state (e.g. ideaRef) is not yet populated (e.g. after a remount).
    */
-  generate(): Promise<void>;
+  generate(context?: ModuleContext): Promise<void>;
 
   /**
    * Persist the module's current output to the project.

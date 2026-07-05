@@ -31,7 +31,12 @@ export const MODULE_ROUTES: Record<ExecutionModuleId, string> = {
 export interface ExecutionModule {
   navigate(): Promise<void>;
   populate(payload: ExecutionPayload): Promise<void>;
-  generate(): Promise<void>;
+  /**
+   * Trigger generation. The optional payload is forwarded from the original
+   * bus.execute() call so the controller can fall back to payload.idea when
+   * the module's internal state (e.g. ideaRef) is empty after a remount.
+   */
+  generate(payload?: ExecutionPayload): Promise<void>;
   save(): Promise<void>;
 }
 
@@ -60,7 +65,16 @@ export function resolveExecutionModule(moduleId: ExecutionModuleId): ExecutionMo
       return controller.populate(context);
     },
 
-    generate: () => controller.generate(),
+    generate: (payload?: ExecutionPayload) => {
+      const context: ModuleContext = {
+        moduleId,
+        projectId: payload?.projectId,
+        userId: payload?.userId,
+        businessIdea: payload?.idea,
+        metadata: payload?.metadata,
+      };
+      return controller.generate(context);
+    },
     save:     () => controller.save(),
   };
 }

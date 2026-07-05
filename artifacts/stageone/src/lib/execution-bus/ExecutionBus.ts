@@ -325,7 +325,7 @@ class ExecutionBus {
   ): Promise<ExecutionRecord> {
     // ── generate-only path ───────────────────────────────────────────────────
     if (action === 'generate') {
-      return await this._runGenerate(executionId, moduleId, mod, traceId);
+      return await this._runGenerate(executionId, moduleId, mod, traceId, payload);
     }
 
     // ── populate / run path ──────────────────────────────────────────────────
@@ -364,7 +364,7 @@ class ExecutionBus {
         safeTransition(executionId, 'CONFIRMATION_WAIT');
         emitBusEvent('execution:confirmation_required', executionId, moduleId, { executionId });
         await this._waitForConfirmationTraced(executionId, moduleId, traceId);
-        return await this._runGenerate(executionId, moduleId, mod, traceId);
+        return await this._runGenerate(executionId, moduleId, mod, traceId, payload);
       }
 
       // action === 'run'
@@ -386,7 +386,7 @@ class ExecutionBus {
         await this._waitForConfirmationTraced(executionId, moduleId, traceId);
       }
 
-      return await this._runGenerate(executionId, moduleId, mod, traceId);
+      return await this._runGenerate(executionId, moduleId, mod, traceId, payload);
     }
 
     return this._fail(executionId, moduleId, `Unknown action: ${action}`);
@@ -428,6 +428,7 @@ class ExecutionBus {
     moduleId: ExecutionModuleId,
     mod: ExecutionModule,
     traceId?: string,
+    payload?: ExecutionPayload,
   ): Promise<ExecutionRecord> {
     safeTransition(executionId, 'GENERATING');
     emitBusEvent('execution:generate_started', executionId, moduleId);
@@ -442,7 +443,7 @@ class ExecutionBus {
     }
 
     try {
-      await mod.generate();
+      await mod.generate(payload);
     } catch (err) {
       if (traceId) {
         const reason = err instanceof Error ? err.message : String(err);

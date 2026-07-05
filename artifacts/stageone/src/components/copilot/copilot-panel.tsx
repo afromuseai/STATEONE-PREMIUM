@@ -639,9 +639,6 @@ export function CopilotPanel() {
   const lastBiIdeaRef = useRef<string>("");
   // Tracks the last automation_idea payload so generate_automation can recover it
   const lastAutomationIdeaRef = useRef<string>("");
-  // Tracks the last website_idea payload so generate_website can carry it forward
-  // even when the WebsiteGeneratorPage unmounts/remounts during AnimatePresence transitions.
-  const lastWebsiteIdeaRef = useRef<string>("");
   // Tracks the last orchestrator_idea payload so generate_orchestrator can recover it
   const lastOrchestratorIdeaRef = useRef<string>("");
   // Tracks whichever workspace module Marcus most recently switched to (via the
@@ -1229,7 +1226,6 @@ export function CopilotPanel() {
         const idea = payload.trim();
         if (!idea) return;
         // WEBSITE_FLOW:A — idea stored BEFORE any navigation
-        lastWebsiteIdeaRef.current = idea;
         console.log("WEBSITE_FLOW:A idea stored | length:", idea.length, "| first 80:", idea.slice(0, 80));
         if (currentProject) {
           saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
@@ -1249,22 +1245,18 @@ export function CopilotPanel() {
           navigate("/website-generator");
         }
       } else if (command === "generate_website") {
-        console.log("[ExecutionBus] generate_website → bus.execute({ module: website, action: run, autoGenerate: true })");
-        // Write the pending intent so the page's mount effect re-hydrates ideaRef.current
-        // if the component unmounted/remounted during the AnimatePresence transition.
-        // This mirrors the generate_intelligence pattern.
-        if (lastWebsiteIdeaRef.current) {
-          setPendingIntent({ type: "website", idea: lastWebsiteIdeaRef.current });
-        }
+        console.log("[ExecutionBus] generate_website → bus.execute({ module: website, action: generate })");
+        // Peek at the pending intent (non-destructive) to include the idea in the
+        // execution payload.  The bus threads it all the way to controller.generate()
+        // so the controller can fall back to context.businessIdea when ideaRef is
+        // empty after an AnimatePresence remount.
+        const pending = peekPendingIntent();
+        const websiteIdea = pending?.type === 'website' ? (pending.idea ?? '') : '';
         const traceId = tracer.startExecution("website");
         tracer.logStage(traceId, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "generate_website" } });
         import("@/lib/execution-bus").then(({ bus }) => {
-          tracer.logStage(traceId, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "website", action: "run", autoGenerate: true } });
-          // Use action:'run' + autoGenerate:true so the bus always populates the form
-          // (re-hydrating ideaRef via the bridge typewriter) before generating.
-          // This guarantees bridge.getCurrentIdea() returns a non-empty string even
-          // when the component remounted fresh after an AnimatePresence transition.
-          bus.execute({ module: "website", action: "run", payload: { idea: lastWebsiteIdeaRef.current, autoGenerate: true, _traceId: traceId } }).catch((err) => {
+          tracer.logStage(traceId, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "website", action: "generate" } });
+          bus.execute({ module: "website", action: "generate", payload: { idea: websiteIdea, _traceId: traceId } }).catch((err) => {
             console.warn("[ExecutionBus] generate_website failed:", err);
           });
         });

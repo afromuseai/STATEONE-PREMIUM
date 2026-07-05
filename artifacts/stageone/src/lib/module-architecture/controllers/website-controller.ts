@@ -59,23 +59,25 @@ export const websiteController: ModuleController = {
    * Trigger the full website generation flow.
    * Emits generate.started immediately before the API request and
    * generate.complete only after streaming, saving, and UI update are all done.
+   *
+   * @param context - Optional context forwarded from the execution payload.
+   *   context.businessIdea is used as a fallback when the bridge's ideaRef is
+   *   empty (e.g. the component just remounted and the typewriter has not yet run).
    */
-  async generate(): Promise<void> {
-    console.log(`[RUNTIME_TRACE] 06_CONTROLLER_GENERATE_ENTERED | ts=${Date.now()}`);
+  async generate(context?: ModuleContext): Promise<void> {
     const bridge = getBridge();
     if (!bridge) {
       console.warn('[WebsiteController] generate() — bridge not registered; is the Website page mounted?');
-      console.log(`[RUNTIME_TRACE] 06_CONTROLLER_GENERATE_ABORTED | reason=bridge_null`);
       return;
     }
 
-    const idea = bridge.getCurrentIdea();
-    console.log(`[RUNTIME_TRACE] 07_BRIDGE_TRIGGER_GENERATE_CALLED | ideaLength=${idea?.length ?? 0}`);
+    // Prefer the live textarea value; fall back to the payload idea forwarded
+    // by the bus when the component remounted and ideaRef is not yet populated.
+    const idea = bridge.getCurrentIdea() || context?.businessIdea || '';
     emitLifecycleEvent('generate.started', 'website', { idea });
 
     await bridge.triggerGenerate(idea);
 
-    console.log(`[RUNTIME_TRACE] 12_CONTROLLER_GENERATE_RETURNED | ts=${Date.now()}`);
     emitLifecycleEvent('generate.complete', 'website', { idea });
   },
 
