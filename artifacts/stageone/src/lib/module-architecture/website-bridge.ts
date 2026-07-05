@@ -47,7 +47,7 @@ export function registerBridge(bridge: WebsiteBridge): void {
 
 /** Called by WebsiteGeneratorPage on unmount to clean up. */
 export function unregisterBridge(): void {
-  console.log('[PROBE] WEBSITE_BRIDGE_UNREGISTER | caller:', new Error().stack?.split('\n')[2]?.trim());
+  console.log('[PROBE] WEBSITE_BRIDGE_UNREGISTER | full stack:\n' + (new Error().stack ?? '(no stack)'));
   _bridge = null;
 }
 
