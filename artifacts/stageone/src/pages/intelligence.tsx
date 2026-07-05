@@ -2,7 +2,6 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/lib/auth-context"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import {
   TrendingUp, TrendingDown, Minus, Brain, BarChart3, AlertTriangle,
   CheckCircle2, Lightbulb, Target, Zap, RefreshCw, ArrowUpRight,
@@ -62,12 +61,10 @@ function ScoreRing({ score }: { score: number }) {
         <span className="text-2xl font-black text-foreground">{score}</span>
         <span className="text-[9px] text-muted-foreground uppercase tracking-wider">score</span>
       </div>
-    </div>
   )
 }
 
 export default function IntelligencePage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [tab, setTab] = useState<"health" | "metrics" | "forecast">("health")
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -116,8 +113,6 @@ export default function IntelligencePage() {
   const CATEGORY_ICONS: Record<string, typeof BarChart3> = { revenue: BarChart3, growth: TrendingUp, efficiency: Zap, risk: Shield, general: Activity }
 
   return (
-    <div className="flex h-screen bg-[#080808] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b border-white/5 bg-[#0a0a0a] px-8 py-5 shrink-0">
           <div className="flex items-center justify-between">

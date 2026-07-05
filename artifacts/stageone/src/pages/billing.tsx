@@ -4,7 +4,6 @@ import {
   Crown, Zap, Building2, Check, TrendingUp, CreditCard,
   BarChart3, Bot, Globe, Workflow, ChevronRight, AlertCircle,
 } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type Plan = "free" | "pro" | "enterprise"
@@ -103,12 +102,10 @@ function UsageBar({ used, limit, color }: { used: number; limit: number; color: 
         className="h-full rounded-full"
         style={{ background: color }}
       />
-    </div>
   )
 }
 
 export default function BillingPage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [upgrading, setUpgrading] = useState<Plan | null>(null)
   const [activeTab, setActiveTab] = useState<"plans" | "usage" | "invoices">("plans")
@@ -147,8 +144,6 @@ export default function BillingPage() {
   const currentPlan = PLANS.find(p => p.id === subscription?.plan) ?? PLANS[0]
 
   return (
-    <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
           <div className="flex items-center gap-3">

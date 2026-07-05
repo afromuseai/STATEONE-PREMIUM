@@ -7,7 +7,6 @@ import {
   RefreshCw, Play, Square, Activity, TrendingUp, Shield, Target,
   ChevronRight, Circle, Layers, FlaskConical, Server,
 } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useOS, type OSModule, type PriorityTask, type OptimizationOpportunity, type ActivityItem } from "@/lib/os-context"
 import { ImpactDashboard } from "@/components/dashboard/impact-dashboard"
 import { RevenueIntelligencePanel } from "@/components/dashboard/revenue-panel"
@@ -28,7 +27,6 @@ function SimpleMarkdown({ text }: { text: string }) {
         const rendered = line.replace(/\*\*([^*]+)\*\*/g, "$1")
         return <p key={i} className="text-[10px] text-foreground/70 leading-relaxed">{rendered}</p>
       })}
-    </div>
   )
 }
 
@@ -287,7 +285,6 @@ const TICKER_MESSAGES = [
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function OSHubPage() {
   const [, navigate] = useLocation()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const { state, isLoading, isOptimizing, optimizationReport, refresh, triggerOptimization, stopOptimization } = useOS()
   const [tickerIdx, setTickerIdx] = useState(0)
   const [optimizeTab, setOptimizeTab] = useState<"queue" | "optimize" | "activity" | "impact" | "revenue" | "autonomous">("queue")
@@ -309,7 +306,6 @@ export default function OSHubPage() {
   const s = state
 
   return (
-    <div className="flex h-screen bg-[#060606] text-foreground overflow-hidden">
       <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">

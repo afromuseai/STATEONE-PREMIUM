@@ -9,7 +9,8 @@ import { NotificationsProvider } from "@/lib/notifications-context";
 import { BusinessContextProvider } from "@/lib/business-context";
 import { OSProvider } from "@/lib/os-context";
 import { ProtectedRoute } from "@/lib/protected-route";
-import { CopilotPanel } from "@/components/copilot/copilot-panel";
+import { CopilotPanel } from "@/components/copilot/copilot-panel"
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { CopilotProvider } from "@/lib/copilot-context"
 import { WorkspaceControllerProvider } from "@/lib/workspace-controller-context";
 import { UpgradeModalProvider } from "@/lib/upgrade-modal-context";
@@ -72,9 +73,18 @@ function ExecutionBusNavigatorSetup() {
   return null
 }
 
+const PUBLIC_PREFIXES = ["/login", "/signup", "/pricing", "/showcase", "/about-marcus", "/forgot-password", "/reset-password", "/public-project"]
+
+function isDashboardRoute(location: string): boolean {
+  if (location === "/") return false
+  return !PUBLIC_PREFIXES.some(p => location === p || location.startsWith(p + "/"))
+}
+
 function AnimatedRoutes() {
   const [location] = useLocation()
-  return (
+  const dashboard = isDashboardRoute(location)
+
+  const animatedContent = (
     <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
         key={location}
@@ -82,12 +92,20 @@ function AnimatedRoutes() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.12, ease: "easeOut" }}
-        style={{ minHeight: "100vh" }}
+        style={dashboard
+          ? { flex: 1, minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column" }
+          : { minHeight: "100vh" }
+        }
       >
         <Router />
       </motion.div>
     </AnimatePresence>
   )
+
+  if (dashboard) {
+    return <DashboardShell>{animatedContent}</DashboardShell>
+  }
+  return animatedContent
 }
 
 function Router() {

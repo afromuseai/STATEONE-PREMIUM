@@ -4,7 +4,6 @@ import {
   Search, Star, Download, Globe, Bot, Workflow, Users, BarChart3,
   Plus, X, Upload, Sparkles, Check, Eye, Copy,
 } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type TemplateType = "startup_website" | "ai_chatbot" | "automation_workflow" | "onboarding_system" | "crm_pipeline"
@@ -48,7 +47,6 @@ const TYPE_CONFIG: Record<TemplateType, { label: string; icon: React.ElementType
 const CATEGORIES = ["All", "Startup Website", "AI Chatbot", "Automation Workflow", "Onboarding System", "CRM Pipeline"]
 
 export default function TemplatesMarketplacePage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
   const [sortBy, setSortBy] = useState<"popular" | "rating" | "newest">("popular")
@@ -115,8 +113,6 @@ export default function TemplatesMarketplacePage() {
   }
 
   return (
-    <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
           <div className="flex items-center gap-3">
@@ -380,6 +376,5 @@ export default function TemplatesMarketplacePage() {
           </>
         )}
       </AnimatePresence>
-    </div>
   )
 }

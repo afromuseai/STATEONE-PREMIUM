@@ -2,7 +2,6 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/lib/auth-context"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import {
   Bot, Search, Star, Download, Zap, X, Settings2, ChevronRight,
   CheckCircle2, Activity, Package, Filter, ShieldCheck, BarChart3,
@@ -68,7 +67,6 @@ export default function AgentStorePage() {
   const { t } = useLang()
   const { formatNumber } = useFormatters()
   const as = t.workspace.agentStore
-  const [collapsed, setCollapsed] = useState(false)
   const [tab, setTab] = useState<"store" | "installed">("store")
   const [category, setCategory] = useState("all")
   const [search, setSearch] = useState("")
@@ -132,8 +130,6 @@ export default function AgentStorePage() {
   })
 
   return (
-    <div className="flex h-screen bg-[#080808] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
@@ -551,6 +547,5 @@ export default function AgentStorePage() {
           </>
         )}
       </AnimatePresence>
-    </div>
   )
 }

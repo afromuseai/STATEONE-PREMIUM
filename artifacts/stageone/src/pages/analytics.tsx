@@ -5,7 +5,6 @@ import {
   BarChart, Bar, Cell,
 } from "recharts"
 import { Brain, Zap, MessageSquare, CheckCircle2, BarChart3 } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 interface Project {
@@ -32,7 +31,6 @@ const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: 
           <span className="font-bold text-foreground">{p.value}</span>
         </div>
       ))}
-    </div>
   )
 }
 
@@ -66,7 +64,6 @@ function getActivityLabel(p: Project): { type: string; description: string } {
 }
 
 export default function AnalyticsPage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState<"overview" | "ai" | "automations" | "performance">("overview")
   const [projects, setProjects] = useState<Project[]>([])
 
@@ -135,8 +132,6 @@ export default function AnalyticsPage() {
   const maxModule = Math.max(...moduleUsage.map(m => m.count), 1)
 
   return (
-    <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header */}

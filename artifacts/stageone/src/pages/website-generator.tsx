@@ -5,7 +5,7 @@ import {
   ChevronDown, Check, Pencil, RefreshCw, Copy, FileCode, ArrowLeft,
   Layers, Loader2, X, ChevronRight, Zap, Lock, Crown,
 } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import { useDashboardShell } from "@/components/dashboard/dashboard-shell"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
 import { loadGenerationContext, clearGenerationContext, loadProjectContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea, dequeueWorkspaceSignals } from "@/lib/generation-context"
@@ -103,7 +103,7 @@ const SECTION_FIELDS: Record<SectionKey, FieldSpec[]> = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function WebsiteGeneratorPage() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const { collapsed: sidebarCollapsed } = useDashboardShell()
   const [step, setStep] = useState<Step>("input")
   const [idea, setIdea] = useState("")
   const [style, setStyle] = useState<StyleOption>("SaaS")
@@ -716,8 +716,6 @@ export default function WebsiteGeneratorPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#080808]">
-      <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
 
       {/* Locked overlay for free users */}
       {isLocked && (

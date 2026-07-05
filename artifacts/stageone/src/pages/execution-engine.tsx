@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { ExecutionPanel } from "@/components/dashboard/execution-panel"
 import {
   Zap, Play, CheckCircle2, XCircle, Clock, RefreshCw, Plus, Trash2,
@@ -93,7 +92,6 @@ function SystemImpactGrid({ activeSystem }: { activeSystem: string | null }) {
           </motion.div>
         )
       })}
-    </div>
   )
 }
 
@@ -162,7 +160,6 @@ function AiThinkingBanner({ isActive }: { isActive: boolean }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ExecutionEnginePage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [activeView, setActiveView] = useState<"ai" | "queue">("ai")
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null)
   const [filterStatus, setFilterStatus] = useState("all")
@@ -214,8 +211,6 @@ export default function ExecutionEnginePage() {
   const TRIGGERS = ["manual", "schedule", "event", "api", "agent"]
 
   return (
-    <div className="flex h-screen bg-[#080808] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header */}

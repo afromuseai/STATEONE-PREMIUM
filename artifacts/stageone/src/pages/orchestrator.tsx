@@ -5,7 +5,6 @@ import {
   Clock, Cpu, GitBranch, Database, Globe, Zap, Activity,
   ChevronDown, ChevronUp, Copy, Check, Network, Radio, Lock, Rocket,
 } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import { useAuth } from "@/lib/auth-context"
 import { useLocation } from "wouter"
@@ -251,12 +250,10 @@ function AgentGraph({ agents, dataFlow, replayStep, executionLog, isReplaying }:
           )
         })}
       </div>
-    </div>
   )
 }
 
 export default function OrchestratorPage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [goal, setGoal] = useState("")
   const [businessContext, setBusinessContext] = useState("")
   const [step, setStep] = useState<"idle" | "generating" | "done">("idle")
@@ -542,8 +539,6 @@ export default function OrchestratorPage() {
   ]
 
   return (
-    <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       {isFreePlan ? (
         <div className="flex-1 flex items-center justify-center p-8">
           <motion.div

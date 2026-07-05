@@ -14,7 +14,6 @@ import {
   Database, CheckCircle2, Circle, AlertCircle, Flame,
   Download, Edit, Flag,
 } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
@@ -673,14 +672,12 @@ function MiniBar({ pct, color }: { pct: number; color: string }) {
     <div className="h-1.5 rounded-full bg-white/8 overflow-hidden">
       <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(pct, 100)}%` }}
         transition={{ duration: 0.8 }} className="h-full rounded-full" style={{ background: color }} />
-    </div>
   )
 }
 
 export default function AdminPage() {
   const { user } = useAuth()
   const [, setLocation] = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
@@ -1422,8 +1419,6 @@ export default function AdminPage() {
   if (!user?.isAdmin) return null
 
   return (
-    <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header */}

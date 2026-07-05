@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useLocation, useSearch } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import { useDashboardShell } from "@/components/dashboard/dashboard-shell"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { CommandCenterOverview } from "@/components/dashboard/command-center-overview"
 import { useAuth } from "@/lib/auth-context"
@@ -37,8 +37,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { openUpgradeModal } = useUpgradeModal()
   const search = useSearch()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const { mobileOpen: mobileSidebarOpen, setMobileOpen } = useDashboardShell()
   const activeTab = getTab(search)
 
   // Projects state
@@ -253,16 +252,8 @@ export default function DashboardPage() {
   const showUsageWarning = usagePct >= 0.8 && subscription !== null && subscription.aiGenerationsLimit > 0
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <AppSidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(p => !p)}
-        mobileOpen={mobileSidebarOpen}
-        onMobileClose={() => setMobileSidebarOpen(false)}
-      />
-
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <DashboardHeader onMenuToggle={() => setMobileSidebarOpen(p => !p)} />
+        <DashboardHeader onMenuToggle={() => setMobileOpen(p => !p)} />
 
         {/* 80% usage warning banner */}
         <AnimatePresence>

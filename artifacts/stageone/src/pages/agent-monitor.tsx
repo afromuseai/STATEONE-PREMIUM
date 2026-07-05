@@ -2,7 +2,6 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/lib/auth-context"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import {
   Bot, Activity, CheckCircle2, Clock, XCircle, Zap, Play,
   RefreshCw, Plus, Target, Brain, BarChart3, Trash2, ChevronRight,
@@ -61,7 +60,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 const PRIORITY_COLORS = ["", "text-red-400", "text-orange-400", "text-yellow-400", "text-blue-400", "text-emerald-400"]
 
 export default function AgentMonitorPage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [tab, setTab] = useState<"tasks" | "objectives" | "memory">("tasks")
   const [showNewObjective, setShowNewObjective] = useState(false)
   const [showNewMemory, setShowNewMemory] = useState(false)
@@ -133,8 +131,6 @@ export default function AgentMonitorPage() {
   const MEM_TYPES = ["context", "long-term", "shared"]
 
   return (
-    <div className="flex h-screen bg-[#080808] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b border-white/5 bg-[#0a0a0a] px-8 py-5 shrink-0">
           <div className="flex items-center justify-between">
@@ -433,6 +429,5 @@ export default function AgentMonitorPage() {
           )}
         </div>
       </div>
-    </div>
   )
 }

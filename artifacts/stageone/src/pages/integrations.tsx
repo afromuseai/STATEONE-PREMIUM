@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search, Check, Plus, X, ExternalLink, Shield, Zap, Star, Info } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { api } from "@/lib/api"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
@@ -46,7 +45,6 @@ const INTEGRATIONS: Integration[] = [
 ]
 
 export default function IntegrationsPage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState("")
   const [activeCategory, setActiveCategory] = useState("All")
   const [connected, setConnected] = useState<Set<string>>(new Set())
@@ -98,8 +96,6 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
@@ -317,7 +313,6 @@ export default function IntegrationsPage() {
           </>
         )}
       </AnimatePresence>
-    </div>
   )
 }
 

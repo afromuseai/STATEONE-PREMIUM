@@ -24,7 +24,6 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 
 const CATEGORY_OPTIONS = [
   { value: "billing", label: "Billing" },
@@ -76,7 +75,6 @@ interface TicketDetail {
 export default function SettingsPage() {
   const { user, logout } = useAuth()
   const [, setLocation] = useLocation()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [projectCount, setProjectCount] = useState<number | null>(null)
   const [saved, setSaved] = useState(false)
   const [emailUpdates, setEmailUpdates] = useState(true)
@@ -232,7 +230,6 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
       <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
 
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
@@ -597,6 +594,5 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-    </div>
   )
 }

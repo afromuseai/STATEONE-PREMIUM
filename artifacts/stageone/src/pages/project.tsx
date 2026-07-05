@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useLocation } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/output-panel"
 import { WebsitePanel } from "@/components/dashboard/website-panel"
 import { ChatbotPanel, ChatbotEmptyPanel } from "@/components/dashboard/chatbot-panel"
@@ -229,7 +228,6 @@ function TasksTab({ projectId }: { projectId: string }) {
           <p className="text-sm text-muted-foreground">No tasks yet. Add your first task above.</p>
         </div>
       )}
-    </div>
   )
 }
 
@@ -294,7 +292,6 @@ function HistoryTab({ events, createdAt }: { events: ProjectEvent[]; createdAt: 
   )
 }
 
-
 // ─── Tab config ───────────────────────────────────────────────────────────────
 // ALL tabs are always visible — a project is a business container, not an
 // isolated generator output. Tabs with output show a presence dot; tabs without
@@ -337,7 +334,6 @@ export default function ProjectPage({ id }: ProjectPageProps) {
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState<string | null>(null)
   const [tab, setTab]               = useState<Tab>("analysis")
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [streamingText, setStreamingText] = useState("")
   const [editingTitle, setEditingTitle]   = useState(false)
@@ -462,7 +458,6 @@ export default function ProjectPage({ id }: ProjectPageProps) {
   const isFullHeightTab = isWebsiteTab || isChatbotPanel || isAutomationPanel || isOrchestratorPanel
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
       <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
 
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">

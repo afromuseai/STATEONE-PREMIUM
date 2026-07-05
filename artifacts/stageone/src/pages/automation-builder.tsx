@@ -8,7 +8,7 @@ import {
   Activity, Target, Clock, TrendingUp, Lock, Crown,
 } from "lucide-react"
 import { useLocation } from "wouter"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import { useDashboardShell } from "@/components/dashboard/dashboard-shell"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import {
@@ -308,7 +308,7 @@ function NodeDetailPanel({ node, logic }: { node: WorkflowNode; logic: LogicStep
 export default function AutomationBuilderPage() {
   const { lang } = useLang()
   const [, setLocation] = useLocation()
-  const [collapsed, setCollapsed] = useState(false)
+  const { collapsed } = useDashboardShell()
   const [businessDesc, setBusinessDesc] = useState("")
   const [workflowType, setWorkflowType] = useState("Lead Capture")
   const [complexity, setComplexity] = useState("Intermediate")
@@ -648,8 +648,6 @@ export default function AutomationBuilderPage() {
       : "bg-white/5 text-muted-foreground border-white/10"
 
   return (
-    <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
 
       {/* Locked overlay for free users */}
       {isLocked && (

@@ -2,7 +2,6 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/lib/auth-context"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import {
   Webhook, Plus, X, Trash2, Play, CheckCircle2, XCircle, Clock,
   Copy, Eye, EyeOff, Settings2, ChevronDown, ChevronRight, Zap
@@ -48,7 +47,6 @@ const EVENT_COLORS: Record<string, string> = {
 }
 
 export default function WebhooksPage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [showSecret, setShowSecret] = useState<Record<string, boolean>>({})
   const [expandedLogs, setExpandedLogs] = useState<string | null>(null)
@@ -121,8 +119,6 @@ export default function WebhooksPage() {
   }
 
   return (
-    <div className="flex h-screen bg-[#080808] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
@@ -432,6 +428,5 @@ export default function WebhooksPage() {
           </>
         )}
       </AnimatePresence>
-    </div>
   )
 }

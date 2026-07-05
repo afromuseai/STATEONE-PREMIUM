@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import {
   Shield, Lock, FileText, Users, CheckCircle2, AlertTriangle,
   XCircle, Clock, Plus, RefreshCw, Trash2, Database, Key,
@@ -50,7 +49,6 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 export default function EnterprisePage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [tab, setTab] = useState<"audit" | "rbac" | "compliance">("compliance")
   const [filterSeverity, setFilterSeverity] = useState("all")
   const [showNewRole, setShowNewRole] = useState(false)
@@ -98,8 +96,6 @@ export default function EnterprisePage() {
   const rolePresets = rolesData?.rolePresets ?? {}
 
   return (
-    <div className="flex h-screen bg-[#080808] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b border-white/5 bg-[#0a0a0a] px-8 py-5 shrink-0">
           <div className="flex items-center justify-between">
@@ -354,6 +350,5 @@ export default function EnterprisePage() {
           )}
         </div>
       </div>
-    </div>
   )
 }

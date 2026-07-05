@@ -4,7 +4,6 @@ import {
   Brain, Plus, X, Search, Trash2, Edit3, Star, Clock,
   Cpu, FolderOpen, Workflow, Lightbulb, Check, Sparkles,
 } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 interface Memory {
@@ -25,7 +24,6 @@ const SOURCE_CONFIG: Record<string, { label: string; icon: React.ElementType; co
   workflow: { label: "Workflow", icon: Workflow, color: "#10B981" },
 }
 
-
 function ImportanceDots({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
   return (
     <div className="flex items-center gap-0.5">
@@ -34,12 +32,10 @@ function ImportanceDots({ value, onChange }: { value: number; onChange?: (v: num
           <Star className={`h-3 w-3 transition-colors ${i <= value ? "fill-primary text-primary" : "text-muted-foreground/30"}`} />
         </button>
       ))}
-    </div>
   )
 }
 
 export default function AiMemoryPage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [memories, setMemories] = useState<Memory[]>([])
   const [search, setSearch] = useState("")
   const [activeSource, setActiveSource] = useState<string>("all")
@@ -114,8 +110,6 @@ export default function AiMemoryPage() {
   }, {} as Record<string, number>)
 
   return (
-    <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">
           <div className="flex items-center gap-3">

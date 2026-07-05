@@ -8,7 +8,6 @@ import {
   TrendingUp, Zap, BarChart3, Copy, Check,
   Cloud, Lock, Rocket,
 } from "lucide-react"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import stageoneIcon from "@/assets/stageone-icon.png"
 
 type DeployType = "website" | "chatbot" | "workflow" | "slack" | "discord" | "whatsapp"
@@ -53,14 +52,12 @@ const STATUS_CONFIG: Record<DeployStatus, { label: string; color: string; icon: 
   deploying: { label: "Deploying", color: "#6366F1", icon: Loader },
 }
 
-
 function MetricBar({ value, max = 100, color }: { value: number; max?: number; color: string }) {
   const pct = Math.min((value / max) * 100, 100)
   return (
     <div className="h-1 rounded-full bg-white/8 overflow-hidden">
       <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, ease: "easeOut" }}
         className="h-full rounded-full" style={{ background: color }} />
-    </div>
   )
 }
 
@@ -75,7 +72,6 @@ function UptimeBadge({ value }: { value: number }) {
 }
 
 export default function DeploymentsPage() {
-  const [collapsed, setCollapsed] = useState(false)
   const [deployments, setDeployments] = useState<Deployment[]>([])
   const [detail, setDetail] = useState<Deployment | null>(null)
   const [detailTab, setDetailTab] = useState<"overview" | "logs" | "envvars" | "history">("overview")
@@ -97,7 +93,6 @@ export default function DeploymentsPage() {
       .then(d => { if (d.deployments?.length) setDeployments(d.deployments) })
       .catch(() => {})
   }, [])
-
 
   const handleCreate = async () => {
     if (!newName) return
@@ -169,8 +164,6 @@ export default function DeploymentsPage() {
   const avgUptime = deployments.filter(d => d.uptime != null).reduce((s, d, _, a) => s + (d.uptime ?? 0) / a.length, 0)
 
   return (
-    <div className="flex h-screen bg-[#050505] text-foreground overflow-hidden">
-      <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-6 h-14 shrink-0">

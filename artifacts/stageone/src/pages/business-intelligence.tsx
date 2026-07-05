@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react"
 import { useLocation, useSearch } from "wouter"
 import { motion, AnimatePresence } from "framer-motion"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import { useDashboardShell } from "@/components/dashboard/dashboard-shell"
 import { DashboardHeader } from "@/components/dashboard/header"
 import { InputPanel } from "@/components/dashboard/input-panel"
 import { OutputPanel, type BusinessIntelligence } from "@/components/dashboard/output-panel"
@@ -126,8 +126,7 @@ export default function BusinessIntelligencePage() {
   const { openUpgradeModal } = useUpgradeModal()
   const { subscribeWorkspaceSignal, emit } = useWorkspaceController()
   const search = useSearch()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const { mobileOpen: mobileSidebarOpen, setMobileOpen } = useDashboardShell()
 
   // Generation state
   const [isLoading, setIsLoading] = useState(false)
@@ -544,7 +543,7 @@ export default function BusinessIntelligencePage() {
   const showUsageWarning = usagePct >= 0.8 && subscription !== null && subscription.aiGenerationsLimit > 0
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <>
       {/* Feature locked modal (tier gating) */}
       <AnimatePresence>
         {lockedFeature && (
@@ -671,15 +670,8 @@ export default function BusinessIntelligencePage() {
         )}
       </AnimatePresence>
 
-      <AppSidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(p => !p)}
-        mobileOpen={mobileSidebarOpen}
-        onMobileClose={() => setMobileSidebarOpen(false)}
-      />
-
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <DashboardHeader onMenuToggle={() => setMobileSidebarOpen(p => !p)} />
+        <DashboardHeader onMenuToggle={() => setMobileOpen(p => !p)} />
 
         {/* 80% usage warning banner */}
         <AnimatePresence>

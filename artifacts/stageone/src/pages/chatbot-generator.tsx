@@ -7,7 +7,7 @@ import {
   Lock, Crown,
 } from "lucide-react"
 import { useLocation } from "wouter"
-import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import { useDashboardShell } from "@/components/dashboard/dashboard-shell"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import {
   loadGenerationContext, clearGenerationContext,
@@ -104,7 +104,7 @@ let msgId = 0
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ChatbotGeneratorPage() {
   const { lang } = useLang()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const { collapsed: sidebarCollapsed } = useDashboardShell()
   const [step, setStep] = useState<Step>("input")
   const [businessDesc, setBusinessDesc] = useState("")
   const [chatbotType, setChatbotType] = useState<ChatbotType>("Customer Support")
@@ -542,8 +542,6 @@ export default function ChatbotGeneratorPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#080808]">
-      <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
 
       {/* Locked overlay for free users */}
       {isLocked && (
