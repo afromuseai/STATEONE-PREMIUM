@@ -179,7 +179,7 @@ router.post("/generate/chatbot/message", requireAuth, requireFeature("chatbot_ge
 
     let streamBody: ReadableStream<Uint8Array>;
     try {
-      streamBody = await streamNvidia({ model: MODELS.CHATBOT, messages, temperature: 0.7, maxTokens: 300 });
+      streamBody = await streamNvidia({ model: MODELS.CHATBOT, messages, temperature: 0.7, maxTokens: 300, nvextParams: { thinking: { enabled: false } } });
     } catch (err) {
       req.log.error({ err, model: MODELS.CHATBOT }, `[AI:${MODELS.CHATBOT}] Chatbot message stream failed`);
       res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
@@ -239,7 +239,11 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
         model: MODELS.CHATBOT,
         messages: [{ role: "system", content: SYSTEM_PROMPT + getLanguageInstruction(language) }, { role: "user", content: userMessage }],
         temperature: 0.7,
-        maxTokens: 16000, // chatbot schema is large; 8000 caused truncation / parse failures
+        maxTokens: 8000,
+        // Disable thinking: Nemotron 49B emits its JSON in reasoning_content (which
+        // forwardStream discards) when thinking is on, leaving rawBuffer empty → parse failure.
+        // Automation uses the same fix. Without this flag the model silently swallows the output.
+        nvextParams: { thinking: { enabled: false } },
       });
     } catch (err) {
       req.log.error({ err, model: MODELS.CHATBOT }, `[AI:${MODELS.CHATBOT}] Chatbot stream failed`);
