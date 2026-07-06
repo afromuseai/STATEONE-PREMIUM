@@ -17,6 +17,7 @@ import {
   X,
   LayoutDashboard,
   Shield,
+  Code2,
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useLang } from "@/lib/i18n"
@@ -54,6 +55,7 @@ function SidebarContent({
       items: [
         { href: "/business-intelligence", icon: BarChart3, label: d.nav.businessIntelligence },
         { href: "/website-generator", icon: Globe, label: d.nav.websiteGenerator },
+        { href: "/website-studio", icon: Code2, label: "Website Studio" },
         { href: "/chatbot-generator", icon: Bot, label: d.nav.aiChatbot },
         { href: "/automation-builder", icon: Workflow, label: d.nav.automationBuilder },
       ],

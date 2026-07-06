@@ -52,6 +52,8 @@ import AiBuilderPage from "@/pages/ai-builder";
 import AboutMarcusPage from "@/pages/about-marcus";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
+import WebsiteStudioPage from "@/pages/website-studio";
+import WebsiteStudioWorkspacePage from "@/pages/website-studio-workspace";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -189,6 +191,14 @@ function Router() {
       </Route>
       <Route path="/ai-builder">
         <ProtectedRoute><AiBuilderPage /></ProtectedRoute>
+      </Route>
+      <Route path="/website-studio">
+        <ProtectedRoute><WebsiteStudioPage /></ProtectedRoute>
+      </Route>
+      <Route path="/website-studio/:id">
+        {(params) => (
+          <ProtectedRoute><WebsiteStudioWorkspacePage id={params.id} /></ProtectedRoute>
+        )}
       </Route>
       <Route path="/about-marcus" component={AboutMarcusPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />

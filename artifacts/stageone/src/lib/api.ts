@@ -145,6 +145,20 @@ export const api = {
     getMyLink: () =>
       request<{ referralCode: string; referralLink: string; referralCount: number; totalBonusGenerations: number }>("/referrals/me"),
   },
+  websiteV2: {
+    listProjects: () =>
+      request<{ projects: Array<{ id: string; projectName: string; status: string; createdAt: string; updatedAt: string }> }>("/website-v2/projects"),
+    getProject: (id: string) =>
+      request<{
+        id: string; projectName: string; status: string;
+        businessContext: Record<string, unknown>;
+        blueprint: Record<string, unknown> | null;
+        files: Array<{ path: string; operation: string; content: string; language?: string }>;
+        dependencies: string[];
+        preview: string | null;
+        createdAt: string; updatedAt: string;
+      }>(`/website-v2/projects/${id}`),
+  },
   admin: {
     getUsers: () => request<{ users: Array<UserInfo & { subscription: unknown }>, total: number }>("/admin/users"),
     updateUser: (id: string, data: { isAdmin?: boolean; name?: string }) =>

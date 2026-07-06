@@ -1,0 +1,236 @@
+Implement Website Architect V2 — Website Studio UI Phase 1.
+
+We now have:
+
+Backend:
+- Website generation V2
+- Project persistence
+- Project retrieval APIs
+
+The next goal is creating the first Website Studio workspace.
+
+Important:
+
+- Do not modify V1 website-generator.tsx.
+- Do not modify the V1 renderer.
+- Build only new V2 frontend components.
+- Reuse existing STAGEONE UI architecture and styling patterns.
+
+================================================
+
+PHASE 1 GOAL
+
+Create a Website Studio experience where users can:
+
+1. View their generated website projects.
+2. Open a project.
+3. See generated files.
+4. See the website preview.
+
+Do NOT build AI editing yet.
+Do NOT build deployment yet.
+Do NOT build live runtime yet.
+
+================================================
+
+Create new frontend route:
+
+artifacts/stageone/src/pages/website-studio.tsx
+
+Route:
+
+/website-studio
+
+
+================================================
+
+Create project dashboard
+
+The page should call:
+
+GET /api/website-v2/projects
+
+
+Display:
+
+Project cards:
+
+- project name
+- status
+- created date
+- updated date
+
+Status indicators:
+
+planning
+architecting
+building
+ready
+failed
+
+
+Clicking a project opens:
+
+/website-studio/:id
+
+
+================================================
+
+Create Studio workspace route:
+
+/website-studio/:id
+
+
+Fetch:
+
+GET /api/website-v2/projects/:id
+
+
+Layout:
+
+Desktop:
+
+------------------------------------------------
+
+Left Panel:
+File Explorer
+
+Middle:
+Code Viewer
+
+Right:
+Preview
+
+
+------------------------------------------------
+
+
+File Explorer:
+
+Display generated files:
+
+app/
+components/
+lib/
+
+
+Example:
+
+app
+ ├── page.tsx
+ ├── pricing
+components
+ ├── Navbar.tsx
+ ├── HeroSection.tsx
+
+
+================================================
+
+Code Viewer:
+
+Use an existing code editor dependency if already available.
+
+If Monaco exists:
+use Monaco.
+
+If not:
+create a lightweight syntax highlighted viewer.
+
+Requirements:
+
+- show selected file content
+- show filename
+- support TypeScript/TSX highlighting
+
+
+Read-only for this phase.
+
+
+================================================
+
+Preview Panel:
+
+Use existing preview mechanism:
+
+iframe srcDoc={preview}
+
+
+The preview should display the generated website.
+
+
+================================================
+
+Create components:
+
+website-v2/
+
+components/
+
+ProjectCard.tsx
+
+ProjectExplorer.tsx
+
+CodeViewer.tsx
+
+PreviewPanel.tsx
+
+StudioLayout.tsx
+
+
+================================================
+
+Create hooks:
+
+hooks/
+
+useWebsiteV2Projects.ts
+
+useWebsiteV2Project.ts
+
+
+Responsibilities:
+
+useWebsiteV2Projects:
+
+- fetch project list
+- loading state
+- error state
+
+
+useWebsiteV2Project:
+
+- fetch single project
+- return files
+- return preview
+- return blueprint
+
+
+================================================
+
+Navigation:
+
+Add Website Studio route to the existing router.
+
+Do not replace the current website generator.
+
+
+================================================
+
+After implementation report:
+
+1. Files created
+
+2. Files modified
+
+3. Routes added
+
+4. UI architecture
+
+5. Screenshots or description of final layout
+
+6. Any missing dependencies
+
+Do not implement editing functionality yet.
+
+The next phase after this will be AI-powered website editing:
+User request → AI modifies files → preview updates.
