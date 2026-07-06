@@ -1,0 +1,168 @@
+DO NOT REFACTOR. DO NOT REDESIGN. ONLY FIX BROKEN LIFECYCLE PATHS.
+
+CONTEXT
+
+STAGEONE already has working:
+
+Business Intelligence (end-to-end)
+Website Generator (end-to-end)
+
+These implementations are the reference truth.
+
+Chatbot + Automation + Orchestrator must match WEBSITE lifecycle EXACTLY.
+
+🔴 CRITICAL ISSUE TO FIX FIRST
+Chatbot failure:
+
+Chatbot reaches:
+
+navigate ✓
+populate ✓
+confirmation ✓
+generate triggered ✓
+❌ generation fails: "Failed to parse response"
+
+AND:
+
+Website persistence bug exists (saveToProject not completing correctly in some flows)
+🎯 PRIMARY GOAL
+
+Make ALL modules behave exactly like Website Generator working flow:
+
+Canonical lifecycle:
+navigate(module)
+registerController(module)
+populate(idea)
+confirmation gate
+generate(module)
+SSE stream completes successfully
+parse response SUCCESSFULLY
+ensureProject() executes
+saveToProject succeeds
+completion event emitted
+UI resolves success state
+🔥 BUG 1 — CHATBOT "FAILED TO PARSE RESPONSE"
+Root cause (must fix):
+
+Chatbot API response is returning non-JSON / malformed streaming output OR truncated SSE final payload
+
+FIX REQUIRED:
+
+Ensure chatbot generation endpoint:
+
+ALWAYS returns valid final structured response
+NEVER returns partial stream as final result
+final SSE event MUST include:
+{
+  "type": "complete",
+  "data": {
+    "output": "...",
+    "projectData": {...}
+  }
+}
+REQUIRED ACTIONS:
+Fix chatbot /api/generate/chatbot
+Ensure final chunk is ALWAYS valid JSON
+Ensure stream termination is correct
+Ensure parser never receives raw text instead of structured payload
+🔥 BUG 2 — WEBSITE SAVE FAILURE (INTERMITTENT)
+Root cause:
+
+ensureProject() is being called but:
+
+projectId context is missing OR stale OR not passed through stream final payload
+FIX REQUIRED:
+
+Match WEBSITE to BI working pattern:
+
+Ensure in website flow:
+
+projectId is ALWAYS injected into generation context
+final SSE payload includes:
+{
+  "type": "complete",
+  "data": {
+    "output": "...",
+    "projectId": "xxx"
+  }
+}
+
+Then:
+
+ensureProject(projectId, output)
+saveToProject MUST ALWAYS resolve
+🔥 BUG 3 — CHATBOT GENERATION NOT COMPLETING
+Root cause:
+
+Chatbot lifecycle breaks AFTER:
+
+generate → stream starts → but completion event NEVER fires
+
+FIX REQUIRED:
+
+In chatbot generator:
+
+Ensure ALL THREE exist:
+
+stream ends with "complete" event
+parser resolves completion promise
+completion callback ALWAYS fires
+
+Compare EXACTLY with WEBSITE generator (this is the truth source)
+
+🔥 BUG 4 — SHARED LIFECYCLE INCONSISTENCY
+
+All modules MUST enforce:
+
+WEBSITE = reference implementation
+
+Copy lifecycle behavior exactly:
+
+populate timing
+SSE structure
+completion trigger
+save trigger
+parse handler
+
+Chatbot MUST NOT use different parsing logic.
+
+⚠️ DO NOT DO
+Do NOT refactor architecture
+Do NOT change ExecutionBus
+Do NOT redesign Copilot
+Do NOT introduce new pipelines
+Do NOT add new frameworks
+🧠 IMPORTANT RULE
+
+If something exists in WEBSITE and works:
+
+👉 replicate EXACT behavior elsewhere
+NOT redesign it
+
+🔧 FINAL TASK
+
+Fix ONLY:
+
+Chatbot SSE parse failure
+Website saveToProject inconsistency
+Completion event missing in chatbot
+Ensure all modules end lifecycle like WEBSITE
+✅ SUCCESS CRITERIA
+
+After fix:
+
+Chatbot:
+
+navigate → populate → confirm → generate → stream → COMPLETE → save → success
+
+Website:
+
+must always save project successfully
+
+BI:
+
+must remain unchanged (already stable)
+
+🚀 END GOAL
+
+All modules behave IDENTICALLY at lifecycle level
