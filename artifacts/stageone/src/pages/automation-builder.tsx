@@ -537,7 +537,14 @@ export default function AutomationBuilderPage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateWith = async (desc: string, wt: string, cplx: string) => {
-    if (!desc.trim()) return
+    if (!desc.trim()) {
+      // Resolve bridge promise immediately — no generation will happen
+      // (mirrors chatbot's empty-desc guard so triggerGenerate() never hangs)
+      const emptyCb = generateCompleteCallbackRef.current
+      generateCompleteCallbackRef.current = null
+      emptyCb?.()
+      return
+    }
     console.log("[CONFIRM_FLOW:4] generateWith called — about to fetch /api/generate/automation | desc length:", desc.length, "| workflowType:", wt, "| complexity:", cplx, "| timestamp:", Date.now())
     setGenError(""); setStep("generating"); setStreamText(""); setData(null); setSelectedNode(null)
     abortRef.current = new AbortController()
@@ -573,6 +580,10 @@ export default function AutomationBuilderPage() {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("idle")
           traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
+          // Resolve bridge promise so the lifecycle doesn't hang on upgrade gate
+          const upgradeCb = generateCompleteCallbackRef.current
+          generateCompleteCallbackRef.current = null
+          upgradeCb?.()
           return
         }
       }
@@ -593,7 +604,15 @@ export default function AutomationBuilderPage() {
           if (!line.startsWith("data: ")) continue
           try {
             const msg = JSON.parse(line.slice(6))
-            if (msg.error) { setGenError(msg.error); setStep("idle"); traceOutcome = { success: false, reason: msg.error }; return }
+            if (msg.error) {
+              setGenError(msg.error); setStep("idle")
+              traceOutcome = { success: false, reason: msg.error }
+              // Bug 3 fix: resolve bridge promise on error so generate.complete fires
+              const errCb = generateCompleteCallbackRef.current
+              generateCompleteCallbackRef.current = null
+              errCb?.()
+              return
+            }
             if (msg.content) { buffer += msg.content; setStreamText(buffer) }
             if (msg.done && msg.data) {
               setData(msg.data)

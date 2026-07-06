@@ -259,6 +259,9 @@ export default function OrchestratorPage() {
   const [businessContext, setBusinessContext] = useState("")
   const [step, setStep] = useState<"idle" | "generating" | "done">("idle")
   const [data, setData] = useState<OrchestratorData | null>(null)
+  // Always-current mirror of data state for bridge-based save (matches chatbot/automation).
+  const latestDataRef = useRef<OrchestratorData | null>(null)
+  useEffect(() => { latestDataRef.current = data }, [data])
   const [genError, setGenError] = useState("")
   const [streamText, setStreamText] = useState("")
   const [activeTab, setActiveTab] = useState<"graph" | "chain" | "agents" | "dataflow" | "monitor">("graph")
@@ -400,7 +403,19 @@ export default function OrchestratorPage() {
         if (!gen) { generateCompleteCallbackRef.current = null; resolve(); return }
         gen(idea)
       }),
-      save: () => Promise.resolve(),
+      save: async () => {
+        if (!latestDataRef.current) return
+        // Mirrors chatbot/automation's bridge save — acts as an explicit persistence
+        // step called by the controller after triggerGenerate() resolves. Generation
+        // already saves inline via ensureProject in generate(), so this is a
+        // guaranteed-consistent fallback rather than duplicated logic.
+        await ensureProject({
+          type: "orchestration",
+          idea: goalRef.current || "Orchestration",
+          outputField: "orchestratorOutput",
+          output: latestDataRef.current as unknown as Record<string, unknown>,
+        }).catch(() => {})
+      },
       getCurrentIdea: () => goalRef.current,
     })
     return () => {
