@@ -254,11 +254,33 @@ function AgentGraph({ agents, dataFlow, replayStep, executionLog, isReplaying }:
   )
 }
 
+// Module-scoped typewriter progress cache — mirrors the identical fix applied to
+// automation-builder.tsx. Marcus navigation to /orchestrator can trigger a genuine
+// double-mount (two independent mount cycles a few ms apart, each with its own
+// private marcusPopulateRef/marcusTypewriterRef). If the first (throwaway)
+// instance's interval is torn down after only a tick or two, the surviving
+// instance resumes typing from where it left off instead of restarting from 0 or
+// freezing. Keyed by the idea text itself, not by component instance. Local to
+// the typewriter only — does not touch ExecutionBus, Marcus, generation, or save.
+let _orchestratorTypewriterProgress: { text: string; index: number } | null = null
+
+// Debounces the actual typewriter start — mirrors the identical fix applied to
+// automation-builder.tsx. Live traces show the double-mount can happen as
+// little as ~10ms apart, faster than a single 18ms tick, so a plain
+// resume-from-progress cache is not enough (both mounts read progress index 0
+// before either has ticked). Delaying the real start lets a later mount's
+// effect cancel an earlier mount's pending start via this module-level timer
+// handle, so only the final surviving mount ever starts an interval.
+let _orchestratorTypewriterStartTimer: ReturnType<typeof setTimeout> | null = null
+
 export default function OrchestratorPage() {
   const [goal, setGoal] = useState("")
   const [businessContext, setBusinessContext] = useState("")
   const [step, setStep] = useState<"idle" | "generating" | "done">("idle")
   const [data, setData] = useState<OrchestratorData | null>(null)
+  // Always-current mirror of data state for bridge-based save (matches chatbot/automation).
+  const latestDataRef = useRef<OrchestratorData | null>(null)
+  useEffect(() => { latestDataRef.current = data }, [data])
   const [genError, setGenError] = useState("")
   const [streamText, setStreamText] = useState("")
   const [activeTab, setActiveTab] = useState<"graph" | "chain" | "agents" | "dataflow" | "monitor">("graph")
@@ -333,22 +355,55 @@ export default function OrchestratorPage() {
     const text = marcusPopulateRef.current
     if (!text) return
     marcusPopulateRef.current = ""
-    console.log("ORCHESTRATOR_POPULATE_4 | typewriter started | length:", text.length, "| first 80:", text.slice(0, 80))
-    setGoal("")
-    let i = 0
-    if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
-    marcusTypewriterRef.current = setInterval(() => {
-      i++
-      setGoal(text.slice(0, i))
-      if (i >= text.length) {
-        clearInterval(marcusTypewriterRef.current!)
-        marcusTypewriterRef.current = null
-        console.log("ORCHESTRATOR_POPULATE_5 | textarea fully populated | length:", text.length)
-        cacheConsumedIdea("orchestrator", text)
+    console.log("ORCHESTRATOR_POPULATE_4 | typewriter scheduled | length:", text.length, "| first 80:", text.slice(0, 80))
+    setGoal(text.slice(0, (_orchestratorTypewriterProgress && _orchestratorTypewriterProgress.text === text) ? _orchestratorTypewriterProgress.index : 0))
+
+    // Debounce the real start: Marcus navigation can double-mount this page
+    // within ~10ms, faster than a single tick, so cancel any pending start
+    // from a sibling mount and schedule our own. Only the last mount to run
+    // this effect within the debounce window actually starts an interval.
+    if (_orchestratorTypewriterStartTimer) {
+      clearTimeout(_orchestratorTypewriterStartTimer)
+      _orchestratorTypewriterStartTimer = null
+    }
+    if (marcusTypewriterRef.current) {
+      clearInterval(marcusTypewriterRef.current)
+      marcusTypewriterRef.current = null
+    }
+
+    _orchestratorTypewriterStartTimer = setTimeout(() => {
+      _orchestratorTypewriterStartTimer = null
+      let i = 0
+      if (_orchestratorTypewriterProgress && _orchestratorTypewriterProgress.text === text) {
+        i = _orchestratorTypewriterProgress.index
+      } else {
+        _orchestratorTypewriterProgress = { text, index: 0 }
       }
-    }, 18)
+      setGoal(text.slice(0, i))
+
+      marcusTypewriterRef.current = setInterval(() => {
+        i++
+        _orchestratorTypewriterProgress = { text, index: i }
+        setGoal(text.slice(0, i))
+        if (i >= text.length) {
+          clearInterval(marcusTypewriterRef.current!)
+          marcusTypewriterRef.current = null
+          _orchestratorTypewriterProgress = null
+          console.log("ORCHESTRATOR_POPULATE_5 | textarea fully populated | length:", text.length)
+          cacheConsumedIdea("orchestrator", text)
+        }
+      }, 18)
+    }, 60)
+
     return () => {
-      if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
+      if (_orchestratorTypewriterStartTimer) {
+        clearTimeout(_orchestratorTypewriterStartTimer)
+        _orchestratorTypewriterStartTimer = null
+      }
+      if (marcusTypewriterRef.current) {
+        clearInterval(marcusTypewriterRef.current)
+        marcusTypewriterRef.current = null
+      }
     }
   }, [marcusPopulateTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -400,7 +455,19 @@ export default function OrchestratorPage() {
         if (!gen) { generateCompleteCallbackRef.current = null; resolve(); return }
         gen(idea)
       }),
-      save: () => Promise.resolve(),
+      save: async () => {
+        if (!latestDataRef.current) return
+        // Mirrors chatbot/automation's bridge save — acts as an explicit persistence
+        // step called by the controller after triggerGenerate() resolves. Generation
+        // already saves inline via ensureProject in generate(), so this is a
+        // guaranteed-consistent fallback rather than duplicated logic.
+        await ensureProject({
+          type: "orchestration",
+          idea: goalRef.current || "Orchestration",
+          outputField: "orchestratorOutput",
+          output: latestDataRef.current as unknown as Record<string, unknown>,
+        }).catch(() => {})
+      },
       getCurrentIdea: () => goalRef.current,
     })
     return () => {

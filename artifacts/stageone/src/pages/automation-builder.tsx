@@ -304,6 +304,30 @@ function NodeDetailPanel({ node, logic }: { node: WorkflowNode; logic: LogicStep
   )
 }
 
+/* ── Module-scoped typewriter progress cache ─────────────────
+   Marcus navigation to /automation-builder can trigger a genuine double-mount
+   of this page (two independent CONTROLLER_REGISTER/MOUNTED cycles a few ms
+   apart, each with its own private marcusPopulateRef/marcusTypewriterRef).
+   When the first (throwaway) instance's effect gets cleaned up after only a
+   tick or two, the second instance has no way to know progress was already
+   made — it would otherwise restart from index 0, but by then its own effect
+   may already be torn down too, leaving the textarea stuck on the first
+   character. This module-level cache lets whichever instance is still alive
+   resume typing exactly where the previous instance left off, keyed by the
+   idea text itself (not by component instance), so the animation always
+   completes regardless of how many mounts occur. Local to the typewriter
+   only — does not touch ExecutionBus, Marcus, generation, or save. */
+let _automationTypewriterProgress: { text: string; index: number } | null = null
+
+// Debounces the actual typewriter start. Evidence from live traces shows the
+// double-mount can happen as little as ~10ms apart -- faster than a single
+// 18ms tick -- so a plain resume-from-progress cache is not enough (both
+// mounts read progress index 0 before either has ticked). Delaying the real
+// start by a short window lets a later mount's effect cancel an earlier
+// mount's pending start via this module-level timer handle, so only the
+// final surviving mount ever starts an interval.
+let _automationTypewriterStartTimer: ReturnType<typeof setTimeout> | null = null
+
 /* ── Main Page ──────────────────────────────────────────── */
 export default function AutomationBuilderPage() {
   const { lang } = useLang()
@@ -462,6 +486,16 @@ export default function AutomationBuilderPage() {
 
   // Phase 2 — Start generation after state propagation is confirmed by businessDesc change
   useEffect(() => {
+    // Guard: never fire while the Marcus typewriter is still actively typing into
+    // businessDesc. Without this guard, a leftover/stale autoGenPending (e.g. from
+    // a BI GenerationContext fallback set earlier in this mount) can be picked up by
+    // the very FIRST character committed by the typewriter, firing generateWith with
+    // a 1-character businessDesc and switching step to "generating" — which is what
+    // made the typewriter appear to stop after only the first character.
+    if (marcusTypewriterRef.current) {
+      console.log("TYPEWRITER_STOP | reason: Phase 2 skipped — typewriter still active | businessDescLength:", businessDesc.length)
+      return
+    }
     if (!autoGenPending.current || !businessDesc.trim() || autoGenFired.current) {
       console.log("AUTOMATION_TRACE: Phase 2 | skipped |",
         "autoGenPending:", !!autoGenPending.current,
@@ -483,23 +517,67 @@ export default function AutomationBuilderPage() {
     const text = marcusPopulateRef.current
     if (!text) return
     marcusPopulateRef.current = ""
-    console.log("AUTOMATION_POPULATE_4 | typewriter started | length:", text.length, "| first 80:", text.slice(0, 80))
-    setBusinessDesc("")
+    console.log("AUTOMATION_POPULATE_4 | typewriter scheduled | length:", text.length, "| first 80:", text.slice(0, 80))
+    console.log("TYPEWRITER_START | tick:", marcusPopulateTick, "| textLength:", text.length)
+    console.log("TYPEWRITER_TEXT_LENGTH |", text.length)
     setContextBanner(true)
-    let i = 0
-    if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
-    marcusTypewriterRef.current = setInterval(() => {
-      i++
-      setBusinessDesc(text.slice(0, i))
-      if (i >= text.length) {
-        clearInterval(marcusTypewriterRef.current!)
-        marcusTypewriterRef.current = null
-        console.log("AUTOMATION_POPULATE_5 | textarea fully populated | length:", text.length)
-        cacheConsumedIdea("automation", text)
+    setBusinessDesc(text.slice(0, (_automationTypewriterProgress && _automationTypewriterProgress.text === text) ? _automationTypewriterProgress.index : 0))
+
+    // Debounce the real start: Marcus navigation can double-mount this page
+    // within ~10ms, faster than a single tick, so cancel any pending start
+    // from a sibling mount and schedule our own. Only the last mount to run
+    // this effect within the debounce window actually starts an interval.
+    if (_automationTypewriterStartTimer) {
+      console.log("TYPEWRITER_STOP | reason: canceling pending start from a prior mount")
+      clearTimeout(_automationTypewriterStartTimer)
+      _automationTypewriterStartTimer = null
+    }
+    if (marcusTypewriterRef.current) {
+      console.log("TYPEWRITER_STOP | reason: clearing pre-existing interval before starting new one | priorIntervalId:", marcusTypewriterRef.current)
+      clearInterval(marcusTypewriterRef.current)
+      marcusTypewriterRef.current = null
+    }
+
+    _automationTypewriterStartTimer = setTimeout(() => {
+      _automationTypewriterStartTimer = null
+      let i = 0
+      if (_automationTypewriterProgress && _automationTypewriterProgress.text === text) {
+        i = _automationTypewriterProgress.index
+        console.log("TYPEWRITER_TICK | resuming from prior mount's progress | index:", i, "/", text.length)
+      } else {
+        _automationTypewriterProgress = { text, index: 0 }
       }
-    }, 18)
+      setBusinessDesc(text.slice(0, i))
+
+      marcusTypewriterRef.current = setInterval(() => {
+        i++
+        _automationTypewriterProgress = { text, index: i }
+        console.log("TYPEWRITER_TICK | index:", i, "| char:", JSON.stringify(text[i - 1]))
+        console.log("TYPEWRITER_INDEX |", i, "/", text.length)
+        setBusinessDesc(text.slice(0, i))
+        if (i >= text.length) {
+          console.log("TYPEWRITER_STOP | reason: reached end of text | finalIndex:", i, "| intervalId:", marcusTypewriterRef.current)
+          clearInterval(marcusTypewriterRef.current!)
+          marcusTypewriterRef.current = null
+          _automationTypewriterProgress = null
+          console.log("AUTOMATION_POPULATE_5 | textarea fully populated | length:", text.length)
+          cacheConsumedIdea("automation", text)
+        }
+      }, 18)
+      console.log("TYPEWRITER_INTERVAL_ID |", marcusTypewriterRef.current)
+    }, 60)
+
     return () => {
-      if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
+      if (_automationTypewriterStartTimer) {
+        console.log("TYPEWRITER_STOP | reason: effect cleanup canceled pending debounced start")
+        clearTimeout(_automationTypewriterStartTimer)
+        _automationTypewriterStartTimer = null
+      }
+      if (marcusTypewriterRef.current) {
+        console.log("TYPEWRITER_STOP | reason: effect cleanup (dependency change or unmount) | intervalId:", marcusTypewriterRef.current)
+        clearInterval(marcusTypewriterRef.current)
+        marcusTypewriterRef.current = null
+      }
     }
   }, [marcusPopulateTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -537,7 +615,14 @@ export default function AutomationBuilderPage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateWith = async (desc: string, wt: string, cplx: string) => {
-    if (!desc.trim()) return
+    if (!desc.trim()) {
+      // Resolve bridge promise immediately — no generation will happen
+      // (mirrors chatbot's empty-desc guard so triggerGenerate() never hangs)
+      const emptyCb = generateCompleteCallbackRef.current
+      generateCompleteCallbackRef.current = null
+      emptyCb?.()
+      return
+    }
     console.log("[CONFIRM_FLOW:4] generateWith called — about to fetch /api/generate/automation | desc length:", desc.length, "| workflowType:", wt, "| complexity:", cplx, "| timestamp:", Date.now())
     setGenError(""); setStep("generating"); setStreamText(""); setData(null); setSelectedNode(null)
     abortRef.current = new AbortController()
@@ -573,6 +658,10 @@ export default function AutomationBuilderPage() {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("idle")
           traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
+          // Resolve bridge promise so the lifecycle doesn't hang on upgrade gate
+          const upgradeCb = generateCompleteCallbackRef.current
+          generateCompleteCallbackRef.current = null
+          upgradeCb?.()
           return
         }
       }
@@ -593,7 +682,15 @@ export default function AutomationBuilderPage() {
           if (!line.startsWith("data: ")) continue
           try {
             const msg = JSON.parse(line.slice(6))
-            if (msg.error) { setGenError(msg.error); setStep("idle"); traceOutcome = { success: false, reason: msg.error }; return }
+            if (msg.error) {
+              setGenError(msg.error); setStep("idle")
+              traceOutcome = { success: false, reason: msg.error }
+              // Bug 3 fix: resolve bridge promise on error so generate.complete fires
+              const errCb = generateCompleteCallbackRef.current
+              generateCompleteCallbackRef.current = null
+              errCb?.()
+              return
+            }
             if (msg.content) { buffer += msg.content; setStreamText(buffer) }
             if (msg.done && msg.data) {
               setData(msg.data)

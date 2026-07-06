@@ -512,7 +512,7 @@ async function streamCopilot(
     // Suppress any partial (incomplete) tag at the tail
     const partial = display.match(/\{\{[^}]*$/);
     if (partial) display = display.slice(0, -partial[0].length);
-    return display.trimEnd();
+    return sanitizeControlTokens(display).trimEnd();
   }
 
   while (true) {
@@ -570,12 +570,49 @@ function greetedKey(userId: string) {
   return `copilot:greeted:${userId}`;
 }
 
+// ─── Final rendering-layer sanitizer ─────────────────────────────────────────
+// Defensive last line of defense so internal orchestration control tokens can
+// NEVER reach the visible chat, even if the model emits a malformed / partial
+// / multi-line tag that the streaming parser's specific tag regexes above
+// (ACTION_TAG_RE, WORKSPACE_CMD_RE, etc.) fail to recognize as complete.
+// This does NOT change tag detection, command dispatch, or orchestration —
+// it only scrubs whatever text is about to be rendered/persisted for the user.
+function sanitizeControlTokens(text: string): string {
+  let out = text;
+
+  // 1) Remove any complete, well-formed control tag — including ones that
+  //    span multiple lines (model sometimes inserts newlines inside a tag).
+  out = out.replace(/\{\{[\s\S]*?\}\}/g, "");
+
+  // 2) Remove a dangling unclosed opening tag anywhere in the text (not just
+  //    at the tail) — e.g. the closing "}}" got dropped/garbled by the model.
+  out = out.replace(/\{\{[\s\S]*$/, "");
+
+  // 3) Remove any leftover brace pairs that slipped through the above (belt
+  //    and suspenders — should be a no-op in the common case).
+  out = out.replace(/\{\{|\}\}/g, "");
+
+  // 4) Remove standalone control-protocol keywords (always emitted in this
+  //    exact ALL-CAPS form by the tag protocol; never used by Marcus in
+  //    normal, natural-language prose) along with any stray bracket/pipe
+  //    punctuation left clinging to them from a malformed tag.
+  out = out.replace(
+    /[|:(){}[\]]*\b(?:WORKSPACE|ACTION|NAVIGATE|EXECUTE)\b[|:(){}[\]]*/g,
+    "",
+  );
+
+  // 5) Collapse whitespace/punctuation debris left behind by the removals.
+  out = out
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return out;
+}
+
 // Strip any raw WORKSPACE tags that survived the parser (e.g. from previous sessions or model hallucination)
 function stripRawWorkspaceTags(content: string): string {
-  return content
-    .replace(/\{\{WORKSPACE[^}]*\}\}/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  return sanitizeControlTokens(content);
 }
 
 function loadMessages(userId: string): Message[] {
