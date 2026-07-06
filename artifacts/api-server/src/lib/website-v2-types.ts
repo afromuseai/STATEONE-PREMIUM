@@ -131,6 +131,29 @@ export interface WebsiteProjectResponse {
   updatedAt:       string;
 }
 
+// ─── AI Editing Agent types ───────────────────────────────────────────────────
+
+// Input: what the user wants to change and which files to focus on.
+export interface EditRequest {
+  projectId:      string;
+  instruction:    string;
+  selectedFiles?: string[];   // file paths the user has selected; if empty, agent decides
+}
+
+// A single file modification produced by the editing agent.
+export interface FileModification {
+  path:      string;
+  operation: "update" | "create" | "delete";
+  content:   string;
+  reason:    string;   // one-sentence explanation of what changed and why
+}
+
+// The editing agent's full response.
+export interface EditResult {
+  changes: FileModification[];
+  summary: string;   // human-readable description of all changes made
+}
+
 // ─── SSE event shapes ─────────────────────────────────────────────────────────
 // Typed payloads the V2 route writes to the SSE stream.
 export type V2SseEvent =
@@ -143,3 +166,11 @@ export type V2SseEvent =
   | { phase: "project-saved";   projectId: string }
   | { phase: "done";            projectId: string; data: GeneratedProject }
   | { phase: "error";           message: string; code?: string };
+
+// SSE events from the editing route.
+export type V2EditSseEvent =
+  | { phase: "analyzing" }
+  | { phase: "editing" }
+  | { phase: "changes";  data: EditResult }
+  | { phase: "saved";    fileCount: number }
+  | { phase: "error";    message: string };

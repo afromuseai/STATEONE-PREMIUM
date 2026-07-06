@@ -10,7 +10,7 @@ interface WebsiteStudioWorkspacePageProps {
 
 export default function WebsiteStudioWorkspacePage({ id }: WebsiteStudioWorkspacePageProps) {
   const [, navigate] = useLocation()
-  const { project, loading, error } = useWebsiteV2Project(id)
+  const { project, loading, error, refresh } = useWebsiteV2Project(id)
 
   if (loading) {
     return (
@@ -44,5 +44,5 @@ export default function WebsiteStudioWorkspacePage({ id }: WebsiteStudioWorkspac
     )
   }
 
-  return <StudioLayout project={project} />
+  return <StudioLayout project={project} onRefresh={refresh} />
 }

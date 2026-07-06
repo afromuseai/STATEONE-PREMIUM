@@ -1,0 +1,344 @@
+Implement Website Architect V2 Phase 4 — AI Editing Agent.
+
+Current completed architecture:
+
+Business Idea
+↓
+Business Context
+↓
+Website Blueprint
+↓
+Generated Next.js Files
+↓
+Database Project
+↓
+Website Studio Workspace
+
+
+The next goal:
+
+Allow users to request changes to their generated website.
+
+Example:
+
+"Make the hero section more luxurious"
+
+"Change the navbar layout"
+
+"Add a testimonials section"
+
+"Make the colors darker"
+
+
+The AI should modify existing project files instead of regenerating the entire website.
+
+================================================
+
+IMPORTANT CONSTRAINTS
+
+- Do not modify V1.
+- Do not modify website-html-generator.ts.
+- Keep editing inside Website Architect V2.
+- Preserve existing generation pipeline.
+- Implement a controlled editing loop first.
+
+================================================
+
+PHASE 1 — Add Editing Data Types
+
+Update:
+
+website-v2-types.ts
+
+
+Add:
+
+EditRequest
+
+interface EditRequest {
+
+projectId:string;
+
+instruction:string;
+
+selectedFiles?:string[];
+
+}
+
+
+Add:
+
+FileModification
+
+interface FileModification {
+
+path:string;
+
+operation:
+"update" |
+"create" |
+"delete";
+
+content:string;
+
+reason:string;
+
+}
+
+
+Add:
+
+EditResult
+
+interface EditResult {
+
+changes:FileModification[];
+
+summary:string;
+
+}
+
+================================================
+
+PHASE 2 — Create Website Editing Agent
+
+Create:
+
+artifacts/api-server/src/lib/website-v2-editor.ts
+
+
+Responsibilities:
+
+Input:
+
+- BusinessContext
+- WebsiteBlueprint
+- Current project files
+- User instruction
+
+
+Output:
+
+File modifications only.
+
+
+System prompt:
+
+You are a senior frontend engineer modifying an existing Next.js website.
+
+You receive:
+
+- project architecture
+- existing files
+- user request
+
+Your job:
+
+- understand the request
+- identify affected files
+- modify only necessary files
+- preserve existing architecture
+
+Return:
+
+{
+ changes:[
+  {
+   path:"",
+   operation:"update",
+   content:"",
+   reason:""
+  }
+ ],
+ summary:""
+}
+
+
+Rules:
+
+Do not regenerate unrelated files.
+
+Do not create duplicate components.
+
+Maintain TypeScript correctness.
+
+================================================
+
+PHASE 3 — Add Editing API Route
+
+Create:
+
+artifacts/api-server/src/routes/edit-website-v2.ts
+
+
+Endpoint:
+
+POST
+
+/api/website-v2/projects/:id/edit
+
+
+Input:
+
+{
+ instruction:string,
+
+ selectedFiles?:string[]
+}
+
+
+Flow:
+
+Request
+ ↓
+Load project
+ ↓
+Load files
+ ↓
+Editor Agent
+ ↓
+Receive modifications
+ ↓
+Update database files JSON
+ ↓
+Return changes
+
+
+SSE events:
+
+{phase:"analyzing"}
+
+{phase:"editing"}
+
+{phase:"changes", data:EditResult}
+
+{phase:"saved"}
+
+
+================================================
+
+PHASE 4 — Add File Update Service
+
+Update:
+
+website-v2-projects.ts
+
+
+Add:
+
+updateProjectFiles(
+ projectId,
+ modifications
+)
+
+
+Responsibilities:
+
+- apply file updates
+- create new files
+- remove deleted files
+- save updated JSON
+
+
+================================================
+
+PHASE 5 — Add Studio UI Editing Panel
+
+Update:
+
+Studio workspace.
+
+
+Add an AI command panel.
+
+Location:
+
+Below or beside preview.
+
+
+Example:
+
+┌────────────────────────────┐
+│ Ask STAGEONE               │
+│                            │
+│ "Make this more premium"   │
+│                            │
+│ [Generate Change]          │
+└────────────────────────────┘
+
+
+Create:
+
+components/website-v2/
+
+EditorChatPanel.tsx
+
+
+Features:
+
+- textarea input
+- submit button
+- streaming status
+- show AI summary after changes
+
+
+================================================
+
+PHASE 6 — Refresh Preview
+
+After successful edit:
+
+Reload project data.
+
+Update:
+
+- files
+- preview
+
+
+The preview should reflect changes.
+
+
+================================================
+
+Testing:
+
+Use existing LegalTech project.
+
+Test:
+
+Request:
+
+"Make the hero section look more enterprise and premium."
+
+
+Expected:
+
+AI identifies:
+
+components/HeroSection.tsx
+
+Updates only required files.
+
+Database updates.
+
+Studio refreshes.
+
+
+================================================
+
+After implementation report:
+
+1. Files created
+
+2. Files changed
+
+3. Editing architecture
+
+4. Example edit request/result
+
+5. Any limitations
+
+Do not implement autonomous multi-step agents yet.
+
+First make controlled AI file editing reliable.

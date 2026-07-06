@@ -5,6 +5,7 @@ import { useLocation } from "wouter"
 import { ProjectExplorer } from "./ProjectExplorer"
 import { CodeViewer } from "./CodeViewer"
 import { PreviewPanel } from "./PreviewPanel"
+import { EditorChatPanel } from "./EditorChatPanel"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 
 type ActivePanel = "code" | "preview"
@@ -19,9 +20,10 @@ const STATUS_CFG: Record<string, { color: string; icon: React.ElementType; label
 
 interface StudioLayoutProps {
   project: V2Project
+  onRefresh: () => void
 }
 
-export function StudioLayout({ project }: StudioLayoutProps) {
+export function StudioLayout({ project, onRefresh }: StudioLayoutProps) {
   const [, navigate] = useLocation()
   const [selectedFile, setSelectedFile] = useState<V2ProjectFile | null>(
     project.files.find((f) => f.path === "app/page.tsx") ?? project.files[0] ?? null
@@ -30,6 +32,12 @@ export function StudioLayout({ project }: StudioLayoutProps) {
 
   const status = STATUS_CFG[project.status] ?? STATUS_CFG.planning
   const StatusIcon = status.icon
+
+  // When a file is selected in the explorer, also switch to code view on mobile
+  const handleSelectFile = (f: V2ProjectFile) => {
+    setSelectedFile(f)
+    setActivePanel("code")
+  }
 
   return (
     <motion.div
@@ -87,7 +95,7 @@ export function StudioLayout({ project }: StudioLayoutProps) {
           <ProjectExplorer
             files={project.files}
             selectedFile={selectedFile}
-            onSelectFile={setSelectedFile}
+            onSelectFile={handleSelectFile}
           />
         </div>
 
@@ -97,13 +105,23 @@ export function StudioLayout({ project }: StudioLayoutProps) {
           <CodeViewer file={selectedFile} />
         </div>
 
-        {/* Right: Preview */}
+        {/* Right: Preview + AI Edit Panel stacked */}
         <div className={`flex-shrink-0 overflow-hidden bg-zinc-950
           ${activePanel === "code" ? "hidden lg:flex lg:flex-col" : "flex flex-col"}
           lg:w-[42%]`}
           style={{ width: activePanel === "preview" ? "100%" : undefined }}
         >
-          <PreviewPanel preview={project.preview} projectName={project.projectName} />
+          {/* Preview takes remaining height */}
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <PreviewPanel preview={project.preview} projectName={project.projectName} />
+          </div>
+
+          {/* AI Edit Panel anchored at bottom */}
+          <EditorChatPanel
+            projectId={project.id}
+            files={project.files}
+            onEditComplete={onRefresh}
+          />
         </div>
       </div>
     </motion.div>

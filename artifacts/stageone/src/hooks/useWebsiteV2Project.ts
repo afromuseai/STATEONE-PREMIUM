@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { api } from "@/lib/api"
 
 export interface V2ProjectFile {
@@ -26,7 +26,7 @@ export function useWebsiteV2Project(id: string | null) {
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState<string | null>(null)
 
-  useEffect(() => {
+  const fetch_ = useCallback(() => {
     if (!id) return
     setLoading(true)
     setError(null)
@@ -37,5 +37,7 @@ export function useWebsiteV2Project(id: string | null) {
       .finally(() => setLoading(false))
   }, [id])
 
-  return { project, loading, error }
+  useEffect(() => { fetch_() }, [fetch_])
+
+  return { project, loading, error, refresh: fetch_ }
 }

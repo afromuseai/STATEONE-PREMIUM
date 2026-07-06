@@ -48,8 +48,8 @@ router.get(
   "/website-v2/projects/:id",
   requireAuth,
   async (req, res): Promise<void> => {
-    const userId    = req.user?.userId ?? "";
-    const projectId = req.params.id;
+    const userId    = (req.user?.userId ?? "") as string;
+    const projectId = req.params.id as string;
 
     if (!projectId) {
       res.status(400).json({ error: "Missing project id" });

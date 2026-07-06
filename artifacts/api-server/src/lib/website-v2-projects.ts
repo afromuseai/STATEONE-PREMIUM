@@ -5,7 +5,7 @@
 import { db, websiteV2ProjectsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
-import type { BusinessContext, WebsiteBlueprint, ProjectFile } from "./website-v2-types";
+import type { BusinessContext, WebsiteBlueprint, ProjectFile, FileModification } from "./website-v2-types";
 
 // ─── Create a new project record in "planning" state ─────────────────────────
 export async function createV2Project(
@@ -142,3 +142,73 @@ export async function listProjects(userId: string) {
 
 // Full-column version kept for internal pipeline use.
 export const listV2Projects = listProjects;
+
+// ─── Infer language from file extension ──────────────────────────────────────
+function inferLanguage(path: string): string {
+  if (path.endsWith(".tsx") || path.endsWith(".ts")) return "typescript";
+  if (path.endsWith(".css"))  return "css";
+  if (path.endsWith(".json")) return "json";
+  if (path.endsWith(".md"))   return "markdown";
+  return "text";
+}
+
+// ─── Apply file modifications and persist ─────────────────────────────────────
+// Applies an array of FileModification objects to the stored files array:
+//   "update" — replaces content of an existing file (or creates it if missing)
+//   "create" — adds a new file (or replaces if path already exists)
+//   "delete" — removes the file
+// Returns the updated files array and a success flag.
+export async function updateProjectFiles(
+  projectId: string,
+  modifications: FileModification[]
+): Promise<{ files: ProjectFile[]; ok: boolean }> {
+  try {
+    // Fetch current project (no userId check — caller's route already verified ownership)
+    const [row] = await db
+      .select({ files: websiteV2ProjectsTable.files })
+      .from(websiteV2ProjectsTable)
+      .where(eq(websiteV2ProjectsTable.id, projectId))
+      .limit(1);
+
+    if (!row) {
+      logger.error({ projectId }, "[v2:db] updateProjectFiles — project not found");
+      return { files: [], ok: false };
+    }
+
+    let current: ProjectFile[] = (row.files as unknown as ProjectFile[]) ?? [];
+
+    for (const mod of modifications) {
+      if (mod.operation === "delete") {
+        current = current.filter((f) => f.path !== mod.path);
+      } else {
+        // "update" or "create" — upsert behaviour
+        const idx = current.findIndex((f) => f.path === mod.path);
+        const updated: ProjectFile = {
+          path:      mod.path,
+          operation: mod.operation,
+          content:   mod.content,
+          language:  inferLanguage(mod.path),
+        };
+        if (idx >= 0) {
+          current[idx] = updated;
+        } else {
+          current.push(updated);
+        }
+      }
+    }
+
+    await db
+      .update(websiteV2ProjectsTable)
+      .set({ files: current as unknown as Record<string, unknown>[] })
+      .where(eq(websiteV2ProjectsTable.id, projectId));
+
+    logger.info(
+      { projectId, changeCount: modifications.length, totalFiles: current.length },
+      "[v2:db] Project files updated"
+    );
+    return { files: current, ok: true };
+  } catch (err) {
+    logger.error({ err: String(err), projectId }, "[v2:db] Failed to update project files");
+    return { files: [], ok: false };
+  }
+}
