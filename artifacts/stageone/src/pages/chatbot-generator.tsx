@@ -419,7 +419,12 @@ export default function ChatbotGeneratorPage() {
   const generateWith = async (desc: string, type: string, ind: string, tn: string) => {
     // ── Stage G ──────────────────────────────────────────────────────────────────
     console.log("GENERATE_CHATBOT_FUNCTION_ENTERED | descLength:", desc.trim().length, "| type:", type, "| ind:", ind, "| tn:", tn);
-    if (!desc.trim()) return
+    if (!desc.trim()) {
+      // Resolve bridge promise immediately — no generation will happen
+      generateCompleteCallbackRef.current?.()
+      generateCompleteCallbackRef.current = null
+      return
+    }
     console.log("MARCUS_STAGE_8_CONFIRMED | trigger: auto-generate | descLength:", desc.trim().length, "| chatbotType:", type, "| industry:", ind, "| tone:", tn);
     setGenError(""); setStep("generating")
     abortRef.current = new AbortController()
@@ -459,6 +464,9 @@ export default function ChatbotGeneratorPage() {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("input")
           traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
+          // Resolve bridge promise so the lifecycle doesn't hang on upgrade gate
+          generateCompleteCallbackRef.current?.()
+          generateCompleteCallbackRef.current = null
           return
         }
       }
@@ -488,7 +496,14 @@ export default function ChatbotGeneratorPage() {
               }
               buffer += msg.content
             }
-            if (msg.error) { setGenError(msg.error); setStep("input"); traceOutcome = { success: false, reason: msg.error }; return }
+            if (msg.error) {
+              setGenError(msg.error); setStep("input")
+              traceOutcome = { success: false, reason: msg.error }
+              // Bug 3 fix: resolve bridge promise on error so generate.complete fires
+              generateCompleteCallbackRef.current?.()
+              generateCompleteCallbackRef.current = null
+              return
+            }
             if (msg.done && msg.data) {
               const out = msg.data as ChatbotOutput
               // ── Stage J ────────────────────────────────────────────────────────
@@ -510,9 +525,12 @@ export default function ChatbotGeneratorPage() {
           } catch { /* fragment */ }
         }
       }
+      // Stream closed without a done event — resolve bridge so the lifecycle doesn't hang
       setGenError("Generation ended unexpectedly. Please try again.")
       setStep("input")
       traceOutcome = { success: false, reason: "stream ended without completion data" }
+      generateCompleteCallbackRef.current?.()
+      generateCompleteCallbackRef.current = null
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
         setGenError("Generation failed — please try again")
@@ -521,6 +539,9 @@ export default function ChatbotGeneratorPage() {
       } else if (e instanceof Error) {
         traceOutcome = { success: false, reason: "aborted" }
       }
+      // Bug 3 fix: always resolve bridge promise — even on abort/throw
+      generateCompleteCallbackRef.current?.()
+      generateCompleteCallbackRef.current = null
     } finally {
       if (traceId && traceOutcome) {
         tracer.endExecution(traceId, traceOutcome.success, traceOutcome.reason)

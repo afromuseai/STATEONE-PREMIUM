@@ -1130,7 +1130,9 @@ router.post("/generate/website", requireAuth, requireFeature("website_generator"
 
     req.log.info({ designVariant, heroImageGenerated: !!heroImage }, "Website generation complete");
 
-    res.write(`data: ${JSON.stringify({ done: true, data: orchestrationData, pipeline: { orchestration: ORCHESTRATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage } })}\n\n`);
+    // Bug 2 fix: echo back projectId so the frontend can restore context if it was
+    // cleared during the stream (avoids creating a duplicate project on save).
+    res.write(`data: ${JSON.stringify({ done: true, data: orchestrationData, _projectId: (projectId as string | undefined) ?? null, pipeline: { orchestration: ORCHESTRATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage } })}\n\n`);
 
     logEventFireForget({ userId, projectId: projectId as string | undefined, type: "website_generated", data: {}, req });
     trackUsageFireForget(userId, "websiteGenerations");

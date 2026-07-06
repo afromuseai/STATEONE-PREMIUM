@@ -8,7 +8,7 @@ import {
 import { useDashboardShell } from "@/components/dashboard/dashboard-shell"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, loadProjectContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea, dequeueWorkspaceSignals } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, loadProjectContext, saveProjectContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea, dequeueWorkspaceSignals } from "@/lib/generation-context"
 import { ensureProject } from "@/lib/ensure-project"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
@@ -444,6 +444,12 @@ export default function WebsiteGeneratorPage() {
     console.log("WEBSITE_FLOW:5 generateWithIdea started | idea (first 80):", ideaOverride.slice(0, 80))
     setStep("generating")
     abortRef.current = new AbortController()
+    // Bug 2 fix: capture projectId from context NOW (before fetch) so it isn't
+    // lost if the context is cleared during the stream.
+    const _capturedCtx = loadProjectContext()
+    const _capturedProjectId = (_capturedCtx?.continuityMode === "continuation" && _capturedCtx?.projectId)
+      ? _capturedCtx.projectId
+      : null
     let buffer = ""
     const traceId = tracer.getActiveExecutionId("website")
     let traceOutcome: { success: boolean; reason?: string } | null = null
@@ -459,7 +465,7 @@ export default function WebsiteGeneratorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idea: ideaOverride.trim(), style, tone }),
+        body: JSON.stringify({ idea: ideaOverride.trim(), style, tone, projectId: _capturedProjectId }),
         signal: abortRef.current.signal,
       })
       console.log("WEBSITE_FLOW:5a fetch response status:", res.status)
@@ -507,6 +513,18 @@ export default function WebsiteGeneratorPage() {
             if (msg.done && msg.data) {
               console.log("WEBSITE_FLOW:6 generation completed | data keys:", Object.keys(msg.data as object).join(","))
               const out = msg.data as WebsiteOutput
+              // Bug 2 fix: if context was cleared during stream, restore it so
+              // ensureProject can patch the correct project rather than creating a new one.
+              const _serverProjectId = (msg as Record<string, unknown>)._projectId as string | undefined
+              const _resolvedProjectId = _serverProjectId ?? _capturedProjectId
+              if (_resolvedProjectId && !loadProjectContext()?.projectId) {
+                saveProjectContext({
+                  projectId: _resolvedProjectId,
+                  projectTitle: ideaOverride.length > 60 ? `${ideaOverride.slice(0, 60)}…` : ideaOverride,
+                  continuityMode: "continuation",
+                  source: "Website Generator",
+                })
+              }
               setData(out)
               updatePreview(out)
               setStep("done")
