@@ -3233,6 +3233,60 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
     if (!result) {
       res.write(`data: ${JSON.stringify({ content: "Something went wrong on my end. Try asking again." })}\n\n`);
     }
+
+    // ── Navigate+populate fallback ──────────────────────────────────────────
+    // When the server identified a workspace module intent but the LLM omitted
+    // the navigate/populate workspace tags (a known model reliability issue),
+    // inject them as additional SSE events before closing the stream. The client
+    // receives and processes these exactly as if the LLM had emitted them —
+    // fireAndStripTags fires handleWorkspaceCmdAction, which navigates, sets
+    // pendingIntent, and emits the workspace signal to populate the page.
+    //
+    // Condition: workspaceIntent is set AND no navigate tag was in the response
+    //            AND no generate tag (that would be the "yes" confirmation flow)
+    //            AND not a confirmation bypass (that's handled above at line ~2879).
+    {
+      const _allTags = extractWorkspaceTags(result ?? "");
+      const _hasNavigate = _allTags.some(t => NAVIGATE_COMMANDS.has(t.command));
+      const _hasGenerate = _allTags.some(t => GENERATE_COMMANDS.has(t.command));
+
+      const NAVIGATE_FALLBACK_MAP: Record<string, { nav: string; pop: (idea: string) => string }> = {
+        chatbot:      { nav: "{{WORKSPACE|chatbot}}",           pop: (i) => `{{WORKSPACE|idea|${i}}}` },
+        automation:   { nav: "{{WORKSPACE|automation}}",        pop: (i) => `{{WORKSPACE|idea|${i}}}` },
+        bi:           { nav: "{{WORKSPACE|intelligence}}",      pop: (i) => `{{WORKSPACE|bi_idea|${i}}}` },
+        orchestrator: { nav: "{{WORKSPACE|open_orchestrator}}", pop: (i) => `{{WORKSPACE|idea|${i}}}` },
+        website:      { nav: "{{WORKSPACE|website}}",           pop: (i) => `{{WORKSPACE|idea|${i}}}` },
+      };
+
+      const fallbackEntry = NAVIGATE_FALLBACK_MAP[workspaceIntent];
+      if (
+        fallbackEntry &&
+        !_hasNavigate &&
+        !_hasGenerate &&
+        !isConfirmationResponse &&
+        result
+      ) {
+        // Sanitize: strip any `}}` sequences to prevent malformed tag nesting,
+        // then trim to 500 chars so the tag payload stays parseable.
+        const fallbackIdea = (
+          wsProject?.businessIdea ||
+          clientPendingIntent?.idea ||
+          latestUserMessage
+        ).trim().replace(/}}/g, "").slice(0, 500);
+
+        const navCmd = fallbackEntry.nav;
+        const popCmd = fallbackIdea ? fallbackEntry.pop(fallbackIdea) : null;
+
+        res.write(`data: ${JSON.stringify({ content: `\n${navCmd}` })}\n\n`);
+        if (popCmd) res.write(`data: ${JSON.stringify({ content: `\n${popCmd}` })}\n\n`);
+
+        req.log.info(
+          { event: "NAVIGATE_FALLBACK_INJECTED", workspaceIntent, navCmd, popCmdLength: popCmd?.length ?? 0, ideaSource: wsProject?.businessIdea ? "wsProject" : clientPendingIntent?.idea ? "clientPendingIntent" : "latestUserMessage" },
+          "[MARCUS] NAVIGATE_FALLBACK_INJECTED — LLM omitted navigate tags, server injected"
+        );
+      }
+    }
+
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
   } catch (err) {
     req.log.error({ err, model: MODELS.COPILOT }, `[AI:${MODELS.COPILOT}] Copilot stream error`);
