@@ -535,7 +535,7 @@ export default function WebsiteGeneratorPage() {
                   projectId: _resolvedProjectId,
                   projectTitle: ideaOverride.length > 60 ? `${ideaOverride.slice(0, 60)}…` : ideaOverride,
                   continuityMode: "continuation",
-                  source: "Website Generator",
+                  source: "Standalone Generator",
                 })
               }
               setData(out)
