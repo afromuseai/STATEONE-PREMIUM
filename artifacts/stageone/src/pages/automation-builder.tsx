@@ -710,6 +710,15 @@ export default function AutomationBuilderPage() {
           } catch { /* fragment */ }
         }
       }
+      // Stream closed without a done event — resolve bridge so the lifecycle doesn't hang.
+      // Mirrors chatbot exit #4: the finally block only runs tracer cleanup and does NOT
+      // call the callback, so every exit path that falls through here must explicitly do so.
+      setGenError("Generation ended unexpectedly. Please try again.")
+      setStep("idle")
+      traceOutcome = { success: false, reason: "stream ended without completion data" }
+      const streamEndCb = generateCompleteCallbackRef.current
+      generateCompleteCallbackRef.current = null
+      streamEndCb?.()
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
         setGenError("Generation failed — please try again")

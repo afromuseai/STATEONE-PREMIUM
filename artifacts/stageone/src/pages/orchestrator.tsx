@@ -438,10 +438,16 @@ export default function OrchestratorPage() {
     const bridgeRegId = registerBridge({
       navigate: () => navigate("/orchestrator"),
       populate: (idea, onComplete) => {
+        // Exit #1: empty-idea guard — mirrors chatbot/automation bridge populate.
+        // Resolves the controller's populate() promise immediately with no side-effects.
+        if (!idea) { onComplete(); return }
         setGoal(idea)
         goalRef.current = idea
-        // Defer onComplete so React has time to commit the state update.
-        setTimeout(onComplete, 0)
+        // Defer onComplete by 50ms (matching automation's bridge timing) so React has
+        // time to commit the setGoal state update and re-render before the ExecutionBus
+        // advances to triggerGenerate. The 50ms margin also prevents a race where
+        // generateRef.current still holds a pre-populate closure on first render.
+        setTimeout(onComplete, 50)
       },
       triggerGenerate: (idea) => new Promise<void>((resolve) => {
         // Resolve any in-flight promise before replacing — prevents orphaned Promises
