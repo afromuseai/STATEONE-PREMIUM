@@ -56,3 +56,4 @@ export * from "./backups";
 export * from "./onboarding";
 export * from "./error-events";
 export * from "./referrals";
+export * from "./website-v2-projects";

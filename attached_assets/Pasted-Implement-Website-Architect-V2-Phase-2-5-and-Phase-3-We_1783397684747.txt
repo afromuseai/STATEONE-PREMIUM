@@ -1,0 +1,275 @@
+Implement Website Architect V2 Phase 2.5 and Phase 3.
+
+We are continuing from the existing V2 pipeline:
+
+Business Context
+        ↓
+Website Architect Agent
+        ↓
+Website Blueprint
+        ↓
+Code Generation Agent
+        ↓
+GeneratedProject
+
+The next step is to make generated websites persistent, editable, and ready for future AI coding workflows.
+
+Important constraints:
+
+- Do not modify V1.
+- Do not modify generate-website.ts.
+- Do not modify website-html-generator.ts.
+- Continue only inside Website Architect V2.
+- Keep changes additive.
+
+================================================
+
+PHASE 2.5 — Improve GeneratedProject Artifact
+
+Current problem:
+
+The Code Agent returns:
+
+files: Record<string,string>
+
+This works for initial generation but is not suitable for future editing, versioning, and AI modification.
+
+Replace the file representation with an operation-based structure.
+
+Update website-v2-types.ts.
+
+Create:
+
+ProjectFile
+
+Example:
+
+interface ProjectFile {
+  path: string;
+  operation: "create" | "update" | "delete";
+  content: string;
+  language?: string;
+}
+
+Update GeneratedProject:
+
+interface GeneratedProject {
+
+  projectId?: string;
+
+  files: ProjectFile[];
+
+  dependencies: string[];
+
+  runInstructions?: {
+    command: string;
+  };
+
+  preview: string;
+
+  blueprint: WebsiteBlueprint;
+
+  context: BusinessContext;
+
+}
+
+The goal:
+
+Future agents should be able to modify individual files instead of regenerating the entire project.
+
+================================================
+
+Update Code Generation Agent
+
+Modify:
+
+website-v2-code-generator.ts
+
+The Code Agent should now output:
+
+{
+ files:[
+   {
+     path:"app/page.tsx",
+     operation:"create",
+     content:"..."
+   }
+ ],
+
+ dependencies:[
+   "framer-motion"
+ ],
+
+ preview:"..."
+}
+
+Prompt requirements:
+
+The model must think like a software engineer creating a project.
+
+Generate:
+
+- Next.js App Router structure
+- React components
+- TypeScript
+- Tailwind CSS
+- reusable components
+- proper imports
+
+Do not generate:
+
+- WebsiteOutput JSON
+- HTML templates
+- static template structures
+
+================================================
+
+PHASE 3 — Add Website V2 Project Persistence
+
+Create a new database table.
+
+Location:
+
+lib/db/src/schema/
+
+Create:
+
+website-v2-projects.ts
+
+
+Schema should store:
+
+id
+
+userId
+
+projectName
+
+businessContext JSON
+
+blueprint JSON
+
+files JSON
+
+status
+
+createdAt
+
+updatedAt
+
+
+Status values:
+
+planning
+
+architecting
+
+building
+
+ready
+
+failed
+
+
+Export the schema through:
+
+lib/db/src/schema/index.ts
+
+
+================================================
+
+Create backend project service
+
+Create:
+
+artifacts/api-server/src/lib/website-v2-projects.ts
+
+
+Responsibilities:
+
+- create project
+- save blueprint
+- save generated files
+- update status
+- retrieve project
+- retrieve files
+
+
+================================================
+
+Update generate-website-v2.ts
+
+New flow:
+
+POST /api/generate/website-v2
+
+↓
+
+Create project record
+
+↓
+
+Business Context
+
+↓
+
+Architect Agent
+
+↓
+
+Save Blueprint
+
+↓
+
+Code Agent
+
+↓
+
+Save Generated Files
+
+↓
+
+Update status ready
+
+↓
+
+Emit project event
+
+
+SSE events should include:
+
+{phase:"project-created", projectId}
+
+{phase:"blueprint", data}
+
+{phase:"building"}
+
+{phase:"project-saved", projectId}
+
+{phase:"done", projectId}
+
+
+================================================
+
+After implementation report:
+
+1. Files created
+
+2. Files modified
+
+3. New database schema
+
+4. Updated generation flow diagram
+
+5. Example stored project record
+
+6. Any migration or environment changes required
+
+
+Do not build frontend UI yet.
+
+The next phase after this will be Website Studio UI with:
+- file explorer
+- code viewer
+- preview panel
+- AI editing controls.

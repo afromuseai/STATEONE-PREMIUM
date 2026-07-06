@@ -1,6 +1,6 @@
 // ─── Website Architect V2 — Phase 2: Code Generation Agent ───────────────────
 // Receives BusinessContext + WebsiteBlueprint from Phase 1.
-// Produces GeneratedProject: real Next.js 14 App Router files + HTML preview.
+// Produces GeneratedProject: operation-based ProjectFile list + HTML preview.
 //
 // V1 is untouched. website-html-generator.ts is NOT used here.
 // This module is imported only by generate-website-v2.ts.
@@ -8,11 +8,25 @@
 import { streamNvidia } from "./nvidia";
 import { jsonrepair } from "jsonrepair";
 import { MODELS } from "./models";
-import type { BusinessContext, WebsiteBlueprint, GeneratedProject } from "./website-v2-types";
+import type {
+  BusinessContext,
+  WebsiteBlueprint,
+  GeneratedProject,
+  ProjectFile,
+} from "./website-v2-types";
 
 // ─── Model assignment ─────────────────────────────────────────────────────────
 // Nemotron Ultra 550B: frontier code generation with extended thinking enabled.
 export const CODE_GENERATOR_MODEL = MODELS.COMPONENT_GENERATION;
+
+// ─── Language inference from file extension ───────────────────────────────────
+function inferLanguage(path: string): string {
+  if (path.endsWith(".tsx") || path.endsWith(".ts")) return "typescript";
+  if (path.endsWith(".css"))                           return "css";
+  if (path.endsWith(".json"))                          return "json";
+  if (path.endsWith(".md"))                            return "markdown";
+  return "text";
+}
 
 // ─── System prompt ─────────────────────────────────────────────────────────────
 export const CODE_GENERATOR_SYSTEM_PROMPT = `You are an elite Next.js 14 engineer at a world-class product studio.
@@ -21,88 +35,89 @@ You receive:
 1. A BusinessContext — the company brief (name, industry, audience, goal)
 2. A WebsiteBlueprint — an architecture document specifying pages, components, design system, and behaviors
 
-Your job is to generate a complete, real, production-quality Next.js 14 App Router project.
+Your job is to generate a complete, real, production-quality Next.js 14 App Router project as an operation-based file list.
 
 YOU MUST generate:
-- Real TypeScript (.tsx / .ts) React components using the "use client" directive where needed
+- Real TypeScript (.tsx / .ts) React components using "use client" where needed
 - Real Tailwind CSS classes (no inline styles except for dynamic values)
-- Real Framer Motion animations matching the blueprint's behavior specs
+- Real Framer Motion animations matching the blueprint behavior specs
 - Real Next.js 14 App Router file structure (app/page.tsx, app/layout.tsx, etc.)
-- Proper component composition — each page imports and composes its components
+- Proper component composition — pages import and compose their components
 - A self-contained HTML preview string that visually approximates the design
+- A dependencies array listing all npm packages beyond the Next.js defaults
 
 YOU MUST NOT generate:
-- Placeholder components (no "// TODO" stubs)
-- Lorem ipsum or generic copy — derive real copy from the BusinessContext
+- Placeholder stubs or "// TODO" comments
+- Lorem ipsum or generic copy — derive real copy from BusinessContext
 - WebsiteOutput JSON or template renderer structures
-- HTML-only implementations (the files must be real React/TSX)
-- Code fences, markdown, or any explanation outside the JSON
+- HTML-only implementations
+- Code fences, markdown, or explanation outside the JSON
 
-REQUIRED FILES (always include these):
+REQUIRED FILES — always include all of these as separate entries:
 - app/layout.tsx       — root layout with metadata, global styles import
-- app/page.tsx         — home page, imports and composes hero + feature components
-- app/globals.css      — Tailwind directives + any CSS variables
+- app/page.tsx         — home page composing hero + key section components
+- app/globals.css      — Tailwind directives + CSS variables
 - components/Navbar.tsx
 - components/HeroSection.tsx
-- package.json         — with next, react, react-dom, framer-motion, tailwindcss deps
-- tailwind.config.ts   — content paths pointing to app/** and components/**
+- package.json         — with next, react, react-dom, framer-motion, tailwindcss
+- tailwind.config.ts   — content paths for app/** and components/**
 - tsconfig.json        — standard Next.js 14 tsconfig
 
-ADDITIONAL FILES: Generate all components listed in the blueprint pages array.
-Name each file components/<ComponentName>.tsx.
-For secondary pages (not "/"), generate app/<route>/page.tsx.
+ADDITIONAL FILES: Generate a components/<ComponentName>.tsx file for every
+component listed in the blueprint pages. For secondary pages (route != "/"),
+generate app/<route>/page.tsx. All operations must be "create".
 
 REAL CODE STANDARDS:
 - Every component must be a complete, importable React function
-- Use "use client" for components with animations or browser interaction
-- Framer Motion: import { motion } from "framer-motion" and use motion.div etc.
-- Tailwind: use real utility classes, not invented class names
-- TypeScript: all props must have explicit interfaces
-- next/link for all internal navigation
-- next/image for any image placeholders (use width/height props)
+- "use client" for all Framer Motion or browser-interactive components
+- Framer Motion: import { motion } from "framer-motion"
+- Tailwind: use real utility classes only
+- TypeScript: all component props must have explicit interfaces
+- next/link for all internal navigation, next/image for images
+- No placeholder image URLs — use next/image with width/height props only
 
-COPY: Generate real, specific business copy (headlines, CTAs, feature names) derived
-from the BusinessContext. No Lorem Ipsum. No "[COMPANY NAME]" placeholders — use
-the actual company name from the context.
+COPY: Generate real, specific business copy from BusinessContext. Use the
+actual company name (never "[COMPANY NAME]" placeholders).
 
-DESIGN SYSTEM TRANSLATION:
-Map the blueprint designSystem fields to Tailwind classes:
-- colorPrimary "deep navy" → bg-slate-900, text-slate-900
-- colorPrimary "warm slate" → bg-slate-700
-- colorAccent "electric blue" → text-blue-500, bg-blue-500
-- colorAccent "amber gold" → text-amber-400, bg-amber-400
-- borderRadius "sharp" → rounded-none, "sm"→rounded, "md"→rounded-lg, "lg"→rounded-2xl, "full"→rounded-full
-- motion "none" → no Framer Motion, "subtle" → simple fade/slide, "expressive" → spring animations + stagger
+DESIGN SYSTEM TRANSLATION — map blueprint designSystem to Tailwind:
+- "deep navy" → bg-slate-900 / text-slate-900
+- "warm slate" → bg-slate-700
+- "electric blue" → text-blue-500 / bg-blue-500
+- "amber gold" → text-amber-400 / bg-amber-400
+- borderRadius: "sharp"→rounded-none, "sm"→rounded, "md"→rounded-lg, "lg"→rounded-2xl, "full"→rounded-full
+- motion "none"→no animations, "subtle"→simple fade/slide, "expressive"→spring + stagger
 
-PREVIEW HTML:
-The preview field must be a complete standalone HTML document (no external imports).
-Use inline <style> tags with CSS that approximates the Tailwind design.
-Use inline <script> tags only for essential interactivity (hamburger menu toggle).
-The preview should look like a real, styled website — not a wireframe.
-Include all the key sections from the home page (Navbar, Hero, Features at minimum).
+DEPENDENCIES: List every npm package used that is not in a standard Next.js 14
+install. Common ones: framer-motion, lucide-react, clsx, tailwind-merge.
 
-OUTPUT FORMAT:
-Return ONLY a single valid JSON object. No markdown. No code fences. No explanation.
-All file content strings must be properly JSON-escaped:
-- Newlines → \\n
-- Quotes inside strings → \\"
-- Backslashes → \\\\
-- Template literal backticks → use \\u0060 or escape with a backslash
+RUN INSTRUCTIONS: always "npm run dev".
 
-Schema:
+PREVIEW HTML: A complete standalone HTML document with inline <style> and
+optional inline <script>. Must look like a real styled website (not a wireframe).
+Cover all primary-page sections. No external CDN imports.
+
+OUTPUT FORMAT — return ONLY a single valid JSON object, no markdown, no fences:
 {
-  "files": {
-    "app/layout.tsx": "...",
-    "app/page.tsx": "...",
-    "app/globals.css": "...",
-    "components/Navbar.tsx": "...",
-    "components/HeroSection.tsx": "...",
-    "package.json": "...",
-    "tailwind.config.ts": "...",
-    "tsconfig.json": "..."
-  },
+  "files": [
+    {
+      "path": "app/page.tsx",
+      "operation": "create",
+      "content": "full file content here, all special chars JSON-escaped"
+    },
+    {
+      "path": "components/Navbar.tsx",
+      "operation": "create",
+      "content": "..."
+    }
+  ],
+  "dependencies": ["framer-motion", "lucide-react"],
   "preview": "<!DOCTYPE html><html>...</html>"
-}`;
+}
+
+JSON escaping rules for file content strings:
+- Newlines must be written as \\n
+- Double quotes inside content must be written as \\"
+- Backslashes must be written as \\\\`;
 
 // ─── Build the user prompt ────────────────────────────────────────────────────
 export function buildCodeGeneratorPrompt(
@@ -142,7 +157,7 @@ WEBSITE BLUEPRINT
 Project type: ${blueprint.projectType}
 
 Design system:
-  Style:        ${ds.style}
+  Style:         ${ds.style}
   Primary color: ${ds.colorPrimary}
   Accent color:  ${ds.colorAccent}
   Typography:    ${ds.typography}
@@ -164,9 +179,9 @@ ${blueprint.technicalRequirements.map((r) => `  • ${r}`).join("\n")}
 
 Architect rationale: ${blueprint.architectRationale}
 
-Generate the complete GeneratedProject JSON for this business. Every component
-listed in the blueprint must have a real implementation. Use the company name
-"${ctx.companyName}" throughout all copy.`;
+Generate the complete GeneratedProject JSON for "${ctx.companyName}".
+Every component in the blueprint must have a real, complete implementation.
+All file content strings must be valid JSON — escape newlines as \\n, quotes as \\".`;
 }
 
 // ─── Parse and validate the generated project ─────────────────────────────────
@@ -176,14 +191,12 @@ export function parseGeneratedProject(
   blueprint: WebsiteBlueprint
 ): GeneratedProject {
   let clean = raw.trim();
-  // Strip <think> / reasoning blocks that may leak through
   clean = clean.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-  // Strip code fences
   if (clean.startsWith("```json")) clean = clean.slice(7);
-  else if (clean.startsWith("```")) clean = clean.slice(3);
-  if (clean.endsWith("```")) clean = clean.slice(0, -3);
+  else if (clean.startsWith("```"))  clean = clean.slice(3);
+  if (clean.endsWith("```"))         clean = clean.slice(0, -3);
   clean = clean.trim();
-  // Extract outermost JSON object
+
   const objStart = clean.indexOf("{");
   const objEnd   = clean.lastIndexOf("}");
   if (objStart !== -1 && objEnd !== -1) {
@@ -197,19 +210,43 @@ export function parseGeneratedProject(
     parsed = JSON.parse(jsonrepair(clean)) as Record<string, unknown>;
   }
 
-  // ── Validate required fields ────────────────────────────────────────────────
+  // ── Validate and normalise files ──────────────────────────────────────────
   const errors: string[] = [];
 
-  if (!parsed.files || typeof parsed.files !== "object" || Array.isArray(parsed.files)) {
-    errors.push("missing or invalid 'files' object");
+  let files: ProjectFile[] = [];
+
+  // Support both new (array) and legacy (object) formats from the model
+  if (Array.isArray(parsed.files)) {
+    files = (parsed.files as Array<Record<string, unknown>>).map((f, i) => {
+      const path    = typeof f.path    === "string" ? f.path    : `unknown-${i}`;
+      const content = typeof f.content === "string" ? f.content : "";
+      const op      = f.operation === "update" || f.operation === "delete"
+                      ? (f.operation as "update" | "delete")
+                      : "create";
+      return {
+        path,
+        operation: op,
+        content,
+        language:  inferLanguage(path),
+      };
+    });
+  } else if (parsed.files && typeof parsed.files === "object" && !Array.isArray(parsed.files)) {
+    // Legacy Record<string,string> — convert to ProjectFile[]
+    files = Object.entries(parsed.files as Record<string, unknown>).map(([path, content]) => ({
+      path,
+      operation: "create" as const,
+      content:   typeof content === "string" ? content : "",
+      language:  inferLanguage(path),
+    }));
   } else {
-    const files = parsed.files as Record<string, unknown>;
-    const required = ["app/page.tsx", "components/Navbar.tsx", "components/HeroSection.tsx"];
-    for (const f of required) {
-      if (typeof files[f] !== "string" || !(files[f] as string).trim()) {
-        errors.push(`missing required file: ${f}`);
-      }
-    }
+    errors.push("missing or invalid 'files' field");
+  }
+
+  // Require the two most important files
+  if (files.length > 0) {
+    const paths = new Set(files.map((f) => f.path));
+    if (!paths.has("app/page.tsx"))           errors.push("missing required file: app/page.tsx");
+    if (!paths.has("components/Navbar.tsx"))  errors.push("missing required file: components/Navbar.tsx");
   }
 
   if (typeof parsed.preview !== "string" || !(parsed.preview as string).trim()) {
@@ -220,11 +257,17 @@ export function parseGeneratedProject(
     throw new Error(`GeneratedProject schema errors: ${errors.join("; ")}`);
   }
 
+  const deps = Array.isArray(parsed.dependencies)
+    ? (parsed.dependencies as unknown[]).filter((d): d is string => typeof d === "string")
+    : [];
+
   return {
-    files:     parsed.files as Record<string, string>,
-    preview:   parsed.preview as string,
+    files,
+    dependencies:    deps,
+    runInstructions: { command: "npm run dev" },
+    preview:         parsed.preview as string,
     blueprint,
-    context:   ctx,
+    context:         ctx,
   };
 }
 
@@ -301,7 +344,6 @@ export async function generateProjectCode(
       processLines(carry + decoder.decode(value, { stream: true }));
     }
 
-    // Flush tail
     const tail = decoder.decode();
     if (tail) carry += tail;
     if (carry.startsWith("data: ")) {
@@ -315,10 +357,7 @@ export async function generateProjectCode(
       }
     }
 
-    // Close thinking if content never arrived
-    if (thinkingSent && thinkingActive) {
-      onThinking(false);
-    }
+    if (thinkingSent && thinkingActive) onThinking(false);
   } finally {
     reader.releaseLock();
   }

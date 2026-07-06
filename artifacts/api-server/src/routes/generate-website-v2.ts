@@ -1,19 +1,23 @@
-// ─── Website Architect V2 — Phase 1 + Phase 2 ────────────────────────────────
+// ─── Website Architect V2 — Phase 1 + Phase 2 + Persistence ──────────────────
 // POST /api/generate/website-v2
 //
-// Full V2 pipeline:
+// Full V2 pipeline (Phase 2.5 + Phase 3):
 //
-//   User Input (idea + BI context)
+//   POST request
 //     ↓
-//   BusinessContext (assembled here)
+//   Create project record (DB) → SSE project-created
 //     ↓
-//   Phase 1: Website Architect Agent (LLM call)
+//   BusinessContext assembled
 //     ↓
-//   WebsiteBlueprint (JSON) → SSE blueprint event
+//   Phase 1: Website Architect Agent (LLM)
 //     ↓
-//   Phase 2: Code Generation Agent (LLM call)
+//   Save blueprint (DB) → SSE blueprint
 //     ↓
-//   GeneratedProject (JSON) → SSE project event
+//   Phase 2: Code Generation Agent (LLM) → SSE building chunks
+//     ↓
+//   Save generated files (DB) → SSE project-saved
+//     ↓
+//   SSE done
 //
 // V1 is completely untouched.
 // generate-website.ts is NOT imported or modified.
@@ -26,6 +30,12 @@ import { MODELS } from "../lib/models";
 import { streamNvidia, extractJson } from "../lib/nvidia";
 import { logger } from "../lib/logger";
 import { generateProjectCode, CODE_GENERATOR_MODEL } from "../lib/website-v2-code-generator";
+import {
+  createV2Project,
+  saveBlueprint,
+  saveGeneratedFiles,
+  markProjectFailed,
+} from "../lib/website-v2-projects";
 import type {
   BusinessContext,
   WebsiteBlueprint,
@@ -204,8 +214,14 @@ router.post(
 
       req.log.info(
         { userId, industry: context.industry, ideaLength: context.idea.length },
-        "[v2:architect] Starting Website Architect V2 — Phase 1"
+        "[v2:architect] Starting Website Architect V2 — Phase 1 + Persistence"
       );
+
+      // ── Create project record (Phase 3) ─────────────────────────────────────
+      const projectId = await createV2Project(userId, context);
+      if (projectId) {
+        sseWrite(res, { phase: "project-created", projectId });
+      }
 
       // ── Signal start to client ──────────────────────────────────────────────
       sseWrite(res, {
@@ -426,6 +442,11 @@ router.post(
         return;
       }
 
+      // ── Save blueprint (Phase 3) ─────────────────────────────────────────────
+      if (projectId) {
+        await saveBlueprint(projectId, blueprint);
+      }
+
       // ── Emit completed blueprint ─────────────────────────────────────────────
       req.log.info(
         {
@@ -445,6 +466,9 @@ router.post(
         "[v2:codegen] Starting Code Generation Agent"
       );
 
+      // Emit building phase-start signal (no content = signal only)
+      sseWrite(res, { phase: "building" });
+
       let project;
       try {
         project = await generateProjectCode(
@@ -459,6 +483,7 @@ router.post(
           { err: String(codeErr), userId },
           "[v2:codegen] Code Generation Agent failed"
         );
+        if (projectId) await markProjectFailed(projectId, String(codeErr));
         sseWrite(res, {
           phase:   "error",
           message: "The Code Generation Agent failed to produce a valid project. Please try again.",
@@ -471,13 +496,25 @@ router.post(
       req.log.info(
         {
           userId,
-          fileCount: Object.keys(project.files).length,
+          fileCount:  project.files.length,
           previewLen: project.preview.length,
         },
         "[v2:codegen] Project generation complete"
       );
 
-      sseWrite(res, { phase: "project", data: project });
+      // ── Save generated files (Phase 3) ──────────────────────────────────────
+      if (projectId) {
+        await saveGeneratedFiles(
+          projectId,
+          project.files,
+          project.dependencies,
+          project.preview
+        );
+        project = { ...project, projectId };
+        sseWrite(res, { phase: "project-saved", projectId });
+      }
+
+      sseWrite(res, { phase: "done", projectId: projectId ?? "", data: project });
       res.end();
 
     } catch (err) {
@@ -490,6 +527,10 @@ router.post(
         : "An unexpected error occurred in the Website Architect. Please try again.";
 
       req.log.error({ err: String(err), isTimeout, userId }, "[v2:architect] Unhandled error");
+
+      // Best-effort: mark project failed if we created one
+      // (projectId may not be in scope here if the error happened before creation;
+      //  we rely on the local catch blocks above for codegen failures)
 
       // Only write SSE error if headers are already sent (stream was opened)
       if (res.headersSent) {

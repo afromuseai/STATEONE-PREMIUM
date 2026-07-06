@@ -4,7 +4,7 @@
 //
 // Pipeline:
 //   BusinessContext → [Architect Agent] → WebsiteBlueprint
-//   WebsiteBlueprint + BusinessContext → [Code Agent] → GeneratedProject   (Phase 2)
+//   WebsiteBlueprint + BusinessContext → [Code Agent] → GeneratedProject
 
 // ─── BusinessContext ──────────────────────────────────────────────────────────
 // Extracted from the user's idea and any existing Business Intelligence output.
@@ -77,24 +77,42 @@ export interface GenerationPlan {
   riskFlags:          string[];
 }
 
+// ─── ProjectFile ──────────────────────────────────────────────────────────────
+// Operation-based file representation for the generated project.
+// Enables future agents to update individual files without regenerating the
+// entire project. "language" is inferred from the file extension if omitted.
+export interface ProjectFile {
+  path:       string;                           // e.g. "app/page.tsx"
+  operation:  "create" | "update" | "delete";  // always "create" on first generation
+  content:    string;                           // full file content
+  language?:  string;                           // e.g. "typescript", "css", "json"
+}
+
 // ─── GeneratedProject ─────────────────────────────────────────────────────────
-// The Code Generation Agent's output (Phase 2 — not yet implemented).
-// files: real Next.js project files for download.
+// The Code Generation Agent's output (Phase 2).
+// files: operation-based list of real Next.js project files.
 // preview: standalone HTML for the iframe (no build step required).
+// dependencies: npm packages the project needs beyond Next.js defaults.
+// runInstructions: how to start the project locally after download.
 export interface GeneratedProject {
-  files:     Record<string, string>;  // file path → content
-  preview:   string;                  // self-contained HTML for <iframe srcDoc>
-  blueprint: WebsiteBlueprint;
-  context:   BusinessContext;
+  projectId?:       string;                    // set after DB persistence
+  files:            ProjectFile[];             // operation-based file list
+  dependencies:     string[];                  // e.g. ["framer-motion", "lucide-react"]
+  runInstructions?: { command: string };        // e.g. { command: "npm run dev" }
+  preview:          string;                    // self-contained HTML for <iframe srcDoc>
+  blueprint:        WebsiteBlueprint;
+  context:          BusinessContext;
 }
 
 // ─── SSE event shapes ─────────────────────────────────────────────────────────
 // Typed payloads the V2 route writes to the SSE stream.
 export type V2SseEvent =
-  | { phase: "start";      model: string; industry: string }
-  | { phase: "thinking";   active: boolean }
-  | { phase: "architect";  content: string }
-  | { phase: "blueprint";  data: WebsiteBlueprint }
-  | { phase: "building";   content: string }
-  | { phase: "project";    data: GeneratedProject }
-  | { phase: "error";      message: string; code?: string };
+  | { phase: "start";           model: string; industry: string }
+  | { phase: "thinking";        active: boolean }
+  | { phase: "architect";       content: string }
+  | { phase: "project-created"; projectId: string }
+  | { phase: "blueprint";       data: WebsiteBlueprint }
+  | { phase: "building";        content?: string }
+  | { phase: "project-saved";   projectId: string }
+  | { phase: "done";            projectId: string; data: GeneratedProject }
+  | { phase: "error";           message: string; code?: string };
