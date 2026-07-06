@@ -54,7 +54,13 @@ YOU MUST NOT:
 
 YOU MUST:
 - Decide what PAGES are needed and why
-- Decide what COMPONENTS belong on each page
+- Decide what COMPONENTS belong on each page, and for EACH component specify:
+    • purpose   — one sentence: what this component achieves for the user
+    • layout    — structural/visual description (e.g. "split hero, text left, product visual right")
+    • contentElements — content slots inside the component (no copy, just slot names)
+                        e.g. ["headline", "supporting paragraph", "primary CTA", "trust badge"]
+    • behavior  — interaction, animation, and responsive rules
+                  e.g. ["fade in on mount with staggered children", "stacks vertically on mobile"]
 - Decide the COMPONENT HIERARCHY (which components contain which)
 - Decide the DESIGN SYSTEM direction (style language, color mood, motion level)
 - Decide the RESPONSIVE STRATEGY (how the layout adapts to mobile/tablet/desktop)
@@ -63,7 +69,9 @@ YOU MUST:
 - Decide the TECHNICAL REQUIREMENTS (Next.js features needed, accessibility, performance)
 - Write a brief ARCHITECT RATIONALE explaining why this structure serves the business
 
-COMPONENT NAMING: Use PascalCase component names only (e.g. "HeroSection", "FeatureGrid", "PricingCard"). No implementation details.
+COMPONENT NAMING: Use PascalCase names only (e.g. "HeroSection", "FeatureGrid", "PricingCard").
+CONTENT ELEMENTS: Name the slot, never the copy. Write "headline", not "AI-Powered Contract Review".
+BEHAVIOR: Describe the rule, never the implementation. Write "fade in on scroll", not "opacity-0 → opacity-1".
 
 OUTPUT: Return ONLY a valid JSON object matching this exact schema. No markdown, no explanation, no code fences, no <think> tags.
 
@@ -73,8 +81,23 @@ OUTPUT: Return ONLY a valid JSON object matching this exact schema. No markdown,
     {
       "route": "/",
       "purpose": "one sentence describing the page goal",
-      "components": ["ComponentName", "ComponentName"],
-      "priority": "primary" | "secondary"
+      "priority": "primary" | "secondary",
+      "components": [
+        {
+          "name": "HeroSection",
+          "purpose": "establish value proposition and drive primary CTA click",
+          "layout": "split hero with text left and product visual right",
+          "contentElements": ["headline", "supporting paragraph", "primary CTA", "trust badge"],
+          "behavior": ["fade in on load with staggered children", "stacks vertically below 768px"]
+        },
+        {
+          "name": "FeatureGrid",
+          "purpose": "communicate key product capabilities",
+          "layout": "3-column icon-card grid",
+          "contentElements": ["section heading", "feature card × 3 (icon, title, description)"],
+          "behavior": ["cards animate into view on scroll", "collapses to single column on mobile"]
+        }
+      ]
     }
   ],
   "designSystem": {
@@ -315,15 +338,77 @@ router.post(
       }
 
       // Fix: runtime schema guard — validate required fields before emitting.
-      // extractJson succeeds but the model may omit required keys.
+      // extractJson succeeds but the model may omit required keys or produce
+      // null/non-object entries; all property accesses are guarded to avoid throws.
       const schemaErrors: string[] = [];
-      if (!blueprint || typeof blueprint !== "object") schemaErrors.push("root is not an object");
-      if (!blueprint.projectType)                       schemaErrors.push("missing projectType");
-      if (!Array.isArray(blueprint.pages) || blueprint.pages.length === 0)
-                                                        schemaErrors.push("missing or empty pages");
-      if (!blueprint.designSystem || typeof blueprint.designSystem !== "object")
-                                                        schemaErrors.push("missing designSystem");
-      if (!blueprint.architectRationale)                schemaErrors.push("missing architectRationale");
+
+      if (!blueprint || typeof blueprint !== "object") {
+        schemaErrors.push("root is not an object");
+      } else {
+        if (!blueprint.projectType)
+          schemaErrors.push("missing projectType");
+        if (!blueprint.architectRationale)
+          schemaErrors.push("missing architectRationale");
+        if (!blueprint.designSystem || typeof blueprint.designSystem !== "object")
+          schemaErrors.push("missing designSystem");
+
+        if (!Array.isArray(blueprint.pages) || blueprint.pages.length === 0) {
+          schemaErrors.push("missing or empty pages");
+        } else {
+          blueprint.pages.forEach((page, pi) => {
+            // Guard: page entry itself may be null or non-object
+            if (!page || typeof page !== "object") {
+              schemaErrors.push(`pages[${pi}] is not an object`);
+              return;
+            }
+            const route = typeof page.route === "string" ? page.route : `[${pi}]`;
+
+            if (!Array.isArray(page.components) || page.components.length === 0) {
+              schemaErrors.push(`pages[${pi}] (${route}) has no components`);
+              return;
+            }
+
+            page.components.forEach((comp: unknown, ci: number) => {
+              const id = `pages[${pi}].components[${ci}]`;
+
+              // Plain strings: legacy format — explicit rejection with clear message
+              if (typeof comp === "string") {
+                schemaErrors.push(
+                  `${id} is a plain string ("${comp}") — expected an object with name/purpose/layout/contentElements/behavior`
+                );
+                return;
+              }
+
+              // Guard: comp must be a non-null object before any property access
+              if (!comp || typeof comp !== "object") {
+                schemaErrors.push(`${id} is not an object (got ${comp === null ? "null" : typeof comp})`);
+                return;
+              }
+
+              const c = comp as Record<string, unknown>;
+
+              // Required string fields — must be non-empty strings
+              for (const field of ["name", "purpose", "layout"] as const) {
+                if (typeof c[field] !== "string" || !(c[field] as string).trim()) {
+                  schemaErrors.push(`${id} missing or empty "${field}"`);
+                }
+              }
+
+              // Required array fields — must be arrays of strings
+              for (const field of ["contentElements", "behavior"] as const) {
+                if (!Array.isArray(c[field])) {
+                  schemaErrors.push(`${id} "${field}" is not an array`);
+                } else {
+                  const nonStrings = (c[field] as unknown[]).filter(item => typeof item !== "string");
+                  if (nonStrings.length > 0) {
+                    schemaErrors.push(`${id} "${field}" contains ${nonStrings.length} non-string item(s)`);
+                  }
+                }
+              }
+            });
+          });
+        }
+      }
 
       if (schemaErrors.length > 0) {
         req.log.error(

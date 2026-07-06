@@ -24,10 +24,24 @@ export interface BusinessContext {
 // The Architect Agent's output — an engineering architecture document.
 // NOT HTML. NOT a template schema. NOT marketing copy.
 // Describes what to build and why; the Code Agent decides how.
+
+// ─── BlueprintComponent ───────────────────────────────────────────────────────
+// Rich per-component specification that removes ambiguity for the Code Agent.
+// Every field is architectural intent, never implementation (no code/CSS/copy).
+export interface BlueprintComponent {
+  name:            string;    // PascalCase component name, e.g. "HeroSection"
+  purpose:         string;    // One sentence: what this component achieves for the user
+  layout:          string;    // Visual/structural description, e.g. "split hero, text left, visual right"
+  contentElements: string[];  // Content slots inside this component (no copy, just slot names)
+                              // e.g. ["headline", "supporting paragraph", "primary CTA", "trust badge"]
+  behavior:        string[];  // Interaction/animation/responsive rules
+                              // e.g. ["fade in on load", "responsive stacking on mobile"]
+}
+
 export interface BlueprintPage {
   route:       string;
   purpose:     string;
-  components:  string[];
+  components:  BlueprintComponent[];   // Rich component specs, not just names
   priority:    "primary" | "secondary";
 }
 
