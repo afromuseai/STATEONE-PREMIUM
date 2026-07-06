@@ -254,6 +254,16 @@ function AgentGraph({ agents, dataFlow, replayStep, executionLog, isReplaying }:
   )
 }
 
+// Module-scoped typewriter progress cache — mirrors the identical fix applied to
+// automation-builder.tsx. Marcus navigation to /orchestrator can trigger a genuine
+// double-mount (two independent mount cycles a few ms apart, each with its own
+// private marcusPopulateRef/marcusTypewriterRef). If the first (throwaway)
+// instance's interval is torn down after only a tick or two, the surviving
+// instance resumes typing from where it left off instead of restarting from 0 or
+// freezing. Keyed by the idea text itself, not by component instance. Local to
+// the typewriter only — does not touch ExecutionBus, Marcus, generation, or save.
+let _orchestratorTypewriterProgress: { text: string; index: number } | null = null
+
 export default function OrchestratorPage() {
   const [goal, setGoal] = useState("")
   const [businessContext, setBusinessContext] = useState("")
@@ -337,15 +347,27 @@ export default function OrchestratorPage() {
     if (!text) return
     marcusPopulateRef.current = ""
     console.log("ORCHESTRATOR_POPULATE_4 | typewriter started | length:", text.length, "| first 80:", text.slice(0, 80))
-    setGoal("")
+
+    // Resume from a previous (possibly torn-down) mount's progress on the same
+    // idea text, instead of always restarting from 0. See module-level comment
+    // above the component for why this is necessary.
     let i = 0
+    if (_orchestratorTypewriterProgress && _orchestratorTypewriterProgress.text === text) {
+      i = _orchestratorTypewriterProgress.index
+    } else {
+      _orchestratorTypewriterProgress = { text, index: 0 }
+    }
+    setGoal(text.slice(0, i))
+
     if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
     marcusTypewriterRef.current = setInterval(() => {
       i++
+      _orchestratorTypewriterProgress = { text, index: i }
       setGoal(text.slice(0, i))
       if (i >= text.length) {
         clearInterval(marcusTypewriterRef.current!)
         marcusTypewriterRef.current = null
+        _orchestratorTypewriterProgress = null
         console.log("ORCHESTRATOR_POPULATE_5 | textarea fully populated | length:", text.length)
         cacheConsumedIdea("orchestrator", text)
       }
