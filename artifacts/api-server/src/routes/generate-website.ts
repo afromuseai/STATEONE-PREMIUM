@@ -603,7 +603,12 @@ async function streamNvidiaRequest(
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };
 
-  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", { method: "POST", headers, body: makeBody(model) });
+  // 90-second timeout matches the copilot route — prevents undici from hanging
+  // indefinitely when NVIDIA is slow and throwing "TypeError: fetch failed".
+  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST", headers, body: makeBody(model),
+    signal: AbortSignal.timeout(90_000),
+  });
   if (!response.ok) {
     const errorText = await response.text();
     req.log.error({ model, status: response.status, errorText }, "NVIDIA API error");
@@ -695,7 +700,10 @@ async function callModelJson(
     return JSON.stringify(body);
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };
-  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", { method: "POST", headers, body: makeBody(model) });
+  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST", headers, body: makeBody(model),
+    signal: AbortSignal.timeout(60_000),
+  });
   if (!response.ok) throw new Error(`Model ${model} call failed: ${response.status}`);
   // With thinking enabled, final answer is in content; reasoning_content holds the thinking trace (ignored here)
   const data = await response.json() as { choices?: Array<{ message?: { content?: string; reasoning_content?: string } }> };
@@ -742,6 +750,9 @@ async function generateHeroImage(prompt: string): Promise<string | null> {
         size: "1344x768",
         response_format: "b64_json",
       }),
+      // 30-second timeout — image generation is a single non-streaming request;
+      // if FLUX doesn't respond in time we gracefully return null (no hero image).
+      signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) return null;
     const data = await response.json() as { data?: Array<{ b64_json?: string }> };
@@ -1099,7 +1110,12 @@ router.post("/generate/website", requireAuth, requireFeature("website_generator"
         res, req, 6500, 0.88
       );
     } catch (err) {
-      res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`); res.end(); return;
+      const isTimeout = (err as Error).name === "TimeoutError" || (err as Error).name === "AbortError";
+      const userMsg = isTimeout
+        ? "Website generation timed out — the AI service is busy. Please try again."
+        : "Connection to AI service failed — please try again.";
+      req.log.error({ err: String(err), isTimeout }, "streamNvidiaRequest failed (website orchestration)");
+      res.write(`data: ${JSON.stringify({ error: userMsg })}\n\n`); res.end(); return;
     }
 
     let orchestrationData: Record<string, unknown>;
@@ -1197,7 +1213,12 @@ router.post("/generate/website/section", requireAuth, requireFeature("website_ge
         res, req, 1500, 0.88
       );
     } catch (err) {
-      res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`); res.end(); return;
+      const isTimeout = (err as Error).name === "TimeoutError" || (err as Error).name === "AbortError";
+      const userMsg = isTimeout
+        ? "Section generation timed out — please try again."
+        : "Connection to AI service failed — please try again.";
+      req.log.error({ err: String(err), isTimeout }, "streamNvidiaRequest failed (website section)");
+      res.write(`data: ${JSON.stringify({ error: userMsg })}\n\n`); res.end(); return;
     }
 
     try {
