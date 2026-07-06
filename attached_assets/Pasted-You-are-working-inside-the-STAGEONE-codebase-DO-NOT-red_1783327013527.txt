@@ -1,0 +1,173 @@
+You are working inside the STAGEONE codebase.
+
+DO NOT redesign architecture.
+
+DO NOT refactor working BI or Website modules.
+
+Only fix broken lifecycle consistency across modules.
+
+---
+
+# CURRENT STATE (TRUTH SOURCE)
+
+These two modules are correct:
+
+✔ Business Intelligence — FULL lifecycle working
+✔ Website Generator — FULL lifecycle working
+
+They are the reference implementation.
+
+All other modules must match their behavior EXACTLY.
+
+---
+
+# PROBLEMS TO FIX
+
+## 1. Chatbot — FAILING AFTER CONFIRMATION
+
+Flow occurs correctly:
+
+navigate → populate → confirmation → execute
+
+BUT fails at:
+
+❌ "Failed to parse response"
+
+Root issue:
+Chatbot is still dependent on LLM output parsing or workspace tag parsing.
+
+---
+
+### REQUIRED FIX (CHATBOT)
+
+- Remove ALL parsing-based execution logic:
+  - extractWorkspaceTags
+  - JSON.parse response handling
+  - any LLM structured output dependency
+
+- Chatbot MUST use ExecutionBus completion lifecycle ONLY
+
+- Chatbot generation MUST be triggered ONLY via:
+
+  bus.execute({
+    module: "chatbot",
+    action: "generate",
+    payload: { idea }
+  })
+
+- Chatbot must NOT stop execution due to parsing failure
+
+- Chatbot must ALWAYS complete via:
+  controller.generate(context)
+
+- Add fallback:
+
+  const idea = bridge.getCurrentIdea() || context?.businessIdea || ""
+
+---
+
+## 2. AUTOMATION + ORCHESTRATOR — NAVIGATION ONLY (BROKEN)
+
+They navigate and populate, but DO NOT execute generation.
+
+---
+
+### REQUIRED FIX (AUTOMATION + ORCHESTRATOR)
+
+Ensure BOTH modules:
+
+- dispatch action: "generate"
+- call controller.generate()
+- pass payload.idea through ExecutionBus
+
+If missing ANY of these:
+→ FIX immediately
+
+---
+
+## 3. CONFIRMATION FLOW MUST MATCH WEBSITE + BI
+
+After user says "Yes":
+
+MUST ALWAYS:
+
+- call bus.approve()
+- resume ExecutionBus
+- trigger controller.generate()
+
+NO EXCEPTIONS.
+
+If "Yes" does not trigger generate:
+→ BUG
+
+---
+
+## 4. CRITICAL ARCHITECTURE RULE
+
+ONLY THESE MODULES ARE VALID REFERENCES:
+
+✔ Business Intelligence (working)
+✔ Website Generator (working)
+
+ALL OTHER MODULES MUST MATCH THEM EXACTLY.
+
+---
+
+## 5. REQUIRED DEBUG LOGS (ADD TEMPORARILY)
+
+Add logs in chatbot, automation, orchestrator:
+
+[FLOW] module received generate
+[FLOW] idea payload received
+[FLOW] controller.generate called
+[FLOW] execution completed OR failed reason
+
+---
+
+Add in chatbot specifically:
+
+[CHATBOT PARSE RESULT] (should NEVER exist if fixed)
+
+---
+
+## 6. SUCCESS CRITERIA
+
+Chatbot must:
+
+navigate → populate → confirm → generate → stream → save
+
+Automation must:
+
+navigate → populate → confirm → generate → stream → save
+
+Orchestrator must:
+
+navigate → populate → confirm → generate → stream → save
+
+---
+
+## 7. DO NOT TOUCH
+
+- BI module
+- Website module
+- ExecutionBus core logic
+- Bridge architecture
+- SSE streaming engine
+
+ONLY fix inconsistent modules.
+
+---
+
+# FINAL GOAL
+
+All modules must behave identically:
+
+BI = reference
+Website = reference
+Chatbot = must match
+Automation = must match
+Orchestrator = must match
+
+NO parsing-based execution allowed anywhere.
+
+END.
