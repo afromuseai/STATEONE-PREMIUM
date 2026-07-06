@@ -637,6 +637,8 @@ export function CopilotPanel() {
   const streamingRef = useRef(false);
   // Tracks the last bi_idea payload so generate_intelligence can always carry it forward
   const lastBiIdeaRef = useRef<string>("");
+  // Tracks the last chatbot idea payload so generate_chatbot can always carry it forward
+  const lastChatbotIdeaRef = useRef<string>("");
   // Tracks the last automation_idea payload so generate_automation can recover it
   const lastAutomationIdeaRef = useRef<string>("");
   // Tracks the last orchestrator_idea payload so generate_orchestrator can recover it
@@ -1114,8 +1116,11 @@ export function CopilotPanel() {
           }
           emitWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea });
         } else if (activeModule === "chatbot") {
-          // Same pattern as website/automation/orchestrator idea handlers.
+          // Same pattern as bi/automation/orchestrator idea handlers.
           const idea_c = idea;
+          // Track last chatbot idea so generate_chatbot can recover it even if this
+          // command fires in a separate stream chunk (mirrors lastBiIdeaRef pattern).
+          lastChatbotIdeaRef.current = idea_c;
           if (currentProject) {
             saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
           }
@@ -1152,11 +1157,19 @@ export function CopilotPanel() {
         }
       } else if (command === "generate_chatbot") {
         console.log("[ExecutionBus] generate_chatbot → bus.execute({ module: chatbot, action: generate })");
+        // Ensure idea is reachable when the bus navigates to the chatbot page and it mounts
+        // fresh. The mount effect calls consumePendingIntent("chatbot") before the bridge
+        // registers, so writing the intent here lets getCurrentIdea() return the correct value
+        // even when the chatbot idea command fired in a prior stream chunk (mirrors
+        // the generate_intelligence pattern exactly).
+        if (lastChatbotIdeaRef.current) {
+          setPendingIntent({ type: "chatbot", idea: lastChatbotIdeaRef.current });
+        }
         const traceId = tracer.startExecution("chatbot");
         tracer.logStage(traceId, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "generate_chatbot" } });
         import("@/lib/execution-bus").then(({ bus }) => {
           tracer.logStage(traceId, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "chatbot", action: "generate" } });
-          bus.execute({ module: "chatbot", action: "generate", payload: { _traceId: traceId } }).catch((err) => {
+          bus.execute({ module: "chatbot", action: "generate", payload: { idea: lastChatbotIdeaRef.current, _traceId: traceId } }).catch((err) => {
             console.warn("[ExecutionBus] generate_chatbot failed:", err);
           });
         });

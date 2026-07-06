@@ -133,6 +133,11 @@ export default function ChatbotGeneratorPage() {
   // Marcus execution engine refs
   const descTextareaRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Stable idea ref set synchronously in bridge.populate() — mirrors marcusBiIdeaRef in the
+  // BI module. bridge.getCurrentIdea() reads this ref so the chatbot controller always gets
+  // the full idea string regardless of whether the typewriter animation has finished writing
+  // it into React state (and businessDescRef) yet.
+  const chatbotIdeaRef = useRef<string>("")
   // Keep current state values accessible inside signal callbacks without re-subscribing
   const businessDescRef = useRef(businessDesc)
   const chatbotTypeRef = useRef(chatbotType)
@@ -199,6 +204,11 @@ export default function ChatbotGeneratorPage() {
     outputField: "chatbotOutput",
     getIdea: () => businessDescRef.current,
     onPopulate: (idea, animate) => {
+      // Update stable ref immediately at ALL ingress points — pending intent, queued
+      // workspace signals, and live signals all flow through onPopulate. This mirrors
+      // BI's marcusBiIdeaRef pattern so getCurrentIdea() is never empty regardless of
+      // whether the typewriter has finished writing to React state yet.
+      if (idea) chatbotIdeaRef.current = idea
       if (animate) {
         typewriterPopulate(idea)
       } else {
@@ -220,6 +230,10 @@ export default function ChatbotGeneratorPage() {
       navigate: () => setLocation("/chatbot-generator"),
       populate: (idea, onComplete) => {
         if (!idea) { onComplete(); return }
+        // Store idea synchronously — mirrors marcusBiIdeaRef in the BI bridge.
+        // This ensures getCurrentIdea() returns the full idea string immediately,
+        // even if the typewriter animation hasn't finished writing to React state yet.
+        chatbotIdeaRef.current = idea
         populateCompleteCallbackRef.current = onComplete
         typewriterPopulate(idea)
       },
@@ -231,12 +245,14 @@ export default function ChatbotGeneratorPage() {
         if (!latestDataRef.current) return
         await ensureProject({
           type: "chatbot",
-          idea: businessDescRef.current || "Chatbot",
+          idea: chatbotIdeaRef.current || businessDescRef.current || "Chatbot",
           outputField: "chatbotOutput",
           output: latestDataRef.current as unknown as Record<string, unknown>,
         }).catch(() => {})
       },
-      getCurrentIdea: () => businessDescRef.current,
+      // Use the stable ref first (set synchronously on populate) then fall back to
+      // the React-state mirror — exactly how BI uses marcusBiIdeaRef.
+      getCurrentIdea: () => chatbotIdeaRef.current || businessDescRef.current,
     })
     return () => {
       unregisterBridge(bridgeRegId)
