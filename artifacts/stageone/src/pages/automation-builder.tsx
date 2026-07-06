@@ -386,6 +386,7 @@ export default function AutomationBuilderPage() {
     getIdea: () => businessDescRef.current,
     onPopulate: (idea, animate) => {
       intentHandledRef.current = true
+      businessDescRef.current = idea
       if (animate) {
         marcusPopulateRef.current = idea
         setMarcusPopulateTick(t => t + 1)
@@ -452,6 +453,7 @@ export default function AutomationBuilderPage() {
     const desc = buildAutomationDesc(ctx)
     const wt = deriveWorkflowType(ctx.automations)
     console.log("AUTOMATION_TRACE: Textarea populated (BI fallback) | desc length:", desc.length, "| workflowType:", wt)
+    businessDescRef.current = desc
     setBusinessDesc(desc)
     setWorkflowType(wt)
     setContextBanner(true)
@@ -505,10 +507,11 @@ export default function AutomationBuilderPage() {
   // The bridge exposes this page's live handlers so automationController can delegate
   // without duplicating any generation logic.
   useEffect(() => {
-    registerBridge({
+    const bridgeRegId = registerBridge({
       navigate: () => setLocation("/automation-builder"),
       populate: (idea, onComplete) => {
         if (!idea) { onComplete(); return }
+        businessDescRef.current = idea
         populateIdeaRef.current = idea
         populateCompleteCallbackRef.current = onComplete
         setPopulateTick(t => t + 1)
@@ -529,7 +532,7 @@ export default function AutomationBuilderPage() {
       getCurrentIdea: () => businessDescRef.current,
     })
     return () => {
-      unregisterBridge()
+      unregisterBridge(bridgeRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -599,9 +602,13 @@ export default function AutomationBuilderPage() {
               await completeGeneration(msg.data as unknown as Record<string, unknown>, businessDescRef.current || "Automation workflow")
               // Phase 5: resolve the bridge's triggerGenerate Promise only after
               // SSE streaming, saveToProject, and UI update are fully done.
+              // return immediately — matches Website's pattern of exiting the generation
+              // function as soon as the done block completes, preventing any further
+              // SSE message processing after the stream has signalled completion.
               const completeCb = generateCompleteCallbackRef.current
               generateCompleteCallbackRef.current = null
               completeCb?.()
+              return
             }
           } catch { /* fragment */ }
         }

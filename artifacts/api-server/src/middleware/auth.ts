@@ -25,12 +25,12 @@ export interface ImpersonationPayload {
 }
 
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, JWT_SECRET!, { expiresIn: "7d" });
 }
 
 export function verifyToken(token: string): JwtPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JwtPayload;
+    return jwt.verify(token, JWT_SECRET!) as unknown as JwtPayload;
   } catch {
     return null;
   }
@@ -38,7 +38,7 @@ export function verifyToken(token: string): JwtPayload | null {
 
 function verifyImpersonationToken(token: string): ImpersonationPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as ImpersonationPayload;
+    const decoded = jwt.verify(token, JWT_SECRET!) as unknown as ImpersonationPayload;
     if (!decoded.isImpersonation) return null;
     return decoded;
   } catch {
@@ -46,7 +46,7 @@ function verifyImpersonationToken(token: string): ImpersonationPayload | null {
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token = req.cookies?.token ?? req.headers.authorization?.replace("Bearer ", "");
   if (!token) {
     res.status(401).json({ error: "Unauthorized" });
@@ -72,35 +72,28 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   // ── Suspension check ─────────────────────────────────────────────────────
-  // Suspended users cannot access generation or premium features.
-  // Check is async-deferred so it does not slow down the happy path.
-  // Billing/support routes are excluded via the allowSuspended route flag.
-  Promise.resolve().then(async () => {
-    if ((req as SuspensionAwareRequest)._suspensionChecked) return; // already checked
-    try {
-      const [row] = await db
-        .select({ isSuspended: usersTable.isSuspended, suspendedReason: usersTable.suspendedReason })
-        .from(usersTable)
-        .where(eq(usersTable.id, payload.userId))
-        .limit(1);
+  // Suspended users cannot access any protected routes.
+  // Awaited before next() so handlers never execute for suspended accounts.
+  try {
+    const [row] = await db
+      .select({ isSuspended: usersTable.isSuspended, suspendedReason: usersTable.suspendedReason })
+      .from(usersTable)
+      .where(eq(usersTable.id, payload.userId))
+      .limit(1);
 
-      if (row?.isSuspended) {
-        if (!res.headersSent) {
-          res.status(403).json({
-            error: "Account suspended",
-            reason: row.suspendedReason ?? "Your account has been suspended. Contact support.",
-            suspended: true,
-          });
-        }
-        return;
-      }
-    } catch {
-      // DB unavailable — allow request to continue
+    if (row?.isSuspended) {
+      res.status(403).json({
+        error: "Account suspended",
+        reason: row.suspendedReason ?? "Your account has been suspended. Contact support.",
+        suspended: true,
+      });
+      return;
     }
-  });
+  } catch {
+    // DB unavailable — allow request to continue
+  }
 
   req.user = payload;
-  (req as SuspensionAwareRequest)._suspensionChecked = true;
   next();
 }
 

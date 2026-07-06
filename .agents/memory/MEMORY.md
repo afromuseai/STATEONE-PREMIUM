@@ -7,3 +7,6 @@
 - [Six missing capability fixes](six-capability-fixes.md) — #4 email, #5 onboarding, #6 error tracking, #8 retention analytics, #9 RBAC, #10 referral program all implemented; ErrorBoundary must live inside AuthProvider not outside it
 - [Generator orchestration standardization](generator-orchestration-std.md) — chatbot+automation migrated to useGeneratorOrchestration hook; website/BI/orchestrator received targeted event+save fixes; BI draft→active status promotion must be explicit after ensureProject
 - [Execution trace system](execution-trace-system.md) — 12-stage tracer wired additively across all 5 generator modules; guard every call with `if (traceId)`, log 11/12 inline for orchestrator/BI which don't use the shared hook
+- [Website Generator canonical reference](website-generator-canonical.md) — Website is the locked reference; never touch ExecutionBus, controller registration, bridge lifecycle, or shared orchestration without a demonstrated Website regression first
+- [Chatbot bridge lifecycle](chatbot-bridge-lifecycle.md) — every early-return in generateWith must call the completion ref or triggerGenerate hangs; 5 exits identified
+- [Website save reliability](website-save-reliability.md) — capture projectId before fetch; server echoes _projectId; done handler restores context if cleared during stream

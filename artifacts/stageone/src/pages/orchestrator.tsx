@@ -298,6 +298,7 @@ export default function OrchestratorPage() {
     // Marcus Copilot: consume pendingIntent written by orchestrator_idea command
     const intent = consumePendingIntent("orchestrator")
     if (intent?.idea) {
+      goalRef.current = intent.idea
       cacheConsumedIdea("orchestrator", intent.idea)
       console.log("ORCHESTRATOR_TRACE: consumed pendingIntent | idea:", intent.idea.slice(0, 60))
       // Always use typewriter animation — generation is triggered exclusively by ExecutionBus
@@ -359,6 +360,7 @@ export default function OrchestratorPage() {
     for (const qs of queued) {
       if (qs.type === "populate" && qs.payload?.trim()) {
         console.log("ORCHESTRATOR_POPULATE_3 | queued signal drained | payload length:", qs.payload.length)
+        goalRef.current = qs.payload
         marcusPopulateRef.current = qs.payload
         setMarcusPopulateTick(t => t + 1)
       }
@@ -367,6 +369,7 @@ export default function OrchestratorPage() {
       if (signal.target !== "orchestrator") return
       if (signal.type === "populate" && signal.payload) {
         console.log("ORCHESTRATOR_POPULATE_3 | live signal received | payload length:", signal.payload.length)
+        goalRef.current = signal.payload
         cacheConsumedIdea("orchestrator", signal.payload)
         marcusPopulateRef.current = signal.payload
         setMarcusPopulateTick(t => t + 1)
@@ -376,8 +379,8 @@ export default function OrchestratorPage() {
 
   // Register orchestrator controller and bridge so the ExecutionBus can drive this page.
   useEffect(() => {
-    registerController("orchestrator", orchestratorController)
-    registerBridge({
+    const ctrlRegId = registerController("orchestrator", orchestratorController)
+    const bridgeRegId = registerBridge({
       navigate: () => navigate("/orchestrator"),
       populate: (idea, onComplete) => {
         setGoal(idea)
@@ -401,8 +404,8 @@ export default function OrchestratorPage() {
       getCurrentIdea: () => goalRef.current,
     })
     return () => {
-      unregisterController("orchestrator")
-      unregisterBridge()
+      unregisterController("orchestrator", ctrlRegId)
+      unregisterBridge(bridgeRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -488,6 +491,10 @@ export default function OrchestratorPage() {
                 })
               }
               traceOutcome = { success: true }
+              // return immediately — matches Website's pattern of exiting as soon as
+              // the done block completes. The finally block fires next and resolves
+              // the bridge's triggerGenerate() Promise via generateCompleteCallbackRef.
+              return
             }
           } catch { /* fragment */ }
         }

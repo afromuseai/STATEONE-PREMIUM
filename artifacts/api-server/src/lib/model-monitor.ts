@@ -7,8 +7,7 @@ import { logger } from "./logger";
 
 // ─── Provider map ─────────────────────────────────────────────────────────────
 const MODEL_PROVIDER: Record<string, string> = {
-  "qwen/qwen3.5-397b-a17b":                      "NVIDIA NIM / Qwen",
-  "qwen/qwen3.5-122b-a10b":                       "NVIDIA NIM / Qwen",
+  "nvidia/nemotron-3-ultra-550b-a55b":            "NVIDIA NIM / Nemotron",
   "nvidia/llama-3.3-nemotron-super-49b-v1":       "NVIDIA NIM / Nemotron",
   "meta/llama-4-maverick-17b-128e-instruct":      "NVIDIA NIM / Meta",
   "deepseek-ai/deepseek-v4-flash":                "NVIDIA NIM / DeepSeek",
@@ -19,8 +18,7 @@ const MODEL_PROVIDER: Record<string, string> = {
 // ─── Cost per 1K tokens (USD) — estimated NVIDIA NIM pricing ──────────────────
 // Input cost, Output cost
 const MODEL_COST_PER_1K: Record<string, [number, number]> = {
-  "qwen/qwen3.5-397b-a17b":                [0.00020, 0.00060],
-  "qwen/qwen3.5-122b-a10b":                [0.00008, 0.00020],
+  "nvidia/nemotron-3-ultra-550b-a55b":      [0.00050, 0.00150],
   "nvidia/llama-3.3-nemotron-super-49b-v1":[0.00010, 0.00040],
   "meta/llama-4-maverick-17b-128e-instruct":[0.00005, 0.00015],
   "deepseek-ai/deepseek-v4-flash":          [0.00003, 0.00010],

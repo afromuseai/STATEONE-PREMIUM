@@ -54,6 +54,11 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   hidden?: boolean;
+  // uiHidden: excluded from the visible chat UI but still sent to the API
+  // (unlike `hidden` which removes the message from both UI and API payload).
+  // Use for system-triggered recovery prompts that Marcus must see but the
+  // user should never see attributed to themselves.
+  uiHidden?: boolean;
 }
 
 interface DetectedAction {
@@ -637,6 +642,8 @@ export function CopilotPanel() {
   const streamingRef = useRef(false);
   // Tracks the last bi_idea payload so generate_intelligence can always carry it forward
   const lastBiIdeaRef = useRef<string>("");
+  // Tracks the last chatbot idea payload so generate_chatbot can always carry it forward
+  const lastChatbotIdeaRef = useRef<string>("");
   // Tracks the last automation_idea payload so generate_automation can recover it
   const lastAutomationIdeaRef = useRef<string>("");
   // Tracks the last orchestrator_idea payload so generate_orchestrator can recover it
@@ -1114,8 +1121,11 @@ export function CopilotPanel() {
           }
           emitWorkspaceSignal({ target: "intelligence", type: "populate", payload: idea });
         } else if (activeModule === "chatbot") {
-          // Same pattern as website/automation/orchestrator idea handlers.
+          // Same pattern as bi/automation/orchestrator idea handlers.
           const idea_c = idea;
+          // Track last chatbot idea so generate_chatbot can recover it even if this
+          // command fires in a separate stream chunk (mirrors lastBiIdeaRef pattern).
+          lastChatbotIdeaRef.current = idea_c;
           if (currentProject) {
             saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
           }
@@ -1152,11 +1162,19 @@ export function CopilotPanel() {
         }
       } else if (command === "generate_chatbot") {
         console.log("[ExecutionBus] generate_chatbot → bus.execute({ module: chatbot, action: generate })");
+        // Ensure idea is reachable when the bus navigates to the chatbot page and it mounts
+        // fresh. The mount effect calls consumePendingIntent("chatbot") before the bridge
+        // registers, so writing the intent here lets getCurrentIdea() return the correct value
+        // even when the chatbot idea command fired in a prior stream chunk (mirrors
+        // the generate_intelligence pattern exactly).
+        if (lastChatbotIdeaRef.current) {
+          setPendingIntent({ type: "chatbot", idea: lastChatbotIdeaRef.current });
+        }
         const traceId = tracer.startExecution("chatbot");
         tracer.logStage(traceId, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "generate_chatbot" } });
         import("@/lib/execution-bus").then(({ bus }) => {
           tracer.logStage(traceId, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "chatbot", action: "generate" } });
-          bus.execute({ module: "chatbot", action: "generate", payload: { _traceId: traceId } }).catch((err) => {
+          bus.execute({ module: "chatbot", action: "generate", payload: { idea: lastChatbotIdeaRef.current, _traceId: traceId } }).catch((err) => {
             console.warn("[ExecutionBus] generate_chatbot failed:", err);
           });
         });
@@ -1379,7 +1397,7 @@ export function CopilotPanel() {
 
   // ─── Send message ─────────────────────────────────────────────────────────────
   const sendMessage = useCallback(
-    async (text?: string) => {
+    async (text?: string, opts?: { uiHidden?: boolean }) => {
       const content = (text ?? input).trim();
       if (!content || streaming) return;
 
@@ -1396,7 +1414,9 @@ export function CopilotPanel() {
       setInput("");
       setShowCommands(false);
       setPendingAction(null);
-      const userMsg: Message = { role: "user", content };
+      // uiHidden: system-triggered messages (e.g. recovery prompts) must reach
+      // the API so Marcus has context, but must NOT appear as a user bubble.
+      const userMsg: Message = { role: "user", content, ...(opts?.uiHidden ? { uiHidden: true } : {}) };
       const newMessages = [...messages, userMsg];
       setMessages(newMessages);
       setStreaming(true);
@@ -1503,7 +1523,9 @@ export function CopilotPanel() {
       console.log(`[Marcus:recovery] stageone:noIdeaForGeneration received | type: ${type}`);
       if (type !== "website") return;
       setTimeout(() => {
-        sendMessage("The website generator has no idea loaded — please re-prepare the website with the business description.");
+        // uiHidden: this is a system-triggered recovery prompt, not user input.
+        // Marcus must receive it as context but it must NOT appear as a user bubble.
+        sendMessage("The website generator has no idea loaded — please re-prepare the website with the business description.", { uiHidden: true });
       }, 400);
     };
     window.addEventListener("stageone:noIdeaForGeneration", handler);
@@ -1744,7 +1766,10 @@ export function CopilotPanel() {
     if (open && bubble) setBubble(null);
   }, [open, bubble]);
 
-  const visibleMessages = messages.filter((m) => !m.hidden);
+  // hidden: excluded from both UI and API (e.g. silent greeting triggers)
+  // uiHidden: excluded from UI only — message still reaches the API so Marcus
+  //   has full context. Used for system-triggered recovery prompts.
+  const visibleMessages = messages.filter((m) => !m.hidden && !m.uiHidden);
 
   if (isLoading || !user) return null;
 

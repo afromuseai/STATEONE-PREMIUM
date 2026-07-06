@@ -133,6 +133,11 @@ export default function ChatbotGeneratorPage() {
   // Marcus execution engine refs
   const descTextareaRef = useRef<HTMLTextAreaElement>(null)
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Stable idea ref set synchronously in bridge.populate() — mirrors marcusBiIdeaRef in the
+  // BI module. bridge.getCurrentIdea() reads this ref so the chatbot controller always gets
+  // the full idea string regardless of whether the typewriter animation has finished writing
+  // it into React state (and businessDescRef) yet.
+  const chatbotIdeaRef = useRef<string>("")
   // Keep current state values accessible inside signal callbacks without re-subscribing
   const businessDescRef = useRef(businessDesc)
   const chatbotTypeRef = useRef(chatbotType)
@@ -199,6 +204,11 @@ export default function ChatbotGeneratorPage() {
     outputField: "chatbotOutput",
     getIdea: () => businessDescRef.current,
     onPopulate: (idea, animate) => {
+      // Update stable ref immediately at ALL ingress points — pending intent, queued
+      // workspace signals, and live signals all flow through onPopulate. This mirrors
+      // BI's marcusBiIdeaRef pattern so getCurrentIdea() is never empty regardless of
+      // whether the typewriter has finished writing to React state yet.
+      if (idea) chatbotIdeaRef.current = idea
       if (animate) {
         typewriterPopulate(idea)
       } else {
@@ -216,10 +226,14 @@ export default function ChatbotGeneratorPage() {
   // No generation logic is duplicated — the bridge is purely a delegation layer.
   // Controller registration is handled by useGeneratorOrchestration above.
   useEffect(() => {
-    registerBridge({
+    const bridgeRegId = registerBridge({
       navigate: () => setLocation("/chatbot-generator"),
       populate: (idea, onComplete) => {
         if (!idea) { onComplete(); return }
+        // Store idea synchronously — mirrors marcusBiIdeaRef in the BI bridge.
+        // This ensures getCurrentIdea() returns the full idea string immediately,
+        // even if the typewriter animation hasn't finished writing to React state yet.
+        chatbotIdeaRef.current = idea
         populateCompleteCallbackRef.current = onComplete
         typewriterPopulate(idea)
       },
@@ -231,15 +245,17 @@ export default function ChatbotGeneratorPage() {
         if (!latestDataRef.current) return
         await ensureProject({
           type: "chatbot",
-          idea: businessDescRef.current || "Chatbot",
+          idea: chatbotIdeaRef.current || businessDescRef.current || "Chatbot",
           outputField: "chatbotOutput",
           output: latestDataRef.current as unknown as Record<string, unknown>,
         }).catch(() => {})
       },
-      getCurrentIdea: () => businessDescRef.current,
+      // Use the stable ref first (set synchronously on populate) then fall back to
+      // the React-state mirror — exactly how BI uses marcusBiIdeaRef.
+      getCurrentIdea: () => chatbotIdeaRef.current || businessDescRef.current,
     })
     return () => {
-      unregisterBridge()
+      unregisterBridge(bridgeRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -419,7 +435,12 @@ export default function ChatbotGeneratorPage() {
   const generateWith = async (desc: string, type: string, ind: string, tn: string) => {
     // ── Stage G ──────────────────────────────────────────────────────────────────
     console.log("GENERATE_CHATBOT_FUNCTION_ENTERED | descLength:", desc.trim().length, "| type:", type, "| ind:", ind, "| tn:", tn);
-    if (!desc.trim()) return
+    if (!desc.trim()) {
+      // Resolve bridge promise immediately — no generation will happen
+      generateCompleteCallbackRef.current?.()
+      generateCompleteCallbackRef.current = null
+      return
+    }
     console.log("MARCUS_STAGE_8_CONFIRMED | trigger: auto-generate | descLength:", desc.trim().length, "| chatbotType:", type, "| industry:", ind, "| tone:", tn);
     setGenError(""); setStep("generating")
     abortRef.current = new AbortController()
@@ -459,6 +480,9 @@ export default function ChatbotGeneratorPage() {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("input")
           traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
+          // Resolve bridge promise so the lifecycle doesn't hang on upgrade gate
+          generateCompleteCallbackRef.current?.()
+          generateCompleteCallbackRef.current = null
           return
         }
       }
@@ -488,7 +512,14 @@ export default function ChatbotGeneratorPage() {
               }
               buffer += msg.content
             }
-            if (msg.error) { setGenError(msg.error); setStep("input"); traceOutcome = { success: false, reason: msg.error }; return }
+            if (msg.error) {
+              setGenError(msg.error); setStep("input")
+              traceOutcome = { success: false, reason: msg.error }
+              // Bug 3 fix: resolve bridge promise on error so generate.complete fires
+              generateCompleteCallbackRef.current?.()
+              generateCompleteCallbackRef.current = null
+              return
+            }
             if (msg.done && msg.data) {
               const out = msg.data as ChatbotOutput
               // ── Stage J ────────────────────────────────────────────────────────
@@ -510,9 +541,12 @@ export default function ChatbotGeneratorPage() {
           } catch { /* fragment */ }
         }
       }
+      // Stream closed without a done event — resolve bridge so the lifecycle doesn't hang
       setGenError("Generation ended unexpectedly. Please try again.")
       setStep("input")
       traceOutcome = { success: false, reason: "stream ended without completion data" }
+      generateCompleteCallbackRef.current?.()
+      generateCompleteCallbackRef.current = null
     } catch (e: unknown) {
       if (e instanceof Error && e.name !== "AbortError") {
         setGenError("Generation failed — please try again")
@@ -521,6 +555,9 @@ export default function ChatbotGeneratorPage() {
       } else if (e instanceof Error) {
         traceOutcome = { success: false, reason: "aborted" }
       }
+      // Bug 3 fix: always resolve bridge promise — even on abort/throw
+      generateCompleteCallbackRef.current?.()
+      generateCompleteCallbackRef.current = null
     } finally {
       if (traceId && traceOutcome) {
         tracer.endExecution(traceId, traceOutcome.success, traceOutcome.reason)

@@ -239,8 +239,7 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
         model: MODELS.CHATBOT,
         messages: [{ role: "system", content: SYSTEM_PROMPT + getLanguageInstruction(language) }, { role: "user", content: userMessage }],
         temperature: 0.7,
-        maxTokens: 8000,
-        nvextParams: { thinking: { enabled: false } },
+        maxTokens: 16000, // chatbot schema is large; 8000 caused truncation / parse failures
       });
     } catch (err) {
       req.log.error({ err, model: MODELS.CHATBOT }, `[AI:${MODELS.CHATBOT}] Chatbot stream failed`);

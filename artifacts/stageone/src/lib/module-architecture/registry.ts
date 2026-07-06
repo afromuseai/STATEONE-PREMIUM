@@ -42,6 +42,7 @@ export function registerController(id: ModuleId, controller: ModuleController): 
   const regId = ++_regIdCounter;
   _registry.set(id, controller);
   _regIds.set(id, regId);
+  console.log(`[PROBE] CONTROLLER_REGISTER | module=${id} | registrationId=${regId}`);
   _registrationHandlers.forEach((h) => {
     try { h(id, controller); } catch (err) {
       console.error('[ModuleRegistry] registration handler threw:', err);
@@ -58,7 +59,16 @@ export function registerController(id: ModuleId, controller: ModuleController): 
  * No-op if the module was not registered.
  */
 export function unregisterController(id: ModuleId, registrationId?: number): void {
-  if (registrationId !== undefined && _regIds.get(id) !== registrationId) return;
+  const currentRegId = _regIds.get(id);
+  if (registrationId !== undefined && currentRegId !== registrationId) {
+    console.log(
+      `[PROBE] CONTROLLER_UNREGISTER | module=${id} | registrationId=${registrationId} | currentRegId=${currentRegId} | SKIPPED (stale cleanup)`
+    );
+    return;
+  }
+  console.log(
+    `[PROBE] CONTROLLER_UNREGISTER | module=${id} | registrationId=${registrationId ?? '(none)'} | currentRegId=${currentRegId} | CLEARED`
+  );
   _registry.delete(id);
   _regIds.delete(id);
 }

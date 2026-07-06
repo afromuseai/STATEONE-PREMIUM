@@ -8,7 +8,7 @@ import {
 import { useDashboardShell } from "@/components/dashboard/dashboard-shell"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { buildPreviewHtml, buildNextjsProject, type WebsiteOutput } from "@/lib/website-html-generator"
-import { loadGenerationContext, clearGenerationContext, loadProjectContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea, dequeueWorkspaceSignals } from "@/lib/generation-context"
+import { loadGenerationContext, clearGenerationContext, loadProjectContext, saveProjectContext, clearProjectContext, consumeCopilotAutorun, consumePendingIntent, cacheConsumedIdea, dequeueWorkspaceSignals } from "@/lib/generation-context"
 import { ensureProject } from "@/lib/ensure-project"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
@@ -199,6 +199,12 @@ export default function WebsiteGeneratorPage() {
       populate: (idea, onComplete) => {
         console.log('[PROBE] WEBSITE_BRIDGE_POPULATE | idea:', JSON.stringify(idea?.slice(0, 60)), '| empty?', !idea)
         if (!idea) { onComplete(); return }
+        // Write to the stable synchronous ref FIRST — mirrors the pending-intent and
+        // workspace-signal paths which already do this.  The controller calls
+        // getCurrentIdea() immediately after registration, before the typewriter effect
+        // runs, so ideaRef (state-derived) would still be stale without this.
+        marcusWebsiteIdeaRef.current = idea
+        ideaRef.current = idea
         populateCompleteCallbackRef.current = onComplete
         marcusPopulateRef.current = idea
         setMarcusPopulateTick(t => t + 1)
@@ -211,12 +217,19 @@ export default function WebsiteGeneratorPage() {
         if (!latestDataRef.current) return
         await ensureProject({
           type: "website",
-          idea: ideaRef.current,
+          // ideaRef.current leads: it is now set synchronously on EVERY ingress path
+          // (including bridge.populate above) AND tracks user textarea edits via the
+          // useEffect mirror.  marcusWebsiteIdeaRef is belt-and-suspenders only.
+          idea: ideaRef.current || marcusWebsiteIdeaRef.current,
           outputField: "websiteOutput",
           output: latestDataRef.current as unknown as Record<string, unknown>,
         }).catch(() => {})
       },
-      getCurrentIdea: () => ideaRef.current,
+      // ideaRef.current is now synchronously updated at every ingress point (bridge
+      // populate writes it directly before the typewriter tick) AND stays current as
+      // the user types.  marcusWebsiteIdeaRef is a fallback for any edge-case window
+      // where ideaRef hasn't been written yet.
+      getCurrentIdea: () => ideaRef.current || marcusWebsiteIdeaRef.current,
     })
     const _controllerRegId = registerController("website", websiteController)
     return () => {
@@ -444,6 +457,12 @@ export default function WebsiteGeneratorPage() {
     console.log("WEBSITE_FLOW:5 generateWithIdea started | idea (first 80):", ideaOverride.slice(0, 80))
     setStep("generating")
     abortRef.current = new AbortController()
+    // Bug 2 fix: capture projectId from context NOW (before fetch) so it isn't
+    // lost if the context is cleared during the stream.
+    const _capturedCtx = loadProjectContext()
+    const _capturedProjectId = (_capturedCtx?.continuityMode === "continuation" && _capturedCtx?.projectId)
+      ? _capturedCtx.projectId
+      : null
     let buffer = ""
     const traceId = tracer.getActiveExecutionId("website")
     let traceOutcome: { success: boolean; reason?: string } | null = null
@@ -459,7 +478,7 @@ export default function WebsiteGeneratorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idea: ideaOverride.trim(), style, tone }),
+        body: JSON.stringify({ idea: ideaOverride.trim(), style, tone, projectId: _capturedProjectId }),
         signal: abortRef.current.signal,
       })
       console.log("WEBSITE_FLOW:5a fetch response status:", res.status)
@@ -507,6 +526,18 @@ export default function WebsiteGeneratorPage() {
             if (msg.done && msg.data) {
               console.log("WEBSITE_FLOW:6 generation completed | data keys:", Object.keys(msg.data as object).join(","))
               const out = msg.data as WebsiteOutput
+              // Bug 2 fix: if context was cleared during stream, restore it so
+              // ensureProject can patch the correct project rather than creating a new one.
+              const _serverProjectId = (msg as Record<string, unknown>)._projectId as string | undefined
+              const _resolvedProjectId = _serverProjectId ?? _capturedProjectId
+              if (_resolvedProjectId && !loadProjectContext()?.projectId) {
+                saveProjectContext({
+                  projectId: _resolvedProjectId,
+                  projectTitle: ideaOverride.length > 60 ? `${ideaOverride.slice(0, 60)}…` : ideaOverride,
+                  continuityMode: "continuation",
+                  source: "Website Generator",
+                })
+              }
               setData(out)
               updatePreview(out)
               setStep("done")

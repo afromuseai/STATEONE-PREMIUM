@@ -25,12 +25,12 @@ export interface ImpersonationPayload {
 }
 
 export function signImpersonationToken(payload: ImpersonationPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: IMPERSONATION_TTL_SECONDS });
+  return jwt.sign(payload, JWT_SECRET!, { expiresIn: IMPERSONATION_TTL_SECONDS });
 }
 
 export function verifyImpersonationToken(token: string): (ImpersonationPayload & { exp: number }) | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as ImpersonationPayload & { exp: number };
+    const decoded = jwt.verify(token, JWT_SECRET!) as unknown as ImpersonationPayload & { exp: number };
     if (!decoded.isImpersonation) return null;
     return decoded;
   } catch {

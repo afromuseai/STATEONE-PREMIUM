@@ -59,14 +59,14 @@ export const automationController: ModuleController = {
    * Emits generate.started immediately before the API request and
    * generate.complete only after streaming, saving, and UI update are all done.
    */
-  async generate(): Promise<void> {
+  async generate(context?: ModuleContext): Promise<void> {
     const bridge = getBridge();
     if (!bridge) {
       console.warn('[AutomationController] generate() — bridge not registered; is the Automation page mounted?');
       return;
     }
 
-    const idea = bridge.getCurrentIdea();
+    const idea = bridge.getCurrentIdea() || context?.businessIdea || '';
     emitLifecycleEvent('generate.started', 'automation', { idea });
 
     await bridge.triggerGenerate(idea);

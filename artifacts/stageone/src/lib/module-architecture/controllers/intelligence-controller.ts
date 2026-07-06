@@ -58,9 +58,15 @@ export const intelligenceController: ModuleController = {
    * Emits generate.started immediately before the API request and
    * generate.complete only after streaming, saving, and UI update are all done.
    */
-  async generate(): Promise<void> {
+  async generate(context?: ModuleContext): Promise<void> {
     const bridge = getBridge();
+
+    console.log(
+      `[PROBE] BI_CONTROLLER_GENERATE | bridge=${bridge ? 'PRESENT' : 'NULL'} | context.businessIdea="${(context as ModuleContext | undefined)?.businessIdea ?? '(none)'}" | bridge.getCurrentIdea()="${bridge ? bridge.getCurrentIdea() : '(bridge null)'}"`
+    );
+
     if (!bridge) {
+      console.log('[PROBE] BI_GENERATE_ABORT | reason=bridge missing');
       console.warn('[IntelligenceController] generate() — bridge not registered; is the BI page mounted?');
       return;
     }

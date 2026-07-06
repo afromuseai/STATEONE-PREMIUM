@@ -39,13 +39,34 @@ export interface IntelligenceBridge {
 
 let _bridge: IntelligenceBridge | null = null;
 
+// Monotonically increasing counter. Each call to registerBridge gets a unique ID.
+// unregisterBridge(id) is a no-op when id !== _currentRegId, which prevents a
+// stale cleanup (from a concurrently unmounted duplicate fiber) from nullifying
+// the registration of the live instance.
+let _currentRegId = 0;
+
 /** Called by BusinessIntelligencePage on mount to register its handlers. */
-export function registerBridge(bridge: IntelligenceBridge): void {
+export function registerBridge(bridge: IntelligenceBridge): number {
+  const id = ++_currentRegId;
+  console.log(
+    `[PROBE] BI_BRIDGE_REGISTER | registrationId=${id} | bridge=${bridge ? 'INSTANCE' : 'null'}`
+  );
   _bridge = bridge;
+  return id;
 }
 
 /** Called by BusinessIntelligencePage on unmount to clean up. */
-export function unregisterBridge(): void {
+export function unregisterBridge(registrationId: number): void {
+  const isStale = _currentRegId !== registrationId;
+  if (isStale) {
+    console.log(
+      `[PROBE] BI_BRIDGE_UNREGISTER | registrationId=${registrationId} | currentRegId=${_currentRegId} | SKIPPED (stale cleanup) | caller=useEffect cleanup`
+    );
+    return;
+  }
+  console.log(
+    `[PROBE] BI_BRIDGE_UNREGISTER | registrationId=${registrationId} | currentRegId=${_currentRegId} | CLEARED | caller=useEffect cleanup`
+  );
   _bridge = null;
 }
 

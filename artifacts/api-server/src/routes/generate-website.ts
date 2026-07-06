@@ -394,7 +394,7 @@ function selectDesignVariant(industry: string, idea: string, seedOffset = 0): st
   return pool[idx];
 }
 
-// ─── Orchestration Layer System Prompt (Qwen — strategy + creative direction) ─
+// ─── Orchestration Layer System Prompt (Nemotron Ultra — strategy + creative direction) ─
 // componentCode is intentionally excluded — the Implementation Layer (Mistral) handles that
 const BASE_SYSTEM_PROMPT = `You are STAGEONE's Creative Orchestration Intelligence — the strategic brain of a layered AI creative pipeline.
 
@@ -592,16 +592,23 @@ async function streamNvidiaRequest(
       max_tokens: maxTokens,
       stream: true,
     };
-    // Thinking models output to delta.reasoning_content by default — disable thinking
-    // so structured JSON goes to delta.content where the parser expects it.
-    // Note: DeepSeek uses {"thinking": false}, others use {"enable_thinking": false}
+    // Thinking models separate reasoning from content in SSE:
+    //   delta.reasoning_content → internal thinking (forwarded as {thinking:…} signals)
+    //   delta.content           → final answer (accumulated into contentBuffer)
+    // DeepSeek uses {"thinking": false}; nemotron-3-ultra uses {"enable_thinking": true/false}
     if (modelId.includes("deepseek")) body.chat_template_kwargs = { thinking: false };
-    else if (modelId.includes("qwen") || modelId.includes("step") || modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: false };
+    else if (modelId.includes("step")) body.chat_template_kwargs = { enable_thinking: false };
+    else if (modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: true, reasoning_budget: 16384 };
     return JSON.stringify(body);
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };
 
-  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", { method: "POST", headers, body: makeBody(model) });
+  // 90-second timeout matches the copilot route — prevents undici from hanging
+  // indefinitely when NVIDIA is slow and throwing "TypeError: fetch failed".
+  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST", headers, body: makeBody(model),
+    signal: AbortSignal.timeout(90_000),
+  });
   if (!response.ok) {
     const errorText = await response.text();
     req.log.error({ model, status: response.status, errorText }, "NVIDIA API error");
@@ -614,6 +621,8 @@ async function streamNvidiaRequest(
 
   let contentBuffer = "";
   let lineCarryover = "";
+  let thinkingSignalSent = false;
+  let thinkingEndSignalSent = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -627,8 +636,18 @@ async function streamNvidiaRequest(
       if (data === "[DONE]") continue;
       try {
         const parsed = JSON.parse(data);
-        const content = parsed.choices?.[0]?.delta?.content;
+        const delta = parsed.choices?.[0]?.delta;
+        const content = delta?.content;
+        const reasoning = delta?.reasoning_content;
+        if (reasoning && !thinkingSignalSent) {
+          thinkingSignalSent = true;
+          res.write(`data: ${JSON.stringify({ thinking: true })}\n\n`);
+        }
         if (content) {
+          if (thinkingSignalSent && !thinkingEndSignalSent) {
+            thinkingEndSignalSent = true;
+            res.write(`data: ${JSON.stringify({ thinking: false })}\n\n`);
+          }
           contentBuffer += content;
           res.write(`data: ${JSON.stringify({ content })}\n\n`);
         }
@@ -641,7 +660,7 @@ async function streamNvidiaRequest(
 
 function extractJson(raw: string): unknown {
   let clean = raw.trim();
-  // Strip Qwen3 <think>...</think> blocks
+  // Strip <think>...</think> blocks emitted by reasoning models
   clean = clean.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
   if (clean.startsWith("```json")) clean = clean.slice(7);
   else if (clean.startsWith("```")) clean = clean.slice(3);
@@ -676,13 +695,18 @@ async function callModelJson(
       stream: false,
     };
     if (modelId.includes("deepseek")) body.chat_template_kwargs = { thinking: false };
-    else if (modelId.includes("qwen") || modelId.includes("step") || modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: false };
+    else if (modelId.includes("step")) body.chat_template_kwargs = { enable_thinking: false };
+    else if (modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: true, reasoning_budget: 16384 };
     return JSON.stringify(body);
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };
-  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", { method: "POST", headers, body: makeBody(model) });
+  const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST", headers, body: makeBody(model),
+    signal: AbortSignal.timeout(60_000),
+  });
   if (!response.ok) throw new Error(`Model ${model} call failed: ${response.status}`);
-  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+  // With thinking enabled, final answer is in content; reasoning_content holds the thinking trace (ignored here)
+  const data = await response.json() as { choices?: Array<{ message?: { content?: string; reasoning_content?: string } }> };
   return data.choices?.[0]?.message?.content ?? "";
 }
 
@@ -726,6 +750,9 @@ async function generateHeroImage(prompt: string): Promise<string | null> {
         size: "1344x768",
         response_format: "b64_json",
       }),
+      // 30-second timeout — image generation is a single non-streaming request;
+      // if FLUX doesn't respond in time we gracefully return null (no hero image).
+      signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) return null;
     const data = await response.json() as { data?: Array<{ b64_json?: string }> };
@@ -1070,8 +1097,8 @@ router.post("/generate/website", requireAuth, requireFeature("website_generator"
     // Signal which model is handling orchestration
     res.write(`data: ${JSON.stringify({ phase: "generating", designVariant, model: ORCHESTRATION_MODEL })}\n\n`);
 
-    // ─── Phase 1: Orchestration (Qwen streams to client) ─────────────────────
-    // Qwen generates all strategic content: copy, sections, colors, typography, brand, SEO
+    // ─── Phase 1: Orchestration (Nemotron Ultra streams to client) ───────────
+    // Nemotron Ultra generates all strategic content: copy, sections, colors, typography, brand, SEO
     const { getLanguageInstruction } = await import("../lib/language");
     const langInstruction = getLanguageInstruction(language);
     let buffer = "";
@@ -1083,24 +1110,29 @@ router.post("/generate/website", requireAuth, requireFeature("website_generator"
         res, req, 6500, 0.88
       );
     } catch (err) {
-      res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`); res.end(); return;
+      const isTimeout = (err as Error).name === "TimeoutError" || (err as Error).name === "AbortError";
+      const userMsg = isTimeout
+        ? "Website generation timed out — the AI service is busy. Please try again."
+        : "Connection to AI service failed — please try again.";
+      req.log.error({ err: String(err), isTimeout }, "streamNvidiaRequest failed (website orchestration)");
+      res.write(`data: ${JSON.stringify({ error: userMsg })}\n\n`); res.end(); return;
     }
 
-    let qwenData: Record<string, unknown>;
+    let orchestrationData: Record<string, unknown>;
     try {
-      qwenData = extractJson(buffer) as Record<string, unknown>;
+      orchestrationData = extractJson(buffer) as Record<string, unknown>;
     } catch (parseErr) {
-      req.log.error({ parseErr, bufLen: buffer.length }, "Qwen JSON parse failed");
+      req.log.error({ parseErr, bufLen: buffer.length }, "Orchestration JSON parse failed");
       res.write(`data: ${JSON.stringify({ error: "Failed to parse website blueprint — please try again" })}\n\n`);
       res.end(); return;
     }
 
     // Inject pipeline metadata
-    qwenData.designVariant = designVariant;
-    qwenData._industry = industry;
-    qwenData._variantSeed = seedOffset;
+    orchestrationData.designVariant = designVariant;
+    orchestrationData._industry = industry;
+    orchestrationData._variantSeed = seedOffset;
     // V4.5: Inject design space label for diversity tracking
-    qwenData._designSpace = VARIANT_TO_DESIGN_SPACE[designVariant] ?? designVariant;
+    orchestrationData._designSpace = VARIANT_TO_DESIGN_SPACE[designVariant] ?? designVariant;
 
     // ─── Phase 2: FLUX hero image ──────────────────────────────────────────────
     // The design template engine (client-side) handles layout — no AI HTML needed.
@@ -1110,11 +1142,13 @@ router.post("/generate/website", requireAuth, requireFeature("website_generator"
 
     const imagePrompt = buildImagePrompt(idea, industry, designVariant);
     const heroImage = await generateHeroImage(imagePrompt);
-    if (heroImage) qwenData._heroImage = heroImage;
+    if (heroImage) orchestrationData._heroImage = heroImage;
 
     req.log.info({ designVariant, heroImageGenerated: !!heroImage }, "Website generation complete");
 
-    res.write(`data: ${JSON.stringify({ done: true, data: qwenData, pipeline: { orchestration: ORCHESTRATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage } })}\n\n`);
+    // Bug 2 fix: echo back projectId so the frontend can restore context if it was
+    // cleared during the stream (avoids creating a duplicate project on save).
+    res.write(`data: ${JSON.stringify({ done: true, data: orchestrationData, _projectId: (projectId as string | undefined) ?? null, pipeline: { orchestration: ORCHESTRATION_MODEL, imaging: IMAGE_MODEL, heroImageGenerated: !!heroImage } })}\n\n`);
 
     logEventFireForget({ userId, projectId: projectId as string | undefined, type: "website_generated", data: {}, req });
     trackUsageFireForget(userId, "websiteGenerations");
@@ -1124,7 +1158,7 @@ router.post("/generate/website", requireAuth, requireFeature("website_generator"
       projectId as string | undefined,
       userId,
       idea,
-      qwenData,
+      orchestrationData,
     ).catch(() => {});
 
     res.end();
@@ -1179,7 +1213,12 @@ router.post("/generate/website/section", requireAuth, requireFeature("website_ge
         res, req, 1500, 0.88
       );
     } catch (err) {
-      res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`); res.end(); return;
+      const isTimeout = (err as Error).name === "TimeoutError" || (err as Error).name === "AbortError";
+      const userMsg = isTimeout
+        ? "Section generation timed out — please try again."
+        : "Connection to AI service failed — please try again.";
+      req.log.error({ err: String(err), isTimeout }, "streamNvidiaRequest failed (website section)");
+      res.write(`data: ${JSON.stringify({ error: userMsg })}\n\n`); res.end(); return;
     }
 
     try {

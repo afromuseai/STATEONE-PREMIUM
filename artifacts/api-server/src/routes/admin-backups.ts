@@ -109,9 +109,8 @@ router.post("/admin/backups", requireAdmin, async (req, res) => {
       .returning();
 
     Promise.resolve().then(() => db.insert(adminAuditLogsTable).values({
-      adminId: req.user!.userId, action: "create_backup",
-      targetType: "backup", targetId: backup.id,
-      metadata: { backupType: backup.backupType, label: backup.label },
+      adminId: req.user!.userId, adminEmail: req.user!.email, action: "create_backup",
+      details: { targetType: "backup", targetId: backup.id, backupType: backup.backupType, label: backup.label },
     }));
 
     res.status(201).json({ ok: true, backup });
@@ -122,7 +121,7 @@ router.post("/admin/backups", requireAdmin, async (req, res) => {
 
 // ─── PATCH /api/admin/backups/:id ─────────────────────────────────────────────
 router.patch("/admin/backups/:id", requireAdmin, async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const parsed = UpdateBackupBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
@@ -141,7 +140,7 @@ router.patch("/admin/backups/:id", requireAdmin, async (req, res) => {
   try {
     const [backup] = await db
       .update(backupsTable)
-      .set(updates as Parameters<typeof backupsTable.$inferInsert>[0])
+      .set(updates as any)
       .where(eq(backupsTable.id, id))
       .returning();
 
@@ -154,7 +153,7 @@ router.patch("/admin/backups/:id", requireAdmin, async (req, res) => {
 
 // ─── DELETE /api/admin/backups/:id ────────────────────────────────────────────
 router.delete("/admin/backups/:id", requireAdmin, async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   try {
     const [deleted] = await db.delete(backupsTable).where(eq(backupsTable.id, id)).returning({ id: backupsTable.id });
     if (!deleted) { res.status(404).json({ error: "Backup not found" }); return; }

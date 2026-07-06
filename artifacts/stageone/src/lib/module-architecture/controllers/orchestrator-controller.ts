@@ -57,14 +57,14 @@ export const orchestratorController: ModuleController = {
    * Emits generate.started immediately before the API request and
    * generate.complete only after streaming, saving, and UI update are all done.
    */
-  async generate(): Promise<void> {
+  async generate(context?: ModuleContext): Promise<void> {
     const bridge = getBridge();
     if (!bridge) {
       console.warn('[OrchestratorController] generate() — bridge not registered; is the Orchestrator page mounted?');
       return;
     }
 
-    const idea = bridge.getCurrentIdea();
+    const idea = bridge.getCurrentIdea() || context?.businessIdea || '';
     emitLifecycleEvent('generate.started', 'orchestrator', { idea });
 
     await bridge.triggerGenerate(idea);

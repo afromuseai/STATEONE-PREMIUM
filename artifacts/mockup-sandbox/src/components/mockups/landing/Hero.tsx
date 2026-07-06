@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, type Variants } from "framer-motion";
 import { 
   ArrowRight, 
   BarChart3, 
@@ -17,12 +17,12 @@ import {
 } from "lucide-react";
 
 // --- ANIMATION VARIANTS ---
-const fadeUp = {
+const fadeUp: Variants = {
   hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }
+  visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] } }
 };
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -33,7 +33,8 @@ const staggerContainer = {
   }
 };
 
-const glowAnim = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const glowAnim: Record<string, any> = {
   initial: { opacity: 0.5, scale: 0.9 },
   animate: { 
     opacity: [0.4, 0.8, 0.4], 
