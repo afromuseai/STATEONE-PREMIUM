@@ -462,6 +462,16 @@ export default function AutomationBuilderPage() {
 
   // Phase 2 — Start generation after state propagation is confirmed by businessDesc change
   useEffect(() => {
+    // Guard: never fire while the Marcus typewriter is still actively typing into
+    // businessDesc. Without this guard, a leftover/stale autoGenPending (e.g. from
+    // a BI GenerationContext fallback set earlier in this mount) can be picked up by
+    // the very FIRST character committed by the typewriter, firing generateWith with
+    // a 1-character businessDesc and switching step to "generating" — which is what
+    // made the typewriter appear to stop after only the first character.
+    if (marcusTypewriterRef.current) {
+      console.log("TYPEWRITER_STOP | reason: Phase 2 skipped — typewriter still active | businessDescLength:", businessDesc.length)
+      return
+    }
     if (!autoGenPending.current || !businessDesc.trim() || autoGenFired.current) {
       console.log("AUTOMATION_TRACE: Phase 2 | skipped |",
         "autoGenPending:", !!autoGenPending.current,
@@ -484,22 +494,34 @@ export default function AutomationBuilderPage() {
     if (!text) return
     marcusPopulateRef.current = ""
     console.log("AUTOMATION_POPULATE_4 | typewriter started | length:", text.length, "| first 80:", text.slice(0, 80))
+    console.log("TYPEWRITER_START | tick:", marcusPopulateTick, "| textLength:", text.length)
+    console.log("TYPEWRITER_TEXT_LENGTH |", text.length)
     setBusinessDesc("")
     setContextBanner(true)
     let i = 0
-    if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
+    if (marcusTypewriterRef.current) {
+      console.log("TYPEWRITER_STOP | reason: clearing pre-existing interval before starting new one | priorIntervalId:", marcusTypewriterRef.current)
+      clearInterval(marcusTypewriterRef.current)
+    }
     marcusTypewriterRef.current = setInterval(() => {
       i++
+      console.log("TYPEWRITER_TICK | index:", i, "| char:", JSON.stringify(text[i - 1]))
+      console.log("TYPEWRITER_INDEX |", i, "/", text.length)
       setBusinessDesc(text.slice(0, i))
       if (i >= text.length) {
+        console.log("TYPEWRITER_STOP | reason: reached end of text | finalIndex:", i, "| intervalId:", marcusTypewriterRef.current)
         clearInterval(marcusTypewriterRef.current!)
         marcusTypewriterRef.current = null
         console.log("AUTOMATION_POPULATE_5 | textarea fully populated | length:", text.length)
         cacheConsumedIdea("automation", text)
       }
     }, 18)
+    console.log("TYPEWRITER_INTERVAL_ID |", marcusTypewriterRef.current)
     return () => {
-      if (marcusTypewriterRef.current) clearInterval(marcusTypewriterRef.current)
+      if (marcusTypewriterRef.current) {
+        console.log("TYPEWRITER_STOP | reason: effect cleanup (dependency change or unmount) | intervalId:", marcusTypewriterRef.current, "| indexReached:", i, "/", text.length)
+        clearInterval(marcusTypewriterRef.current)
+      }
     }
   }, [marcusPopulateTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
