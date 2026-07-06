@@ -104,6 +104,33 @@ export interface GeneratedProject {
   context:          BusinessContext;
 }
 
+// ─── API response shapes (consumed by Website Studio UI) ─────────────────────
+
+// Lightweight summary returned by GET /api/website-v2/projects (list)
+// Heavy fields (files, blueprint, preview) are omitted here.
+export interface WebsiteProjectSummary {
+  id:          string;
+  projectName: string;
+  status:      string;
+  createdAt:   string;
+  updatedAt:   string;
+}
+
+// Full project returned by GET /api/website-v2/projects/:id
+// Every field needed to power the Website Studio workspace.
+export interface WebsiteProjectResponse {
+  id:              string;
+  projectName:     string;
+  status:          string;
+  businessContext: BusinessContext;
+  blueprint:       WebsiteBlueprint | null;
+  files:           ProjectFile[];
+  dependencies:    string[];
+  preview:         string | null;
+  createdAt:       string;
+  updatedAt:       string;
+}
+
 // ─── SSE event shapes ─────────────────────────────────────────────────────────
 // Typed payloads the V2 route writes to the SSE stream.
 export type V2SseEvent =

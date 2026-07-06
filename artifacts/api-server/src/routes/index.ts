@@ -54,6 +54,7 @@ import referralsRouter from "./referrals";
 import adminErrorsRouter from "./admin-errors";
 import adminRetentionRouter from "./admin-retention";
 import workerRouter from "./worker";
+import websiteV2ProjectsRouter from "./website-v2-projects";
 
 const router: IRouter = Router();
 
@@ -112,5 +113,6 @@ router.use(referralsRouter);
 router.use(adminErrorsRouter);
 router.use(adminRetentionRouter);
 router.use(workerRouter);
+router.use(websiteV2ProjectsRouter);
 
 export default router;

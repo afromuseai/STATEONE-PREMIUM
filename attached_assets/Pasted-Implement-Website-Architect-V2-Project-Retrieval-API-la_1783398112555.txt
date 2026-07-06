@@ -1,0 +1,199 @@
+Implement Website Architect V2 Project Retrieval API layer.
+
+We now have:
+
+Website V2 Generation Pipeline
+
+User Input
+↓
+Business Context
+↓
+Architect Agent
+↓
+Blueprint
+↓
+Code Generator
+↓
+Generated Files
+↓
+website_v2_projects database
+
+
+The next requirement is creating the data access APIs that the future Website Studio UI will consume.
+
+Important:
+
+- Do not modify V1.
+- Do not modify generate-website.ts.
+- Only modify Website Architect V2 files.
+- Keep the architecture additive.
+
+================================================
+
+1. Create project retrieval routes
+
+Create:
+
+artifacts/api-server/src/routes/website-v2-projects.ts
+
+
+Add:
+
+GET /api/website-v2/projects
+
+Purpose:
+Return all Website Architect V2 projects belonging to the authenticated user.
+
+Response:
+
+{
+ projects:[
+   {
+     id,
+     projectName,
+     status,
+     createdAt,
+     updatedAt
+   }
+ ]
+}
+
+
+Do not return full files in the list endpoint.
+
+================================================
+
+2. Add single project retrieval
+
+GET /api/website-v2/projects/:id
+
+
+Purpose:
+
+Load a complete Website Architect V2 project.
+
+Return:
+
+{
+ id,
+ projectName,
+ status,
+
+ businessContext,
+
+ blueprint,
+
+ files,
+
+ dependencies,
+
+ preview,
+
+ createdAt,
+ updatedAt
+}
+
+
+This endpoint will power the future Website Studio workspace.
+
+================================================
+
+3. Add project service methods
+
+Update:
+
+artifacts/api-server/src/lib/website-v2-projects.ts
+
+
+Add:
+
+listProjects(userId)
+
+getProject(projectId,userId)
+
+Security requirements:
+
+- Users can only retrieve their own projects.
+- Return not found if project does not belong to user.
+
+================================================
+
+4. Add route registration
+
+Update:
+
+artifacts/api-server/src/routes/index.ts
+
+
+Mount:
+
+/api/website-v2/projects
+
+
+================================================
+
+5. Add response types
+
+Update:
+
+website-v2-types.ts
+
+Add:
+
+WebsiteProjectSummary
+
+WebsiteProjectResponse
+
+
+================================================
+
+6. Verify database queries
+
+Test:
+
+Create a V2 project.
+
+Generate files.
+
+Call:
+
+GET /api/website-v2/projects
+
+Confirm project appears.
+
+Call:
+
+GET /api/website-v2/projects/:id
+
+Confirm:
+
+- blueprint loads
+- files load
+- preview loads
+
+
+================================================
+
+After implementation report:
+
+1. Files created
+
+2. Files changed
+
+3. API endpoints
+
+4. Example API responses
+
+5. Security checks implemented
+
+6. Any issues discovered
+
+
+Do not build frontend yet.
+
+The next phase after this will be Website Studio UI:
+- project dashboard
+- file explorer
+- code viewer
+- preview workspace
+- AI editing interface.

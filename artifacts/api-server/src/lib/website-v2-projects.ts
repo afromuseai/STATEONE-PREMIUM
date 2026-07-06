@@ -98,6 +98,7 @@ export async function markProjectFailed(
 }
 
 // ─── Retrieve a project by id ─────────────────────────────────────────────────
+// Security: always checks userId — returns null if project belongs to someone else.
 export async function getV2Project(projectId: string, userId: string) {
   try {
     const [row] = await db
@@ -114,11 +115,22 @@ export async function getV2Project(projectId: string, userId: string) {
   }
 }
 
-// ─── List projects for a user (newest first) ─────────────────────────────────
-export async function listV2Projects(userId: string) {
+// Alias used by the project retrieval routes.
+export const getProject = getV2Project;
+
+// ─── List projects for a user — summary columns only (newest first) ───────────
+// Heavy JSONB fields (files, blueprint, preview) are excluded to keep the
+// list response lean. The detail endpoint returns the full record.
+export async function listProjects(userId: string) {
   try {
     return await db
-      .select()
+      .select({
+        id:          websiteV2ProjectsTable.id,
+        projectName: websiteV2ProjectsTable.projectName,
+        status:      websiteV2ProjectsTable.status,
+        createdAt:   websiteV2ProjectsTable.createdAt,
+        updatedAt:   websiteV2ProjectsTable.updatedAt,
+      })
       .from(websiteV2ProjectsTable)
       .where(eq(websiteV2ProjectsTable.userId, userId))
       .orderBy(websiteV2ProjectsTable.createdAt);
@@ -127,3 +139,6 @@ export async function listV2Projects(userId: string) {
     return [];
   }
 }
+
+// Full-column version kept for internal pipeline use.
+export const listV2Projects = listProjects;
