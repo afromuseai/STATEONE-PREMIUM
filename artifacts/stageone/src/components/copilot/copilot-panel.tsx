@@ -54,6 +54,11 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   hidden?: boolean;
+  // uiHidden: excluded from the visible chat UI but still sent to the API
+  // (unlike `hidden` which removes the message from both UI and API payload).
+  // Use for system-triggered recovery prompts that Marcus must see but the
+  // user should never see attributed to themselves.
+  uiHidden?: boolean;
 }
 
 interface DetectedAction {
@@ -1392,7 +1397,7 @@ export function CopilotPanel() {
 
   // ─── Send message ─────────────────────────────────────────────────────────────
   const sendMessage = useCallback(
-    async (text?: string) => {
+    async (text?: string, opts?: { uiHidden?: boolean }) => {
       const content = (text ?? input).trim();
       if (!content || streaming) return;
 
@@ -1409,7 +1414,9 @@ export function CopilotPanel() {
       setInput("");
       setShowCommands(false);
       setPendingAction(null);
-      const userMsg: Message = { role: "user", content };
+      // uiHidden: system-triggered messages (e.g. recovery prompts) must reach
+      // the API so Marcus has context, but must NOT appear as a user bubble.
+      const userMsg: Message = { role: "user", content, ...(opts?.uiHidden ? { uiHidden: true } : {}) };
       const newMessages = [...messages, userMsg];
       setMessages(newMessages);
       setStreaming(true);
@@ -1516,7 +1523,9 @@ export function CopilotPanel() {
       console.log(`[Marcus:recovery] stageone:noIdeaForGeneration received | type: ${type}`);
       if (type !== "website") return;
       setTimeout(() => {
-        sendMessage("The website generator has no idea loaded — please re-prepare the website with the business description.");
+        // uiHidden: this is a system-triggered recovery prompt, not user input.
+        // Marcus must receive it as context but it must NOT appear as a user bubble.
+        sendMessage("The website generator has no idea loaded — please re-prepare the website with the business description.", { uiHidden: true });
       }, 400);
     };
     window.addEventListener("stageone:noIdeaForGeneration", handler);
@@ -1757,7 +1766,10 @@ export function CopilotPanel() {
     if (open && bubble) setBubble(null);
   }, [open, bubble]);
 
-  const visibleMessages = messages.filter((m) => !m.hidden);
+  // hidden: excluded from both UI and API (e.g. silent greeting triggers)
+  // uiHidden: excluded from UI only — message still reaches the API so Marcus
+  //   has full context. Used for system-triggered recovery prompts.
+  const visibleMessages = messages.filter((m) => !m.hidden && !m.uiHidden);
 
   if (isLoading || !user) return null;
 
