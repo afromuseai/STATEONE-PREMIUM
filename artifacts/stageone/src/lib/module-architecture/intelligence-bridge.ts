@@ -58,10 +58,15 @@ export function registerBridge(bridge: IntelligenceBridge): number {
 /** Called by BusinessIntelligencePage on unmount to clean up. */
 export function unregisterBridge(registrationId: number): void {
   const isStale = _currentRegId !== registrationId;
+  if (isStale) {
+    console.log(
+      `[PROBE] BI_BRIDGE_UNREGISTER | registrationId=${registrationId} | currentRegId=${_currentRegId} | SKIPPED (stale cleanup) | caller=useEffect cleanup`
+    );
+    return;
+  }
   console.log(
-    `[PROBE] BI_BRIDGE_UNREGISTER | registrationId=${registrationId} | currentRegId=${_currentRegId} | ${isStale ? 'CLEARED (stale — would be SKIPPED with guard)' : 'CLEARED'} | caller=useEffect cleanup`
+    `[PROBE] BI_BRIDGE_UNREGISTER | registrationId=${registrationId} | currentRegId=${_currentRegId} | CLEARED | caller=useEffect cleanup`
   );
-  // NOTE: guard NOT applied — always clears. Probe only.
   _bridge = null;
 }
 

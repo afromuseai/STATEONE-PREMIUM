@@ -292,10 +292,10 @@ export default function BusinessIntelligencePage() {
       },
       getCurrentIdea: () => marcusBiIdeaRef.current,
     })
-    registerController("intelligence", intelligenceController)
+    const ctrlRegId = registerController("intelligence", intelligenceController)
     return () => {
       unregisterBridge(regId)
-      unregisterController("intelligence")
+      unregisterController("intelligence", ctrlRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
