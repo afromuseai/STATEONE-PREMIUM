@@ -250,6 +250,8 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
     try {
       const rawBuffer = await forwardStream(streamBody, res, MODELS.CHATBOT);
 
+      // ── CHATBOT_PARSE_3 ───────────────────────────────────────────────────────
+      req.log.info({ event: "CHATBOT_PARSE_3", responseType: typeof rawBuffer, responseLength: rawBuffer.length, first500: rawBuffer.slice(0, 500) }, "[CHATBOT] CHATBOT_PARSE_3 raw response");
       req.log.info({ event: "CHATBOT_FLOW_3", rawLength: rawBuffer.length, hasThinkTags: rawBuffer.includes("<think>"), first200: rawBuffer.slice(0, 200) }, "[CHATBOT] CHATBOT_FLOW_3 — raw model response received");
 
       // Strip <think>...</think> reasoning blocks (same as orchestrator route)
@@ -259,9 +261,29 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
 
       let data: unknown;
       try {
+        // ── CHATBOT_PARSE_4 ─────────────────────────────────────────────────────
+        req.log.info({ event: "CHATBOT_PARSE_4", parserFunction: "extractJson", inputLength: stripped.length }, "[CHATBOT] CHATBOT_PARSE_4 entering parser");
         data = extractJson(stripped);
-        req.log.info({ event: "CHATBOT_FLOW_6", hasIdentity: !!(data as Record<string,unknown>)?.identity, hasSystemPrompt: !!(data as Record<string,unknown>)?.systemPrompt, hasFlows: !!(data as Record<string,unknown>)?.conversationFlows, topLevelKeys: Object.keys(data as Record<string,unknown>) }, "[CHATBOT] CHATBOT_FLOW_6 — parsed object");
+        // ── CHATBOT_PARSE_6 ─────────────────────────────────────────────────────
+        const _p6 = data as Record<string, unknown>;
+        req.log.info({
+          event: "CHATBOT_PARSE_6",
+          topLevelKeys: Object.keys(_p6),
+          messageCount: Array.isArray(_p6.messages) ? (_p6.messages as unknown[]).length : undefined,
+          hasIdentity: !!_p6.identity,
+          hasSystemPrompt: !!_p6.systemPrompt,
+          hasFlows: !!_p6.conversationFlows,
+        }, "[CHATBOT] CHATBOT_PARSE_6 parsed successfully");
+        req.log.info({ event: "CHATBOT_FLOW_6", hasIdentity: !!_p6.identity, hasSystemPrompt: !!_p6.systemPrompt, hasFlows: !!_p6.conversationFlows, topLevelKeys: Object.keys(_p6) }, "[CHATBOT] CHATBOT_FLOW_6 — parsed object");
       } catch (parseErr) {
+        // ── CHATBOT_PARSE_5 ─────────────────────────────────────────────────────
+        req.log.error({
+          event: "CHATBOT_PARSE_5",
+          exception: String(parseErr),
+          stack: parseErr instanceof Error ? parseErr.stack : undefined,
+          inputSnippet: stripped.slice(0, 500),
+          inputLength: stripped.length,
+        }, "[CHATBOT] CHATBOT_PARSE_5 parser failed");
         req.log.error({ event: "CHATBOT_FLOW_5", parseErr: String(parseErr), rawLength: stripped.length, rawSample: stripped.slice(0, 500) }, "[CHATBOT] CHATBOT_FLOW_5 — parser error");
         res.write(`data: ${JSON.stringify({ error: "Failed to parse response — please try again" })}\n\n`);
         res.end();
@@ -271,6 +293,8 @@ Make every response, flow, and integration SPECIFIC to this business. This chatb
       res.write(`data: ${JSON.stringify({ done: true, data })}\n\n`);
       req.log.info({ event: "CHATBOT_FLOW_7", note: "Generation complete — client receives data and will call saveToProject()" }, "[CHATBOT] CHATBOT_FLOW_7 — generation delivered to client");
     } catch (streamErr) {
+      // ── CHATBOT_PARSE_STREAM_ERR — failure before parser was ever reached ────
+      req.log.error({ event: "CHATBOT_PARSE_STREAM_ERR", exception: String(streamErr), stack: streamErr instanceof Error ? streamErr.stack : undefined, note: "stream read failed before extractJson — PARSE_3 through PARSE_6 will be absent" }, "[CHATBOT] CHATBOT_PARSE_STREAM_ERR pre-parser stream failure");
       req.log.error({ streamErr, model: MODELS.CHATBOT }, `[AI:${MODELS.CHATBOT}] Chatbot stream read error`);
       if (!res.writableEnded) res.write(`data: ${JSON.stringify({ error: String(streamErr) })}\n\n`);
     }

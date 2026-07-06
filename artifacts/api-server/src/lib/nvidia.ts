@@ -305,8 +305,12 @@ export async function forwardStream(
             tokenCount++;
             res.write(`data: ${JSON.stringify({ content })}\n\n`);
           }
-        } catch {
-          // Incomplete SSE fragment — skip
+        } catch (chunkParseErr) {
+          // Incomplete SSE fragment — log for chatbot parser investigation
+          logger.warn(
+            { layer: "nvidia_trace", model, exception: String(chunkParseErr), rawData: data.slice(0, 200) },
+            `[AI:${model}] [CHATBOT_PARSE_CHUNK] malformed SSE fragment skipped`
+          );
         }
       }
     }

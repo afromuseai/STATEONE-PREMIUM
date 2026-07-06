@@ -435,6 +435,8 @@ export default function ChatbotGeneratorPage() {
   const generateWith = async (desc: string, type: string, ind: string, tn: string) => {
     // ── Stage G ──────────────────────────────────────────────────────────────────
     console.log("GENERATE_CHATBOT_FUNCTION_ENTERED | descLength:", desc.trim().length, "| type:", type, "| ind:", ind, "| tn:", tn);
+    // ── CHATBOT_PARSE_1 ──────────────────────────────────────────────────────────
+    console.log("[CHATBOT_PARSE_1] generateWith started", { descLength: desc.trim().length, chatbotType: type, industry: ind, tone: tn });
     if (!desc.trim()) {
       // Resolve bridge promise immediately — no generation will happen
       generateCompleteCallbackRef.current?.()
@@ -452,6 +454,9 @@ export default function ChatbotGeneratorPage() {
     try {
       // ── Stage H ────────────────────────────────────────────────────────────────
       console.log("GENERATE_CHATBOT_FETCH_START | endpoint: /api/generate/chatbot | descLength:", desc.trim().length, "| type:", type);
+      // ── CHATBOT_PARSE_2 ──────────────────────────────────────────────────────
+      const _parse2Body = JSON.stringify({ businessDescription: desc.trim(), chatbotType: type, tone: tn, industry: ind, language: lang });
+      console.log("[CHATBOT_PARSE_2] request sent", { endpoint: "/api/generate/chatbot", model: "determined by backend (MODELS.CHATBOT)", bodyLength: _parse2Body.length, chatbotType: type, industry: ind, tone: tn, descLength: desc.trim().length });
       if (traceId) {
         tracer.logStage(traceId, 9, "HTTP request", {
           functionName: "generateWith",
@@ -538,7 +543,10 @@ export default function ChatbotGeneratorPage() {
               generateCompleteCallbackRef.current = null
               return
             }
-          } catch { /* fragment */ }
+          } catch (sseParseErr) {
+            // ── CHATBOT_PARSE_SSE_FRAGMENT — frontend SSE JSON parse failure ────
+            console.warn("[CHATBOT_PARSE_SSE_FRAGMENT] frontend SSE JSON.parse failed", { exception: String(sseParseErr), rawLine: line.slice(0, 200) });
+          }
         }
       }
       // Stream closed without a done event — resolve bridge so the lifecycle doesn't hang

@@ -1,0 +1,192 @@
+# STAGEONE CHATBOT PARSER FIX — ISOLATED INVESTIGATION
+
+## IMPORTANT
+
+Do NOT modify:
+
+* Business Intelligence
+* Website Generator
+* Automation Builder
+* AI Orchestrator
+* ExecutionBus
+* Bridge lifecycle
+* Controller registration
+* Confirmation flow
+* Project persistence
+
+Business Intelligence and Website are now considered the canonical working implementations.
+
+This task is **Chatbot only**.
+
+---
+
+# OBSERVED BEHAVIOUR
+
+Current flow:
+
+* Navigate ✅
+* Populate ✅
+* Confirmation ✅
+* Generation starts ✅
+
+Then:
+
+> **"Failed to parse response — please try again."**
+
+This means the Chatbot execution lifecycle is reaching generation, but the failure occurs while processing the model response.
+
+---
+
+# GOAL
+
+Trace the complete Chatbot generation pipeline from the moment `generateWith()` is called until the parser throws.
+
+Do NOT guess.
+
+Instrument every stage.
+
+---
+
+## TRACE THESE STAGES
+
+### Stage 1
+
+Chatbot Generate button / `generateWith()` called
+
+Log:
+
+```ts
+CHATBOT_PARSE_1 generateWith started
+```
+
+---
+
+### Stage 2
+
+Request sent to backend.
+
+Log:
+
+```ts
+CHATBOT_PARSE_2 request sent
+```
+
+Include:
+
+* endpoint
+* payload
+* model
+* request body length
+
+---
+
+### Stage 3
+
+Receive raw response from backend.
+
+Log BEFORE any parsing:
+
+```ts
+CHATBOT_PARSE_3 raw response
+```
+
+Output:
+
+* response type
+* first 500 characters
+* total response length
+
+Do NOT log only parsed JSON.
+
+Log the raw response exactly as received.
+
+---
+
+### Stage 4
+
+Immediately before parsing.
+
+Log:
+
+```ts
+CHATBOT_PARSE_4 entering parser
+```
+
+Show:
+
+* parser function name
+* parser input length
+
+---
+
+### Stage 5
+
+Parser success OR failure.
+
+If failure:
+
+Log:
+
+```ts
+CHATBOT_PARSE_5 parser failed
+```
+
+Include:
+
+* exact exception
+* stack trace
+* offending input snippet
+
+Do NOT replace with a generic "Failed to parse response."
+
+---
+
+### Stage 6
+
+If parsing succeeds:
+
+Log:
+
+```ts
+CHATBOT_PARSE_6 parsed successfully
+```
+
+Show:
+
+* parsed object keys
+* detected message count
+* detected chatbot configuration
+
+---
+
+# INVESTIGATE
+
+Determine exactly which parser is throwing.
+
+Examples:
+
+* JSON.parse()
+* custom extractJson()
+* regex extraction
+* schema validation
+* zod validation
+* markdown stripping
+* code block extraction
+
+Identify the exact function.
+
+---
+
+# IMPORTANT
+
+Do NOT implement a fix yet.
+
+First identify:
+
+1. Which parser fails.
+2. What raw input it receives.
+3. Why that input is invalid.
+
+The deliverable is proof, not a solution.
+
+Do not modify any other module while performing this investigation.
