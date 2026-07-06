@@ -1,0 +1,247 @@
+# STAGEONE WEBSITE ARCHITECT INVESTIGATION — ARCHITECTURE DISCOVERY ONLY
+
+## IMPORTANT
+
+Do NOT modify any code.
+
+Do NOT refactor.
+
+Do NOT improve generation quality.
+
+Do NOT replace models.
+
+Do NOT redesign the Website Architect.
+
+This session is an architectural investigation only.
+
+---
+
+# GOAL
+
+I need to understand the COMPLETE website generation pipeline from user input to rendered website.
+
+I suspect the system is fundamentally JSON-first instead of code-first.
+
+I need proof.
+
+---
+
+# TRACE THE ENTIRE PIPELINE
+
+Starting from the moment the user clicks:
+
+**Generate Website**
+
+Trace every stage until the website is rendered.
+
+Show every function, file, model call, parser, renderer, and transformation.
+
+The complete chain should look something like:
+
+User Input
+
+↓
+
+Controller
+
+↓
+
+API Route
+
+↓
+
+Model
+
+↓
+
+Parser
+
+↓
+
+Renderer
+
+↓
+
+Sandbox
+
+↓
+
+Preview
+
+Replace the placeholders above with the ACTUAL implementation.
+
+---
+
+# FOR EVERY STAGE REPORT
+
+For every stage provide:
+
+* File
+* Function
+* Input
+* Output
+* Data type
+
+Examples:
+
+Stage
+
+File:
+...
+
+Function:
+...
+
+Input:
+...
+
+Output:
+...
+
+Output type:
+
+* string
+* JSON
+* React
+* JSX
+* HTML
+* Markdown
+* AST
+* Other
+
+---
+
+# IDENTIFY THE FIRST STRUCTURED OUTPUT
+
+I want to know the FIRST place where the AI stops reasoning freely.
+
+For example:
+
+Does the model produce:
+
+* React?
+* HTML?
+* JSX?
+* JSON?
+* Section schema?
+* Component schema?
+
+Find the FIRST structured artifact.
+
+This is likely where creative freedom becomes constrained.
+
+---
+
+# IDENTIFY THE RENDERER
+
+Find the renderer responsible for converting AI output into the final website.
+
+Answer:
+
+What exactly does it consume?
+
+Examples:
+
+* JSON
+* Components
+* Templates
+* Variant definitions
+* Layout schema
+
+Then explain:
+
+Does it:
+
+A.
+
+Generate components dynamically?
+
+OR
+
+B.
+
+Map JSON into predefined templates?
+
+Show the exact implementation path.
+
+---
+
+# TEMPLATE INVESTIGATION
+
+Search the Website Architect for:
+
+* templates
+* sections
+* variants
+* layouts
+* hero
+* renderer
+* component maps
+* section registry
+* default sections
+
+If templates exist:
+
+List every location.
+
+Explain exactly how they are selected.
+
+---
+
+# MODEL OUTPUT
+
+Capture ONE real generation.
+
+Without changing anything.
+
+Show the RAW output returned by the model BEFORE any parsing.
+
+I want to see whether the model actually returns:
+
+* React
+* JSON
+* Markdown
+* HTML
+* Structured objects
+
+Do NOT summarize.
+
+Show the raw response.
+
+---
+
+# FINAL DELIVERABLE
+
+Produce:
+
+1. Complete generation pipeline diagram.
+
+2. First structured artifact.
+
+3. Renderer input.
+
+4. Renderer output.
+
+5. Template locations.
+
+6. Raw model response.
+
+7. Root architectural conclusion:
+
+Is the Website Architect:
+
+A.
+
+Code-first
+
+OR
+
+B.
+
+JSON-first
+
+Support the conclusion with evidence from the codebase.
+
+Do NOT implement anything.
+
+This session is architecture discovery only.
