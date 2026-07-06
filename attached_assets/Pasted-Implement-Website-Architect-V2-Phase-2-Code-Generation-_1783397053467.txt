@@ -1,0 +1,158 @@
+Implement Website Architect V2 Phase 2: Code Generation Agent.
+
+Important:
+Do not modify V1.
+Do not modify the existing template renderer.
+Continue building only inside the V2 architecture.
+
+Goal:
+
+Take the WebsiteBlueprint produced by Phase 1 and generate a real Next.js website project.
+
+Architecture:
+
+BusinessContext
++
+WebsiteBlueprint
+
+↓
+
+Code Generation Agent
+
+↓
+
+GeneratedProject
+
+Output:
+
+- Next.js 14 App Router files
+- React components
+- TypeScript
+- Tailwind CSS
+- Framer Motion animations
+- Responsive layouts
+
+The generated project is the source of truth.
+
+The preview HTML is only a temporary visualization layer.
+
+---
+
+Create:
+
+artifacts/api-server/src/lib/website-v2-code-generator.ts
+
+Responsibilities:
+
+- Define CODE_GENERATOR_SYSTEM_PROMPT
+- Receive BusinessContext + WebsiteBlueprint
+- Call existing Nvidia model utilities
+- Stream generation output
+- Parse GeneratedProject JSON
+- Validate required fields
+
+---
+
+Update:
+
+generate-website-v2.ts
+
+Add Phase 2 after blueprint generation:
+
+Current:
+
+Business Context
+↓
+Architect Agent
+↓
+Blueprint SSE event
+
+New:
+
+Business Context
+↓
+Architect Agent
+↓
+Blueprint SSE event
+↓
+Code Generation Agent
+↓
+GeneratedProject SSE event
+
+
+SSE events:
+
+{phase:"building", content:"..."}
+
+{phase:"project", data:GeneratedProject}
+
+
+---
+
+GeneratedProject schema:
+
+{
+ files:{
+   "app/page.tsx":"...",
+   "components/Hero.tsx":"...",
+   "components/Navbar.tsx":"...",
+   "package.json":"..."
+ },
+
+ preview:"..."
+}
+
+
+---
+
+Code Generator rules:
+
+The model must generate:
+
+- actual React components
+- actual TypeScript files
+- actual Tailwind classes
+- reusable components
+- proper Next.js routing
+
+The model must NOT generate:
+
+- WebsiteOutput JSON
+- template definitions
+- HTML-only websites
+- hardcoded renderer structures
+
+---
+
+For the first test:
+
+Use the existing LegalTech blueprint.
+
+Expected output:
+
+app/
+ ├── page.tsx
+ ├── pricing/page.tsx
+ ├── features/page.tsx
+
+components/
+ ├── Navbar.tsx
+ ├── HeroSection.tsx
+ ├── FeatureGrid.tsx
+ ├── PricingTable.tsx
+ ├── DemoForm.tsx
+
+---
+
+After implementation:
+
+Report:
+
+1. Files created
+2. Files changed
+3. Example generated project tree
+4. Generated code sample
+5. Any limitations discovered
+
+Do not implement frontend UI yet.
+Backend pipeline first.
