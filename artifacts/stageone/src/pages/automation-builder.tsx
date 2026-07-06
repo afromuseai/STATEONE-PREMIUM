@@ -386,6 +386,7 @@ export default function AutomationBuilderPage() {
     getIdea: () => businessDescRef.current,
     onPopulate: (idea, animate) => {
       intentHandledRef.current = true
+      businessDescRef.current = idea
       if (animate) {
         marcusPopulateRef.current = idea
         setMarcusPopulateTick(t => t + 1)
@@ -452,6 +453,7 @@ export default function AutomationBuilderPage() {
     const desc = buildAutomationDesc(ctx)
     const wt = deriveWorkflowType(ctx.automations)
     console.log("AUTOMATION_TRACE: Textarea populated (BI fallback) | desc length:", desc.length, "| workflowType:", wt)
+    businessDescRef.current = desc
     setBusinessDesc(desc)
     setWorkflowType(wt)
     setContextBanner(true)
@@ -509,6 +511,7 @@ export default function AutomationBuilderPage() {
       navigate: () => setLocation("/automation-builder"),
       populate: (idea, onComplete) => {
         if (!idea) { onComplete(); return }
+        businessDescRef.current = idea
         populateIdeaRef.current = idea
         populateCompleteCallbackRef.current = onComplete
         setPopulateTick(t => t + 1)

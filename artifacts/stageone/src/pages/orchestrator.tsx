@@ -298,6 +298,7 @@ export default function OrchestratorPage() {
     // Marcus Copilot: consume pendingIntent written by orchestrator_idea command
     const intent = consumePendingIntent("orchestrator")
     if (intent?.idea) {
+      goalRef.current = intent.idea
       cacheConsumedIdea("orchestrator", intent.idea)
       console.log("ORCHESTRATOR_TRACE: consumed pendingIntent | idea:", intent.idea.slice(0, 60))
       // Always use typewriter animation — generation is triggered exclusively by ExecutionBus
@@ -359,6 +360,7 @@ export default function OrchestratorPage() {
     for (const qs of queued) {
       if (qs.type === "populate" && qs.payload?.trim()) {
         console.log("ORCHESTRATOR_POPULATE_3 | queued signal drained | payload length:", qs.payload.length)
+        goalRef.current = qs.payload
         marcusPopulateRef.current = qs.payload
         setMarcusPopulateTick(t => t + 1)
       }
@@ -367,6 +369,7 @@ export default function OrchestratorPage() {
       if (signal.target !== "orchestrator") return
       if (signal.type === "populate" && signal.payload) {
         console.log("ORCHESTRATOR_POPULATE_3 | live signal received | payload length:", signal.payload.length)
+        goalRef.current = signal.payload
         cacheConsumedIdea("orchestrator", signal.payload)
         marcusPopulateRef.current = signal.payload
         setMarcusPopulateTick(t => t + 1)
