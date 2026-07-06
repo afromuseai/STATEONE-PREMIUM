@@ -1,57 +1,77 @@
-# StageOne Premium
+# STAGEONE-PREMIUM
 
-An AI Business Operating System — a full-stack pnpm monorepo with a React/Vite frontend, an Express API server, and shared workspace libraries.
+AI Business Operating System — transforms any business idea into a complete blueprint with strategic analysis, growth plans, website structures, and automation workflows, powered by NVIDIA's Llama 3.1 70B.
 
-## Architecture
+## How to run
 
-| Layer | Location | Port |
-|---|---|---|
-| Frontend (React 19 + Vite + Tailwind) | `artifacts/stageone/` | 5000 |
-| API Server (Express 5 + TypeScript) | `artifacts/api-server/` | 8000 |
-| Database schema & migrations (Drizzle ORM) | `lib/db/` | — |
-| Shared API types / Zod schemas | `lib/api-spec/`, `lib/api-zod/`, `lib/api-client-react/` | — |
-| Mockup sandbox (Shadcn component previews) | `artifacts/mockup-sandbox/` | 8080 |
+All three services start together via the **Project** workflow (the green Run button):
 
-The frontend proxies all `/api` requests to the API server at `localhost:8000`.
+| Service | Port | Command |
+|---------|------|---------|
+| Frontend (Vite / React) | 5000 | `cd artifacts/stageone && PORT=5000 pnpm run dev` |
+| API Server (Express 5) | 8000 | `cd artifacts/api-server && pnpm run dev` |
+| Mockup sandbox (Vite) | 8080 | `cd artifacts/mockup-sandbox && PORT=8080 pnpm run dev` |
 
-## How to Run
-
-Three workflows are pre-configured:
-
-- **Start application** — starts the Vite dev server on port 5000
-- **API Server** — builds and starts the Express server on port 8000
-- **Component Preview Server** — starts the mockup sandbox on port 8080 (start on demand)
-
-## Database
-
-Uses Replit's built-in PostgreSQL (connection via `DATABASE_URL`). Schema is managed with Drizzle Kit.
-
-To push schema changes to the database:
+## First-time setup
 
 ```bash
-cd lib/db && pnpm run push
+pnpm install                           # install all workspace deps
+pnpm --filter @workspace/db run push  # push DB schema to Postgres
 ```
 
-## Required Secrets
+## Stack
 
-| Secret | Purpose |
-|---|---|
-| `JWT_SECRET` | Signs authentication tokens |
-| `NVIDIA_API_KEY` | AI model API access |
+- **Monorepo**: pnpm workspaces (`artifacts/*`, `lib/*`)
+- **Frontend**: React 19, Vite 7, Tailwind v4, Wouter, Radix UI, TanStack Query
+- **API**: Express 5, Drizzle ORM, Postgres (`lib/db`)
+- **AI**: NVIDIA API (meta/llama-3.1-70b-instruct) via SSE streaming
+- **Auth**: JWT sessions (`JWT_SECRET` env var), bcrypt passwords
 
-## Optional Environment Variables
+## Required secrets / env vars
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `SMTP_HOST` | — | Email sending (password reset, notifications) |
-| `SMTP_PORT` | 587 | SMTP port |
-| `SMTP_USER` | — | SMTP username |
-| `SMTP_PASS` | — | SMTP password (set as secret) |
-| `SMTP_FROM` | `noreply@stageone.ai` | Sender address |
-| `LOG_LEVEL` | `info` | Pino log level |
+| Key | Type | Notes |
+|-----|------|-------|
+| `NVIDIA_API_KEY` | Secret | NVIDIA API for all AI generation endpoints |
+| `JWT_SECRET` | Env var (shared) | Signing key for auth tokens — move to secret |
+| `DATABASE_URL` | Runtime-managed | Auto-injected by Replit Postgres |
 
-Without SMTP configured, password reset links are logged to the server console (development only).
+Optional (email features):
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
 
-## User Preferences
+## Where things live
 
-- Keep the existing monorepo structure and pnpm workspace setup.
+```
+artifacts/
+  stageone/           # React frontend (Vite)
+    src/
+      pages/          # landing, login, signup, dashboard, admin, etc.
+      components/     # navbar, footer, landing/, dashboard/ panels
+      lib/            # auth context, API client, hooks
+  api-server/         # Express API
+    src/
+      routes/         # generate, copilot, auth, admin, websites, etc.
+      lib/            # worker, job-handlers, logger
+  mockup-sandbox/     # Canvas component previewer (Vite)
+lib/
+  db/                 # Drizzle schema + pool (DATABASE_URL)
+  api-spec/           # Shared API type definitions
+  api-zod/            # Zod schemas mirroring the API spec
+  api-client-react/   # TanStack Query hooks for the frontend
+```
+
+## Architecture decisions
+
+- Vite dev server proxies `/api/*` → `http://localhost:8000`
+- AI responses stream via `text/event-stream` (SSE) through Express to the frontend
+- Business graph stored in Postgres; Marcus copilot loads it before every response
+- Execution Bus pattern dispatches `generate_*` jobs; results streamed back via SSE
+
+## User preferences
+
+_Populate as you build — explicit user instructions worth remembering across sessions._
+
+## Gotchas
+
+- `JWT_SECRET` is currently a plain env var — should be rotated and moved to Replit Secrets
+- SMTP vars are optional; missing them silently disables email features (no startup error)
+- `admin.tsx` is >500 KB and triggers Babel deopt warning — normal, not a crash
