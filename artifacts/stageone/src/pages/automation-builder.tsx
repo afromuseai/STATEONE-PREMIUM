@@ -505,7 +505,7 @@ export default function AutomationBuilderPage() {
   // The bridge exposes this page's live handlers so automationController can delegate
   // without duplicating any generation logic.
   useEffect(() => {
-    registerBridge({
+    const bridgeRegId = registerBridge({
       navigate: () => setLocation("/automation-builder"),
       populate: (idea, onComplete) => {
         if (!idea) { onComplete(); return }
@@ -529,7 +529,7 @@ export default function AutomationBuilderPage() {
       getCurrentIdea: () => businessDescRef.current,
     })
     return () => {
-      unregisterBridge()
+      unregisterBridge(bridgeRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

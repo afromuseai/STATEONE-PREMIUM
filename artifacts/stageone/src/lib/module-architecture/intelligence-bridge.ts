@@ -39,10 +39,10 @@ export interface IntelligenceBridge {
 
 let _bridge: IntelligenceBridge | null = null;
 
-// Monotonically increasing counter — each registerBridge call gets a unique ID.
-// Used for PROBE logging only. The registration-ID guard is NOT yet applied;
-// unregisterBridge always clears the bridge so we can observe the stale-cleanup
-// behaviour in runtime logs before deciding to implement the guard.
+// Monotonically increasing counter. Each call to registerBridge gets a unique ID.
+// unregisterBridge(id) is a no-op when id !== _currentRegId, which prevents a
+// stale cleanup (from a concurrently unmounted duplicate fiber) from nullifying
+// the registration of the live instance.
 let _currentRegId = 0;
 
 /** Called by BusinessIntelligencePage on mount to register its handlers. */

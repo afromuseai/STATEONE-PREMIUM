@@ -216,7 +216,7 @@ export default function ChatbotGeneratorPage() {
   // No generation logic is duplicated — the bridge is purely a delegation layer.
   // Controller registration is handled by useGeneratorOrchestration above.
   useEffect(() => {
-    registerBridge({
+    const bridgeRegId = registerBridge({
       navigate: () => setLocation("/chatbot-generator"),
       populate: (idea, onComplete) => {
         if (!idea) { onComplete(); return }
@@ -239,7 +239,7 @@ export default function ChatbotGeneratorPage() {
       getCurrentIdea: () => businessDescRef.current,
     })
     return () => {
-      unregisterBridge()
+      unregisterBridge(bridgeRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

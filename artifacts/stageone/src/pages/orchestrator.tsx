@@ -376,8 +376,8 @@ export default function OrchestratorPage() {
 
   // Register orchestrator controller and bridge so the ExecutionBus can drive this page.
   useEffect(() => {
-    registerController("orchestrator", orchestratorController)
-    registerBridge({
+    const ctrlRegId = registerController("orchestrator", orchestratorController)
+    const bridgeRegId = registerBridge({
       navigate: () => navigate("/orchestrator"),
       populate: (idea, onComplete) => {
         setGoal(idea)
@@ -401,8 +401,8 @@ export default function OrchestratorPage() {
       getCurrentIdea: () => goalRef.current,
     })
     return () => {
-      unregisterController("orchestrator")
-      unregisterBridge()
+      unregisterController("orchestrator", ctrlRegId)
+      unregisterBridge(bridgeRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -39,14 +39,24 @@ export interface ChatbotBridge {
 }
 
 let _bridge: ChatbotBridge | null = null;
+// Monotonically increasing counter. Each call to registerBridge gets a unique ID.
+// unregisterBridge(id) is a no-op when id !== _currentRegId, which prevents a
+// stale cleanup (from a concurrently unmounted duplicate fiber) from nullifying
+// the registration of the live instance.
+let _currentRegId = 0;
 
-/** Called by ChatbotGeneratorPage on mount to register its handlers. */
-export function registerBridge(bridge: ChatbotBridge): void {
+/** Called by ChatbotGeneratorPage on mount to register its handlers.
+ *  Returns a registration ID that must be passed to unregisterBridge(). */
+export function registerBridge(bridge: ChatbotBridge): number {
+  const id = ++_currentRegId;
   _bridge = bridge;
+  return id;
 }
 
-/** Called by ChatbotGeneratorPage on unmount to clean up. */
-export function unregisterBridge(): void {
+/** Called by ChatbotGeneratorPage on unmount to clean up.
+ *  Pass the ID returned by registerBridge(). Stale IDs are silently ignored. */
+export function unregisterBridge(registrationId: number): void {
+  if (_currentRegId !== registrationId) return;
   _bridge = null;
 }
 

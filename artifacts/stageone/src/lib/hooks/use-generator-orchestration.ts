@@ -106,8 +106,8 @@ export function useGeneratorOrchestration({
 
   // ── 1. Register / unregister module controller ─────────────────────────────
   useEffect(() => {
-    registerController(effectiveRegistryId, controller)
-    return () => unregisterController(effectiveRegistryId)
+    const regId = registerController(effectiveRegistryId, controller)
+    return () => unregisterController(effectiveRegistryId, regId)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 2. Mount: consume durable pending intent ───────────────────────────────
