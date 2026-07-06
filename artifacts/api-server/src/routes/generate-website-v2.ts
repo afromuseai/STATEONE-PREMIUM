@@ -1,29 +1,31 @@
-// ─── Website Architect V2 — Phase 1: Architect Agent ─────────────────────────
+// ─── Website Architect V2 — Phase 1 + Phase 2 ────────────────────────────────
 // POST /api/generate/website-v2
 //
-// Implements Phase 1 of the V2 pipeline only:
+// Full V2 pipeline:
 //
 //   User Input (idea + BI context)
 //     ↓
 //   BusinessContext (assembled here)
 //     ↓
-//   Website Architect Agent (LLM call)
+//   Phase 1: Website Architect Agent (LLM call)
 //     ↓
-//   WebsiteBlueprint (JSON) → SSE done event
+//   WebsiteBlueprint (JSON) → SSE blueprint event
+//     ↓
+//   Phase 2: Code Generation Agent (LLM call)
+//     ↓
+//   GeneratedProject (JSON) → SSE project event
 //
 // V1 is completely untouched.
 // generate-website.ts is NOT imported or modified.
 // website-html-generator.ts is NOT used here.
-//
-// Phase 2 (Code Generation Agent) will be added to this file when Phase 1
-// is verified working.
 
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { requireFeature } from "../middleware/planGuard";
 import { MODELS } from "../lib/models";
-import { streamNvidia, forwardStream, extractJson } from "../lib/nvidia";
+import { streamNvidia, extractJson } from "../lib/nvidia";
 import { logger } from "../lib/logger";
+import { generateProjectCode, CODE_GENERATOR_MODEL } from "../lib/website-v2-code-generator";
 import type {
   BusinessContext,
   WebsiteBlueprint,
@@ -436,6 +438,46 @@ router.post(
       );
 
       sseWrite(res, { phase: "blueprint", data: blueprint });
+
+      // ── Phase 2: Code Generation Agent ──────────────────────────────────────
+      req.log.info(
+        { userId, model: CODE_GENERATOR_MODEL },
+        "[v2:codegen] Starting Code Generation Agent"
+      );
+
+      let project;
+      try {
+        project = await generateProjectCode(
+          context,
+          blueprint,
+          userId,
+          (content) => sseWrite(res, { phase: "building", content }),
+          (active)  => sseWrite(res, { phase: "thinking", active }),
+        );
+      } catch (codeErr) {
+        req.log.error(
+          { err: String(codeErr), userId },
+          "[v2:codegen] Code Generation Agent failed"
+        );
+        sseWrite(res, {
+          phase:   "error",
+          message: "The Code Generation Agent failed to produce a valid project. Please try again.",
+          code:    "CODEGEN_ERROR",
+        });
+        res.end();
+        return;
+      }
+
+      req.log.info(
+        {
+          userId,
+          fileCount: Object.keys(project.files).length,
+          previewLen: project.preview.length,
+        },
+        "[v2:codegen] Project generation complete"
+      );
+
+      sseWrite(res, { phase: "project", data: project });
       res.end();
 
     } catch (err) {

@@ -95,4 +95,6 @@ export type V2SseEvent =
   | { phase: "thinking";   active: boolean }
   | { phase: "architect";  content: string }
   | { phase: "blueprint";  data: WebsiteBlueprint }
+  | { phase: "building";   content: string }
+  | { phase: "project";    data: GeneratedProject }
   | { phase: "error";      message: string; code?: string };
