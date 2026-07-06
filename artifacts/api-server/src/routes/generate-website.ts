@@ -592,11 +592,13 @@ async function streamNvidiaRequest(
       max_tokens: maxTokens,
       stream: true,
     };
-    // Thinking models output to delta.reasoning_content by default — disable thinking
-    // so structured JSON goes to delta.content where the parser expects it.
-    // Note: DeepSeek uses {"thinking": false}, others use {"enable_thinking": false}
+    // Thinking models separate reasoning from content in SSE:
+    //   delta.reasoning_content → internal thinking (forwarded as {thinking:…} signals)
+    //   delta.content           → final answer (accumulated into contentBuffer)
+    // DeepSeek uses {"thinking": false}; nemotron-3-ultra uses {"enable_thinking": true/false}
     if (modelId.includes("deepseek")) body.chat_template_kwargs = { thinking: false };
-    else if (modelId.includes("step") || modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: false };
+    else if (modelId.includes("step")) body.chat_template_kwargs = { enable_thinking: false };
+    else if (modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: true, reasoning_budget: 16384 };
     return JSON.stringify(body);
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };
@@ -614,6 +616,8 @@ async function streamNvidiaRequest(
 
   let contentBuffer = "";
   let lineCarryover = "";
+  let thinkingSignalSent = false;
+  let thinkingEndSignalSent = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -627,8 +631,18 @@ async function streamNvidiaRequest(
       if (data === "[DONE]") continue;
       try {
         const parsed = JSON.parse(data);
-        const content = parsed.choices?.[0]?.delta?.content;
+        const delta = parsed.choices?.[0]?.delta;
+        const content = delta?.content;
+        const reasoning = delta?.reasoning_content;
+        if (reasoning && !thinkingSignalSent) {
+          thinkingSignalSent = true;
+          res.write(`data: ${JSON.stringify({ thinking: true })}\n\n`);
+        }
         if (content) {
+          if (thinkingSignalSent && !thinkingEndSignalSent) {
+            thinkingEndSignalSent = true;
+            res.write(`data: ${JSON.stringify({ thinking: false })}\n\n`);
+          }
           contentBuffer += content;
           res.write(`data: ${JSON.stringify({ content })}\n\n`);
         }
@@ -676,13 +690,15 @@ async function callModelJson(
       stream: false,
     };
     if (modelId.includes("deepseek")) body.chat_template_kwargs = { thinking: false };
-    else if (modelId.includes("step") || modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: false };
+    else if (modelId.includes("step")) body.chat_template_kwargs = { enable_thinking: false };
+    else if (modelId.includes("nemotron-3-ultra")) body.chat_template_kwargs = { enable_thinking: true, reasoning_budget: 16384 };
     return JSON.stringify(body);
   };
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${NVIDIA_API_KEY}` };
   const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", { method: "POST", headers, body: makeBody(model) });
   if (!response.ok) throw new Error(`Model ${model} call failed: ${response.status}`);
-  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+  // With thinking enabled, final answer is in content; reasoning_content holds the thinking trace (ignored here)
+  const data = await response.json() as { choices?: Array<{ message?: { content?: string; reasoning_content?: string } }> };
   return data.choices?.[0]?.message?.content ?? "";
 }
 

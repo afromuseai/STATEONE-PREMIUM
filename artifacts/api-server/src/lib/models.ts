@@ -5,7 +5,7 @@
 // Confirmed working models on this account (verified 2026-07-02):
 //   nvidia/llama-3.3-nemotron-super-49b-v1       ✓
 //   meta/llama-4-maverick-17b-128e-instruct       ✓
-//   nvidia/nemotron-3-ultra-550b-a55b             ✓ (requires enable_thinking:false in chat_template_kwargs)
+//   nvidia/nemotron-3-ultra-550b-a55b             ✓ (enable_thinking:true, reasoning_budget:16384)
 //
 // Dead models (timeout on this account):
 //   qwen/qwen3.5-397b-a17b        ✗  — was BUSINESS_INTELLIGENCE, CHATBOT, AUTOMATION, ENHANCE
@@ -19,8 +19,8 @@
 //   AGENT_PLANNING         — Nemotron 49B: memory-aware agent decomposition
 //   MEMORY                 — Nemotron 49B: context compression & semantic linking
 //   WEBSITE_PLANNING       — Llama-4 Maverick: fast streaming JSON section planning
-//   COMPONENT_GENERATION   — Nemotron Ultra 550B: frontier coding, thinking disabled
-//   COPILOT                — Nemotron Ultra 550B: frontier instruction-following, thinking disabled
+//   COMPONENT_GENERATION   — Nemotron Ultra 550B: frontier coding, thinking enabled
+//   COPILOT                — Nemotron Ultra 550B: frontier instruction-following, thinking + streaming enabled
 //   COPILOT_FALLBACK_1     — Llama-4 Maverick: failover when primary is DEGRADED
 //   COPILOT_FALLBACK_2     — Nemotron 49B: second failover
 //   CHATBOT                — Nemotron 49B: structured reasoning for chatbot design
@@ -51,8 +51,9 @@ export type ModelKey = keyof typeof MODELS;
 export type ModelId = (typeof MODELS)[ModelKey];
 
 // Chat template kwargs for models that require them.
-// nvidia/nemotron-3-ultra-550b-a55b has thinking mode ON by default — disabling it
-// prevents silent long reasoning phases that cause apparent timeouts.
+// nvidia/nemotron-3-ultra-550b-a55b: thinking enabled with a 16K token reasoning budget.
+// reasoning_content arrives in a separate SSE field (delta.reasoning_content) and is
+// handled by forwardStream (copilot) or silently discarded by streamNvidiaRequest/callModelJson.
 export const MODEL_KWARGS: Partial<Record<ModelId, Record<string, unknown>>> = {
-  "nvidia/nemotron-3-ultra-550b-a55b": { enable_thinking: false },
+  "nvidia/nemotron-3-ultra-550b-a55b": { enable_thinking: true, reasoning_budget: 16384 },
 };
