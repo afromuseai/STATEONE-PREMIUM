@@ -3011,9 +3011,9 @@ ${workspaceBlock}${historyBlock}${businessGraphBlock}${crossModuleBlock}${busine
   };
 
   // ── Model failover chain ────────────────────────────────────────────────────
-  // Primary: MODELS.COPILOT (qwen/qwen3.5-122b-a10b)
-  // Fallback 1: MODELS.COPILOT_FALLBACK_1 (qwen/qwen3.5-397b-a17b)
-  // Fallback 2: MODELS.COPILOT_FALLBACK_2 (qwen/qwen3-next-80b-a3b-instruct)
+  // Primary: MODELS.COPILOT (nvidia/nemotron-3-ultra-550b-a55b)
+  // Fallback 1: MODELS.COPILOT_FALLBACK_1 (meta/llama-4-maverick-17b-128e-instruct)
+  // Fallback 2: MODELS.COPILOT_FALLBACK_2 (nvidia/llama-3.3-nemotron-super-49b-v1)
   //
   // Circuit breaker state determines the starting index:
   //   CLOSED / HALF_OPEN → start at index 0 (try primary first)

@@ -89,7 +89,7 @@ function SeverityBadge({ severity }: { severity: string }) {
 // ─── Provider color dot ───────────────────────────────────────────────────────
 function ProviderDot({ model }: { model: string }) {
   const colors: Record<string, string> = {
-    qwen: "bg-violet-400", nvidia: "bg-green-400", meta: "bg-blue-400",
+    nvidia: "bg-green-400", meta: "bg-blue-400",
     deepseek: "bg-cyan-400", stepfun: "bg-amber-400",
   }
   const vendor = model.split("/")[0] ?? ""
@@ -539,7 +539,7 @@ export function AdminAiModels() {
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Model Legend</p>
             <div className="flex flex-wrap gap-3">
               {[
-                { vendor: "qwen",     color: "bg-violet-400", label: "Qwen (NVIDIA NIM)" },
+                { vendor: "nvidia",   color: "bg-green-400",  label: "Nemotron Ultra (NVIDIA NIM)" },
                 { vendor: "nvidia",   color: "bg-green-400",  label: "Nemotron (NVIDIA NIM)" },
                 { vendor: "meta",     color: "bg-blue-400",   label: "Llama / Meta (NVIDIA NIM)" },
                 { vendor: "deepseek", color: "bg-cyan-400",   label: "DeepSeek (NVIDIA NIM)" },
