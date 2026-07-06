@@ -1,0 +1,131 @@
+AUTOMATION_TRACE: [LIFECYCLE] AutomationBuilderPage UNMOUNTED | timestamp: 1783374933540
+copilot-panel.tsx:1446 userId 0ec3dd1f-9d6e-4a2d-bbbd-e1c97913a81e
+copilot-panel.tsx:1447 projectId 1a227308-9cb5-4673-8256-c9b0b292bdc0
+copilot-panel.tsx:1448 conversationId 0ec3dd1f-9d6e-4a2d-bbbd-e1c97913a81e:copilot
+copilot-panel.tsx:1449 storageKey copilot:msgs:0ec3dd1f-9d6e-4a2d-bbbd-e1c97913a81e
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 10 | content: I'll build
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 35 | content: I'll build an onboarding automation
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 58 | content: I'll build an onboarding automation for your AI scheduling
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 80 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 109 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 138 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 150 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders,
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders,
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 166 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 183 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 202 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 224 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 245 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 262 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 287 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+{{WORKSPACE|automation}}
+copilot-panel.tsx:425 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|automation}} | already fired: false
+copilot-panel.tsx:463 [WEBSITE TRACE] parser detected automation | tag: {{WORKSPACE|automation}}
+copilot-panel.tsx:472 MARCUS_STAGE_2_COMMAND_EMITTED | command: automation | payloadLength: 0 | payload: 
+copilot-panel.tsx:1072 ROUTING_TRACE_CLIENT | parsed command: automation | payload:  | dispatchedToModule: automation | currentLocation: /dashboard | currentRoute: /dashboard
+copilot-panel.tsx:1084 MARCUS_STAGE_3_COMMAND_RECEIVED | command: automation | payloadLength: 0 | payload: 
+copilot-panel.tsx:1320 AUTOMATION_TRACE: Command received | command: automation | payload: ""
+copilot-panel.tsx:1327 AUTOMATION_TRACE: Navigation fired | to: /automation-builder
+copilot-panel.tsx:1330 NAV_TRACE | source: handleWorkspaceCmdAction | command: automation | from: /dashboard | to: /automation-builder | stack: Error: NAV_TRACE
+    at https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1174:149
+    at https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1330:13
+    at fireAndStripTags (https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:513:27)
+    at streamCopilot (https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:564:11)
+    at async https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1292:9
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 522 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+{{WORKSPACE|automation}}
+{{WORKSPACE|idea|AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and FAQ responses professional tone focused on reducing no-shows and minimizing front-desk overhead.}}
+copilot-panel.tsx:425 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|automation}} | already fired: true
+copilot-panel.tsx:425 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|idea|AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and FAQ responses professional tone focused on reducing no-shows and minimizing front-desk overhead.}} | already fired: false
+copilot-panel.tsx:463 [WEBSITE TRACE] parser detected idea | tag: {{WORKSPACE|idea|AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and FAQ responses professional tone focused on reducing no-shows and minimizing front-desk overhead.}}
+copilot-panel.tsx:472 MARCUS_STAGE_2_COMMAND_EMITTED | command: idea | payloadLength: 215 | payload: AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and F
+copilot-panel.tsx:1072 ROUTING_TRACE_CLIENT | parsed command: idea | payload: AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and FAQ responses professional tone focused on reducing no-shows and minimizing front | dispatchedToModule: chatbot | currentLocation: /dashboard | currentRoute: /automation-builder
+copilot-panel.tsx:1084 MARCUS_STAGE_3_COMMAND_RECEIVED | command: idea | payloadLength: 215 | payload: AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and F
+copilot-panel.tsx:1102 [PIPELINE:4] idea command received | raw payload: "AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and FAQ responses professional tone focused on reducing no-shows and minimizing front-desk overhead." | activeWorkspaceModule: automation
+copilot-panel.tsx:1108 ROUTING_TRACE_CLIENT | generic idea command resolved | activeWorkspaceModule: automation
+copilot-panel.tsx:1139 AUTOMATION_TRACE: Command received | command: idea (generic, routed to automation) | payload: "AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and FAQ responses professional tone focused on reducing no-shows and minimizing front-desk overhead."
+workspace-controller-context.tsx:160 [WS] emitWorkspaceSignal | target: automation | type: populate | mounted: false | subscribers: 0
+copilot-panel.tsx:1147 NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: automation | from: /dashboard | to: /automation-builder | activeWorkspaceModuleRef: automation | stack: Error: NAV_TRACE
+    at https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1027:237
+    at https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1330:13
+    at fireAndStripTags (https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:513:27)
+    at streamCopilot (https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:564:11)
+    at async https://6a28f60b-b8f7-47e7-992f-9ecff5590b64-00-1y3d9shocqbin.spock.replit.dev:3000/src/components/copilot/copilot-panel.tsx:1292:9
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+registry.ts:45 [PROBE] CONTROLLER_REGISTER | module=automation | registrationId=4
+use-generator-orchestration.ts:118 [ORCH] GENERATOR_MOUNT | module=automation | projectId=1a227308-9cb5-4673-8256-c9b0b292bdc0 | continuityMode=continuation
+use-generator-orchestration.ts:149 [ORCH] intent consumed | module=automation | idea(50)="AI scheduling assistant for healthcare clinics. Ha"
+use-generator-orchestration.ts:169 [ORCH] queued signal drained | module=automation | length=215
+automation-builder.tsx:428 AUTOMATION_TRACE: [LIFECYCLE] AutomationBuilderPage MOUNTED | timestamp: 1783374950927
+automation-builder.tsx:440 GENERATOR_MOUNT | page=automation-builder | projectId=1a227308-9cb5-4673-8256-c9b0b292bdc0 | continuityMode=continuation | source=Marcus
+automation-builder.tsx:476 AUTOMATION_TRACE: Phase 2 | skipped | autoGenPending: false | businessDesc non-empty: false | autoGenFired: false
+automation-builder.tsx:496 AUTOMATION_POPULATE_4 | typewriter started | length: 215 | first 80: AI scheduling assistant for healthcare clinics. Handles appointment booking auto
+automation-builder.tsx:497 TYPEWRITER_START | tick: 0 | textLength: 215
+automation-builder.tsx:498 TYPEWRITER_TEXT_LENGTH | 215
+automation-builder.tsx:519 TYPEWRITER_INTERVAL_ID | 31
+registry.ts:45 [PROBE] CONTROLLER_REGISTER | module=automation | registrationId=5
+use-generator-orchestration.ts:118 [ORCH] GENERATOR_MOUNT | module=automation | projectId=1a227308-9cb5-4673-8256-c9b0b292bdc0 | continuityMode=continuation
+use-generator-orchestration.ts:149 [ORCH] intent consumed | module=automation | idea(50)="AI scheduling assistant for healthcare clinics. Ha"
+automation-builder.tsx:428 AUTOMATION_TRACE: [LIFECYCLE] AutomationBuilderPage MOUNTED | timestamp: 1783374950938
+automation-builder.tsx:440 GENERATOR_MOUNT | page=automation-builder | projectId=1a227308-9cb5-4673-8256-c9b0b292bdc0 | continuityMode=continuation | source=Marcus
+automation-builder.tsx:476 AUTOMATION_TRACE: Phase 2 | skipped | autoGenPending: false | businessDesc non-empty: false | autoGenFired: false
+automation-builder.tsx:496 AUTOMATION_POPULATE_4 | typewriter started | length: 215 | first 80: AI scheduling assistant for healthcare clinics. Handles appointment booking auto
+automation-builder.tsx:497 TYPEWRITER_START | tick: 0 | textLength: 215
+automation-builder.tsx:498 TYPEWRITER_TEXT_LENGTH | 215
+automation-builder.tsx:519 TYPEWRITER_INTERVAL_ID | 32
+copilot-panel.tsx:545 [TRACE] RAW ASSISTANT RESPONSE | length: 522 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+{{WORKSPACE|automation}}
+{{WORKSPACE|idea|AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and FAQ responses professional tone focused on reducing no-shows and minimizing front-desk overhead.}}
+copilot-panel.tsx:415 [TRACE] INPUT TO fireAndStripTags | buffer length: 522 | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+{{WORKSPACE|automation}}
+{{WORKSPACE|idea|AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and FAQ responses professional tone focused on reducing no-shows and minimizing front-desk overhead.}}
+copilot-panel.tsx:425 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|automation}} | already fired: true
+copilot-panel.tsx:425 [TRACE] EVERY TAG DETECTED | tag: {{WORKSPACE|idea|AI scheduling assistant for healthcare clinics. Handles appointment booking automated reminders patient follow-ups and FAQ responses professional tone focused on reducing no-shows and minimizing front-desk overhead.}} | already fired: true
+copilot-panel.tsx:553 [TRACE] OUTPUT AFTER fireAndStripTags | display: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+copilot-panel.tsx:1476 [TRACE] FINAL MESSAGE SENT TO CHAT UI | content: I'll build an onboarding automation for your AI scheduling assistant. Using your project context — healthcare clinics, appointment booking, reminders, follow-ups, FAQ — I'll configure an onboarding flow that gets clinics set up quickly.
+
+Opening the builder now.
+automation-builder.tsx:508 TYPEWRITER_TICK | index: 1 | char: "A"
+automation-builder.tsx:509 TYPEWRITER_INDEX | 1 / 215
+automation-builder.tsx:508 TYPEWRITER_TICK | index: 1 | char: "A"
+automation-builder.tsx:509 TYPEWRITER_INDEX | 1 / 215
+automation-builder.tsx:522 TYPEWRITER_STOP | reason: effect cleanup (dependency change or unmount) | intervalId: 31 | indexReached: 1 / 215
+automation-builder.tsx:522 TYPEWRITER_STOP | reason: effect cleanup (dependency change or unmount) | intervalId: 32 | indexReached: 1 / 215
+registry.ts:64 [PROBE] CONTROLLER_UNREGISTER | module=automation | registrationId=4 | currentRegId=5 | SKIPPED (stale cleanup)
+automation-builder.tsx:430 AUTOMATION_TRACE: [LIFECYCLE] AutomationBuilderPage UNMOUNTED | timestamp: 1783374951696
+automation-builder.tsx:472 TYPEWRITER_STOP | reason: Phase 2 skipped — typewriter still active | businessDescLength: 1

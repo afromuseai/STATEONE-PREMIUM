@@ -304,6 +304,21 @@ function NodeDetailPanel({ node, logic }: { node: WorkflowNode; logic: LogicStep
   )
 }
 
+/* ── Module-scoped typewriter progress cache ─────────────────
+   Marcus navigation to /automation-builder can trigger a genuine double-mount
+   of this page (two independent CONTROLLER_REGISTER/MOUNTED cycles a few ms
+   apart, each with its own private marcusPopulateRef/marcusTypewriterRef).
+   When the first (throwaway) instance's effect gets cleaned up after only a
+   tick or two, the second instance has no way to know progress was already
+   made — it would otherwise restart from index 0, but by then its own effect
+   may already be torn down too, leaving the textarea stuck on the first
+   character. This module-level cache lets whichever instance is still alive
+   resume typing exactly where the previous instance left off, keyed by the
+   idea text itself (not by component instance), so the animation always
+   completes regardless of how many mounts occur. Local to the typewriter
+   only — does not touch ExecutionBus, Marcus, generation, or save. */
+let _automationTypewriterProgress: { text: string; index: number } | null = null
+
 /* ── Main Page ──────────────────────────────────────────── */
 export default function AutomationBuilderPage() {
   const { lang } = useLang()
@@ -496,15 +511,27 @@ export default function AutomationBuilderPage() {
     console.log("AUTOMATION_POPULATE_4 | typewriter started | length:", text.length, "| first 80:", text.slice(0, 80))
     console.log("TYPEWRITER_START | tick:", marcusPopulateTick, "| textLength:", text.length)
     console.log("TYPEWRITER_TEXT_LENGTH |", text.length)
-    setBusinessDesc("")
     setContextBanner(true)
+
+    // Resume from a previous (possibly torn-down) mount's progress on the same
+    // idea text, instead of always restarting from 0. See module-level comment
+    // above the component for why this is necessary.
     let i = 0
+    if (_automationTypewriterProgress && _automationTypewriterProgress.text === text) {
+      i = _automationTypewriterProgress.index
+      console.log("TYPEWRITER_TICK | resuming from prior mount's progress | index:", i, "/", text.length)
+    } else {
+      _automationTypewriterProgress = { text, index: 0 }
+    }
+    setBusinessDesc(text.slice(0, i))
+
     if (marcusTypewriterRef.current) {
       console.log("TYPEWRITER_STOP | reason: clearing pre-existing interval before starting new one | priorIntervalId:", marcusTypewriterRef.current)
       clearInterval(marcusTypewriterRef.current)
     }
     marcusTypewriterRef.current = setInterval(() => {
       i++
+      _automationTypewriterProgress = { text, index: i }
       console.log("TYPEWRITER_TICK | index:", i, "| char:", JSON.stringify(text[i - 1]))
       console.log("TYPEWRITER_INDEX |", i, "/", text.length)
       setBusinessDesc(text.slice(0, i))
@@ -512,6 +539,7 @@ export default function AutomationBuilderPage() {
         console.log("TYPEWRITER_STOP | reason: reached end of text | finalIndex:", i, "| intervalId:", marcusTypewriterRef.current)
         clearInterval(marcusTypewriterRef.current!)
         marcusTypewriterRef.current = null
+        _automationTypewriterProgress = null
         console.log("AUTOMATION_POPULATE_5 | textarea fully populated | length:", text.length)
         cacheConsumedIdea("automation", text)
       }
