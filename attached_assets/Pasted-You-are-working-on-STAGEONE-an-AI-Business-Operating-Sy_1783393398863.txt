@@ -1,0 +1,191 @@
+You are working on STAGEONE, an AI Business Operating System. We are upgrading the Website Architect module from a template-driven website generator into an AI-native website engineering system.
+
+First, analyze the existing website generation pipeline before changing anything.
+
+Current architecture:
+
+User Idea
+↓
+Business Intelligence
+↓
+LLM generates WebsiteOutput JSON
+↓
+website-html-generator.ts converts JSON into fixed HTML templates
+↓
+iframe preview
+
+Problem:
+The AI is currently only generating website specifications. It does not generate the actual website. The renderer owns the layout, structure, components, animations, and HTML. This causes repetitive websites because the AI is constrained by a JSON schema and hardcoded templates.
+
+The goal:
+Build Website Architect V2 as a separate pipeline alongside the existing system. Do not destroy V1 yet.
+
+New target architecture:
+
+User Idea
+↓
+Business Intelligence
+↓
+Website Architect Agent
+↓
+Website Blueprint
+↓
+Code Generation Agent
+↓
+Generated Next.js Project Files
+↓
+Sandbox Runtime
+↓
+Live Preview
+
+The AI should become responsible for creating the website itself.
+
+Requirements:
+
+1. Create a new Website Architect V2 module.
+
+Do not modify or remove:
+- current generate website route
+- WebsiteOutput schema
+- website-html-generator.ts
+- existing preview system
+
+Create a new isolated architecture.
+
+2. Create new internal artifacts:
+
+A) Business Context
+
+This represents the business understanding coming from the existing Business Intelligence system.
+
+Example fields:
+- company name
+- industry
+- target audience
+- business goal
+- brand positioning
+- conversion goal
+
+B) Website Blueprint
+
+This replaces WebsiteOutput as the main AI planning artifact.
+
+The blueprint should describe:
+
+- project type
+- required pages
+- route structure
+- component hierarchy
+- design system
+- responsive strategy
+- interaction plan
+- content strategy
+- technical requirements
+
+Important:
+The blueprint is NOT HTML.
+The blueprint is NOT a template schema.
+It is an engineering architecture document used by another AI agent.
+
+Example:
+
+{
+ pages:[
+   {
+    route:"/",
+    purpose:"landing page",
+    components:[
+      "Navbar",
+      "Hero",
+      "FeatureGrid",
+      "Testimonials",
+      "CTA"
+    ]
+   }
+ ],
+
+ designSystem:{
+   style:"enterprise futuristic",
+   typography:"modern SaaS",
+   motion:"subtle"
+ }
+}
+
+3. Create a Website Architect Agent.
+
+Its responsibility:
+- analyze business requirements
+- decide website structure
+- decide pages
+- decide components
+- decide UX flow
+- decide design direction
+
+It should NOT generate code.
+
+Output:
+Website Blueprint.
+
+4. Create a Code Generation Agent.
+
+Its responsibility:
+Receive:
+
+- Business Context
+- Website Blueprint
+
+Generate a real Next.js website.
+
+The output should be actual project files:
+
+app/
+components/
+lib/
+public/
+package.json
+tailwind configuration
+
+The AI should generate:
+
+- React components
+- TypeScript
+- Tailwind CSS
+- responsive layouts
+- animations
+- navigation
+
+No JSON website templates.
+No HTML string generation.
+No hardcoded renderer.
+
+5. Create a generation orchestrator.
+
+Flow:
+
+generateWebsiteV2()
+
+Business Context
+        ↓
+Website Architect Agent
+        ↓
+Website Blueprint
+        ↓
+Code Generation Agent
+        ↓
+Generated Project
+
+6. Before implementing, inspect the current codebase and report:
+
+- where existing website generation logic lives
+- what can be reused
+- what should remain isolated
+- what files you plan to create/change
+
+Do not start coding immediately.
+
+First provide an implementation plan and architecture map.
+
+The long-term vision:
+This will eventually evolve toward a Replit/Cursor-style AI website engineering system where users can generate multi-page websites, edit individual components, and later expand into full-stack applications.
+
+Start by auditing the current repository and proposing the V2 architecture.
