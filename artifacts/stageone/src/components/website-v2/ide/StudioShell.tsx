@@ -206,7 +206,7 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.18 }}
-      className="flex h-full flex-col overflow-hidden bg-[#080808]"
+      className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-[#080808]"
     >
       {/* ── Top command bar ────────────────────────────────────────────────── */}
       <TopCommandBar
