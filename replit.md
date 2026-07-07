@@ -1,78 +1,43 @@
 # STAGEONE-PREMIUM
 
-AI Business Operating System — transforms any business idea into a complete blueprint with strategic analysis, growth plans, website structures, and automation workflows, powered by NVIDIA's Llama 3.1 70B.
-
-## How to run
-
-All three services start together via the **Project** workflow (the green Run button):
-
-| Service | Port | Command |
-|---------|------|---------|
-| Frontend (Vite / React) | 5000 | `cd artifacts/stageone && PORT=5000 BASE_PATH=/ pnpm run dev` |
-| API Server (Express 5) | 8000 | `cd artifacts/api-server && pnpm run dev` |
-| Mockup sandbox (Vite) | 8080 | `cd artifacts/mockup-sandbox && PORT=8080 pnpm run dev` |
-
-## First-time setup
-
-```bash
-pnpm install                           # install all workspace deps
-pnpm --filter @workspace/db run push  # push DB schema to Postgres
-```
+An AI Operating System platform for modern businesses — lets users research, design, build, and operate a business using a coordinated swarm of autonomous AI agents.
 
 ## Stack
 
-- **Monorepo**: pnpm workspaces (`artifacts/*`, `lib/*`)
-- **Frontend**: React 19, Vite 7, Tailwind v4, Wouter, Radix UI, TanStack Query
-- **API**: Express 5, Drizzle ORM, Postgres (`lib/db`)
-- **AI**: NVIDIA API (meta/llama-3.1-70b-instruct) via SSE streaming
-- **Auth**: JWT sessions (`JWT_SECRET` env var), bcrypt passwords
+- **Frontend**: React 19 + Vite 7, Tailwind CSS v4, Radix UI, Framer Motion, TanStack Query, Wouter (routing), Monaco Editor, WebContainer API
+- **Backend**: Express 5 (Node.js), TypeScript, Pino logging, JWT auth, Nodemailer (SMTP)
+- **Database**: PostgreSQL via Drizzle ORM (`lib/db`)
+- **Monorepo**: pnpm workspaces — `artifacts/stageone` (frontend), `artifacts/api-server` (backend), `lib/db`, `lib/api-zod`, `lib/api-spec`, `lib/api-client-react`
 
-## Required secrets / env vars
+## How to Run
+
+Three workflows run in parallel (configured in `.replit`):
+
+| Workflow | Command | Port |
+|---|---|---|
+| Start application | `cd artifacts/stageone && pnpm run dev` | 5000 |
+| API Server | `cd artifacts/api-server && pnpm run dev` | 8000 |
+| Component Preview Server | `cd artifacts/mockup-sandbox && vite` | 8080 |
+
+## Environment Variables / Secrets
 
 | Key | Type | Notes |
-|-----|------|-------|
-| `NVIDIA_API_KEY` | Secret | NVIDIA API for all AI generation endpoints |
-| `JWT_SECRET` | Secret | Signing key for auth tokens |
-| `DATABASE_URL` | Runtime-managed | Auto-injected by Replit Postgres |
+|---|---|---|
+| `DATABASE_URL` | Runtime-managed | Auto-injected by Replit |
+| `JWT_SECRET` | Secret | Required for auth token signing |
+| `NVIDIA_API_KEY` | Secret | Used for AI features |
+| `APP_ORIGIN` | Env var | Set to `https://${REPLIT_DEV_DOMAIN}` |
+| `APP_URL` | Env var | Set to `https://${REPLIT_DEV_DOMAIN}` |
+| `SMTP_*` | Secret (optional) | Email delivery (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, SMTP_SECURE) |
 
-Optional (email features):
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+## Database
 
-## Where things live
+Schema managed with Drizzle Kit. To push schema changes to the dev database:
 
-```
-artifacts/
-  stageone/           # React frontend (Vite)
-    src/
-      pages/          # landing, login, signup, dashboard, admin, etc.
-      components/     # navbar, footer, landing/, dashboard/ panels
-      lib/            # auth context, API client, hooks
-  api-server/         # Express API
-    src/
-      routes/         # generate, copilot, auth, admin, websites, etc.
-      lib/            # worker, job-handlers, logger
-  mockup-sandbox/     # Canvas component previewer (Vite)
-lib/
-  db/                 # Drizzle schema + pool (DATABASE_URL)
-  api-spec/           # Shared API type definitions
-  api-zod/            # Zod schemas mirroring the API spec
-  api-client-react/   # TanStack Query hooks for the frontend
+```bash
+cd lib/db && pnpm run push
 ```
 
-## Architecture decisions
+## User Preferences
 
-- Vite dev server proxies `/api/*` → `http://localhost:8000`
-- AI responses stream via `text/event-stream` (SSE) through Express to the frontend
-- Business graph stored in Postgres; Marcus copilot loads it before every response
-- Execution Bus pattern dispatches `generate_*` jobs; results streamed back via SSE
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-- `BASE_PATH` must be set when starting **both** the frontend dev server (workflow sets it to `/`) and the mockup sandbox (workflow sets it to `/__mockup/`). Both services hard-fail on startup without it.
-- SMTP vars are optional; missing them silently disables email features (no startup error)
-- `admin.tsx` is >500 KB and triggers Babel deopt warning — normal, not a crash
-- The API Server workflow runs `build && start` (not a live-reload watcher). After backend changes, restart the **API Server** workflow to pick them up.
+(None yet)

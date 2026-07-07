@@ -67,7 +67,7 @@ Return only the JSON review object.`
 
   try {
     const raw = await callNvidia({
-      model:       MODELS.CHAT,      // fast model — no need for 49B for scoring
+      model:       MODELS.CHATBOT,    // fast model — no need for 49B for scoring
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user",   content: userMessage },
