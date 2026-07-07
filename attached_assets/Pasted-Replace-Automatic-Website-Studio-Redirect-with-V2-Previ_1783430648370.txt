@@ -1,0 +1,118 @@
+Replace Automatic Website Studio Redirect with V2 Preview Flow
+Objective
+
+The Website Generator should remain the primary generation experience.
+
+After a website is generated with the Website Architect V2 pipeline, do not automatically navigate to Website Studio.
+
+Instead:
+
+Persist the generated project (existing behavior).
+Retrieve the saved project.
+Display the generated website inside the Website Generator preview.
+Allow the user to manually open the project in Website Studio.
+
+The V2 backend architecture remains unchanged.
+
+Required Changes
+1. Remove automatic navigation
+
+Locate the code that runs after the V2 generation finishes.
+
+Current behavior:
+
+setLocation(`/website-studio/${projectId}`);
+
+Remove this automatic redirect.
+
+2. Fetch the saved V2 project
+
+When generation completes and the backend returns the project ID:
+
+GET /api/website-v2/projects/:id
+
+Load the persisted project.
+
+Use the existing V2 retrieval API.
+
+3. Show the generated website inside Website Generator
+
+Replace the current success state with the persisted V2 project preview.
+
+Display:
+
+Live preview (using the project's stored preview)
+Project name
+Status
+Industry
+Number of pages
+Components (if available)
+
+This becomes the new Website Generator result screen.
+
+4. Add primary action
+
+Replace the automatic redirect with a button:
+
+Open in Website Studio
+
+When clicked:
+
+/website-studio/:projectId
+
+Only this button should navigate into the IDE.
+
+5. Keep existing generation pipeline
+
+Do not modify:
+
+Website Architect
+Blueprint generation
+Code generation
+Database persistence
+SSE events
+Website Studio
+
+Only change what happens after generation completes.
+
+6. Preserve V2 generation phases
+
+Continue using the real V2 progress phases:
+
+Understanding Business
+Creating Architecture
+Building Components
+Saving Project
+Loading Preview
+
+Do not restore the old fake progress system.
+
+Expected User Flow
+Dashboard
+    ↓
+Website Generator
+    ↓
+Enter Prompt
+    ↓
+Website Architect V2
+    ↓
+Blueprint
+    ↓
+Code Generation
+    ↓
+Persist Project
+    ↓
+Load Saved Project
+    ↓
+Website Generator Preview
+
+Actions:
+
+• Open in Website Studio
+• Publish
+• Download
+• Regenerate
+
+Website Studio should only open when the user explicitly clicks "Open in Website Studio."
+
+This implementation makes the Website Generator the presentation layer, while Website Studio remains the advanced editing environment for persisted projects.

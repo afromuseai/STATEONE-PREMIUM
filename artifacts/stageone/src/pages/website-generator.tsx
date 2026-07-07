@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   Globe, Sparkles, RotateCcw, Download, Monitor, Tablet, Smartphone,
   ChevronDown, Check, Pencil, RefreshCw, Copy, FileCode, ArrowLeft,
-  Layers, Loader2, X, ChevronRight, Zap, Lock, Crown,
+  Layers, Loader2, X, ChevronRight, Zap, Lock, Crown, ExternalLink,
+  Package, FileText, LayoutGrid,
 } from "lucide-react"
 import { useDashboardShell } from "@/components/dashboard/dashboard-shell"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
@@ -57,8 +58,20 @@ const V2_GEN_STEPS = [
   "Understanding your business",
   "Creating architecture",
   "Building components",
-  "Preparing Website Studio",
+  "Loading preview",
 ]
+
+// ─── V2 project shape (subset of WebsiteProjectResponse) ─────────────────────
+interface V2Project {
+  id:              string
+  projectName:     string
+  status:          string
+  businessContext: { industry: string; companyName: string; targetAudience: string }
+  blueprint:       { pages: { route: string; components: { name: string }[] }[] } | null
+  preview:         string | null
+  files:           { path: string }[]
+  dependencies:    string[]
+}
 
 /** @deprecated V1 — kept as fallback until V2 is verified in production */
 const GEN_STEPS = [
@@ -135,6 +148,8 @@ export default function WebsiteGeneratorPage() {
   // ── V2 generation state (Phase M.5) ────────────────────────────────────────
   const [v2ProjectId, setV2ProjectId] = useState<string | null>(null)
   const [v2GenPhase, setV2GenPhase] = useState<string>("idle")
+  const [v2Project, setV2Project] = useState<V2Project | null>(null)
+  const [v2Loading, setV2Loading] = useState(false)
   const { openUpgradeModal } = useUpgradeModal()
   const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
   const [, setLocation] = useLocation()
@@ -624,9 +639,44 @@ export default function WebsiteGeneratorPage() {
       generateCompleteCallbackRef.current?.()
       generateCompleteCallbackRef.current = null
       console.log(`[RUNTIME_TRACE] 12_COMPLETION_CALLBACK_FIRED | ts=${Date.now()}`)
-      // Navigate to Website Studio — V2 project is ready
-      console.log("WEBSITE_FLOW:V2_REDIRECT | projectId:", v2Result.projectId)
-      setLocation(`/website-studio/${v2Result.projectId}`)
+      // Fetch the saved project and show it in the generator preview
+      console.log("WEBSITE_FLOW:V2_FETCH_PROJECT | projectId:", v2Result.projectId)
+      setV2Loading(true)
+      try {
+        const projRes = await fetch(`/api/website-v2/projects/${v2Result.projectId}`, { credentials: "include" })
+        if (projRes.ok) {
+          const proj = await projRes.json() as V2Project
+          setV2Project(proj)
+        } else {
+          // Fetch failed — create minimal fallback so the no-preview screen renders
+          // with a working "Open in Website Studio" link
+          setV2Project({
+            id: v2Result.projectId,
+            projectName: ideaOverride.slice(0, 40) || "Your Website",
+            status: "active",
+            businessContext: { industry: "", companyName: "", targetAudience: "" },
+            blueprint: null,
+            preview: null,
+            files: [],
+            dependencies: [],
+          })
+        }
+      } catch {
+        // Network error during fetch — same minimal fallback
+        setV2Project({
+          id: v2Result.projectId,
+          projectName: ideaOverride.slice(0, 40) || "Your Website",
+          status: "active",
+          businessContext: { industry: "", companyName: "", targetAudience: "" },
+          blueprint: null,
+          preview: null,
+          files: [],
+          dependencies: [],
+        })
+      } finally {
+        setV2Loading(false)
+      }
+      setStep("done")
       return
     } catch (err: unknown) {
       if ((err as Error).name === "AbortError") { setStep("input"); traceOutcome = { success: false, reason: "aborted" }; return }
@@ -664,8 +714,40 @@ export default function WebsiteGeneratorPage() {
         setStep("input"); return
       }
       emit({ type: "website.generated", data: { saved: true } })
-      console.log("WEBSITE_FLOW:V2_REDIRECT | projectId:", result.projectId)
-      setLocation(`/website-studio/${result.projectId}`)
+      console.log("WEBSITE_FLOW:V2_FETCH_PROJECT | projectId:", result.projectId)
+      setV2Loading(true)
+      try {
+        const projRes = await fetch(`/api/website-v2/projects/${result.projectId}`, { credentials: "include" })
+        if (projRes.ok) {
+          const proj = await projRes.json() as V2Project
+          setV2Project(proj)
+        } else {
+          setV2Project({
+            id: result.projectId,
+            projectName: idea.slice(0, 40) || "Your Website",
+            status: "active",
+            businessContext: { industry: "", companyName: "", targetAudience: "" },
+            blueprint: null,
+            preview: null,
+            files: [],
+            dependencies: [],
+          })
+        }
+      } catch {
+        setV2Project({
+          id: result.projectId,
+          projectName: idea.slice(0, 40) || "Your Website",
+          status: "active",
+          businessContext: { industry: "", companyName: "", targetAudience: "" },
+          blueprint: null,
+          preview: null,
+          files: [],
+          dependencies: [],
+        })
+      } finally {
+        setV2Loading(false)
+      }
+      setStep("done")
     } catch (err: unknown) {
       if ((err as Error).name === "AbortError") { setStep("input"); return }
       setGenError("Connection error. Check your API key and try again.")
@@ -1019,7 +1101,82 @@ export default function WebsiteGeneratorPage() {
               </motion.div>
             )}
 
-            {step === "done" && data && (
+            {step === "done" && v2Project && (
+              <motion.div
+                key="done-v2"
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col flex-1 min-h-0 overflow-hidden"
+              >
+                {/* Header */}
+                <div className="px-4 py-3 border-b border-white/5 shrink-0 flex items-center justify-between">
+                  <button
+                    onClick={() => { setStep("input"); setV2Project(null) }}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" /> New Website
+                  </button>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                    v2Project.status === "active"
+                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                      : "bg-primary/15 border-primary/25 text-primary"
+                  }`}>{v2Project.status}</span>
+                </div>
+
+                {/* Project info */}
+                <div className="px-4 py-3 border-b border-white/5 shrink-0">
+                  <div className="text-sm font-bold text-foreground truncate">{v2Project.projectName}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{v2Project.businessContext.industry}</div>
+                </div>
+
+                {/* Stats */}
+                <div className="px-4 py-3 border-b border-white/5 shrink-0 space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                    <span>{v2Project.blueprint?.pages?.length ?? 0} page{(v2Project.blueprint?.pages?.length ?? 0) !== 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <LayoutGrid className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                    <span>
+                      {v2Project.blueprint?.pages?.reduce((n, p) => n + (p.components?.length ?? 0), 0) ?? 0} components
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <FileCode className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                    <span>{v2Project.files?.length ?? 0} files generated</span>
+                  </div>
+                  {v2Project.dependencies?.length > 0 && (
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <Package className="h-3.5 w-3.5 shrink-0 text-primary/60 mt-0.5" />
+                      <span className="line-clamp-2">{v2Project.dependencies.slice(0, 4).join(", ")}{v2Project.dependencies.length > 4 ? ` +${v2Project.dependencies.length - 4} more` : ""}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Audience */}
+                {v2Project.businessContext.targetAudience && (
+                  <div className="px-4 py-3 border-b border-white/5 shrink-0">
+                    <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-1">Target Audience</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{v2Project.businessContext.targetAudience}</p>
+                  </div>
+                )}
+
+                {/* Primary CTA */}
+                <div className="px-4 py-4 mt-auto shrink-0 space-y-2">
+                  <button
+                    onClick={() => setLocation(`/website-studio/${v2Project.id}`)}
+                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:opacity-90 transition-all shadow-[0_0_20px_rgba(212,175,55,0.25)] active:scale-[0.98]"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open in Website Studio
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {step === "done" && data && !v2Project && (
               <motion.div
                 key="done"
                 initial={{ opacity: 0 }}
@@ -1151,11 +1308,13 @@ export default function WebsiteGeneratorPage() {
             </div>
 
             {/* Center status */}
-            {step === "done" && data && (
+            {step === "done" && (v2Project || data) && (
               <div className="flex-1 flex items-center justify-center">
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span className="text-xs text-muted-foreground font-medium">{data.brand?.name}</span>
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {v2Project ? v2Project.projectName : data?.brand?.name}
+                  </span>
                   <span className="text-[10px] text-muted-foreground/40">· {DEVICE_WIDTHS[device] === "100%" ? "Desktop" : DEVICE_WIDTHS[device]}</span>
                 </div>
               </div>
@@ -1163,10 +1322,18 @@ export default function WebsiteGeneratorPage() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              {step === "done" && v2Project && (
+                <button
+                  onClick={() => setLocation(`/website-studio/${v2Project.id}`)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 transition-all"
+                >
+                  <ExternalLink className="h-3 w-3" /> Open in Website Studio
+                </button>
+              )}
               {step === "done" && (
                 <>
                   <button
-                    onClick={generate}
+                    onClick={() => { setV2Project(null); generate() }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground border border-white/8 hover:border-white/15 transition-all"
                   >
                     <RotateCcw className="h-3 w-3" /> Regenerate
@@ -1249,7 +1416,26 @@ export default function WebsiteGeneratorPage() {
               </div>
             )}
 
-            {step === "done" && previewHtml && (
+            {/* V2 loading skeleton */}
+            {v2Loading && (
+              <div className="flex flex-col items-center justify-center h-full gap-6 px-12">
+                <div className="w-full max-w-2xl space-y-4">
+                  {[120, 200, 160, 140, 180].map((h, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: [0.05, 0.12, 0.05], y: 0 }}
+                      transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
+                      className="rounded-2xl bg-white/5 border border-white/4"
+                      style={{ height: h }}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground animate-pulse">Loading preview…</p>
+              </div>
+            )}
+
+            {step === "done" && !v2Loading && (v2Project?.preview || previewHtml) && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -1271,11 +1457,15 @@ export default function WebsiteGeneratorPage() {
                       <div className="h-3 w-3 rounded-full bg-green-500/70" />
                     </div>
                     <div className="flex-1 mx-3 h-5 bg-white/5 rounded-md flex items-center px-2">
-                      <span className="text-[10px] text-muted-foreground/40 truncate">{data?.brand?.name?.toLowerCase().replace(/\s+/g, "-")}.com</span>
+                      <span className="text-[10px] text-muted-foreground/40 truncate">
+                        {v2Project
+                          ? `${v2Project.businessContext.companyName.toLowerCase().replace(/\s+/g, "-")}.com`
+                          : `${data?.brand?.name?.toLowerCase().replace(/\s+/g, "-")}.com`}
+                      </span>
                     </div>
                   </div>
                   <iframe
-                    srcDoc={previewHtml}
+                    srcDoc={v2Project?.preview ?? previewHtml}
                     className="w-full border-0"
                     style={{ height: "calc(100% - 36px)" }}
                     title="Website Preview"
@@ -1283,6 +1473,25 @@ export default function WebsiteGeneratorPage() {
                   />
                 </motion.div>
               </motion.div>
+            )}
+
+            {/* V2 done but no preview available */}
+            {step === "done" && !v2Loading && v2Project && !v2Project.preview && (
+              <div className="flex flex-col items-center justify-center h-full text-center px-12">
+                <div className="p-5 rounded-3xl bg-white/3 border border-white/6 mb-6">
+                  <Globe className="h-10 w-10 text-muted-foreground/30" />
+                </div>
+                <h3 className="text-base font-bold text-foreground/80 mb-2">Preview not available</h3>
+                <p className="text-sm text-muted-foreground/60 max-w-[260px] leading-relaxed">
+                  Open in Website Studio to view and edit your generated project.
+                </p>
+                <button
+                  onClick={() => setLocation(`/website-studio/${v2Project.id}`)}
+                  className="mt-6 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-all"
+                >
+                  <ExternalLink className="h-4 w-4" /> Open in Website Studio
+                </button>
+              </div>
             )}
           </div>
         </div>
