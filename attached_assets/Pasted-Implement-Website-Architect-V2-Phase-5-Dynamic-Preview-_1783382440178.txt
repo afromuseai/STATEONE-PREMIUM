@@ -1,0 +1,272 @@
+Implement Website Architect V2 Phase 5 — Dynamic Preview Regeneration.
+
+Current system:
+
+Website Generator V2
+↓
+Generated Next.js files
+↓
+Website Studio
+↓
+AI Editing Agent
+↓
+Files updated
+
+
+Current problem:
+
+After AI edits files, the iframe preview remains unchanged.
+
+The preview must become synchronized with the generated files.
+
+================================================
+
+GOAL
+
+Create a Preview Regeneration Pipeline.
+
+Whenever files change:
+
+Files
+ ↓
+Preview Generator
+ ↓
+Updated HTML
+ ↓
+Database preview field
+ ↓
+Studio refresh
+
+
+================================================
+
+IMPORTANT CONSTRAINTS
+
+- Do not modify V1.
+- Do not remove iframe preview.
+- Do not add WebContainer yet.
+- Keep architecture additive.
+
+
+================================================
+
+PHASE 1 — Create Preview Generator Service
+
+Create:
+
+artifacts/api-server/src/lib/website-v2-preview-generator.ts
+
+
+Purpose:
+
+Convert generated project files into a standalone preview HTML.
+
+Input:
+
+{
+ files,
+ blueprint,
+ businessContext
+}
+
+
+Output:
+
+{
+ preview:string
+}
+
+
+The generated preview must:
+
+- represent the current files
+- update after edits
+- work inside iframe srcDoc
+- be self contained
+
+
+Use NVIDIA model.
+
+System prompt:
+
+"You are a frontend rendering engineer.
+
+You receive a Next.js project file set.
+
+Create a standalone HTML preview representing the current website.
+
+Output ONLY HTML.
+
+Include:
+
+- CSS
+- layout
+- typography
+- animations
+- responsive behavior
+
+Do not explain."
+
+
+================================================
+
+PHASE 2 — Add Preview Regeneration Endpoint
+
+Create:
+
+artifacts/api-server/src/routes/website-v2-preview.ts
+
+
+Endpoint:
+
+POST
+
+/api/website-v2/projects/:id/preview
+
+
+Flow:
+
+Load project
+      ↓
+Read files
+      ↓
+Preview Generator Agent
+      ↓
+Save preview
+      ↓
+Return preview
+
+
+SSE events:
+
+{phase:"analyzing"}
+
+{phase:"rendering"}
+
+{phase:"preview", data:{preview}}
+
+{phase:"saved"}
+
+
+================================================
+
+PHASE 3 — Connect Editing Pipeline
+
+Update:
+
+edit-website-v2.ts
+
+
+After:
+
+updateProjectFiles()
+
+
+Add:
+
+regeneratePreview()
+
+
+Flow:
+
+AI edit
+ ↓
+Save files
+ ↓
+Generate new preview
+ ↓
+Save preview
+ ↓
+Return saved event
+
+
+The user should not need a manual refresh.
+
+
+================================================
+
+PHASE 4 — Update Persistence
+
+Update:
+
+website-v2-projects.ts
+
+
+Add:
+
+updateProjectPreview(
+ projectId,
+ preview
+)
+
+
+================================================
+
+PHASE 5 — Frontend Refresh
+
+Update:
+
+useWebsiteV2Project.ts
+
+
+When edit completes:
+
+Refresh:
+
+- files
+- preview
+
+
+PreviewPanel should receive the new preview automatically.
+
+
+================================================
+
+PHASE 6 — Testing
+
+Use LegalTech project.
+
+Before:
+
+Hero:
+"AI contract review"
+
+
+Edit:
+
+"Make hero section look like a premium enterprise SaaS landing page"
+
+
+Expected:
+
+1.
+HeroSection.tsx changes
+
+2.
+Preview regeneration runs
+
+3.
+iframe updates
+
+4.
+User sees new design
+
+
+================================================
+
+After implementation report:
+
+1. Files created
+
+2. Files modified
+
+3. Preview architecture
+
+4. Testing result
+
+5. Remaining limitations
+
+
+Do not implement WebContainer yet.
+
+First make the AI editing → visual update loop reliable.

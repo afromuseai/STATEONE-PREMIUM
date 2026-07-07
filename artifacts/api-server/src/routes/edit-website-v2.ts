@@ -1,12 +1,14 @@
 // ─── Website Architect V2 — AI Editing Route ──────────────────────────────────
 // POST /api/website-v2/projects/:id/edit
 //
-// Flow:
+// Full pipeline after this change:
 //   Request (instruction + optional selectedFiles)
-//     ↓
-//   Load project (ownership-checked)
-//     ↓
-//   SSE: analyzing → editing → changes → saved
+//     ↓ analyzing
+//     ↓ editing  (LLM → file modifications)
+//     ↓ changes  (send diff to client)
+//     ↓ saved    (files persisted; client refreshes file explorer)
+//     ↓ regenerating  (preview LLM running)
+//     ↓ preview-ready (preview persisted; client refreshes iframe)
 //
 // V1 is completely untouched. website-html-generator.ts is NOT used here.
 
@@ -14,7 +16,8 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { logger } from "../lib/logger";
 import { runEditingAgent } from "../lib/website-v2-editor";
-import { getV2Project, updateProjectFiles } from "../lib/website-v2-projects";
+import { runPreviewGenerator } from "../lib/website-v2-preview-generator";
+import { getV2Project, updateProjectFiles, updateProjectPreview } from "../lib/website-v2-projects";
 import type {
   BusinessContext,
   WebsiteBlueprint,
@@ -30,10 +33,10 @@ router.post("/website-v2/projects/:id/edit", requireAuth, async (req, res) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anyReq = req as any;
   const id: string     = anyReq.params.id as string;
-  const userId: string = anyReq.user?.id as string ?? "";
+  const userId: string = (anyReq.user?.id ?? anyReq.user?.userId ?? "") as string;
 
   const body = req.body as { instruction?: unknown; selectedFiles?: unknown };
-  const instruction   = typeof body.instruction   === "string"   ? body.instruction   : "";
+  const instruction   = typeof body.instruction   === "string" ? body.instruction   : "";
   const selectedFiles = Array.isArray(body.selectedFiles)
     ? (body.selectedFiles as unknown[]).filter((x): x is string => typeof x === "string")
     : undefined;
@@ -64,8 +67,8 @@ router.post("/website-v2/projects/:id/edit", requireAuth, async (req, res) => {
     }
 
     const context   = project.businessContext as unknown as BusinessContext;
-    const blueprint = project.blueprint as unknown as WebsiteBlueprint | null;
-    const files     = (project.files as unknown as ProjectFile[]) ?? [];
+    const blueprint = project.blueprint      as unknown as WebsiteBlueprint | null;
+    const files     = (project.files         as unknown as ProjectFile[]) ?? [];
 
     if (files.length === 0) {
       emit({ phase: "error", message: "Project has no files to edit" });
@@ -96,16 +99,39 @@ router.post("/website-v2/projects/:id/edit", requireAuth, async (req, res) => {
     // ── send changes to client ────────────────────────────────────────────────
     emit({ phase: "changes", data: result });
 
-    // ── persist to DB ─────────────────────────────────────────────────────────
-    const { ok } = await updateProjectFiles(id, result.changes);
+    // ── persist file changes ──────────────────────────────────────────────────
+    const { files: updatedFiles, ok } = await updateProjectFiles(id, result.changes);
     if (!ok) {
       emit({ phase: "error", message: "Failed to save changes to database" });
       res.end();
       return;
     }
 
-    // ── done ──────────────────────────────────────────────────────────────────
+    // ── files saved — client can immediately refresh the code explorer ────────
     emit({ phase: "saved", fileCount: result.changes.length });
+
+    // ── regenerate preview from updated files ─────────────────────────────────
+    emit({ phase: "regenerating" });
+
+    try {
+      const preview = await runPreviewGenerator(
+        context,
+        blueprint,
+        updatedFiles.length > 0 ? updatedFiles : files,
+        { userId, projectId: id }
+      );
+      await updateProjectPreview(id, preview);
+      logger.info({ projectId: id }, "[v2:edit] Preview regenerated and saved");
+    } catch (previewErr: unknown) {
+      // Preview failure is non-fatal — files are already saved. Log and continue.
+      logger.warn(
+        { err: String(previewErr), projectId: id },
+        "[v2:edit] Preview regeneration failed (non-fatal)"
+      );
+    }
+
+    // ── preview-ready — client refreshes iframe ───────────────────────────────
+    emit({ phase: "preview-ready" });
     res.end();
 
   } catch (err: unknown) {

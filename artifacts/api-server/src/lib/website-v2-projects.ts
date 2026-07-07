@@ -143,6 +143,26 @@ export async function listProjects(userId: string) {
 // Full-column version kept for internal pipeline use.
 export const listV2Projects = listProjects;
 
+// ─── Update the preview HTML for a project ────────────────────────────────────
+// Called after AI edits + preview regeneration so the Studio iframe refreshes.
+export async function updateProjectPreview(
+  projectId: string,
+  preview: string
+): Promise<boolean> {
+  try {
+    await db
+      .update(websiteV2ProjectsTable)
+      .set({ preview })
+      .where(eq(websiteV2ProjectsTable.id, projectId));
+
+    logger.info({ projectId }, "[v2:db] Preview updated");
+    return true;
+  } catch (err) {
+    logger.error({ err: String(err), projectId }, "[v2:db] Failed to update preview");
+    return false;
+  }
+}
+
 // ─── Infer language from file extension ──────────────────────────────────────
 function inferLanguage(path: string): string {
   if (path.endsWith(".tsx") || path.endsWith(".ts")) return "typescript";

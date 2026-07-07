@@ -171,6 +171,16 @@ export type V2SseEvent =
 export type V2EditSseEvent =
   | { phase: "analyzing" }
   | { phase: "editing" }
-  | { phase: "changes";  data: EditResult }
-  | { phase: "saved";    fileCount: number }
-  | { phase: "error";    message: string };
+  | { phase: "changes";       data: EditResult }
+  | { phase: "saved";         fileCount: number }
+  | { phase: "regenerating" }
+  | { phase: "preview-ready" }
+  | { phase: "error";         message: string };
+
+// SSE events from the preview regeneration route.
+export type V2PreviewSseEvent =
+  | { phase: "analyzing" }
+  | { phase: "rendering" }
+  | { phase: "preview"; data: { preview: string } }
+  | { phase: "saved" }
+  | { phase: "error"; message: string };

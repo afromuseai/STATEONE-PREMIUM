@@ -1,28 +1,28 @@
 import { useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Sparkles, Send, CheckCircle, AlertCircle, Loader, ChevronDown, ChevronUp, FileCode } from "lucide-react"
+import { Sparkles, Send, CheckCircle, AlertCircle, Loader, ChevronDown, ChevronUp, FileCode, RefreshCw } from "lucide-react"
 import type { V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 
 // ─── SSE reader helper ────────────────────────────────────────────────────────
 // POST + read text/event-stream without EventSource (which only supports GET).
 async function* readSseStream(response: Response): AsyncGenerator<Record<string, unknown>> {
-  const reader = response.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+  const reader  = response.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer    = ""
 
   while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
 
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() ?? "";
+    const parts = buffer.split("\n\n")
+    buffer = parts.pop() ?? ""
 
     for (const part of parts) {
-      const line = part.trim();
-      if (!line.startsWith("data: ")) continue;
+      const line = part.trim()
+      if (!line.startsWith("data: ")) continue
       try {
-        yield JSON.parse(line.slice(6)) as Record<string, unknown>;
+        yield JSON.parse(line.slice(6)) as Record<string, unknown>
       } catch { /* skip malformed line */ }
     }
   }
@@ -30,38 +30,41 @@ async function* readSseStream(response: Response): AsyncGenerator<Record<string,
 
 // ─── Phase display config ─────────────────────────────────────────────────────
 const PHASE_LABELS: Record<string, string> = {
-  analyzing: "Analyzing project…",
-  editing:   "Generating changes…",
-  changes:   "Applying changes…",
-  saved:     "Done",
-  error:     "Error",
+  analyzing:       "Analyzing project…",
+  editing:         "Generating changes…",
+  changes:         "Applying changes…",
+  saved:           "Files saved — regenerating preview…",
+  regenerating:    "Regenerating preview…",
+  "preview-ready": "Done — preview updated",
+  error:           "Error",
 }
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface FileChange {
-  path: string
+  path:      string
   operation: "update" | "create" | "delete"
-  reason: string
+  reason:    string
 }
 
 interface EditorChatPanelProps {
-  projectId: string
-  files: V2ProjectFile[]
+  projectId:      string
+  files:          V2ProjectFile[]
   onEditComplete: () => void
 }
 
 export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChatPanelProps) {
-  const [instruction, setInstruction]     = useState("")
-  const [phase, setPhase]                 = useState<string | null>(null)
-  const [summary, setSummary]             = useState<string | null>(null)
-  const [changes, setChanges]             = useState<FileChange[]>([])
-  const [error, setError]                 = useState<string | null>(null)
-  const [showChanges, setShowChanges]     = useState(false)
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
+  const [instruction, setInstruction]       = useState("")
+  const [phase, setPhase]                   = useState<string | null>(null)
+  const [summary, setSummary]               = useState<string | null>(null)
+  const [changes, setChanges]               = useState<FileChange[]>([])
+  const [error, setError]                   = useState<string | null>(null)
+  const [showChanges, setShowChanges]       = useState(false)
+  const [selectedFiles, setSelectedFiles]   = useState<Set<string>>(new Set())
   const [showFileSelect, setShowFileSelect] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
-  const isRunning = phase !== null && phase !== "saved" && phase !== "error"
+  // Running = any phase before the two terminal phases (preview-ready / error)
+  const isRunning = phase !== null && phase !== "preview-ready" && phase !== "error"
 
   const toggleFile = (path: string) => {
     setSelectedFiles((prev) => {
@@ -75,8 +78,8 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
     if (!instruction.trim() || isRunning) return
 
     abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
+    const controller  = new AbortController()
+    abortRef.current  = controller
 
     setPhase("analyzing")
     setSummary(null)
@@ -86,11 +89,11 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
 
     try {
       const response = await fetch(`/api/website-v2/projects/${projectId}/edit`, {
-        method: "POST",
+        method:      "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          instruction: instruction.trim(),
+        headers:     { "Content-Type": "application/json" },
+        body:        JSON.stringify({
+          instruction:   instruction.trim(),
           selectedFiles: selectedFiles.size > 0 ? [...selectedFiles] : undefined,
         }),
         signal: controller.signal,
@@ -111,7 +114,13 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
           setSummary(data.summary ?? null)
         }
 
+        // Files are saved — immediately refresh the code explorer.
         if (p === "saved") {
+          onEditComplete()
+        }
+
+        // Preview is saved — refresh again so the iframe gets the new HTML.
+        if (p === "preview-ready") {
           setInstruction("")
           setSelectedFiles(new Set())
           onEditComplete()
@@ -141,6 +150,9 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
     setChanges([])
     setError(null)
   }
+
+  const isTerminalSuccess = phase === "preview-ready"
+  const isTerminalError   = phase === "error"
 
   return (
     <div className="flex flex-col border-t border-white/8 bg-black/30">
@@ -179,7 +191,10 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
                 Select files the AI should focus on (optional):
               </p>
               {files.map((f) => (
-                <label key={f.path} className="flex cursor-pointer items-center gap-2 rounded py-0.5 hover:bg-white/5">
+                <label
+                  key={f.path}
+                  className="flex cursor-pointer items-center gap-2 rounded py-0.5 hover:bg-white/5"
+                >
                   <input
                     type="checkbox"
                     checked={selectedFiles.has(f.path)}
@@ -205,35 +220,40 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
             className="mx-3 mb-2 flex items-center justify-between rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2"
           >
             <div className="flex items-center gap-2">
-              {phase === "saved" ? (
+              {isTerminalSuccess ? (
                 <CheckCircle className="h-3.5 w-3.5 flex-shrink-0 text-emerald-400" />
-              ) : phase === "error" ? (
+              ) : isTerminalError ? (
                 <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 text-red-400" />
+              ) : phase === "regenerating" || phase === "saved" ? (
+                <RefreshCw className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-blue-400" />
               ) : (
                 <Loader className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-amber-400" />
               )}
               <span className={`text-xs ${
-                phase === "saved" ? "text-emerald-400" :
-                phase === "error" ? "text-red-400" :
+                isTerminalSuccess ? "text-emerald-400" :
+                isTerminalError   ? "text-red-400"     :
+                (phase === "regenerating" || phase === "saved") ? "text-blue-400/80" :
                 "text-white/60"
               }`}>
-                {phase === "error" ? (error ?? "Edit failed") :
-                 phase === "saved" && summary ? summary :
+                {isTerminalError   ? (error ?? "Edit failed")                          :
+                 isTerminalSuccess && summary ? summary                                :
                  PHASE_LABELS[phase] ?? phase}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              {phase === "saved" && changes.length > 0 && (
+              {isTerminalSuccess && changes.length > 0 && (
                 <button
                   onClick={() => setShowChanges(!showChanges)}
                   className="text-[10px] text-white/35 hover:text-white/60"
                 >
                   {changes.length} file{changes.length !== 1 ? "s" : ""} changed
-                  {showChanges ? <ChevronUp className="ml-1 inline h-2.5 w-2.5" /> : <ChevronDown className="ml-1 inline h-2.5 w-2.5" />}
+                  {showChanges
+                    ? <ChevronUp   className="ml-1 inline h-2.5 w-2.5" />
+                    : <ChevronDown className="ml-1 inline h-2.5 w-2.5" />}
                 </button>
               )}
-              {(phase === "saved" || phase === "error") && (
+              {(isTerminalSuccess || isTerminalError) && (
                 <button onClick={reset} className="text-[10px] text-white/25 hover:text-white/50">
                   ✕
                 </button>
@@ -257,7 +277,7 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
                 <div key={c.path} className="flex items-start gap-2 py-1">
                   <span className={`mt-0.5 rounded px-1 py-0.5 text-[9px] font-bold uppercase
                     ${c.operation === "create" ? "bg-emerald-400/10 text-emerald-400" :
-                      c.operation === "delete" ? "bg-red-400/10 text-red-400" :
+                      c.operation === "delete" ? "bg-red-400/10 text-red-400"         :
                       "bg-blue-400/10 text-blue-400"}`}>
                     {c.operation}
                   </span>
@@ -290,7 +310,7 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
         >
           {isRunning
             ? <Loader className="h-3.5 w-3.5 animate-spin" />
-            : <Send className="h-3.5 w-3.5" />}
+            : <Send   className="h-3.5 w-3.5" />}
         </button>
       </div>
     </div>

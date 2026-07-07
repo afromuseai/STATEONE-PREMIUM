@@ -56,6 +56,7 @@ import adminRetentionRouter from "./admin-retention";
 import workerRouter from "./worker";
 import websiteV2ProjectsRouter from "./website-v2-projects";
 import editWebsiteV2Router from "./edit-website-v2";
+import websiteV2PreviewRouter from "./website-v2-preview";
 
 const router: IRouter = Router();
 
@@ -116,5 +117,6 @@ router.use(adminRetentionRouter);
 router.use(workerRouter);
 router.use(websiteV2ProjectsRouter);
 router.use(editWebsiteV2Router);
+router.use(websiteV2PreviewRouter);
 
 export default router;
