@@ -598,8 +598,10 @@ Tell me what to change and I'll plan it first, then execute it.`,
   })()
 
   // ── Render ────────────────────────────────────────────────────────────────
+  const showEmptyState = timeline.length === 0 && !isRunning && !streamText
+
   return (
-    <div className="relative flex w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.06] bg-[#0b0b0b]">
+    <div className="relative flex h-full w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.05] bg-[#0b0b0b]">
 
       {/* Running glow */}
       <AnimatePresence>
@@ -657,53 +659,123 @@ Tell me what to change and I'll plan it first, then execute it.`,
         )}
       </div>
 
-      {/* Timeline */}
-      <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarWidth: "none" }}>
-        <div className="space-y-2">
-          {timeline.map(entry => (
-            <TimelineItem key={entry.id} entry={entry} />
-          ))}
+      {/* Messages / Empty state */}
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
 
-          {/* Live stream display */}
-          <AnimatePresence>
-            {streamText && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="flex gap-2"
-              >
-                <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/12">
-                  <Brain className="h-2.5 w-2.5 text-amber-400 animate-pulse" />
+        {/* ── Empty state — shown when no messages yet ───────────────────── */}
+        <AnimatePresence>
+          {showEmptyState && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="flex h-full flex-col items-center justify-center px-4 py-8 text-center"
+            >
+              {/* Avatar */}
+              <div className="relative mb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-800/10 ring-1 ring-amber-400/20">
+                  <Cpu className="h-5 w-5 text-amber-400/80" />
                 </div>
-                <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm bg-white/[0.025] px-3 py-2">
-                  <p className="text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap break-words">
-                    {stripToolCalls(streamText).slice(0, 600) || "…"}
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <motion.div
+                  className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0b0b0b] bg-emerald-400"
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2.4, repeat: Infinity }}
+                />
+              </div>
 
-          {/* Thinking dots */}
-          <AnimatePresence>
-            {isRunning && !streamText && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="flex items-center gap-2 py-1"
-              >
-                <div className="flex gap-[3px]">
+              <p className="text-[13px] font-semibold text-white/75">Marcus is ready</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-white/30 max-w-[200px]">
+                {wcStatus === "ready"
+                  ? "Describe a change and I'll plan, then build it."
+                  : "WebContainer is starting up…"}
+              </p>
+
+              {/* Suggested prompts */}
+              {wcStatus === "ready" && (
+                <div className="mt-5 w-full space-y-1.5">
+                  {[
+                    "Add a dark mode toggle",
+                    "Improve the hero section",
+                    "Create a contact form",
+                    "Add smooth animations",
+                  ].map((prompt) => (
+                    <button
+                      key={prompt}
+                      onClick={() => setInput(prompt)}
+                      className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-left text-[11px] text-white/40 transition-all hover:border-amber-400/20 hover:bg-amber-400/[0.04] hover:text-white/65"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* WC booting indicator */}
+              {wcStatus !== "ready" && (
+                <div className="mt-4 flex items-center gap-2">
                   {[0, 1, 2].map(i => (
-                    <motion.div key={i} className="h-[5px] w-[5px] rounded-full bg-amber-400/50"
-                      animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1, 0.8] }}
-                      transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.18, ease: "easeInOut" }}
+                    <motion.div key={i}
+                      className="h-1.5 w-1.5 rounded-full bg-amber-400/40"
+                      animate={{ opacity: [0.2, 0.8, 0.2] }}
+                      transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
                     />
                   ))}
                 </div>
-                <span className="text-[10px] text-white/25">{statusLabel}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-        <div ref={bottomRef} className="h-2" />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Timeline messages ──────────────────────────────────────────── */}
+        {!showEmptyState && (
+          <div className="px-3 py-3 space-y-2">
+            {timeline.map(entry => (
+              <TimelineItem key={entry.id} entry={entry} />
+            ))}
+
+            {/* Live stream display */}
+            <AnimatePresence>
+              {streamText && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  className="flex gap-2"
+                >
+                  <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/12">
+                    <Brain className="h-2.5 w-2.5 text-amber-400 animate-pulse" />
+                  </div>
+                  <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm bg-white/[0.025] px-3 py-2">
+                    <p className="text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap break-words">
+                      {stripToolCalls(streamText).slice(0, 600) || "…"}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Thinking dots */}
+            <AnimatePresence>
+              {isRunning && !streamText && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  className="flex items-center gap-2 py-1"
+                >
+                  <div className="flex gap-[3px]">
+                    {[0, 1, 2].map(i => (
+                      <motion.div key={i} className="h-[5px] w-[5px] rounded-full bg-amber-400/50"
+                        animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1, 0.8] }}
+                        transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.18, ease: "easeInOut" }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-white/25">{statusLabel}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div ref={bottomRef} className="h-2" />
+          </div>
+        )}
       </div>
 
       {/* O3: Plan confirmation bar */}
