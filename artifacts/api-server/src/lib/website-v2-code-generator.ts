@@ -333,6 +333,12 @@ export function parseGeneratedProject(
     clean = clean.slice(objStart, objEnd + 1);
   }
 
+  // Sanitize literal control characters that the model embeds inside JSON string
+  // values (raw LF/CR/TAB instead of \n/\r/\t).  Must run after bracket-slicing
+  // so we only process the actual JSON object, and before JSON.parse which
+  // rejects any control character < 0x20 inside a string.
+  clean = sanitizeJsonControlChars(clean);
+
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(clean) as Record<string, unknown>;
