@@ -76,6 +76,7 @@
     "@webcontainer/api": "^1.6.4",
     "@workspace/api-zod": "workspace:*",
     "jszip": "^3.10.1",
+    "monaco-editor": "^0.55.1",
     "react-simple-maps": "^3.0.0"
   }
 }
