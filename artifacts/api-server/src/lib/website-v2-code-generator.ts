@@ -44,10 +44,10 @@ function escCssColor(s: string, fallback: string): string {
 }
 
 // ─── Model assignment ─────────────────────────────────────────────────────────
-// A/B test: stepfun-ai/step-3.7-flash — fast, large-context code generation.
-// MODELS.COMPONENT_GENERATION (nvidia/nemotron-3-ultra-550b-a55b) was the prior model;
-// switching here without touching models.ts keeps the editor/preview routes unchanged.
-export const CODE_GENERATOR_MODEL = "stepfun-ai/step-3.7-flash";
+// nvidia/nemotron-3-super-120b-a12b — large-context code generation.
+// enable_thinking: false is applied automatically via MODEL_KWARGS in models.ts,
+// preventing an ~8-min reasoning timeout on large blueprint → code prompts.
+export const CODE_GENERATOR_MODEL = MODELS.WEBSITE_V2_CODE_GEN; // nvidia/nemotron-3-super-120b-a12b
 
 // ─── Language inference from file extension ───────────────────────────────────
 function inferLanguage(path: string): string {
@@ -647,7 +647,7 @@ export async function generateProjectCode(
       userId,
       model: CODE_GENERATOR_MODEL,
       maxTokens: 16000,
-      thinkingDisabled: false,
+      thinkingDisabled: true,
       userPromptLen: userPrompt.length,
       systemPromptLen: CODE_GENERATOR_SYSTEM_PROMPT.length,
       company: ctx.companyName,
@@ -658,9 +658,8 @@ export async function generateProjectCode(
     "[v2:codegen] STAGE ENTERED: Code Generation Agent"
   );
 
-  // A/B test: stepfun-ai/step-3.7-flash — no special kwargs needed.
-  // (Previous model, nemotron-3-ultra-550b-a55b, required chatTemplateKwargs
-  //  { enable_thinking: false } to prevent an ~8-min thinking timeout.)
+  // nvidia/nemotron-3-super-120b-a12b: enable_thinking: false is applied
+  // automatically via MODEL_KWARGS in models.ts — no explicit chatTemplateKwargs needed here.
   const stream = await streamNvidia({
     model:       CODE_GENERATOR_MODEL,
     temperature: 0.4,
@@ -837,6 +836,11 @@ export async function generateProjectCode(
   }
 
   const streamMs = Date.now() - stageStart;
+  // Snapshot nvidiaUsage into a local const with an explicit cast so TypeScript's
+  // CFA doesn't narrow it to never (the let is only assigned inside the
+  // processLines closure, which fools the compiler into thinking it's never set).
+  type NvidiaUsage = { promptTokens?: number; completionTokens?: number; totalTokens?: number } | null;
+  const finalUsage = nvidiaUsage as NvidiaUsage;
   logger.info(
     {
       layer:            "v2:codegen",
@@ -848,16 +852,16 @@ export async function generateProjectCode(
       lastFinishReason,
       // "length" finish_reason means output was truncated at max_tokens — root cause of incomplete JSON
       truncatedAtMaxTokens: lastFinishReason === "length",
-      nvidiaPromptTokens:     nvidiaUsage?.promptTokens,
-      nvidiaCompletionTokens: nvidiaUsage?.completionTokens,
-      nvidiaTotalTokens:      nvidiaUsage?.totalTokens,
+      nvidiaPromptTokens:     finalUsage?.promptTokens,
+      nvidiaCompletionTokens: finalUsage?.completionTokens,
+      nvidiaTotalTokens:      finalUsage?.totalTokens,
       thinkingWasActive: thinkingSent,
       contentStarted,
       // Capture first and last 500 chars to verify the JSON is complete
       bufferHead: buffer.slice(0, 500),
       bufferTail: buffer.slice(-500),
     },
-    `[v2:codegen] ── Stream done in ${streamMs}ms — buffer=${buffer.length} chars, chunks=${rawChunkCount}, finish_reason=${lastFinishReason ?? "(none)"}, tokens=${nvidiaUsage?.totalTokens ?? "?"} ──`
+    `[v2:codegen] ── Stream done in ${streamMs}ms — buffer=${buffer.length} chars, chunks=${rawChunkCount}, finish_reason=${lastFinishReason ?? "(none)"}, tokens=${finalUsage?.totalTokens ?? "?"} ──`
   );
 
   if (!buffer || buffer.length < 100) {

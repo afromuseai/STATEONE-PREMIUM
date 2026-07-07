@@ -45,9 +45,9 @@ import type {
 const router = Router();
 
 // ─── Model assignment ─────────────────────────────────────────────────────────
-// Architect Agent: needs strong structured reasoning and JSON fidelity.
-// Llama-4 Maverick is confirmed working for JSON output on this account.
-const ARCHITECT_MODEL = MODELS.WEBSITE_PLANNING; // meta/llama-4-maverick-17b-128e-instruct
+// Architect Agent: stepfun-ai/step-3.7-flash — low-latency structured JSON,
+// no special chat_template_kwargs required.
+const ARCHITECT_MODEL = MODELS.WEBSITE_V2_ARCHITECT; // stepfun-ai/step-3.7-flash
 
 // ─── Architect Agent system prompt ───────────────────────────────────────────
 // The agent acts as a senior frontend architect.
