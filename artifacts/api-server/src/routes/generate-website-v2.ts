@@ -50,38 +50,58 @@ const router = Router();
 const ARCHITECT_MODEL = MODELS.WEBSITE_V2_ARCHITECT; // stepfun-ai/step-3.7-flash
 
 // ─── Architect Agent system prompt ───────────────────────────────────────────
-// The agent acts as a senior frontend architect.
-// It MUST NOT generate code, HTML, CSS, or marketing copy.
-// Output is exclusively a WebsiteBlueprint JSON object.
+// Constrained to produce a minimal first-generation landing page blueprint:
+//   • Single route "/" only
+//   • Max 6 components using canonical names (Navbar/Hero/Features/CTA/Footer + 1 optional)
+//   • No auth, dashboards, pricing systems, multi-page navigation, or backend features
+// The Code Generation agent maps these components to exactly 8 canonical files.
 const ARCHITECT_SYSTEM_PROMPT = `You are a senior frontend architect at a world-class product studio.
 
-Your role is ARCHITECTURE ONLY. You analyze a business brief and produce a structured engineering blueprint that another AI agent will use to build the website.
+Your role is ARCHITECTURE ONLY. You analyze a business brief and produce a structured engineering blueprint for a single-page landing page that a Code Generation agent will build.
+
+━━━ SCOPE — HARD CONSTRAINTS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ONE PAGE ONLY: route "/" — do not add /about, /pricing, /dashboard, /login, or any other route.
+
+MAXIMUM 6 COMPONENTS — always include these 5 canonical components:
+  Navbar    — top navigation bar
+  Hero      — primary above-fold value proposition
+  Features  — key product/service highlights (2–4 items)
+  CTA       — final conversion call-to-action band
+  Footer    — footer with links and copyright
+
+You may add ONE optional 6th section between Features and CTA. Choose the most relevant for the business:
+  Testimonials | HowItWorks | SocialProof | Stats | Pricing
+
+DO NOT include any of the following:
+  - Authentication, login, sign-up, or account management
+  - Dashboards, admin panels, or management interfaces
+  - Pricing tables that link to checkout (Pricing section = marketing display only)
+  - Multiple routes or multi-page navigation
+  - Backend APIs, server actions, or database logic
+  - Any feature not visible on a public landing page
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 YOU MUST NOT:
-- Write any HTML
-- Write any React, JSX, or TypeScript code
-- Write any CSS or Tailwind classes
+- Write any HTML, React, JSX, TypeScript, or CSS
 - Write marketing copy, headlines, taglines, or CTAs
 - Generate placeholder text or lorem ipsum
 
-YOU MUST:
-- Decide what PAGES are needed and why
-- Decide what COMPONENTS belong on each page, and for EACH component specify:
-    • purpose   — one sentence: what this component achieves for the user
-    • layout    — structural/visual description (e.g. "split hero, text left, product visual right")
-    • contentElements — content slots inside the component (no copy, just slot names)
-                        e.g. ["headline", "supporting paragraph", "primary CTA", "trust badge"]
-    • behavior  — interaction, animation, and responsive rules
-                  e.g. ["fade in on mount with staggered children", "stacks vertically on mobile"]
-- Decide the COMPONENT HIERARCHY (which components contain which)
-- Decide the DESIGN SYSTEM direction (style language, color mood, motion level)
-- Decide the RESPONSIVE STRATEGY (how the layout adapts to mobile/tablet/desktop)
-- Decide the INTERACTION PLAN (key animation moments, hover states, scroll behaviors)
-- Decide the CONTENT STRATEGY (information hierarchy, persuasion flow, trust signal placement)
-- Decide the TECHNICAL REQUIREMENTS (Next.js features needed, accessibility, performance)
-- Write a brief ARCHITECT RATIONALE explaining why this structure serves the business
+YOU MUST for EACH component specify:
+  • purpose          — one sentence: what this component achieves for the user
+  • layout           — structural/visual description (e.g. "split hero, text left, product visual right")
+  • contentElements  — content slots inside the component (no copy, just slot names)
+                       e.g. ["headline", "supporting paragraph", "primary CTA", "trust badge"]
+  • behavior         — interaction, animation, and responsive rules
+                       e.g. ["fade in on mount with staggered children", "stacks vertically on mobile"]
 
-COMPONENT NAMING: Use PascalCase names only (e.g. "HeroSection", "FeatureGrid", "PricingCard").
+AND decide:
+  - DESIGN SYSTEM direction (style language, color mood, motion level)
+  - RESPONSIVE STRATEGY (how the layout adapts across breakpoints)
+  - INTERACTION PLAN (key animation moments, hover states, scroll behaviors)
+  - CONTENT STRATEGY (information hierarchy, persuasion flow, trust signal placement)
+  - TECHNICAL REQUIREMENTS (Next.js features, libraries, accessibility needs)
+  - ARCHITECT RATIONALE (2–3 sentences on why this structure serves the business)
+
 CONTENT ELEMENTS: Name the slot, never the copy. Write "headline", not "AI-Powered Contract Review".
 BEHAVIOR: Describe the rule, never the implementation. Write "fade in on scroll", not "opacity-0 → opacity-1".
 
@@ -92,22 +112,43 @@ OUTPUT: Return ONLY a valid JSON object matching this exact schema. No markdown,
   "pages": [
     {
       "route": "/",
-      "purpose": "one sentence describing the page goal",
-      "priority": "primary" | "secondary",
+      "purpose": "one sentence describing the landing page goal",
+      "priority": "primary",
       "components": [
         {
-          "name": "HeroSection",
+          "name": "Navbar",
+          "purpose": "orient the visitor and provide navigation anchors",
+          "layout": "horizontal bar with logo left, nav links center, CTA button right",
+          "contentElements": ["logo", "nav links (3–4)", "primary CTA button"],
+          "behavior": ["sticky on scroll", "collapses to hamburger below 768px"]
+        },
+        {
+          "name": "Hero",
           "purpose": "establish value proposition and drive primary CTA click",
-          "layout": "split hero with text left and product visual right",
-          "contentElements": ["headline", "supporting paragraph", "primary CTA", "trust badge"],
+          "layout": "centered hero with headline, sub-headline, and two CTAs",
+          "contentElements": ["headline", "supporting paragraph", "primary CTA", "secondary CTA", "trust badge"],
           "behavior": ["fade in on load with staggered children", "stacks vertically below 768px"]
         },
         {
-          "name": "FeatureGrid",
-          "purpose": "communicate key product capabilities",
+          "name": "Features",
+          "purpose": "communicate key product or service capabilities",
           "layout": "3-column icon-card grid",
           "contentElements": ["section heading", "feature card × 3 (icon, title, description)"],
           "behavior": ["cards animate into view on scroll", "collapses to single column on mobile"]
+        },
+        {
+          "name": "CTA",
+          "purpose": "drive the final conversion action at the bottom of the page",
+          "layout": "full-width band with headline and primary button",
+          "contentElements": ["headline", "supporting line", "primary CTA button"],
+          "behavior": ["fade in on scroll into view"]
+        },
+        {
+          "name": "Footer",
+          "purpose": "close the page with brand and legal information",
+          "layout": "single row with logo, nav links, and copyright",
+          "contentElements": ["logo", "nav links", "copyright line"],
+          "behavior": ["static, no animation"]
         }
       ]
     }
@@ -121,7 +162,11 @@ OUTPUT: Return ONLY a valid JSON object matching this exact schema. No markdown,
     "borderRadius": "sharp" | "sm" | "md" | "lg" | "full"
   },
   "componentHierarchy": {
-    "ComponentName": ["ChildComponent", "AnotherChild"]
+    "Navbar": [],
+    "Hero": [],
+    "Features": [],
+    "CTA": [],
+    "Footer": []
   },
   "responsiveStrategy": "paragraph describing mobile-first approach, key breakpoint behaviors",
   "interactionPlan": [
@@ -549,6 +594,101 @@ router.post(
 
       sseWrite(res, { phase: "blueprint", data: blueprint });
 
+      // ── Blueprint scope enforcement ──────────────────────────────────────────
+      // Belt-and-suspenders: keep the blueprint within first-generation landing-
+      // page scope even if the Architect Agent exceeded its prompt constraints.
+
+      // 1. Single route: retain only the "/" page (or pages[0] as fallback).
+      if (blueprint.pages.length > 1) {
+        const originalPageCount = blueprint.pages.length;
+        const homePage = blueprint.pages.find((p) => p.route === "/") ?? blueprint.pages[0];
+        blueprint = { ...blueprint, pages: [{ ...homePage, route: "/" }] };
+        req.log.warn(
+          { layer: "v2:scope", originalPageCount, action: "trim_to_single_route" },
+          "[v2:scope] Architect produced multiple routes — trimmed to single '/' page"
+        );
+      }
+
+      // 2. Component cap: max 6 components on the single page.
+      const MAX_COMPONENTS = 6;
+      if ((blueprint.pages[0]?.components.length ?? 0) > MAX_COMPONENTS) {
+        blueprint = {
+          ...blueprint,
+          pages: blueprint.pages.map((p) => ({
+            ...p,
+            components: p.components.slice(0, MAX_COMPONENTS),
+          })),
+        };
+        req.log.warn(
+          { layer: "v2:scope", action: "trim_components", cap: MAX_COMPONENTS },
+          `[v2:scope] Architect exceeded component cap — trimmed to ${MAX_COMPONENTS} components`
+        );
+      }
+
+      // ── Blueprint complexity estimate ────────────────────────────────────────
+      // Estimate output token count before dispatching to the Code Gen agent.
+      // Formula: base app-layer files + N × per-component average + preview HTML.
+      //   Base (layout + page + globals + JSON boilerplate) ≈ 2 500 tokens
+      //   Per component (avg ~120 LoC each)                ≈ 1 200 tokens
+      //   Standalone preview HTML                          ≈ 1 000 tokens
+      // Threshold: if estimate > 12 000 tokens, simplify further before codegen.
+      const TOKENS_BASE      = 2_500;
+      const TOKENS_PER_COMP  = 1_200;
+      const TOKENS_PREVIEW   = 1_000;
+      const TOKEN_THRESHOLD  = 12_000;
+      const initialComponents = blueprint.pages[0]?.components.length ?? 0;
+      let   estimatedTokens   = TOKENS_BASE + initialComponents * TOKENS_PER_COMP + TOKENS_PREVIEW;
+      let   blueprintSimplified = false;
+
+      if (estimatedTokens > TOKEN_THRESHOLD) {
+        const trimTo = Math.max(
+          3,
+          Math.floor((TOKEN_THRESHOLD - TOKENS_BASE - TOKENS_PREVIEW) / TOKENS_PER_COMP)
+        );
+        blueprint = {
+          ...blueprint,
+          pages: blueprint.pages.map((p) => ({
+            ...p,
+            components: p.components.slice(0, trimTo),
+          })),
+        };
+        blueprintSimplified = true;
+        req.log.warn(
+          {
+            layer:          "v2:complexity",
+            trimTo,
+            TOKEN_THRESHOLD,
+            elapsedMsPipeline: Date.now() - pipelineStart,
+          },
+          `[v2:complexity] Blueprint simplified — estimate exceeded ${TOKEN_THRESHOLD.toLocaleString()} token threshold; trimmed to ${trimTo} components`
+        );
+      }
+
+      // Recompute from the final (post-trim) blueprint so the SSE payload is accurate.
+      const finalComponents = blueprint.pages[0]?.components.length ?? 0;
+      const finalFiles      = Math.min(3 + finalComponents, 8); // 3 app files + N component files
+      estimatedTokens       = TOKENS_BASE + finalComponents * TOKENS_PER_COMP + TOKENS_PREVIEW;
+
+      req.log.info(
+        {
+          layer:             "v2:complexity",
+          finalComponents,
+          finalFiles,
+          estimatedTokens,
+          blueprintSimplified,
+          elapsedMsPipeline: Date.now() - pipelineStart,
+        },
+        `[v2:complexity] Blueprint summary — components: ${finalComponents}, files: ${finalFiles}, ~${estimatedTokens.toLocaleString()} estimated tokens`
+      );
+
+      sseWrite(res, {
+        phase:           "blueprint-summary",
+        components:      finalComponents,
+        files:           finalFiles,
+        estimatedTokens,
+        simplified:      blueprintSimplified,
+      });
+
       // ── Phase 2: Code Generation Agent ──────────────────────────────────────
       const codegenStart = Date.now();
       req.log.info(
@@ -606,6 +746,112 @@ router.post(
           },
           `[v2:codegen] ── Code Generation done in ${codegenMs}ms — ${project.files.length} files, ${totalChars} chars, largest: ${largestFile.path} (${largestFile.size} chars) ──`
         );
+
+        // ── Infrastructure file injection ──────────────────────────────────────
+        // The code gen prompt is constrained to 8 component/page files and does
+        // not produce package.json, tailwind.config.ts, or tsconfig.json.
+        // WebContainer requires package.json to run `npm install` and `npm run dev`.
+        // Inject canonical boilerplate for any missing infrastructure files so
+        // the mounted project is always runnable without changing the AI output scope.
+        const existingPaths = new Set(project.files.map((f) => f.path));
+
+        if (!existingPaths.has("package.json")) {
+          const deps: Record<string, string> = {
+            next: "14.2.5",
+            react: "^18",
+            "react-dom": "^18",
+            "framer-motion": "^11.0.0",
+          };
+          for (const dep of project.dependencies) {
+            if (!deps[dep]) deps[dep] = "latest";
+          }
+          project.files.push({
+            path:      "package.json",
+            operation: "create",
+            language:  "json",
+            content:   JSON.stringify({
+              name: "stageone-website",
+              version: "0.1.0",
+              private: true,
+              scripts: { dev: "next dev", build: "next build", start: "next start" },
+              dependencies: deps,
+              devDependencies: {
+                typescript: "^5",
+                "@types/node": "^20",
+                "@types/react": "^18",
+                "@types/react-dom": "^18",
+                tailwindcss: "^3.4.0",
+                autoprefixer: "^10.0.0",
+                postcss: "^8.0.0",
+              },
+            }, null, 2),
+          });
+          req.log.info({ layer: "v2:inject" }, "[v2:inject] Injected package.json");
+        }
+
+        if (!existingPaths.has("tailwind.config.ts")) {
+          project.files.push({
+            path:      "tailwind.config.ts",
+            operation: "create",
+            language:  "typescript",
+            content:   [
+              "import type { Config } from 'tailwindcss'",
+              "const config: Config = {",
+              "  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],",
+              "  theme: { extend: {} },",
+              "  plugins: [],",
+              "}",
+              "export default config",
+            ].join("\n"),
+          });
+          req.log.info({ layer: "v2:inject" }, "[v2:inject] Injected tailwind.config.ts");
+        }
+
+        if (!existingPaths.has("tsconfig.json")) {
+          project.files.push({
+            path:      "tsconfig.json",
+            operation: "create",
+            language:  "json",
+            content:   JSON.stringify({
+              compilerOptions: {
+                target: "ES2017",
+                lib: ["dom", "dom.iterable", "esnext"],
+                allowJs: true,
+                skipLibCheck: true,
+                strict: true,
+                noEmit: true,
+                esModuleInterop: true,
+                module: "esnext",
+                moduleResolution: "bundler",
+                resolveJsonModule: true,
+                isolatedModules: true,
+                jsx: "preserve",
+                incremental: true,
+                plugins: [{ name: "next" }],
+                paths: { "@/*": ["./*"] },
+              },
+              include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+              exclude: ["node_modules"],
+            }, null, 2),
+          });
+          req.log.info({ layer: "v2:inject" }, "[v2:inject] Injected tsconfig.json");
+        }
+
+        if (!existingPaths.has("postcss.config.mjs")) {
+          project.files.push({
+            path:      "postcss.config.mjs",
+            operation: "create",
+            language:  "javascript",
+            content:   [
+              "const config = {",
+              "  plugins: { tailwindcss: {}, autoprefixer: {} },",
+              "}",
+              "export default config",
+            ].join("\n"),
+          });
+          req.log.info({ layer: "v2:inject" }, "[v2:inject] Injected postcss.config.mjs");
+        }
+
       } catch (codeErr) {
         const codegenMs = Date.now() - codegenStart;
         req.log.error(

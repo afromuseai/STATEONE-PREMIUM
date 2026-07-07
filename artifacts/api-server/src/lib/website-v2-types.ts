@@ -157,15 +157,20 @@ export interface EditResult {
 // ─── SSE event shapes ─────────────────────────────────────────────────────────
 // Typed payloads the V2 route writes to the SSE stream.
 export type V2SseEvent =
-  | { phase: "start";           model: string; industry: string }
-  | { phase: "thinking";        active: boolean }
-  | { phase: "architect";       content: string }
-  | { phase: "project-created"; projectId: string }
-  | { phase: "blueprint";       data: WebsiteBlueprint }
-  | { phase: "building";        content?: string }
-  | { phase: "project-saved";   projectId: string }
-  | { phase: "done";            projectId: string; data: GeneratedProject }
-  | { phase: "error";           message: string; code?: string };
+  | { phase: "start";             model: string; industry: string }
+  | { phase: "thinking";          active: boolean }
+  | { phase: "architect";         content: string }
+  | { phase: "project-created";   projectId: string }
+  | { phase: "blueprint";         data: WebsiteBlueprint }
+  /**
+   * Emitted after blueprint validation and scope enforcement, before code generation begins.
+   * Summarises the blueprint's complexity and signals whether it was trimmed.
+   */
+  | { phase: "blueprint-summary"; components: number; files: number; estimatedTokens: number; simplified: boolean }
+  | { phase: "building";          content?: string }
+  | { phase: "project-saved";     projectId: string }
+  | { phase: "done";              projectId: string; data: GeneratedProject }
+  | { phase: "error";             message: string; code?: string };
 
 // SSE events from the editing route.
 export type V2EditSseEvent =
