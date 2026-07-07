@@ -1,6 +1,6 @@
-import { X, Eye } from "lucide-react"
+import { X, Eye, TerminalSquare } from "lucide-react"
 import { motion } from "framer-motion"
-import type { OpenTab } from "./StudioShell"
+import type { OpenTab, WorkspaceMode } from "./StudioShell"
 
 // ─── File type badge ───────────────────────────────────────────────────────────
 const EXT_MAP: Record<string, { badge: string; color: string }> = {
@@ -20,31 +20,46 @@ function fileBadge(label: string) {
   return EXT_MAP[ext] ?? { badge: "TXT", color: "#9ca3af" }
 }
 
-interface EditorTabsProps {
-  tabs:        OpenTab[]
-  activeTabId: string
-  onTabClick:  (id: string) => void
-  onTabClose:  (id: string) => void
+/** Return the icon element for special (non-file) tabs. */
+function SpecialTabIcon({ tabId }: { tabId: string }) {
+  if (tabId === "preview")  return <Eye           className="h-3 w-3 flex-shrink-0 text-white/30" />
+  if (tabId === "terminal") return <TerminalSquare className="h-3 w-3 flex-shrink-0 text-white/30" />
+  return null
 }
 
-export function EditorTabs({ tabs, activeTabId, onTabClick, onTabClose }: EditorTabsProps) {
+interface EditorTabsProps {
+  tabs:          OpenTab[]
+  activeTabId:   string
+  workspaceMode: WorkspaceMode
+  onTabClick:    (id: string) => void
+  onTabClose:    (id: string) => void
+}
+
+export function EditorTabs({
+  tabs, activeTabId, onTabClick, onTabClose,
+}: EditorTabsProps) {
   return (
     <div
+      role="tablist"
+      aria-label="Editor tabs"
       className="flex h-8 flex-shrink-0 items-stretch overflow-x-auto border-b border-white/[0.06] bg-[#0d0d0d]"
       style={{ scrollbarWidth: "none" }}
     >
       {tabs.map((tab) => {
-        const active    = tab.id === activeTabId
-        const isPreview = tab.id === "preview"
-        const badge     = isPreview ? null : fileBadge(tab.label)
+        const active      = tab.id === activeTabId
+        const isSpecial   = tab.id === "preview" || tab.id === "terminal"
+        const badge       = isSpecial ? null : fileBadge(tab.label)
+        const canClose    = !tab.pinned
 
         return (
-          // Outer is a div so the close <button> inside is not nested inside a <button>
+          // Outer div so the close <button> inside is never nested inside a <button>
           <motion.div
             key={tab.id}
             layout
-            role="button"
-            tabIndex={0}
+            role="tab"
+            tabIndex={active ? 0 : -1}
+            aria-selected={active}
+            aria-controls={`editor-panel-${tab.id}`}
             onClick={() => onTabClick(tab.id)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -52,13 +67,14 @@ export function EditorTabs({ tabs, activeTabId, onTabClick, onTabClose }: Editor
                 onTabClick(tab.id)
               }
             }}
-            className={`group relative flex h-full flex-shrink-0 cursor-pointer items-center gap-1.5 select-none border-r border-white/[0.05] px-3 text-[11.5px] transition-colors duration-75
+            className={`group relative flex h-full flex-shrink-0 cursor-pointer items-center gap-1.5 select-none
+              border-r border-white/[0.05] px-3 text-[11.5px] transition-colors duration-75
               ${active
                 ? "bg-[#0e0e0e] text-white/80"
                 : "text-white/30 hover:bg-white/[0.025] hover:text-white/60"
               }`}
           >
-            {/* Active indicator — amber top border */}
+            {/* Active indicator — amber top border, shared layout-id so it slides */}
             {active && (
               <motion.div
                 layoutId="tab-indicator"
@@ -68,8 +84,8 @@ export function EditorTabs({ tabs, activeTabId, onTabClick, onTabClose }: Editor
             )}
 
             {/* Icon */}
-            {isPreview ? (
-              <Eye className="h-3 w-3 flex-shrink-0 text-white/30" />
+            {isSpecial ? (
+              <SpecialTabIcon tabId={tab.id} />
             ) : badge ? (
               <span
                 className="flex-shrink-0 rounded-sm px-[3px] text-[9px] font-bold"
@@ -81,14 +97,15 @@ export function EditorTabs({ tabs, activeTabId, onTabClick, onTabClose }: Editor
 
             <span className="max-w-[120px] truncate font-medium">{tab.label}</span>
 
-            {/* Close button — proper <button> (parent is a div, no nesting violation) */}
-            {!isPreview && (
+            {/* Close button — only for non-pinned tabs */}
+            {canClose && (
               <button
                 type="button"
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); onTabClose(tab.id) }}
                 aria-label={`Close ${tab.label}`}
-                className={`ml-0.5 flex h-[14px] w-[14px] flex-shrink-0 items-center justify-center rounded transition-all focus-visible:outline focus-visible:outline-amber-400/60
+                className={`ml-0.5 flex h-[14px] w-[14px] flex-shrink-0 items-center justify-center
+                  rounded transition-all focus-visible:outline focus-visible:outline-amber-400/60
                   ${active
                     ? "text-white/30 hover:bg-white/[0.08] hover:text-white/70"
                     : "text-transparent group-hover:text-white/25 group-hover:hover:text-white/60"

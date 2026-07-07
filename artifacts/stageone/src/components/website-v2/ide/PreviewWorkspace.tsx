@@ -1,5 +1,8 @@
 import { useState } from "react"
-import { Monitor, Smartphone, Tablet, RefreshCw, ExternalLink, Lock, ZapOff } from "lucide-react"
+import {
+  Monitor, Smartphone, Tablet, RefreshCw, ExternalLink,
+  Lock, ZapOff, Globe, Loader,
+} from "lucide-react"
 
 type ViewportSize = "desktop" | "tablet" | "mobile"
 
@@ -17,20 +20,36 @@ const VIEWPORTS: Record<ViewportSize, {
 interface PreviewWorkspaceProps {
   preview:     string | null
   projectName: string
+  /**
+   * Optional live WebContainer URL (e.g. "https://abc.webcontainer.io").
+   * When provided, the iframe switches from srcDoc to src and the address
+   * bar shows the real URL instead of the fake stageone.dev slug.
+   */
+  wcUrl?:      string | null
 }
 
-export function PreviewWorkspace({ preview, projectName }: PreviewWorkspaceProps) {
-  const [viewport,    setViewport]    = useState<ViewportSize>("desktop")
-  const [refreshKey,  setRefreshKey]  = useState(0)
+export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspaceProps) {
+  const [viewport,   setViewport]   = useState<ViewportSize>("desktop")
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [wcLoading,  setWcLoading]  = useState(true)
 
   const vp     = VIEWPORTS[viewport]
-  const isLive = !!preview
   const slug   = projectName.toLowerCase().replace(/\s+/g, "-")
+
+  // Live = either wcUrl is present OR we have static preview HTML
+  const isLive     = !!(wcUrl || preview)
+  const isWcMode   = !!wcUrl
+  const hasContent = isWcMode || !!preview
+
+  // Address bar text
+  const addressText = isWcMode
+    ? wcUrl!.replace(/^https?:\/\//, "")
+    : `stageone.dev / preview / ${slug}`
 
   return (
     <div className="flex h-full flex-col bg-[#0c0c0c]">
 
-      {/* ── Browser chrome ────────────────────────────────────────────── */}
+      {/* ── Browser chrome ─────────────────────────────────────────────── */}
       <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/[0.05] bg-[#0c0c0c] px-3 py-2">
 
         {/* macOS traffic lights */}
@@ -42,20 +61,41 @@ export function PreviewWorkspace({ preview, projectName }: PreviewWorkspaceProps
 
         {/* Address bar */}
         <div className="flex flex-1 items-center gap-2 rounded-md border border-white/[0.06] bg-black/25 px-2.5 py-[5px] transition-colors hover:border-white/[0.10]">
-          <Lock className="h-3 w-3 flex-shrink-0 text-white/18" />
-          <span className="flex-1 truncate font-mono text-[11px] text-white/30">
-            stageone.dev / preview / <span className="text-white/45">{slug}</span>
+          {isWcMode
+            ? <Globe className="h-3 w-3 flex-shrink-0 text-emerald-400/60" />
+            : <Lock  className="h-3 w-3 flex-shrink-0 text-white/18" />
+          }
+          <span className={`flex-1 truncate font-mono text-[11px] ${isWcMode ? "text-white/55" : "text-white/30"}`}>
+            {isWcMode ? (
+              <>
+                <span className="text-emerald-400/70">{wcUrl!.replace(/^https?:\/\//, "").split("/")[0]}</span>
+                {wcUrl!.replace(/^https?:\/\//, "").includes("/") && (
+                  <span className="text-white/35">
+                    /{wcUrl!.replace(/^https?:\/\//, "").split("/").slice(1).join("/")}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                stageone.dev / preview /{" "}
+                <span className="text-white/45">{slug}</span>
+              </>
+            )}
           </span>
-          {/* Live/building pill */}
+
+          {/* Live / building pill */}
           <div className={`ml-auto flex flex-shrink-0 items-center gap-1.5 rounded-full border px-2 py-px transition-all duration-500
             ${isLive
               ? "border-emerald-400/20 bg-emerald-400/8"
               : "border-amber-400/20 bg-amber-400/8"
             }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
+            {isWcMode && wcLoading
+              ? <Loader className="h-2.5 w-2.5 animate-spin text-amber-400/80" />
+              : <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
+            }
             <span className={`text-[10px] font-medium ${isLive ? "text-emerald-400/80" : "text-amber-400/80"}`}>
-              {isLive ? "Live" : "Building"}
+              {isWcMode && wcLoading ? "Connecting…" : isLive ? (isWcMode ? "WC Live" : "Live") : "Building"}
             </span>
           </div>
         </div>
@@ -88,30 +128,34 @@ export function PreviewWorkspace({ preview, projectName }: PreviewWorkspaceProps
           <div className="mx-1 h-3.5 w-px bg-white/[0.07]" />
 
           <button
-            onClick={() => setRefreshKey((k) => k + 1)}
+            onClick={() => { setRefreshKey((k) => k + 1); setWcLoading(true) }}
             title="Reload preview"
             aria-label="Reload preview"
             className="flex h-6 w-6 items-center justify-center rounded text-white/22 transition-colors hover:bg-white/[0.05] hover:text-white/52"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
+
           <button
-            title="Open in new tab (scripts disabled)"
-            aria-label="Open preview in new tab (scripts disabled)"
+            title="Open in new tab (scripts disabled for static previews)"
+            aria-label="Open preview in new tab"
             onClick={() => {
+              if (isWcMode && wcUrl) {
+                // WebContainer URL is real — open directly
+                window.open(wcUrl, "_blank", "noopener,noreferrer")
+                return
+              }
               if (!preview) return
-              // Strip scripts before opening outside the sandbox — prevents XSS
-              // from AI-generated HTML running outside the iframe content security policy.
-              const safe = preview.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+              // Static HTML: strip scripts before opening outside the iframe sandbox
+              const safe    = preview.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
               const cspMeta = `<meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none';">`
               const withCsp = safe.replace(/(<head[^>]*>)/i, `$1${cspMeta}`)
-              const blob = new Blob([withCsp], { type: "text/html" })
-              const url  = URL.createObjectURL(blob)
+              const blob    = new Blob([withCsp], { type: "text/html" })
+              const url     = URL.createObjectURL(blob)
               window.open(url, "_blank", "noopener,noreferrer")
-              // Revoke after a short delay to free memory
               setTimeout(() => URL.revokeObjectURL(url), 10_000)
             }}
-            disabled={!preview}
+            disabled={!hasContent}
             className="flex h-6 w-6 items-center justify-center rounded text-white/22 transition-colors hover:bg-white/[0.05] hover:text-white/52 disabled:opacity-30"
           >
             <ExternalLink className="h-3.5 w-3.5" />
@@ -120,10 +164,15 @@ export function PreviewWorkspace({ preview, projectName }: PreviewWorkspaceProps
       </div>
 
       {/* ── Preview canvas ─────────────────────────────────────────────── */}
-      <div className="relative flex flex-1 items-start justify-center overflow-auto bg-[#0f0f0f]"
-        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)", backgroundSize: "24px 24px" }}
+      <div
+        className="relative flex flex-1 items-start justify-center overflow-auto bg-[#0f0f0f]"
+        style={{
+          backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)",
+          backgroundSize: "24px 24px",
+        }}
       >
-        {!preview ? (
+        {!hasContent ? (
+          /* Empty state */
           <div className="flex h-full w-full items-center justify-center">
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.05] bg-white/[0.02]">
@@ -135,7 +184,10 @@ export function PreviewWorkspace({ preview, projectName }: PreviewWorkspaceProps
           </div>
         ) : (
           <div className="flex w-full flex-1 items-start justify-center p-6">
-            <div className="relative transition-all duration-300" style={{ width: vp.width, maxWidth: "100%" }}>
+            <div
+              className="relative transition-all duration-300"
+              style={{ width: vp.width, maxWidth: "100%" }}
+            >
               {/* Viewport label for non-desktop */}
               {viewport !== "desktop" && (
                 <div className="absolute -top-7 left-0 right-0 flex items-center justify-center gap-2">
@@ -145,16 +197,41 @@ export function PreviewWorkspace({ preview, projectName }: PreviewWorkspaceProps
                 </div>
               )}
 
+              {/* WebContainer: connecting overlay */}
+              {isWcMode && wcLoading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-[#0d0d0d]/80 backdrop-blur-sm">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader className="h-6 w-6 animate-spin text-amber-400/70" />
+                    <span className="text-[12px] text-white/40">Connecting to WebContainer…</span>
+                  </div>
+                </div>
+              )}
+
               {/* Frame */}
               <div className="overflow-hidden rounded-lg border border-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_32px_80px_rgba(0,0,0,0.7)]">
-                <iframe
-                  key={refreshKey}
-                  srcDoc={preview}
-                  title={`Preview — ${projectName}`}
-                  sandbox="allow-scripts allow-same-origin"
-                  className="block w-full border-0 bg-white"
-                  style={{ height: "calc(100vh - 156px)", minHeight: "520px" }}
-                />
+                {isWcMode ? (
+                  /* Live WebContainer iframe — uses src, not srcDoc */
+                  <iframe
+                    key={`wc-${refreshKey}`}
+                    src={wcUrl!}
+                    title={`Live — ${projectName}`}
+                    onLoad={() => setWcLoading(false)}
+                    className="block w-full border-0 bg-white"
+                    style={{ height: "calc(100vh - 156px)", minHeight: "520px" }}
+                    /* Note: no sandbox restriction for WebContainer iframes —
+                       they need full access to the running dev server. */
+                  />
+                ) : (
+                  /* Static HTML preview — uses srcDoc with sandbox */
+                  <iframe
+                    key={`static-${refreshKey}`}
+                    srcDoc={preview!}
+                    title={`Preview — ${projectName}`}
+                    sandbox="allow-scripts allow-same-origin"
+                    className="block w-full border-0 bg-white"
+                    style={{ height: "calc(100vh - 156px)", minHeight: "520px" }}
+                  />
+                )}
               </div>
             </div>
           </div>

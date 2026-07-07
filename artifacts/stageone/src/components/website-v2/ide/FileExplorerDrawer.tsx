@@ -86,7 +86,7 @@ function TreeNodeItem({
 
   if (!matchesSearch(node)) return null
 
-  // ── File row ────────────────────────────────────────────────────────────────
+  // ── File row ──────────────────────────────────────────────────────────────
   if (node.isFile && node.file) {
     const active = activePath === node.file.path
     return (
@@ -98,7 +98,8 @@ function TreeNodeItem({
         <button
           onClick={() => onSelect(node.file!)}
           style={{ paddingLeft: indent + 8 }}
-          className={`group flex w-full items-center gap-1.5 rounded py-[3px] pr-1 text-left transition-colors duration-75
+          className={`group flex w-full items-center gap-1.5 rounded py-[3px] pr-1 text-left
+            transition-colors duration-75
             ${active
               ? "bg-amber-400/10 text-amber-300/85"
               : "text-white/42 hover:bg-white/[0.04] hover:text-white/70"
@@ -127,7 +128,8 @@ function TreeNodeItem({
                   type="button"
                   title="Open file"
                   aria-label={`Open ${node.name}`}
-                  className="flex h-[18px] w-[18px] items-center justify-center rounded text-white/25 transition-colors hover:bg-white/[0.08] hover:text-white/65"
+                  className="flex h-[18px] w-[18px] items-center justify-center rounded
+                    text-white/25 transition-colors hover:bg-white/[0.08] hover:text-white/65"
                   onClick={() => onSelect(node.file!)}
                 >
                   <Eye className="h-3 w-3" />
@@ -136,7 +138,8 @@ function TreeNodeItem({
                   type="button"
                   title="More options"
                   aria-label={`More options for ${node.name}`}
-                  className="flex h-[18px] w-[18px] items-center justify-center rounded text-white/25 transition-colors hover:bg-white/[0.08] hover:text-white/65"
+                  className="flex h-[18px] w-[18px] items-center justify-center rounded
+                    text-white/25 transition-colors hover:bg-white/[0.08] hover:text-white/65"
                 >
                   <MoreHorizontal className="h-3 w-3" />
                 </button>
@@ -153,13 +156,14 @@ function TreeNodeItem({
     )
   }
 
-  // ── Folder row ──────────────────────────────────────────────────────────────
+  // ── Folder row ────────────────────────────────────────────────────────────
   return (
     <div>
       <button
         onClick={() => setOpen(!open)}
         style={{ paddingLeft: indent + 4 }}
-        className="group flex w-full items-center gap-1 rounded py-[3px] pr-2 text-left text-white/48 transition-colors duration-75 hover:bg-white/[0.03] hover:text-white/75"
+        className="group flex w-full items-center gap-1 rounded py-[3px] pr-2 text-left
+          text-white/48 transition-colors duration-75 hover:bg-white/[0.03] hover:text-white/75"
       >
         <ChevronRight
           className="h-3 w-3 flex-shrink-0 text-white/18 transition-transform duration-100"
@@ -212,6 +216,83 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   )
 }
 
+// ─── Shared inner content (header + search + tree) ────────────────────────────
+function DrawerContent({
+  files, activeFilePath, onSelectFile, onClose,
+}: {
+  files:          V2ProjectFile[]
+  activeFilePath: string | null
+  onSelectFile:   (f: V2ProjectFile) => void
+  onClose:        () => void
+}) {
+  const [searchQuery, setSearchQuery] = useState("")
+  const tree = useMemo(() => buildTree(files), [files])
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.05] px-3 py-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/22">
+          Explorer
+        </span>
+        <div className="flex items-center gap-0.5">
+          <span className="text-[10px] tabular-nums text-white/15">{files.length} files</span>
+          <button
+            title="New file"
+            aria-label="New file"
+            className="ml-1.5 flex h-5 w-5 items-center justify-center rounded text-white/18
+              transition-colors hover:bg-white/[0.06] hover:text-white/55"
+          >
+            <FilePlus className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="flex-shrink-0 border-b border-white/[0.04] px-2 py-1.5">
+        <div className="flex items-center gap-1.5 rounded-md border border-white/[0.05] bg-white/[0.02]
+          px-2 py-[5px] transition-colors focus-within:border-white/[0.10]">
+          <Search className="h-3 w-3 flex-shrink-0 text-white/18" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search files…"
+            aria-label="Search files"
+            className="w-full bg-transparent text-[11px] text-white/52 placeholder-white/18 outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              aria-label="Clear search"
+              className="text-white/25 hover:text-white/55"
+            >
+              <span className="text-[9px]">✕</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tree */}
+      <div className="flex-1 overflow-y-auto px-1.5 py-1" style={{ scrollbarWidth: "none" }}>
+        {tree.length === 0 ? (
+          <p className="px-3 py-8 text-center text-[11px] text-white/18">No files yet</p>
+        ) : (
+          tree.map((node) => (
+            <TreeNodeItem
+              key={node.path}
+              node={node}
+              depth={0}
+              activePath={activeFilePath}
+              onSelect={onSelectFile}
+              searchQuery={searchQuery}
+            />
+          ))
+        )}
+      </div>
+    </>
+  )
+}
+
 // ─── Main drawer ───────────────────────────────────────────────────────────────
 interface FileExplorerDrawerProps {
   open:           boolean
@@ -219,14 +300,31 @@ interface FileExplorerDrawerProps {
   activeFilePath: string | null
   onSelectFile:   (f: V2ProjectFile) => void
   onClose:        () => void
+  /**
+   * When true, renders inline without its own AnimatePresence slide animation.
+   * The parent side-panel already handles the enter/exit transition.
+   */
+  embedded?:      boolean
 }
 
 export function FileExplorerDrawer({
-  open, files, activeFilePath, onSelectFile,
+  open, files, activeFilePath, onSelectFile, onClose, embedded,
 }: FileExplorerDrawerProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const tree = useMemo(() => buildTree(files), [files])
+  // ── Embedded mode: no wrapper animation, fills parent ─────────────────────
+  if (embedded) {
+    return (
+      <div className="flex h-full w-full flex-col overflow-hidden bg-[#0a0a0a]">
+        <DrawerContent
+          files={files}
+          activeFilePath={activeFilePath}
+          onSelectFile={onSelectFile}
+          onClose={onClose}
+        />
+      </div>
+    )
+  }
 
+  // ── Standalone mode: slides in from the right ──────────────────────────────
   return (
     <AnimatePresence>
       {open && (
@@ -237,63 +335,12 @@ export function FileExplorerDrawer({
           transition={{ type: "spring", stiffness: 380, damping: 38 }}
           className="flex flex-shrink-0 flex-col overflow-hidden border-l border-white/[0.05] bg-[#0a0a0a]"
         >
-          {/* ── Header ─────────────────────────────────────────────────── */}
-          <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.05] px-3 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/22">
-              Explorer
-            </span>
-            <div className="flex items-center gap-0.5">
-              <span className="text-[10px] tabular-nums text-white/15">{files.length} files</span>
-              <button
-                title="New file"
-                className="ml-1.5 flex h-5 w-5 items-center justify-center rounded text-white/18 transition-colors hover:bg-white/[0.06] hover:text-white/55"
-              >
-                <FilePlus className="h-3 w-3" />
-              </button>
-            </div>
-          </div>
-
-          {/* ── Search ─────────────────────────────────────────────────── */}
-          <div className="flex-shrink-0 border-b border-white/[0.04] px-2 py-1.5">
-            <div className="flex items-center gap-1.5 rounded-md border border-white/[0.05] bg-white/[0.02] px-2 py-[5px] transition-colors focus-within:border-white/[0.10]">
-              <Search className="h-3 w-3 flex-shrink-0 text-white/18" />
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search files…"
-                className="w-full bg-transparent text-[11px] text-white/52 placeholder-white/18 outline-none"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="text-white/25 hover:text-white/55"
-                >
-                  <span className="text-[9px]">✕</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* ── Tree ───────────────────────────────────────────────────── */}
-          <div
-            className="flex-1 overflow-y-auto px-1.5 py-1"
-            style={{ scrollbarWidth: "none" }}
-          >
-            {tree.length === 0 ? (
-              <p className="px-3 py-8 text-center text-[11px] text-white/18">No files yet</p>
-            ) : (
-              tree.map((node) => (
-                <TreeNodeItem
-                  key={node.path}
-                  node={node}
-                  depth={0}
-                  activePath={activeFilePath}
-                  onSelect={onSelectFile}
-                  searchQuery={searchQuery}
-                />
-              ))
-            )}
-          </div>
+          <DrawerContent
+            files={files}
+            activeFilePath={activeFilePath}
+            onSelectFile={onSelectFile}
+            onClose={onClose}
+          />
         </motion.div>
       )}
     </AnimatePresence>
