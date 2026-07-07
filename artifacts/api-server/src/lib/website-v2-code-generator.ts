@@ -8,12 +8,40 @@
 import { streamNvidia } from "./nvidia";
 import { jsonrepair } from "jsonrepair";
 import { MODELS } from "./models";
+import { logger } from "./logger";
 import type {
   BusinessContext,
   WebsiteBlueprint,
   GeneratedProject,
   ProjectFile,
 } from "./website-v2-types";
+
+// ─── HTML escaping helpers ────────────────────────────────────────────────────
+// Used by generateFallbackPreview to prevent XSS when LLM-generated context
+// strings are interpolated into HTML.
+
+/** Escape a string for safe injection into HTML text content or attributes. */
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Sanitize a CSS color value so it cannot break out of a CSS property context.
+ * Allows: hex (#rgb / #rrggbb / #rrggbbaa), rgb/rgba/hsl/hsla functions,
+ * and simple named colors (letters only).  Falls back to the supplied default.
+ */
+function escCssColor(s: string, fallback: string): string {
+  const trimmed = s.trim();
+  if (/^#([0-9a-fA-F]{3,8})$/.test(trimmed))      return trimmed;
+  if (/^(rgb|rgba|hsl|hsla)\([^)]*\)$/.test(trimmed)) return trimmed;
+  if (/^[a-zA-Z]+$/.test(trimmed))                 return trimmed;
+  return fallback;
+}
 
 // ─── Model assignment ─────────────────────────────────────────────────────────
 // Nemotron Ultra 550B: frontier code generation with extended thinking enabled.
@@ -242,20 +270,31 @@ export function parseGeneratedProject(
     errors.push("missing or invalid 'files' field");
   }
 
-  // Require the two most important files
-  if (files.length > 0) {
+  // Only fatal if there are no files at all — file count / naming issues
+  // are logged as structured warnings but never discard a complete code generation run.
+  if (files.length === 0) {
+    errors.push("missing or invalid 'files' field — no files generated");
+  } else {
     const paths = new Set(files.map((f) => f.path));
-    if (!paths.has("app/page.tsx"))           errors.push("missing required file: app/page.tsx");
-    if (!paths.has("components/Navbar.tsx"))  errors.push("missing required file: components/Navbar.tsx");
-  }
-
-  if (typeof parsed.preview !== "string" || !(parsed.preview as string).trim()) {
-    errors.push("missing or empty 'preview' HTML string");
+    if (!paths.has("app/page.tsx")) {
+      logger.warn({ layer: "v2:parse", missingFile: "app/page.tsx" }, "[v2:parse] Generated project is missing app/page.tsx");
+    }
+    if (!paths.has("components/Navbar.tsx")) {
+      logger.warn({ layer: "v2:parse", missingFile: "components/Navbar.tsx" }, "[v2:parse] Generated project is missing components/Navbar.tsx");
+    }
   }
 
   if (errors.length > 0) {
     throw new Error(`GeneratedProject schema errors: ${errors.join("; ")}`);
   }
+
+  // ── Preview HTML — non-fatal: generate a blueprint-aware fallback if omitted ──
+  // The model occasionally skips the preview field when the code output is large.
+  // A missing preview must never discard an otherwise-complete generation run.
+  const rawPreview =
+    typeof parsed.preview === "string" && (parsed.preview as string).trim()
+      ? (parsed.preview as string)
+      : generateFallbackPreview(ctx, blueprint);
 
   const deps = Array.isArray(parsed.dependencies)
     ? (parsed.dependencies as unknown[]).filter((d): d is string => typeof d === "string")
@@ -265,10 +304,107 @@ export function parseGeneratedProject(
     files,
     dependencies:    deps,
     runInstructions: { command: "npm run dev" },
-    preview:         parsed.preview as string,
+    preview:         rawPreview,
     blueprint,
     context:         ctx,
   };
+}
+
+// ─── Fallback preview generator ───────────────────────────────────────────────
+// Generates a simple but visually coherent HTML preview from blueprint context
+// when the LLM omits the preview field.  Shows brand name, tagline, and the
+// primary design palette so the Studio preview pane is never blank.
+// All LLM-sourced strings are escaped before injection (XSS prevention).
+function generateFallbackPreview(ctx: BusinessContext, blueprint: WebsiteBlueprint): string {
+  const ds = blueprint.designSystem;
+
+  // CSS color values — sanitized so they can't break out of a CSS property
+  const primaryColor = escCssColor(ds.colorPrimary || "", "#6366f1");
+  const accentColor  = escCssColor(ds.colorAccent  || "", "#a78bfa");
+
+  // HTML text values — escaped for safe injection into HTML text / title contexts
+  const companyName = escHtml(ctx.companyName  || "Your Website");
+  const industry    = escHtml(ctx.industry     || "");
+  const positioning = escHtml(ctx.brandPositioning || "");
+  const ctaGoal     = escHtml(ctx.conversionGoal   || "Get Started");
+
+  // Derive hero text from pages — first page's first component purpose
+  const heroComponent = blueprint.pages?.[0]?.components?.[0];
+  const goal          = ctx.businessGoal || "Welcome";
+  const heroPurpose   = escHtml(heroComponent?.purpose ?? goal);
+
+  const sections = blueprint.pages?.[0]?.components?.slice(0, 4) ?? [];
+
+  logger.info({ layer: "v2:parse", action: "fallback_preview_generated" }, "[v2:parse] Generating fallback preview HTML (model omitted preview field)");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${companyName}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: ${primaryColor};
+    --accent: ${accentColor};
+    --bg: #09090b;
+    --surface: #18181b;
+    --text: #fafafa;
+    --muted: #a1a1aa;
+  }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .logo { font-size: 1.1rem; font-weight: 800; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .nav-links { display: flex; gap: 1.5rem; }
+  .nav-links a { color: var(--muted); text-decoration: none; font-size: .875rem; transition: color .2s; }
+  .nav-links a:hover { color: var(--text); }
+  .hero { text-align: center; padding: 6rem 2rem 4rem; }
+  .badge { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: .3rem .8rem; border-radius: 9999px; border: 1px solid rgba(255,255,255,.12); color: var(--muted); margin-bottom: 1.5rem; }
+  h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 900; line-height: 1.1; letter-spacing: -.02em; margin-bottom: 1.25rem; }
+  .gradient-text { background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { font-size: 1.1rem; color: var(--muted); max-width: 560px; margin: 0 auto 2.5rem; }
+  .cta-row { display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+  .btn-primary { background: var(--primary); color: #fff; padding: .75rem 2rem; border-radius: 8px; border: none; font-size: .9rem; font-weight: 700; cursor: pointer; }
+  .btn-secondary { color: var(--muted); background: transparent; border: 1px solid rgba(255,255,255,.12); padding: .75rem 2rem; border-radius: 8px; font-size: .9rem; font-weight: 600; cursor: pointer; }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; padding: 3rem 2rem; max-width: 960px; margin: 0 auto; }
+  .card { background: var(--surface); border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 1.5rem; }
+  .card-icon { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), var(--accent)); opacity: .25; margin-bottom: 1rem; }
+  .card h3 { font-size: .95rem; font-weight: 700; margin-bottom: .5rem; }
+  .card p { font-size: .8rem; color: var(--muted); line-height: 1.5; }
+  footer { text-align: center; padding: 2rem; border-top: 1px solid rgba(255,255,255,.06); color: var(--muted); font-size: .75rem; margin-top: 2rem; }
+</style>
+</head>
+<body>
+  <nav>
+    <div class="logo">${companyName}</div>
+    <div class="nav-links">
+      <a href="#">Features</a>
+      <a href="#">Pricing</a>
+      <a href="#">About</a>
+    </div>
+    <button class="btn-primary" style="padding:.5rem 1.25rem;font-size:.8rem">Get Started</button>
+  </nav>
+  <section class="hero">
+    <div class="badge">${industry}</div>
+    <h1>${companyName}<br><span class="gradient-text">${heroPurpose}</span></h1>
+    <p class="subtitle">${positioning}</p>
+    <div class="cta-row">
+      <button class="btn-primary">${ctaGoal}</button>
+      <button class="btn-secondary">Learn more &rarr;</button>
+    </div>
+  </section>
+  <div class="features">
+    ${sections.map((c) => `
+    <div class="card">
+      <div class="card-icon"></div>
+      <h3>${escHtml(c.name ?? "")}</h3>
+      <p>${escHtml(c.purpose ?? "")}</p>
+    </div>`).join("")}
+  </div>
+  <footer>&copy; ${new Date().getFullYear()} ${companyName} &middot; Built with STAGEONE</footer>
+</body>
+</html>`;
 }
 
 // ─── Code Generation Agent ────────────────────────────────────────────────────
