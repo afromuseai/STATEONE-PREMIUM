@@ -505,13 +505,36 @@ export default function WebsiteGeneratorPage() {
     const reader = res.body.getReader()
     const dec    = new TextDecoder()
     let carry    = ""
+    let clientChunkCount = 0
 
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
+
+      if (done) {
+        // Log EOF so we can see exactly what state the client is in when the
+        // TCP connection closes — this is the event that previously triggered
+        // the "Stream ended without completion" error.
+        console.log(
+          `[WEBSITE_FLOW] reader.read() done=true | chunks=${clientChunkCount}` +
+          ` capturedProjectId=${capturedProjectId ?? "(none)"}` +
+          ` carry="${carry.slice(0, 120)}"`
+        )
+        break
+      }
+
+      clientChunkCount++
       const chunk = carry + dec.decode(value, { stream: true })
       const lines = chunk.split("\n")
       carry = lines.pop() ?? ""
+
+      // Log first 3 chunks and every 20th thereafter so we can track the stream
+      // without flooding the console on large code-gen responses.
+      if (clientChunkCount <= 3 || clientChunkCount % 20 === 0) {
+        console.log(
+          `[WEBSITE_FLOW] chunk #${clientChunkCount} | bytes=${value?.length ?? 0}` +
+          ` carry="${carry.slice(0, 80)}" linesReady=${lines.filter(l => l.startsWith("data: ")).length}`
+        )
+      }
 
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue
@@ -544,8 +567,14 @@ export default function WebsiteGeneratorPage() {
             setGenStep(2)
           }
           if (phase === "project-saved") {
+            // project-saved means the project is persisted in the DB — record the
+            // projectId so EOF recovery below can return success even if the
+            // subsequent `done` event is lost (e.g. proxy drop on large payload).
+            capturedProjectId = (msg.projectId as string) ?? capturedProjectId
+            setV2ProjectId(capturedProjectId)
             setV2GenPhase("project-saved")
             setGenStep(3)
+            console.log("WEBSITE_FLOW:PROJECT_SAVED | projectId:", capturedProjectId)
           }
           if (phase === "done") {
             const finalId = (msg.projectId as string) ?? capturedProjectId
@@ -554,11 +583,36 @@ export default function WebsiteGeneratorPage() {
             return { projectId: finalId }
           }
           if (phase === "error") {
+            console.log("WEBSITE_FLOW:V2_ERROR | message:", msg.message)
             return { projectId: null, error: (msg.message as string) ?? "Generation failed" }
           }
-        } catch { /* fragment */ }
+        } catch { /* incomplete SSE fragment — carry will complete it */ }
       }
     }
+
+    // ── EOF recovery ────────────────────────────────────────────────────────────
+    // The stream closed without delivering a `done` event.  This happens when
+    // the `done` SSE payload (which embeds the full project JSON) is too large
+    // for the proxy to forward before the connection is reaped, OR when the
+    // TCP connection drops after the server has already finished and persisted
+    // the project.
+    //
+    // If `project-saved` was already received, the project IS in the database.
+    // Treat EOF as a successful completion rather than surfacing an error to
+    // the user — they would just be told to retry something that already worked.
+    if (capturedProjectId) {
+      console.log(
+        "WEBSITE_FLOW:EOF_RECOVERY | project-saved was received — treating EOF as success" +
+        ` | projectId=${capturedProjectId} chunks=${clientChunkCount}`
+      )
+      setGenStep(V2_GEN_STEPS.length)
+      return { projectId: capturedProjectId }
+    }
+
+    console.log(
+      `WEBSITE_FLOW:EOF_NO_RECOVERY | no projectId captured — chunks=${clientChunkCount}` +
+      ` carry="${carry.slice(0, 120)}"`
+    )
     return { projectId: null, error: "Stream ended without completion" }
   }, [style, tone, openUpgradeModal])
 

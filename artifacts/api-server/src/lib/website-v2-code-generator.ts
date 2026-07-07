@@ -677,6 +677,9 @@ export async function generateProjectCode(
   let thinkingSent   = false;
   let contentStarted = false;
 
+  // Track the last observed finish_reason so we can log it when the stream ends.
+  let lastFinishReason: string | null = null;
+
   const processLines = (text: string) => {
     const lines = text.split("\n");
     carry = lines.pop() ?? "";
@@ -684,13 +687,35 @@ export async function generateProjectCode(
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue;
       const data = line.slice(6).trim();
-      if (data === "[DONE]") continue;
+      if (data === "[DONE]") {
+        logger.info(
+          { layer: "v2:codegen", stage: "sse_done_marker", bufferLen: buffer.length },
+          "[v2:codegen] Received SSE [DONE] marker from NVIDIA"
+        );
+        continue;
+      }
 
       try {
-        const parsed   = JSON.parse(data) as Record<string, unknown>;
-        const delta    = (parsed.choices as Array<{ delta?: { content?: string; reasoning_content?: string } }>)?.[0]?.delta;
-        const content  = delta?.content;
-        const thinking = delta?.reasoning_content;
+        const parsed      = JSON.parse(data) as Record<string, unknown>;
+        const choice      = (parsed.choices as Array<{ delta?: { content?: string; reasoning_content?: string }; finish_reason?: string | null }>)?.[0];
+        const delta       = choice?.delta;
+        const content     = delta?.content;
+        const thinking    = delta?.reasoning_content;
+        const finishReason = choice?.finish_reason;
+
+        // Track finish_reason — NVIDIA sends it on the final chunk (e.g. "stop", "length")
+        if (finishReason) {
+          lastFinishReason = finishReason;
+          logger.info(
+            {
+              layer:       "v2:codegen",
+              stage:       "finish_reason",
+              finishReason,
+              bufferLen:   buffer.length,
+            },
+            `[v2:codegen] NVIDIA finish_reason="${finishReason}" at buffer=${buffer.length} chars`
+          );
+        }
 
         if (thinking && !thinkingActive && !contentStarted) {
           thinkingActive = true;
@@ -717,30 +742,69 @@ export async function generateProjectCode(
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+
+      if (done) {
+        // Log the EOF from the NVIDIA stream reader so we can distinguish normal
+        // stream termination from a connection drop or abort.
+        logger.info(
+          {
+            layer:           "v2:codegen",
+            stage:           "reader_done",
+            rawChunkCount,
+            bufferLen:       buffer.length,
+            lastFinishReason,
+            contentStarted,
+            carryLen:        carry.length,
+            carrySnippet:    carry.slice(0, 200),
+          },
+          `[v2:codegen] reader.read() done=true after ${rawChunkCount} chunks — buffer=${buffer.length} chars, finish_reason=${lastFinishReason ?? "(none yet)"}`
+        );
+        break;
+      }
+
       const decoded = decoder.decode(value, { stream: true });
       rawChunkCount++;
-      // Log first 3 raw chunks so we can see exactly what NVIDIA returns
+
+      // Log first 3 chunks verbosely; after that log every 50th so we can
+      // track throughput without flooding the log.
       if (rawChunkCount <= 3) {
         logger.info(
           {
-            layer: "v2:codegen",
-            stage: "raw_chunk",
+            layer:     "v2:codegen",
+            stage:     "raw_chunk",
             chunkIndex: rawChunkCount,
-            rawBytes: value?.length ?? 0,
-            rawText: decoded.slice(0, 500),
+            rawBytes:  value?.length ?? 0,
+            bufferLen: buffer.length,
+            rawText:   decoded.slice(0, 500),
           },
           `[v2:codegen] Raw stream chunk #${rawChunkCount}: ${value?.length ?? 0} bytes`
         );
+      } else if (rawChunkCount % 50 === 0) {
+        logger.info(
+          {
+            layer:      "v2:codegen",
+            stage:      "chunk_progress",
+            chunkIndex: rawChunkCount,
+            rawBytes:   value?.length ?? 0,
+            bufferLen:  buffer.length,
+          },
+          `[v2:codegen] Chunk #${rawChunkCount}: buffer=${buffer.length} chars`
+        );
       }
+
       processLines(carry + decoded);
     }
 
+    // Flush any bytes the TextDecoder held back for multi-byte character boundaries.
     const tail = decoder.decode();
     if (tail) carry += tail;
     if (carry.startsWith("data: ")) {
       const data = carry.slice(6).trim();
       if (data && data !== "[DONE]") {
+        logger.info(
+          { layer: "v2:codegen", stage: "carry_flush", carryLen: carry.length, dataSnippet: data.slice(0, 200) },
+          "[v2:codegen] Flushing remaining carry after EOF"
+        );
         try {
           const parsed  = JSON.parse(data) as Record<string, unknown>;
           const content = (parsed.choices as Array<{ delta?: { content?: string } }>)?.[0]?.delta?.content;
@@ -757,18 +821,20 @@ export async function generateProjectCode(
   const streamMs = Date.now() - stageStart;
   logger.info(
     {
-      layer: "v2:codegen",
-      stage: "stream_complete",
+      layer:            "v2:codegen",
+      stage:            "stream_complete",
       userId,
-      bufferLen: buffer.length,
+      bufferLen:        buffer.length,
       streamMs,
+      rawChunkCount,
+      lastFinishReason,
       thinkingWasActive: thinkingSent,
       contentStarted,
-      // Capture first and last 500 chars so we can see if the JSON is complete
+      // Capture first and last 500 chars to verify the JSON is complete
       bufferHead: buffer.slice(0, 500),
       bufferTail: buffer.slice(-500),
     },
-    `[v2:codegen] STAGE COMPLETE: stream done in ${streamMs}ms, buffer=${buffer.length} chars`
+    `[v2:codegen] STAGE COMPLETE: stream done in ${streamMs}ms, buffer=${buffer.length} chars, chunks=${rawChunkCount}, finish_reason=${lastFinishReason ?? "(none)"}`
   );
 
   if (!buffer || buffer.length < 100) {
@@ -793,5 +859,31 @@ export async function generateProjectCode(
     logger.warn({ layer: "v2:codegen", dumpErr: String(dumpErr) }, "[v2:codegen] Could not write raw dump (non-fatal)");
   }
 
-  return parseGeneratedProject(buffer, ctx, blueprint);
+  logger.info(
+    { layer: "v2:codegen", stage: "parse_begin", bufferLen: buffer.length },
+    "[v2:codegen] Calling parseGeneratedProject"
+  );
+
+  let result: ReturnType<typeof parseGeneratedProject>;
+  try {
+    result = parseGeneratedProject(buffer, ctx, blueprint);
+  } catch (parseErr) {
+    logger.error(
+      { layer: "v2:codegen", stage: "parse_failed", error: String(parseErr), bufferLen: buffer.length },
+      "[v2:codegen] parseGeneratedProject FAILED"
+    );
+    throw parseErr;
+  }
+
+  logger.info(
+    {
+      layer:     "v2:codegen",
+      stage:     "parse_success",
+      fileCount: result.files.length,
+      depCount:  result.dependencies.length,
+    },
+    `[v2:codegen] parseGeneratedProject succeeded — ${result.files.length} files, ${result.dependencies.length} deps`
+  );
+
+  return result;
 }
