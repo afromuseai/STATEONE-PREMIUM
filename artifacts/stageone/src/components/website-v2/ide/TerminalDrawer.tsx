@@ -1,0 +1,132 @@
+import { motion } from "framer-motion"
+import { useState, useRef, useEffect } from "react"
+import { X, ChevronDown, Circle } from "lucide-react"
+
+interface LogLine {
+  id:   number
+  type: "info" | "success" | "error" | "warn" | "cmd" | "dim"
+  text: string
+}
+
+const PLACEHOLDER_LOGS: LogLine[] = [
+  { id: 1,  type: "dim",     text: "─── WebContainer runtime ──────────────────────" },
+  { id: 2,  type: "cmd",     text: "$ pnpm install" },
+  { id: 3,  type: "info",    text: "  Packages: +532" },
+  { id: 4,  type: "success", text: "  ✓ Done in 3.2s" },
+  { id: 5,  type: "cmd",     text: "$ pnpm run dev" },
+  { id: 6,  type: "info",    text: "  ▲ Next.js 14.2.3" },
+  { id: 7,  type: "info",    text: "  - Local:   http://localhost:3000" },
+  { id: 8,  type: "info",    text: "  - Network: http://192.168.1.1:3000" },
+  { id: 9,  type: "success", text: "  ✓ Ready in 842ms" },
+  { id: 10, type: "dim",     text: "" },
+]
+
+const LOG_COLORS: Record<LogLine["type"], string> = {
+  info:    "text-white/45",
+  success: "text-emerald-400/90",
+  error:   "text-red-400",
+  warn:    "text-amber-400",
+  cmd:     "text-white/75 font-semibold",
+  dim:     "text-white/20",
+}
+
+interface TerminalDrawerProps {
+  onClose: () => void
+}
+
+export function TerminalDrawer({ onClose }: TerminalDrawerProps) {
+  const [input, setInput]         = useState("")
+  const [history, setHistory]     = useState<LogLine[]>([])
+  const [historyIdx, setHistoryIdx] = useState(-1)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView()
+    inputRef.current?.focus()
+  }, [])
+
+  const allLogs = [...PLACEHOLDER_LOGS, ...history]
+
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && input.trim()) {
+      const cmd = input.trim()
+      setHistory((prev) => [
+        ...prev,
+        { id: Date.now(), type: "cmd", text: `$ ${cmd}` },
+        { id: Date.now() + 1, type: "info", text: "  (WebContainer not connected yet)" },
+      ])
+      setInput("")
+      setHistoryIdx(-1)
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
+    }
+    if (e.key === "Escape") {
+      setInput("")
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 220, opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ type: "spring", stiffness: 380, damping: 40 }}
+      className="flex flex-shrink-0 flex-col overflow-hidden border-t border-white/[0.06] bg-[#090909]"
+    >
+      {/* Header */}
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/[0.05] bg-[#0b0b0b] px-4 py-1.5">
+        <div className="flex items-center gap-2">
+          {/* Shell tabs (visual only) */}
+          <div className="flex items-center rounded-md border border-white/[0.06] bg-white/[0.03] px-2.5 py-0.5">
+            <span className="text-[11px] font-medium text-white/55">bash</span>
+          </div>
+        </div>
+
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-1.5">
+          <Circle className="h-2 w-2 fill-emerald-400/70 text-emerald-400/70" />
+          <span className="text-[10px] text-white/25">WebContainer</span>
+        </div>
+
+        <div className="ml-2 h-3.5 w-px bg-white/[0.08]" />
+
+        <button
+          onClick={onClose}
+          className="flex h-5 w-5 items-center justify-center rounded text-white/20 transition-colors hover:bg-white/[0.06] hover:text-white/55"
+        >
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={onClose}
+          className="flex h-5 w-5 items-center justify-center rounded text-white/20 transition-colors hover:bg-white/[0.06] hover:text-white/55"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+
+      {/* Output */}
+      <div className="flex-1 overflow-y-auto px-4 py-2 font-mono text-[12px] leading-[1.65]" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.06) transparent" }}>
+        {allLogs.map((line) => (
+          <div key={line.id} className={LOG_COLORS[line.type]}>
+            {line.text || "\u00a0"}
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="flex flex-shrink-0 items-center gap-2 border-t border-white/[0.04] bg-[#0a0a0a] px-4 py-2">
+        <span className="font-mono text-[12px] text-amber-400/60">$</span>
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="Type a command…"
+          className="flex-1 bg-transparent font-mono text-[12px] text-white/65 placeholder-white/18 outline-none"
+        />
+      </div>
+    </motion.div>
+  )
+}

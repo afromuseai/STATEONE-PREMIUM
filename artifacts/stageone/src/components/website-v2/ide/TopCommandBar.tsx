@@ -1,4 +1,8 @@
-import { ArrowLeft, Play, Upload, Settings, Monitor, Code2, Columns2, Terminal, PanelRight, CheckCircle, Clock, Layers, Loader, AlertCircle } from "lucide-react"
+import {
+  ArrowLeft, Play, Upload, Settings, Monitor, Code2,
+  Columns2, PanelRight, CheckCircle, Clock, Layers,
+  Loader, AlertCircle, Terminal,
+} from "lucide-react"
 import { useLocation } from "wouter"
 import type { V2Project } from "@/hooks/useWebsiteV2Project"
 import type { WorkspaceMode } from "./StudioShell"
@@ -12,18 +16,19 @@ const STATUS_CFG: Record<string, { color: string; icon: React.ElementType; label
 }
 
 const MODES: { id: WorkspaceMode; icon: React.ElementType; label: string }[] = [
-  { id: "preview", icon: Monitor,   label: "Preview" },
-  { id: "code",    icon: Code2,     label: "Code" },
-  { id: "split",   icon: Columns2,  label: "Split" },
-  { id: "terminal",icon: Terminal,  label: "Terminal" },
+  { id: "preview", icon: Monitor,  label: "Preview" },
+  { id: "code",    icon: Code2,    label: "Code" },
+  { id: "split",   icon: Columns2, label: "Split" },
 ]
 
 interface TopCommandBarProps {
-  project: V2Project
-  workspaceMode: WorkspaceMode
-  onModeChange: (mode: WorkspaceMode) => void
-  fileExplorerOpen: boolean
+  project:            V2Project
+  workspaceMode:      WorkspaceMode
+  onModeChange:       (mode: WorkspaceMode) => void
+  fileExplorerOpen:   boolean
   onToggleFileExplorer: () => void
+  terminalOpen:       boolean
+  onToggleTerminal:   () => void
 }
 
 export function TopCommandBar({
@@ -32,58 +37,60 @@ export function TopCommandBar({
   onModeChange,
   fileExplorerOpen,
   onToggleFileExplorer,
+  terminalOpen,
+  onToggleTerminal,
 }: TopCommandBarProps) {
   const [, navigate] = useLocation()
   const status = STATUS_CFG[project.status] ?? STATUS_CFG.planning
   const StatusIcon = status.icon
-  const isAnimating = project.status === "building" || project.status === "architecting" || project.status === "planning"
+  const isAnimating =
+    project.status === "building" || project.status === "architecting" || project.status === "planning"
 
   return (
-    <div className="flex h-11 flex-shrink-0 items-center gap-3 border-b border-white/[0.07] bg-[#0d0d0d] px-3">
+    <div className="flex h-10 flex-shrink-0 items-center gap-2 border-b border-white/[0.06] bg-[#0d0d0d] px-3">
       {/* Back */}
       <button
         onClick={() => navigate("/website-studio")}
-        className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-white/40 transition-colors hover:border-white/20 hover:text-white/70"
+        className="flex h-6 w-6 items-center justify-center rounded text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/65"
         title="Back to projects"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
       </button>
 
-      <div className="h-4 w-px bg-white/10" />
+      <div className="h-3.5 w-px bg-white/[0.08]" />
 
       {/* Project name + status */}
       <div className="flex min-w-0 items-center gap-2">
-        <span className="truncate text-sm font-semibold text-white/85 max-w-[160px]">
+        <span className="max-w-[180px] truncate text-[13px] font-semibold text-white/80">
           {project.projectName}
         </span>
         <div
-          className="flex items-center gap-1.5 rounded-full px-2 py-0.5"
+          className="flex items-center gap-1 rounded px-1.5 py-0.5"
           style={{ background: `${status.color}18` }}
         >
           <StatusIcon
-            className={`h-3 w-3 ${isAnimating ? "animate-spin" : ""}`}
+            className={`h-2.5 w-2.5 ${isAnimating ? "animate-spin" : ""}`}
             style={{ color: status.color }}
           />
-          <span className="text-[11px] font-semibold" style={{ color: status.color }}>
+          <span className="text-[10px] font-semibold" style={{ color: status.color }}>
             {status.label}
           </span>
         </div>
       </div>
 
-      {/* Spacer */}
       <div className="flex-1" />
 
       {/* Mode switcher */}
-      <div className="flex items-center rounded-lg border border-white/[0.07] bg-white/[0.03] p-0.5 gap-0.5">
+      <div className="flex items-center rounded-md border border-white/[0.06] bg-white/[0.025] p-[3px] gap-px">
         {MODES.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
             onClick={() => onModeChange(id)}
             title={label}
-            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all duration-150
+            className={`flex items-center gap-1.5 rounded px-2 py-[3px] text-[11px] font-medium transition-all duration-100
               ${workspaceMode === id
-                ? "bg-amber-400/15 text-amber-400"
-                : "text-white/35 hover:bg-white/5 hover:text-white/65"
+                ? "bg-white/[0.08] text-white/85"
+                : "text-white/30 hover:text-white/60"
               }`}
           >
             <Icon className="h-3 w-3" />
@@ -92,31 +99,45 @@ export function TopCommandBar({
         ))}
       </div>
 
-      <div className="h-4 w-px bg-white/10" />
+      <div className="h-3.5 w-px bg-white/[0.08]" />
 
       {/* Actions */}
-      <div className="flex items-center gap-1.5">
-        <button className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-white/60 transition-colors hover:border-white/20 hover:text-white/85">
+      <div className="flex items-center gap-1">
+        <button className="flex items-center gap-1 rounded border border-white/[0.07] bg-white/[0.03] px-2 py-1 text-[11px] text-white/50 transition-colors hover:border-white/15 hover:text-white/80">
           <Play className="h-3 w-3" />
           <span className="hidden md:inline">Run</span>
         </button>
-        <button className="flex items-center gap-1.5 rounded-md border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[11px] font-semibold text-amber-400 transition-colors hover:bg-amber-400/20">
+        <button className="flex items-center gap-1 rounded border border-amber-400/25 bg-amber-400/8 px-2 py-1 text-[11px] font-medium text-amber-400/80 transition-colors hover:bg-amber-400/15 hover:text-amber-400">
           <Upload className="h-3 w-3" />
           <span className="hidden md:inline">Deploy</span>
         </button>
         <button
-          className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-white/40 transition-colors hover:border-white/20 hover:text-white/70"
           title="Settings"
+          className="flex h-6 w-6 items-center justify-center rounded text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/65"
         >
           <Settings className="h-3.5 w-3.5" />
+        </button>
+
+        <div className="h-3.5 w-px bg-white/[0.08]" />
+
+        <button
+          onClick={onToggleTerminal}
+          title="Toggle terminal"
+          className={`flex h-6 w-6 items-center justify-center rounded transition-colors
+            ${terminalOpen
+              ? "bg-amber-400/12 text-amber-400"
+              : "text-white/30 hover:bg-white/[0.06] hover:text-white/65"
+            }`}
+        >
+          <Terminal className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={onToggleFileExplorer}
           title="Toggle file explorer"
-          className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors
+          className={`flex h-6 w-6 items-center justify-center rounded transition-colors
             ${fileExplorerOpen
-              ? "border-amber-400/30 bg-amber-400/10 text-amber-400"
-              : "border-white/10 text-white/40 hover:border-white/20 hover:text-white/70"
+              ? "bg-amber-400/12 text-amber-400"
+              : "text-white/30 hover:bg-white/[0.06] hover:text-white/65"
             }`}
         >
           <PanelRight className="h-3.5 w-3.5" />

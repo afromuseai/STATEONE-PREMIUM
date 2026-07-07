@@ -1,19 +1,18 @@
 import { EditorTabs } from "./EditorTabs"
 import { CodeEditor } from "./CodeEditor"
 import { PreviewWorkspace } from "./PreviewWorkspace"
-import { TerminalPanel } from "./TerminalPanel"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import type { OpenTab, WorkspaceMode } from "./StudioShell"
 
 interface EditorWorkspaceProps {
-  project:      V2Project
-  openTabs:     OpenTab[]
-  activeTabId:  string
-  activeFile:   V2ProjectFile | null
+  project:       V2Project
+  openTabs:      OpenTab[]
+  activeTabId:   string
+  activeFile:    V2ProjectFile | null
   workspaceMode: WorkspaceMode
-  onTabClick:   (id: string) => void
-  onTabClose:   (id: string) => void
-  onModeChange: (mode: WorkspaceMode) => void
+  onTabClick:    (id: string) => void
+  onTabClose:    (id: string) => void
+  onModeChange:  (mode: WorkspaceMode) => void
 }
 
 export function EditorWorkspace({
@@ -27,7 +26,7 @@ export function EditorWorkspace({
 }: EditorWorkspaceProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#0e0e0e]">
-      {/* Browser-style editor tabs */}
+      {/* Editor tabs */}
       <EditorTabs
         tabs={openTabs}
         activeTabId={activeTabId}
@@ -35,7 +34,7 @@ export function EditorWorkspace({
         onTabClose={onTabClose}
       />
 
-      {/* Workspace content area */}
+      {/* Content area */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {workspaceMode === "preview" && (
           <PreviewWorkspace
@@ -53,7 +52,7 @@ export function EditorWorkspace({
         {workspaceMode === "split" && (
           <>
             {/* Code — left half */}
-            <div className="flex-1 overflow-hidden border-r border-white/[0.07]">
+            <div className="flex-1 overflow-hidden border-r border-white/[0.06]">
               <CodeEditor file={activeFile} />
             </div>
             {/* Preview — right half */}
@@ -64,12 +63,6 @@ export function EditorWorkspace({
               />
             </div>
           </>
-        )}
-
-        {workspaceMode === "terminal" && (
-          <div className="flex-1 overflow-hidden">
-            <TerminalPanel />
-          </div>
         )}
       </div>
     </div>
