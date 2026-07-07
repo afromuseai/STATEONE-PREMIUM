@@ -6,28 +6,27 @@ import { EditorWorkspace } from "./EditorWorkspace"
 import { FileExplorerDrawer } from "./FileExplorerDrawer"
 import { TerminalDrawer } from "./TerminalDrawer"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
+import { Terminal, GitBranch, Circle, FileCode } from "lucide-react"
 
 export type WorkspaceMode = "preview" | "code" | "split"
 
 export interface OpenTab {
-  id: string        // file path or 'preview'
+  id:    string  // file path or 'preview'
   label: string
-  // NOTE: no file stored here — always derive content from project.files at render time
 }
 
 interface StudioShellProps {
-  project: V2Project
+  project:   V2Project
   onRefresh: () => void
 }
 
 export function StudioShell({ project, onRefresh }: StudioShellProps) {
-  const [openTabs, setOpenTabs] = useState<OpenTab[]>([{ id: "preview", label: "Preview" }])
-  const [activeTabId, setActiveTabId] = useState<string>("preview")
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("preview")
-  const [fileExplorerOpen, setFileExplorerOpen] = useState(false)
-  const [terminalOpen, setTerminalOpen] = useState(false)
+  const [openTabs,        setOpenTabs]        = useState<OpenTab[]>([{ id: "preview", label: "Preview" }])
+  const [activeTabId,     setActiveTabId]     = useState<string>("preview")
+  const [workspaceMode,   setWorkspaceMode]   = useState<WorkspaceMode>("preview")
+  const [fileExplorerOpen,setFileExplorerOpen]= useState(false)
+  const [terminalOpen,    setTerminalOpen]    = useState(false)
 
-  // Always derive file content from the live project.files so edits are never stale
   const activeFile =
     activeTabId === "preview"
       ? null
@@ -45,7 +44,7 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
   const closeTab = useCallback((tabId: string) => {
     if (tabId === "preview") return
     setOpenTabs((prev) => {
-      const idx = prev.findIndex((t) => t.id === tabId)
+      const idx  = prev.findIndex((t) => t.id === tabId)
       const next = prev.filter((t) => t.id !== tabId)
       if (activeTabId === tabId && next.length > 0) {
         const newActive = next[Math.max(0, idx - 1)]
@@ -60,6 +59,8 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
     setActiveTabId(tabId)
     setWorkspaceMode(tabId === "preview" ? "preview" : "code")
   }, [])
+
+  const isReady = project.status === "ready"
 
   return (
     <motion.div
@@ -78,9 +79,10 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
         onToggleTerminal={() => setTerminalOpen((v) => !v)}
       />
 
-      {/* Main workspace row */}
+      {/* ── Main workspace row ──────────────────────────────────────────── */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 flex-1 overflow-hidden">
+
           {/* Left: AI Agent Panel */}
           <AgentPanel
             project={project}
@@ -110,22 +112,55 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
           />
         </div>
 
-        {/* Bottom: Terminal Drawer */}
+        {/* ── Terminal drawer (expanded) ─────────────────────────────────── */}
         <AnimatePresence>
           {terminalOpen && (
             <TerminalDrawer onClose={() => setTerminalOpen(false)} />
           )}
         </AnimatePresence>
 
-        {/* Collapsed terminal toggle bar */}
+        {/* ── IDE status bar (collapsed terminal trigger) ────────────────── */}
         {!terminalOpen && (
-          <div
-            onClick={() => setTerminalOpen(true)}
-            className="flex h-6 flex-shrink-0 cursor-pointer items-center gap-2 border-t border-white/[0.06] bg-[#0a0a0a] px-4 text-[10px] text-white/25 transition-colors hover:bg-white/[0.02] hover:text-white/45"
-          >
-            <span className="font-mono">$</span>
-            <span>Terminal</span>
-            <span className="ml-auto text-white/15">click to open</span>
+          <div className="flex h-[22px] flex-shrink-0 items-center border-t border-white/[0.05] bg-[#090909]">
+
+            {/* Left section: terminal toggle */}
+            <button
+              onClick={() => setTerminalOpen(true)}
+              className="group flex h-full items-center gap-1.5 border-r border-white/[0.05] px-3 text-white/22 transition-colors hover:bg-white/[0.03] hover:text-white/55"
+            >
+              <Terminal className="h-3 w-3" />
+              <span className="font-mono text-[10px]">Terminal</span>
+            </button>
+
+            {/* Middle: git branch */}
+            <div className="flex h-full items-center gap-1.5 border-r border-white/[0.05] px-3 text-white/18">
+              <GitBranch className="h-3 w-3" />
+              <span className="font-mono text-[10px]">main</span>
+            </div>
+
+            {/* File count */}
+            <div className="flex h-full items-center gap-1.5 px-3 text-white/15">
+              <FileCode className="h-3 w-3" />
+              <span className="font-mono text-[10px]">{project.files.length} files</span>
+            </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Right section: runtime status */}
+            <div className={`flex h-full items-center gap-1.5 border-l border-white/[0.05] px-3 transition-colors
+              ${isReady ? "text-emerald-400/60" : "text-amber-400/60"}`}
+            >
+              <Circle className={`h-1.5 w-1.5 ${isReady ? "fill-emerald-400" : "fill-amber-400 animate-pulse"}`} />
+              <span className="font-mono text-[10px]">
+                {isReady ? "Ready" : project.status}
+              </span>
+            </div>
+
+            {/* Keyboard hint */}
+            <div className="flex h-full items-center border-l border-white/[0.05] px-3 text-white/10">
+              <span className="font-mono text-[10px]">⌃`</span>
+            </div>
           </div>
         )}
       </div>
