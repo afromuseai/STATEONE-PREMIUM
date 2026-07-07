@@ -1,7 +1,7 @@
 import { motion } from "framer-motion"
 import { ArrowLeft, AlertCircle, Loader } from "lucide-react"
 import { useLocation } from "wouter"
-import { StudioLayout } from "@/components/website-v2/StudioLayout"
+import { StudioShell } from "@/components/website-v2/ide/StudioShell"
 import { useWebsiteV2Project } from "@/hooks/useWebsiteV2Project"
 
 interface WebsiteStudioWorkspacePageProps {
@@ -44,5 +44,5 @@ export default function WebsiteStudioWorkspacePage({ id }: WebsiteStudioWorkspac
     )
   }
 
-  return <StudioLayout project={project} onRefresh={refresh} />
+  return <StudioShell project={project} onRefresh={refresh} />
 }
