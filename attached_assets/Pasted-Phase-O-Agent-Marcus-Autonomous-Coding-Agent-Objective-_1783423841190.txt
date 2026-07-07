@@ -1,0 +1,232 @@
+Phase O — Agent Marcus: Autonomous Coding Agent
+Objective
+
+Transform Marcus from:
+
+AI chat that edits files
+
+into:
+
+AI engineer that understands, plans, modifies, tests, and fixes projects
+
+Marcus should operate inside the WebContainer environment created in Phase N.
+
+O1. Project Understanding Engine
+
+Before editing, Marcus builds project context.
+
+Pipeline:
+
+Open Project
+      |
+      ↓
+Scan filesystem
+      |
+      ↓
+Analyze architecture
+      |
+      ↓
+Create project memory
+      |
+      ↓
+Ready
+
+Marcus should understand:
+
+framework
+dependencies
+routing structure
+components
+styling system
+state management
+APIs
+database connections
+
+Example:
+
+Marcus:
+
+I analyzed this project.
+
+Framework:
+Next.js 14 App Router
+
+UI:
+Tailwind + Framer Motion
+
+Structure:
+12 components
+5 routes
+3 API handlers
+
+Design system:
+Dark theme
+Gold accent
+Enterprise style
+O2. Agent Tool System
+
+Create internal tools:
+
+Marcus Tools
+│
+├── read_file()
+├── write_file()
+├── delete_file()
+├── search_code()
+├── rename_symbol()
+├── install_package()
+├── run_command()
+├── check_errors()
+└── preview()
+
+Architecture:
+
+Marcus LLM
+    |
+    |
+ Tool Router
+    |
+    |
+ WebContainer
+O3. Planning Mode
+
+Before making changes:
+
+User:
+
+Make the dashboard more premium
+
+Marcus:
+
+Analyzing request...
+
+I will:
+
+1. Inspect dashboard components
+2. Update layout hierarchy
+3. Improve typography
+4. Add motion transitions
+5. Verify build
+
+Continue?
+
+Then executes.
+
+O4. Multi-file Editing
+
+Current:
+
+Change HeroSection.tsx
+
+Future:
+
+Update complete design system
+
+Modified:
+
+✓ globals.css
+✓ layout.tsx
+✓ Navbar.tsx
+✓ HeroSection.tsx
+✓ Button.tsx
+
+5 files changed
+O5. Self Correction Loop
+
+Critical feature.
+
+Flow:
+
+Edit file
+
+↓
+
+Run npm/build/check
+
+↓
+
+Error?
+
+YES
+ |
+ ↓
+Read error
+
+↓
+
+Fix automatically
+
+↓
+
+Retry
+
+
+Example:
+
+Marcus:
+
+Build failed.
+
+Error:
+Module not found:
+framer-motion
+
+Installing dependency...
+
+npm install framer-motion
+
+Retrying...
+
+Build successful ✓
+O6. Visual Understanding
+
+Marcus should see the preview.
+
+Loop:
+
+Code
+ |
+ ↓
+WebContainer
+ |
+ ↓
+Screenshot
+ |
+ ↓
+Vision model
+ |
+ ↓
+Improve UI
+
+Example:
+
+User:
+
+Make this landing page look like Stripe
+
+Marcus:
+
+Analyzing current UI...
+
+Issues found:
+
+- weak hierarchy
+- insufficient whitespace
+- inconsistent buttons
+
+Applying improvements...
+O7. Agent Memory
+
+Store:
+
+project_memory
+
+{
+ framework:"next",
+ style:"premium enterprise",
+ colors:["black","gold"],
+ previous_changes:[],
+ user_preferences:[]
+}
+
+Marcus remembers project decisions.

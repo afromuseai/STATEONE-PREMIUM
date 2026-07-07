@@ -72,6 +72,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-- `BASE_PATH` must be set when starting the frontend dev server (workflow sets it to `/`)
+- `BASE_PATH` must be set when starting **both** the frontend dev server (workflow sets it to `/`) and the mockup sandbox (workflow sets it to `/__mockup/`). Both services hard-fail on startup without it.
 - SMTP vars are optional; missing them silently disables email features (no startup error)
 - `admin.tsx` is >500 KB and triggers Babel deopt warning — normal, not a crash
+- The API Server workflow runs `build && start` (not a live-reload watcher). After backend changes, restart the **API Server** workflow to pick them up.
