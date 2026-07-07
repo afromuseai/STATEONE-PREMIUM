@@ -51,6 +51,16 @@ const SECTIONS: { key: SectionKey; label: string; icon: React.ReactNode }[] = [
   { key: "footer", label: "Footer", icon: <Layers className="h-3.5 w-3.5" /> },
 ]
 
+// ─── V2 generation steps (Phase M.5) ─────────────────────────────────────────
+// Driven by real SSE phases from POST /api/generate/website-v2.
+const V2_GEN_STEPS = [
+  "Understanding your business",
+  "Creating architecture",
+  "Building components",
+  "Preparing Website Studio",
+]
+
+/** @deprecated V1 — kept as fallback until V2 is verified in production */
 const GEN_STEPS = [
   "Analyzing your business concept",
   "Designing color palette & typography",
@@ -122,6 +132,9 @@ export default function WebsiteGeneratorPage() {
   const [autorunIdea, setAutorunIdea] = useState<string | null>(null)
   const [marcusPopulateTick, setMarcusPopulateTick] = useState(0)
   const [isTyping, setIsTyping] = useState(false)
+  // ── V2 generation state (Phase M.5) ────────────────────────────────────────
+  const [v2ProjectId, setV2ProjectId] = useState<string | null>(null)
+  const [v2GenPhase, setV2GenPhase] = useState<string>("idle")
   const { openUpgradeModal } = useUpgradeModal()
   const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
   const [, setLocation] = useLocation()
@@ -422,19 +435,117 @@ export default function WebsiteGeneratorPage() {
     return () => document.removeEventListener("mousedown", handler)
   }, [showExport])
 
-  // Animate gen steps
+  // Animate gen steps — V2 drives this via SSE phases; timer is a visual fallback
   useEffect(() => {
     if (step !== "generating") return
     setGenStep(0)
+    setV2GenPhase("idle")
     const interval = setInterval(() => {
-      setGenStep(s => (s < GEN_STEPS.length - 1 ? s + 1 : s))
-    }, 2200)
+      setGenStep(s => (s < V2_GEN_STEPS.length - 1 ? s + 1 : s))
+    }, 8000) // slow fallback; real phases arrive sooner via SSE
     return () => clearInterval(interval)
   }, [step])
 
   const updatePreview = useCallback((d: WebsiteOutput) => {
     setPreviewHtml(buildPreviewHtml(d))
   }, [])
+
+  // ── V2 Core: calls /api/generate/website-v2 and drives phase state ────────────
+  // Phase M.5 — replaces the V1 /api/generate/website fetch in both generate()
+  // and generateWithIdea(). Returns the created projectId on success.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const generateV2Core = useCallback(async (
+    ideaText: string,
+    signal: AbortSignal,
+  ): Promise<{ projectId: string | null; error?: string }> => {
+    let res: Response
+    try {
+      res = await fetch("/api/generate/website-v2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ idea: ideaText.trim(), style, tone }),
+        signal,
+      })
+    } catch (err: unknown) {
+      if ((err as Error).name === "AbortError") return { projectId: null, error: "AbortError" }
+      return { projectId: null, error: "Connection error. Check your API key and try again." }
+    }
+
+    if (res.status === 403) {
+      const errData = await res.json().catch(() => ({})) as Record<string, unknown>
+      if (errData.error === "UPGRADE_REQUIRED") {
+        openUpgradeModal({
+          feature:       errData.feature as string,
+          featureLabel:  errData.featureLabel as string,
+          requiredPlan:  errData.requiredPlan as string,
+        })
+        return { projectId: null, error: "UPGRADE_REQUIRED" }
+      }
+    }
+    if (!res.ok)   return { projectId: null, error: `Request failed (HTTP ${res.status})` }
+    if (!res.body) return { projectId: null, error: "No response stream" }
+
+    let capturedProjectId: string | null = null
+    const reader = res.body.getReader()
+    const dec    = new TextDecoder()
+    let carry    = ""
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = carry + dec.decode(value, { stream: true })
+      const lines = chunk.split("\n")
+      carry = lines.pop() ?? ""
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue
+        try {
+          const msg = JSON.parse(line.slice(6)) as Record<string, unknown>
+          const phase = msg.phase as string | undefined
+
+          if (phase === "project-created") {
+            capturedProjectId = msg.projectId as string ?? null
+            setV2ProjectId(capturedProjectId)
+            setGenStep(0)
+          }
+          if (phase === "start") {
+            setV2GenPhase("start")
+            setGenStep(0)
+          }
+          if (phase === "thinking") {
+            setV2GenPhase("thinking")
+          }
+          if (phase === "architect") {
+            setV2GenPhase("architect")
+            setGenStep(1)
+          }
+          if (phase === "blueprint") {
+            setV2GenPhase("blueprint")
+            setGenStep(2)
+          }
+          if (phase === "building") {
+            setV2GenPhase("building")
+            setGenStep(2)
+          }
+          if (phase === "project-saved") {
+            setV2GenPhase("project-saved")
+            setGenStep(3)
+          }
+          if (phase === "done") {
+            const finalId = (msg.projectId as string) ?? capturedProjectId
+            setGenStep(V2_GEN_STEPS.length)
+            console.log("WEBSITE_FLOW:V2_DONE | projectId:", finalId)
+            return { projectId: finalId }
+          }
+          if (phase === "error") {
+            return { projectId: null, error: (msg.message as string) ?? "Generation failed" }
+          }
+        } catch { /* fragment */ }
+      }
+    }
+    return { projectId: null, error: "Stream ended without completion" }
+  }, [style, tone, openUpgradeModal])
 
   const generateWithIdea = async (ideaOverride: string) => {
     console.log("WEBSITE_FLOW:I generation started | idea (first 80):", ideaOverride.slice(0, 80))
@@ -457,128 +568,66 @@ export default function WebsiteGeneratorPage() {
     console.log("WEBSITE_FLOW:5 generateWithIdea started | idea (first 80):", ideaOverride.slice(0, 80))
     setStep("generating")
     abortRef.current = new AbortController()
-    // Bug 2 fix: capture projectId from context NOW (before fetch) so it isn't
-    // lost if the context is cleared during the stream.
-    const _capturedCtx = loadProjectContext()
-    const _capturedProjectId = (_capturedCtx?.continuityMode === "continuation" && _capturedCtx?.projectId)
-      ? _capturedCtx.projectId
-      : null
-    let buffer = ""
     const traceId = tracer.getActiveExecutionId("website")
     let traceOutcome: { success: boolean; reason?: string } | null = null
     try {
+      // ── Phase M.5: V2 generation pipeline ──────────────────────────────────────
+      // Replaces /api/generate/website (V1) with /api/generate/website-v2.
+      // generateV2Core drives genStep and v2GenPhase from real SSE events.
       if (traceId) {
         tracer.logStage(traceId, 9, "HTTP request", {
           functionName: "generateWithIdea",
           success: true,
-          data: { method: "POST", endpoint: "/api/generate/website" },
+          data: { method: "POST", endpoint: "/api/generate/website-v2" },
         })
       }
-      const res = await fetch("/api/generate/website", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ idea: ideaOverride.trim(), style, tone, projectId: _capturedProjectId }),
-        signal: abortRef.current.signal,
-      })
-      console.log("WEBSITE_FLOW:5a fetch response status:", res.status)
+      console.log(`[RUNTIME_TRACE] 09_SSE_STREAM_START | v2=true | ts=${Date.now()}`)
+      const v2Result = await generateV2Core(ideaOverride, abortRef.current!.signal)
+
+      if (v2Result.error === "AbortError") {
+        setStep("input"); traceOutcome = { success: false, reason: "aborted" }; return
+      }
+      if (v2Result.error === "UPGRADE_REQUIRED") {
+        setStep("input"); traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }; return
+      }
+      if (v2Result.error) {
+        setGenError(v2Result.error)
+        setStep("input")
+        traceOutcome = { success: false, reason: v2Result.error }
+        return
+      }
+      if (!v2Result.projectId) {
+        setGenError("Generation completed but no project was created. Please try again.")
+        setStep("input")
+        traceOutcome = { success: false, reason: "no projectId returned" }
+        return
+      }
+
+      // V2 persists automatically — no ensureProject needed.
       if (traceId) {
-        tracer.logStage(traceId, 10, "HTTP response", {
+        tracer.logStage(traceId, 11, "Persistence", {
           functionName: "generateWithIdea",
-          success: res.ok,
-          reason: res.ok ? undefined : `HTTP ${res.status}`,
-          data: { status: res.status, endpoint: "/api/generate/website" },
+          success: true,
+          data: { projectId: v2Result.projectId, v2: true },
         })
       }
-      if (res.status === 403) {
-        const errData = await res.json().catch(() => ({}))
-        if (errData.error === "UPGRADE_REQUIRED") {
-          openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
-          setStep("input")
-          traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
-          return
-        }
+      emit({ type: "website.generated", data: { saved: true } })
+      if (traceId) {
+        tracer.logStage(traceId, 12, "Completion event", {
+          functionName: "generateWithIdea",
+          success: true,
+          data: { event: "website.generated" },
+        })
       }
-      if (!res.ok) {
-        traceOutcome = { success: false, reason: `HTTP ${res.status}` }
-        throw new Error("Request failed")
-      }
-      if (!res.body) {
-        traceOutcome = { success: false, reason: "No response stream" }
-        throw new Error("No response stream")
-      }
-      console.log(`[RUNTIME_TRACE] 09_SSE_STREAM_START | ts=${Date.now()}`)
-      const reader = res.body.getReader()
-      const dec = new TextDecoder()
-      let carry = ""
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = carry + dec.decode(value, { stream: true })
-        const lines = chunk.split("\n")
-        carry = lines.pop() ?? ""
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
-          try {
-            const msg = JSON.parse(line.slice(6))
-            if (msg.content) buffer += msg.content
-            if (msg.error) { setGenError(msg.error); setStep("input"); traceOutcome = { success: false, reason: msg.error }; return }
-            if (msg.done && msg.data) {
-              console.log("WEBSITE_FLOW:6 generation completed | data keys:", Object.keys(msg.data as object).join(","))
-              const out = msg.data as WebsiteOutput
-              // Bug 2 fix: if context was cleared during stream, restore it so
-              // ensureProject can patch the correct project rather than creating a new one.
-              const _serverProjectId = (msg as Record<string, unknown>)._projectId as string | undefined
-              const _resolvedProjectId = _serverProjectId ?? _capturedProjectId
-              if (_resolvedProjectId && !loadProjectContext()?.projectId) {
-                saveProjectContext({
-                  projectId: _resolvedProjectId,
-                  projectTitle: ideaOverride.length > 60 ? `${ideaOverride.slice(0, 60)}…` : ideaOverride,
-                  continuityMode: "continuation",
-                  source: "Standalone Generator",
-                })
-              }
-              setData(out)
-              updatePreview(out)
-              setStep("done")
-              console.log("WEBSITE_FLOW:6a step set to done")
-              const _epResult = await ensureProject({
-                type: "website",
-                idea: ideaOverride,
-                outputField: "websiteOutput",
-                output: out as unknown as Record<string, unknown>,
-              }).catch(() => ({ projectId: "", created: false, saved: false }))
-              if (traceId) {
-                tracer.logStage(traceId, 11, "Persistence", {
-                  functionName: "generateWithIdea",
-                  success: !!_epResult.saved,
-                  reason: _epResult.saved ? undefined : "ensureProject did not report saved=true",
-                  data: { projectId: _epResult.projectId, created: _epResult.created },
-                })
-              }
-              emit({ type: "website.generated", data: { saved: _epResult.saved } })
-              if (traceId) {
-                tracer.logStage(traceId, 12, "Completion event", {
-                  functionName: "generateWithIdea",
-                  success: true,
-                  data: { event: "website.generated" },
-                })
-              }
-              traceOutcome = { success: true }
-              console.log(`[RUNTIME_TRACE] 11_COMPLETION_CALLBACK_ABOUT_TO_FIRE | hasCallback=${!!generateCompleteCallbackRef.current} | ts=${Date.now()}`)
-              // Phase 5: signal bridge that generation is fully complete —
-              // fires only after SSE streaming, project save, and UI update are done.
-              // Matches chatbot reference pattern.
-              generateCompleteCallbackRef.current?.()
-              generateCompleteCallbackRef.current = null
-              console.log(`[RUNTIME_TRACE] 12_COMPLETION_CALLBACK_FIRED | ts=${Date.now()}`)
-              return
-            }
-          } catch { /* fragment */ }
-        }
-      }
-      setGenError("Generation ended unexpectedly. Try again."); setStep("input")
-      traceOutcome = { success: false, reason: "stream ended without completion data" }
+      traceOutcome = { success: true }
+      console.log(`[RUNTIME_TRACE] 11_COMPLETION_CALLBACK_ABOUT_TO_FIRE | hasCallback=${!!generateCompleteCallbackRef.current} | ts=${Date.now()}`)
+      generateCompleteCallbackRef.current?.()
+      generateCompleteCallbackRef.current = null
+      console.log(`[RUNTIME_TRACE] 12_COMPLETION_CALLBACK_FIRED | ts=${Date.now()}`)
+      // Navigate to Website Studio — V2 project is ready
+      console.log("WEBSITE_FLOW:V2_REDIRECT | projectId:", v2Result.projectId)
+      setLocation(`/website-studio/${v2Result.projectId}`)
+      return
     } catch (err: unknown) {
       if ((err as Error).name === "AbortError") { setStep("input"); traceOutcome = { success: false, reason: "aborted" }; return }
       console.error("WEBSITE_FLOW:5b error:", (err as Error).message)
@@ -595,59 +644,28 @@ export default function WebsiteGeneratorPage() {
   // Synchronous render-time assignment — ref is always current before any bridge call fires
   generateWithIdeaRef.current = generateWithIdea
 
+  // Phase M.5: generate() now calls the V2 pipeline and redirects to Website Studio.
+  // @deprecated-v1 The old V1 fetch (/api/generate/website) is preserved in git history.
   const generate = async () => {
     if (!idea.trim()) return
     setGenError("")
     setStep("generating")
     abortRef.current = new AbortController()
-    let buffer = ""
 
     try {
-      const res = await fetch("/api/generate/website", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ idea: idea.trim(), style, tone }),
-        signal: abortRef.current.signal,
-      })
-
-      if (!res.ok) throw new Error("Request failed")
-      if (!res.body) throw new Error("No response stream")
-
-      const reader = res.body.getReader()
-      const dec = new TextDecoder()
-      let carry = ""
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = carry + dec.decode(value, { stream: true })
-        const lines = chunk.split("\n")
-        carry = lines.pop() ?? ""
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
-          try {
-            const msg = JSON.parse(line.slice(6))
-            if (msg.content) buffer += msg.content
-            if (msg.error) { setGenError(msg.error); setStep("input"); return }
-            if (msg.done && msg.data) {
-              const out = msg.data as WebsiteOutput
-              setData(out)
-              updatePreview(out)
-              setStep("done")
-              const _epResult = await ensureProject({
-                type: "website",
-                idea: idea,
-                outputField: "websiteOutput",
-                output: out as unknown as Record<string, unknown>,
-              }).catch(() => ({ projectId: "", created: false, saved: false }))
-              emit({ type: "website.generated", data: { saved: _epResult.saved } })
-              return
-            }
-          } catch { /* fragment */ }
-        }
+      const result = await generateV2Core(idea.trim(), abortRef.current.signal)
+      if (result.error === "AbortError")        { setStep("input"); return }
+      if (result.error === "UPGRADE_REQUIRED")  { setStep("input"); return }
+      if (result.error) {
+        setGenError(result.error); setStep("input"); return
       }
-      setGenError("Generation ended unexpectedly. Try again."); setStep("input")
+      if (!result.projectId) {
+        setGenError("Generation completed but no project was created. Please try again.")
+        setStep("input"); return
+      }
+      emit({ type: "website.generated", data: { saved: true } })
+      console.log("WEBSITE_FLOW:V2_REDIRECT | projectId:", result.projectId)
+      setLocation(`/website-studio/${result.projectId}`)
     } catch (err: unknown) {
       if ((err as Error).name === "AbortError") { setStep("input"); return }
       setGenError("Connection error. Check your API key and try again.")
@@ -933,19 +951,19 @@ export default function WebsiteGeneratorPage() {
                       <div className="absolute -inset-1 rounded-[20px] border border-primary/20 animate-pulse" />
                     </div>
                   </div>
-                  <h2 className="text-center text-base font-bold text-foreground mb-2">Building your website</h2>
+                  <h2 className="text-center text-base font-bold text-foreground mb-2">Marcus is designing your website…</h2>
                   <p className="text-center text-xs text-muted-foreground mb-8">
                     <span className="text-primary font-semibold">{style}</span> · <span className="text-primary/80">{tone}</span>
                   </p>
 
-                  {/* Steps list */}
+                  {/* V2 phase steps — driven by real SSE events */}
                   <div className="space-y-2.5">
-                    {GEN_STEPS.map((s, i) => (
+                    {V2_GEN_STEPS.map((s, i) => (
                       <motion.div
                         key={s}
                         initial={{ opacity: 0, x: -8 }}
                         animate={{ opacity: i <= genStep ? 1 : 0.25, x: 0 }}
-                        transition={{ duration: 0.3, delay: i * 0.1 }}
+                        transition={{ duration: 0.3, delay: i * 0.08 }}
                         className="flex items-center gap-3"
                       >
                         <div className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
@@ -958,22 +976,37 @@ export default function WebsiteGeneratorPage() {
                           ) : null}
                         </div>
                         <span className={`text-xs transition-colors ${i <= genStep ? "text-foreground" : "text-muted-foreground/40"}`}>
-                          {s}
+                          {i < genStep ? <span className="text-primary/80">✓ {s}</span> : s}
                         </span>
                       </motion.div>
                     ))}
                   </div>
 
+                  {/* Thinking indicator — shown during LLM reasoning phase */}
+                  <AnimatePresence>
+                    {v2GenPhase === "thinking" && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mt-3 flex items-center gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2"
+                      >
+                        <Sparkles className="h-3 w-3 text-primary/70 animate-pulse shrink-0" />
+                        <span className="text-[10px] text-primary/60 font-medium">Marcus is reasoning…</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* Progress bar */}
                   <div className="mt-8 h-1 rounded-full bg-white/5 overflow-hidden">
                     <motion.div
                       className="h-full rounded-full bg-primary"
-                      animate={{ width: `${((genStep + 1) / GEN_STEPS.length) * 100}%` }}
-                      transition={{ duration: 0.4 }}
+                      animate={{ width: `${Math.min(((genStep + 1) / V2_GEN_STEPS.length) * 100, 100)}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
                     />
                   </div>
                   <p className="text-center text-[10px] text-muted-foreground mt-3">
-                    {Math.round(((genStep + 1) / GEN_STEPS.length) * 100)}% complete
+                    {Math.min(Math.round(((genStep + 1) / V2_GEN_STEPS.length) * 100), 100)}% complete
                   </p>
 
                   <button
