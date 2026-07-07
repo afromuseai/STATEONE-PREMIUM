@@ -212,14 +212,101 @@ Every component in the blueprint must have a real, complete implementation.
 All file content strings must be valid JSON — escape newlines as \\n, quotes as \\".`;
 }
 
+// ─── JSON control-character sanitizer ────────────────────────────────────────
+// The code-generation model frequently embeds literal control characters
+// (newlines, carriage returns, tabs) inside JSON string values instead of
+// writing the proper escape sequences (\n, \r, \t).  JSON.parse rejects
+// these with "Bad control character in string literal", and jsonrepair
+// cannot recover because the corrupt string encoding breaks its own
+// string-boundary detection.
+//
+// This function walks the buffer character-by-character, tracks whether
+// the cursor is inside a JSON string, and replaces any literal control
+// character (code < 0x20) with its JSON escape sequence.
+//
+// Only operates on characters that are strictly invalid in JSON strings —
+// it does NOT touch characters outside strings, existing escape sequences,
+// or legitimate JSON structure characters.
+function sanitizeJsonControlChars(raw: string): string {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw[i];
+    const code = raw.charCodeAt(i);
+
+    if (escaped) {
+      // Character after a backslash — always pass through verbatim
+      result += char;
+      escaped = false;
+      continue;
+    }
+
+    if (inString && char === "\\") {
+      // Beginning of an escape sequence inside a string
+      result += char;
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+
+    if (inString && code < 0x20) {
+      // Literal control character inside a JSON string — must be escaped.
+      // The model wrote a raw newline/tab/carriage-return in the content.
+      if      (code === 0x0a) result += "\\n";   // LF  → \n
+      else if (code === 0x0d) result += "\\r";   // CR  → \r
+      else if (code === 0x09) result += "\\t";   // TAB → \t
+      else result += `\\u${code.toString(16).padStart(4, "0")}`;
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
 // ─── Parse and validate the generated project ─────────────────────────────────
 export function parseGeneratedProject(
   raw: string,
   ctx: BusinessContext,
   blueprint: WebsiteBlueprint
 ): GeneratedProject {
+  const parseStart = Date.now();
+  logger.info(
+    {
+      layer: "v2:parse",
+      stage: "entered",
+      rawLen: raw.length,
+      rawHead: raw.slice(0, 300),
+      rawTail: raw.slice(-300),
+    },
+    "[v2:parse] STAGE ENTERED: parseGeneratedProject"
+  );
+
   let clean = raw.trim();
+
+  // Log whether model wrapped in <think> tags (shouldn't happen since thinking
+  // arrives in reasoning_content, but guard anyway)
+  const hasThinkTags = /<think>/i.test(clean);
+  if (hasThinkTags) {
+    logger.warn({ layer: "v2:parse", stage: "think_tags_found", rawLen: raw.length },
+      "[v2:parse] WARNING: <think> tags found in content buffer — stripping");
+  }
   clean = clean.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  // Log whether the model wrapped output in code fences
+  const hasFences = clean.startsWith("```");
+  if (hasFences) {
+    logger.warn({ layer: "v2:parse", stage: "code_fence_found", prefix: clean.slice(0, 20) },
+      "[v2:parse] WARNING: model wrapped output in code fences — stripping");
+  }
   if (clean.startsWith("```json")) clean = clean.slice(7);
   else if (clean.startsWith("```"))  clean = clean.slice(3);
   if (clean.endsWith("```"))         clean = clean.slice(0, -3);
@@ -227,6 +314,21 @@ export function parseGeneratedProject(
 
   const objStart = clean.indexOf("{");
   const objEnd   = clean.lastIndexOf("}");
+  logger.info(
+    {
+      layer: "v2:parse",
+      stage: "bracket_scan",
+      cleanLen: clean.length,
+      objStart,
+      objEnd,
+      // If objEnd is near the end it's a good sign; if it's far from end the JSON may be truncated
+      charsAfterLastBrace: clean.length - objEnd - 1,
+      cleanHead: clean.slice(0, 200),
+      cleanTail: clean.slice(-200),
+    },
+    "[v2:parse] Bracket scan complete"
+  );
+
   if (objStart !== -1 && objEnd !== -1) {
     clean = clean.slice(objStart, objEnd + 1);
   }
@@ -234,11 +336,70 @@ export function parseGeneratedProject(
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(clean) as Record<string, unknown>;
-  } catch {
-    parsed = JSON.parse(jsonrepair(clean)) as Record<string, unknown>;
+    logger.info(
+      { layer: "v2:parse", stage: "json_parse_ok", cleanLen: clean.length, parseMs: Date.now() - parseStart },
+      "[v2:parse] JSON.parse succeeded (strict)"
+    );
+  } catch (strictErr) {
+    logger.warn(
+      {
+        layer: "v2:parse",
+        stage: "json_parse_failed",
+        error: String(strictErr),
+        cleanLen: clean.length,
+        // Log the region around the parse error — SyntaxError message usually contains position
+        errorPosition: String(strictErr).match(/position (\d+)/)?.[1] ?? "unknown",
+        // Show 200 chars around the error position for diagnosis
+        snippetAtError: (() => {
+          const pos = parseInt(String(strictErr).match(/position (\d+)/)?.[1] ?? "-1");
+          return pos >= 0 ? clean.slice(Math.max(0, pos - 100), pos + 100) : "(position unknown)";
+        })(),
+      },
+      "[v2:parse] FAILURE: JSON.parse failed — attempting jsonrepair"
+    );
+    try {
+      parsed = JSON.parse(jsonrepair(clean)) as Record<string, unknown>;
+      logger.info(
+        { layer: "v2:parse", stage: "jsonrepair_ok", cleanLen: clean.length, parseMs: Date.now() - parseStart },
+        "[v2:parse] jsonrepair succeeded"
+      );
+    } catch (repairErr) {
+      logger.error(
+        {
+          layer: "v2:parse",
+          stage: "jsonrepair_failed",
+          strictError: String(strictErr),
+          repairError: String(repairErr),
+          cleanLen: clean.length,
+          rawLen: raw.length,
+          // Is this a truncation? Last 500 chars will show if JSON is cut mid-string
+          cleanTail: clean.slice(-500),
+          // Check if the content looks truncated (doesn't end with closing braces)
+          looksComplete: clean.trimEnd().endsWith("}"),
+        },
+        "[v2:parse] FAILURE: jsonrepair also failed — cannot parse model output"
+      );
+      throw new Error(
+        `JSON parse failed (strict: ${String(strictErr).slice(0, 120)}; repair: ${String(repairErr).slice(0, 120)})`
+      );
+    }
   }
 
   // ── Validate and normalise files ──────────────────────────────────────────
+  // Log the top-level keys the model returned so we can see what shape it produced
+  logger.info(
+    {
+      layer: "v2:parse",
+      stage: "parsed_keys",
+      topLevelKeys: Object.keys(parsed),
+      filesType: parsed.files === null ? "null" : Array.isArray(parsed.files) ? `array(${(parsed.files as unknown[]).length})` : typeof parsed.files,
+      dependenciesType: Array.isArray(parsed.dependencies) ? `array(${(parsed.dependencies as unknown[]).length})` : typeof parsed.dependencies,
+      hasPreview: typeof parsed.preview === "string" && (parsed.preview as string).length > 0,
+      previewLen: typeof parsed.preview === "string" ? (parsed.preview as string).length : 0,
+    },
+    "[v2:parse] Parsed top-level structure"
+  );
+
   const errors: string[] = [];
 
   let files: ProjectFile[] = [];
@@ -258,6 +419,16 @@ export function parseGeneratedProject(
         language:  inferLanguage(path),
       };
     });
+    logger.info(
+      {
+        layer: "v2:parse",
+        stage: "files_normalised",
+        fileCount: files.length,
+        filePaths: files.map(f => f.path),
+        emptyContentFiles: files.filter(f => !f.content).map(f => f.path),
+      },
+      "[v2:parse] Files array normalised"
+    );
   } else if (parsed.files && typeof parsed.files === "object" && !Array.isArray(parsed.files)) {
     // Legacy Record<string,string> — convert to ProjectFile[]
     files = Object.entries(parsed.files as Record<string, unknown>).map(([path, content]) => ({
@@ -266,15 +437,33 @@ export function parseGeneratedProject(
       content:   typeof content === "string" ? content : "",
       language:  inferLanguage(path),
     }));
+    logger.warn(
+      { layer: "v2:parse", stage: "legacy_format_detected", fileCount: files.length },
+      "[v2:parse] WARNING: model returned legacy Record<string,string> format — converted"
+    );
   } else {
+    logger.error(
+      {
+        layer: "v2:parse",
+        stage: "files_field_invalid",
+        filesValue: parsed.files === null ? "null" : parsed.files === undefined ? "undefined" : typeof parsed.files,
+        // Show first 200 chars of whatever the files field is
+        filesSnippet: String(parsed.files ?? "").slice(0, 200),
+      },
+      "[v2:parse] FAILURE: 'files' field is missing or not an array/object"
+    );
     errors.push("missing or invalid 'files' field");
   }
 
   // Only fatal if there are no files at all — file count / naming issues
   // are logged as structured warnings but never discard a complete code generation run.
-  if (files.length === 0) {
+  if (files.length === 0 && errors.length === 0) {
+    logger.error(
+      { layer: "v2:parse", stage: "zero_files" },
+      "[v2:parse] FAILURE: files array is empty after normalisation"
+    );
     errors.push("missing or invalid 'files' field — no files generated");
-  } else {
+  } else if (files.length > 0) {
     const paths = new Set(files.map((f) => f.path));
     if (!paths.has("app/page.tsx")) {
       logger.warn({ layer: "v2:parse", missingFile: "app/page.tsx" }, "[v2:parse] Generated project is missing app/page.tsx");
@@ -285,6 +474,10 @@ export function parseGeneratedProject(
   }
 
   if (errors.length > 0) {
+    logger.error(
+      { layer: "v2:parse", stage: "schema_errors", errors },
+      `[v2:parse] FAILURE: GeneratedProject schema errors: ${errors.join("; ")}`
+    );
     throw new Error(`GeneratedProject schema errors: ${errors.join("; ")}`);
   }
 
@@ -299,6 +492,18 @@ export function parseGeneratedProject(
   const deps = Array.isArray(parsed.dependencies)
     ? (parsed.dependencies as unknown[]).filter((d): d is string => typeof d === "string")
     : [];
+
+  logger.info(
+    {
+      layer: "v2:parse",
+      stage: "success",
+      fileCount: files.length,
+      depCount: deps.length,
+      previewSource: typeof parsed.preview === "string" && (parsed.preview as string).trim() ? "model" : "fallback",
+      parseMs: Date.now() - parseStart,
+    },
+    "[v2:parse] STAGE COMPLETE: GeneratedProject parsed and validated successfully"
+  );
 
   return {
     files,
@@ -417,13 +622,42 @@ export async function generateProjectCode(
   onChunk: (content: string) => void,
   onThinking: (active: boolean) => void
 ): Promise<GeneratedProject> {
+  const stageStart = Date.now();
+  const userPrompt = buildCodeGeneratorPrompt(ctx, blueprint);
+  logger.info(
+    {
+      layer: "v2:codegen",
+      stage: "entered",
+      userId,
+      model: CODE_GENERATOR_MODEL,
+      maxTokens: 16000,
+      thinkingDisabled: true,
+      userPromptLen: userPrompt.length,
+      systemPromptLen: CODE_GENERATOR_SYSTEM_PROMPT.length,
+      company: ctx.companyName,
+      industry: ctx.industry,
+      pageCount: blueprint.pages?.length ?? 0,
+      componentCount: blueprint.pages?.reduce((n, p) => n + (p.components?.length ?? 0), 0) ?? 0,
+    },
+    "[v2:codegen] STAGE ENTERED: Code Generation Agent"
+  );
+
+  // ── FIX: disable extended thinking for code generation ──────────────────────
+  // MODEL_KWARGS for nemotron-3-ultra-550b-a55b defaults to
+  //   { enable_thinking: true, reasoning_budget: 16384 }
+  // At ~32ms/token that thinking phase alone takes ~524 seconds (8.7 min),
+  // causing the stream to time out before any output token is produced.
+  // Code generation is structured JSON fill-in — it does not benefit from
+  // extended reasoning. Override chatTemplateKwargs to disable thinking so
+  // all token budget goes directly to content output.
   const stream = await streamNvidia({
-    model:       CODE_GENERATOR_MODEL,
-    temperature: 0.4,
-    maxTokens:   16000,
+    model:              CODE_GENERATOR_MODEL,
+    temperature:        0.4,
+    maxTokens:          16000,
+    chatTemplateKwargs: { enable_thinking: false },
     messages: [
       { role: "system", content: CODE_GENERATOR_SYSTEM_PROMPT },
-      { role: "user",   content: buildCodeGeneratorPrompt(ctx, blueprint) },
+      { role: "user",   content: userPrompt },
     ],
     _feature: "website_generator_v2_code",
     _userId:  userId,
@@ -473,11 +707,27 @@ export async function generateProjectCode(
     }
   };
 
+  let rawChunkCount = 0;
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      processLines(carry + decoder.decode(value, { stream: true }));
+      const decoded = decoder.decode(value, { stream: true });
+      rawChunkCount++;
+      // Log first 3 raw chunks so we can see exactly what NVIDIA returns
+      if (rawChunkCount <= 3) {
+        logger.info(
+          {
+            layer: "v2:codegen",
+            stage: "raw_chunk",
+            chunkIndex: rawChunkCount,
+            rawBytes: value?.length ?? 0,
+            rawText: decoded.slice(0, 500),
+          },
+          `[v2:codegen] Raw stream chunk #${rawChunkCount}: ${value?.length ?? 0} bytes`
+        );
+      }
+      processLines(carry + decoded);
     }
 
     const tail = decoder.decode();
@@ -498,8 +748,43 @@ export async function generateProjectCode(
     reader.releaseLock();
   }
 
+  const streamMs = Date.now() - stageStart;
+  logger.info(
+    {
+      layer: "v2:codegen",
+      stage: "stream_complete",
+      userId,
+      bufferLen: buffer.length,
+      streamMs,
+      thinkingWasActive: thinkingSent,
+      contentStarted,
+      // Capture first and last 500 chars so we can see if the JSON is complete
+      bufferHead: buffer.slice(0, 500),
+      bufferTail: buffer.slice(-500),
+    },
+    `[v2:codegen] STAGE COMPLETE: stream done in ${streamMs}ms, buffer=${buffer.length} chars`
+  );
+
   if (!buffer || buffer.length < 100) {
+    logger.error(
+      { layer: "v2:codegen", stage: "empty_response", userId, bufferLen: buffer.length, streamMs },
+      "[v2:codegen] FAILURE: Code Generation Agent returned empty/tiny response"
+    );
     throw new Error("Code Generation Agent returned an empty response");
+  }
+
+  // Save the raw buffer to a temp file so it can be inspected after a parse failure.
+  // This is a debug-only side-effect; failure to write must not mask the real error.
+  const rawDumpPath = `/tmp/v2-codegen-raw-${Date.now()}.json`;
+  try {
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(rawDumpPath, buffer, "utf8");
+    logger.info(
+      { layer: "v2:codegen", stage: "raw_dump", userId, path: rawDumpPath, bufferLen: buffer.length },
+      `[v2:codegen] Raw model response saved to ${rawDumpPath}`
+    );
+  } catch (dumpErr) {
+    logger.warn({ layer: "v2:codegen", dumpErr: String(dumpErr) }, "[v2:codegen] Could not write raw dump (non-fatal)");
   }
 
   return parseGeneratedProject(buffer, ctx, blueprint);

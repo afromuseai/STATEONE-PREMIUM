@@ -461,9 +461,16 @@ router.post(
       sseWrite(res, { phase: "blueprint", data: blueprint });
 
       // ── Phase 2: Code Generation Agent ──────────────────────────────────────
+      const codegenStart = Date.now();
       req.log.info(
-        { userId, model: CODE_GENERATOR_MODEL },
-        "[v2:codegen] Starting Code Generation Agent"
+        {
+          userId,
+          model:      CODE_GENERATOR_MODEL,
+          projectId:  projectId ?? "(none)",
+          pageCount:  blueprint.pages?.length ?? 0,
+          stage:      "codegen_start",
+        },
+        "[v2:codegen] STAGE ENTERED: Code Generation Agent"
       );
 
       // Emit building phase-start signal (no content = signal only)
@@ -478,10 +485,41 @@ router.post(
           (content) => sseWrite(res, { phase: "building", content }),
           (active)  => sseWrite(res, { phase: "thinking", active }),
         );
+        req.log.info(
+          {
+            userId,
+            projectId:  projectId ?? "(none)",
+            fileCount:  project.files.length,
+            depCount:   project.dependencies.length,
+            previewLen: project.preview.length,
+            elapsedMs:  Date.now() - codegenStart,
+            stage:      "codegen_ok",
+          },
+          `[v2:codegen] STAGE COMPLETE: Code Generation Agent succeeded in ${Date.now() - codegenStart}ms`
+        );
       } catch (codeErr) {
+        const elapsedMs = Date.now() - codegenStart;
         req.log.error(
-          { err: String(codeErr), userId },
-          "[v2:codegen] Code Generation Agent failed"
+          {
+            err:       String(codeErr),
+            errName:   codeErr instanceof Error ? codeErr.name : "unknown",
+            errMsg:    codeErr instanceof Error ? codeErr.message : String(codeErr),
+            userId,
+            projectId: projectId ?? "(none)",
+            elapsedMs,
+            stage:     "codegen_failed",
+            // Determine failure category from error message
+            failureCategory:
+              String(codeErr).includes("JSON parse failed")       ? "JSON_PARSE_ERROR" :
+              String(codeErr).includes("schema errors")           ? "SCHEMA_VALIDATION_ERROR" :
+              String(codeErr).includes("empty response")          ? "EMPTY_RESPONSE" :
+              String(codeErr).includes("HTTP 4")                  ? "NVIDIA_HTTP_ERROR" :
+              String(codeErr).includes("HTTP 5")                  ? "NVIDIA_HTTP_ERROR" :
+              String(codeErr).includes("TimeoutError")            ? "TIMEOUT" :
+              String(codeErr).includes("AbortError")              ? "ABORTED" :
+              "UNKNOWN",
+          },
+          `[v2:codegen] FAILURE: Code Generation Agent threw after ${elapsedMs}ms — ${String(codeErr).slice(0, 300)}`
         );
         if (projectId) await markProjectFailed(projectId, String(codeErr));
         sseWrite(res, {
