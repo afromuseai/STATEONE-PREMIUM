@@ -8,7 +8,8 @@
 //   nvidia/nemotron-3-ultra-550b-a55b             ✓ (enable_thinking:true, reasoning_budget:16384)
 //
 // Website V2 production models (assigned 2026-07-07):
-//   stepfun-ai/step-3.7-flash                    — Website V2 Architect + Blueprint agents
+//   meta/llama-4-maverick-17b-128e-instruct       — Website V2 Architect + Blueprint agents
+//     (stepfun-ai/step-3.7-flash returns 401 Unauthorized on this account — not accessible)
 //   nvidia/nemotron-3-super-120b-a12b             — Website V2 Code Generation agent (enable_thinking:false)
 //
 // Dead models (timeout on this account):
@@ -23,7 +24,7 @@
 //   AGENT_PLANNING           — Nemotron 49B: memory-aware agent decomposition
 //   MEMORY                   — Nemotron 49B: context compression & semantic linking
 //   WEBSITE_PLANNING         — Llama-4 Maverick: fast streaming JSON section planning (non-V2 routes)
-//   WEBSITE_V2_ARCHITECT     — Step-3.7 Flash: low-latency structured JSON for V2 Architect + Blueprint phases
+//   WEBSITE_V2_ARCHITECT     — Llama-4 Maverick: low-latency structured JSON for V2 Architect + Blueprint phases
 //   WEBSITE_V2_CODE_GEN      — Nemotron Super 120B: large-context code generation, thinking disabled
 //   COMPONENT_GENERATION     — Nemotron Ultra 550B: frontier coding, thinking enabled (editor + legacy)
 //   COPILOT                  — Nemotron Ultra 550B: frontier instruction-following, thinking + streaming enabled
@@ -42,7 +43,7 @@ export const MODELS = {
   AGENT_PLANNING:         "nvidia/llama-3.3-nemotron-super-49b-v1",
   MEMORY:                 "nvidia/llama-3.3-nemotron-super-49b-v1",
   WEBSITE_PLANNING:       "meta/llama-4-maverick-17b-128e-instruct",
-  WEBSITE_V2_ARCHITECT:   "stepfun-ai/step-3.7-flash",
+  WEBSITE_V2_ARCHITECT:   "meta/llama-4-maverick-17b-128e-instruct",
   WEBSITE_V2_CODE_GEN:    "nvidia/nemotron-3-super-120b-a12b",
   COMPONENT_GENERATION:   "nvidia/nemotron-3-ultra-550b-a55b",
   COPILOT:                "nvidia/nemotron-3-ultra-550b-a55b",

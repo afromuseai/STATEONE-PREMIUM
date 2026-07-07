@@ -45,9 +45,9 @@ import type {
 const router = Router();
 
 // ─── Model assignment ─────────────────────────────────────────────────────────
-// Architect Agent: stepfun-ai/step-3.7-flash — low-latency structured JSON,
-// no special chat_template_kwargs required.
-const ARCHITECT_MODEL = MODELS.WEBSITE_V2_ARCHITECT; // stepfun-ai/step-3.7-flash
+// Architect Agent: meta/llama-4-maverick-17b-128e-instruct — fast, structured
+// JSON output. stepfun-ai/step-3.7-flash is not accessible on this account (401).
+const ARCHITECT_MODEL = MODELS.WEBSITE_V2_ARCHITECT; // meta/llama-4-maverick-17b-128e-instruct
 
 // ─── Architect Agent system prompt ───────────────────────────────────────────
 // Constrained to produce a minimal first-generation landing page blueprint:
