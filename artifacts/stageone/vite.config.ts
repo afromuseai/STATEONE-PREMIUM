@@ -69,6 +69,15 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    // ── WebContainer COOP/COEP headers ──────────────────────────────────────
+    // Required for SharedArrayBuffer, which WebContainer's WASM kernel needs.
+    // WARNING (feasibility test): These headers may break Replit's mTLS proxy
+    // iframe embedding. If the preview pane goes blank, these headers are the
+    // cause. The /webcontainer-test page documents this as a finding.
+    headers: {
+      "Cross-Origin-Opener-Policy":   "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp",
+    },
     proxy: {
       "/api": {
         target: `http://localhost:${process.env.API_PORT ?? "8000"}`,

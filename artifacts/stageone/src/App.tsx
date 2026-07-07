@@ -54,6 +54,7 @@ import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import WebsiteStudioPage from "@/pages/website-studio";
 import WebsiteStudioWorkspacePage from "@/pages/website-studio-workspace";
+import WebContainerTestPage from "@/pages/webcontainer-test";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -203,6 +204,7 @@ function Router() {
       <Route path="/about-marcus" component={AboutMarcusPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/webcontainer-test" component={WebContainerTestPage} />
       <Route component={NotFound} />
     </Switch>
   );
