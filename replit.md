@@ -1,43 +1,48 @@
 # STAGEONE-PREMIUM
 
-An AI Operating System platform for modern businesses — lets users research, design, build, and operate a business using a coordinated swarm of autonomous AI agents.
+An AI operating system platform for modern businesses. Allows users to research, design, build, and operate an entire business using autonomous AI agents. Powered by NVIDIA's API.
 
 ## Stack
 
-- **Frontend**: React 19 + Vite 7, Tailwind CSS v4, Radix UI, Framer Motion, TanStack Query, Wouter (routing), Monaco Editor, WebContainer API
-- **Backend**: Express 5 (Node.js), TypeScript, Pino logging, JWT auth, Nodemailer (SMTP)
-- **Database**: PostgreSQL via Drizzle ORM (`lib/db`)
-- **Monorepo**: pnpm workspaces — `artifacts/stageone` (frontend), `artifacts/api-server` (backend), `lib/db`, `lib/api-zod`, `lib/api-spec`, `lib/api-client-react`
+- **Frontend**: React + Vite (TypeScript), Tailwind CSS v4, Wouter routing — `artifacts/stageone/`
+- **API Server**: Express 5 (TypeScript), built with esbuild, pino logging — `artifacts/api-server/`
+- **Database**: Replit PostgreSQL + Drizzle ORM — `lib/db/`
+- **AI**: NVIDIA NIM APIs (LLMs), accessed via `NVIDIA_API_KEY`
+- **Shared libraries**: `lib/api-zod/`, `lib/api-client-react/`, `lib/api-spec/`
+- **Canvas / mockup sandbox**: `artifacts/mockup-sandbox/` (Vite, port 8080)
 
 ## How to Run
 
-Three workflows run in parallel (configured in `.replit`):
+Two workflows must be running:
 
 | Workflow | Command | Port |
 |---|---|---|
-| Start application | `cd artifacts/stageone && pnpm run dev` | 5000 |
+| Start application | `cd artifacts/stageone && PORT=5000 BASE_PATH=/ pnpm run dev` | 5000 |
 | API Server | `cd artifacts/api-server && pnpm run dev` | 8000 |
-| Component Preview Server | `cd artifacts/mockup-sandbox && vite` | 8080 |
 
-## Environment Variables / Secrets
+The frontend proxies `/api/*` to the API server automatically (configured in `artifacts/stageone/vite.config.ts`).
 
-| Key | Type | Notes |
-|---|---|---|
-| `DATABASE_URL` | Runtime-managed | Auto-injected by Replit |
-| `JWT_SECRET` | Secret | Required for auth token signing |
-| `NVIDIA_API_KEY` | Secret | Used for AI features |
-| `APP_ORIGIN` | Env var | Set to `https://${REPLIT_DEV_DOMAIN}` |
-| `APP_URL` | Env var | Set to `https://${REPLIT_DEV_DOMAIN}` |
-| `SMTP_*` | Secret (optional) | Email delivery (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, SMTP_SECURE) |
+## Required Secrets
+
+| Secret | Purpose |
+|---|---|
+| `JWT_SECRET` | Signs/verifies auth tokens (any long random string) |
+| `NVIDIA_API_KEY` | NVIDIA NIM API access for AI generation |
+| `SESSION_SECRET` | Session signing |
+
+Optional (email features):
+- `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
 
 ## Database
 
-Schema managed with Drizzle Kit. To push schema changes to the dev database:
+Drizzle ORM with Replit-managed PostgreSQL. Schema lives in `lib/db/src/schema/`.
 
-```bash
-cd lib/db && pnpm run push
-```
+To apply schema changes: `pnpm --filter @workspace/db exec drizzle-kit push`
+
+## Package Management
+
+Uses pnpm workspaces. Install all dependencies from the root: `pnpm install`
 
 ## User Preferences
 
-(None yet)
+(none yet)
