@@ -206,7 +206,7 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.18 }}
-      className="flex h-full flex-col overflow-hidden bg-[#0c0c0c]"
+      className="flex h-full flex-col overflow-hidden bg-[#080808]"
     >
       {/* ── Top command bar ────────────────────────────────────────────────── */}
       <TopCommandBar
@@ -294,28 +294,28 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
 
         {/* ── Status bar ────────────────────────────────────────────────── */}
         {!terminalDrawerOpen && (
-          <div className="flex h-[22px] flex-shrink-0 items-center border-t border-white/[0.05] bg-[#090909]">
+          <div className="flex h-[22px] flex-shrink-0 items-center border-t border-white/[0.04] bg-[#070707]">
 
             {/* Terminal toggle */}
             <button
               onClick={() => setTerminalDrawerOpen(true)}
               title="Open terminal overlay (⌃`)"
               aria-label="Open terminal overlay"
-              className="group flex h-full items-center gap-1.5 border-r border-white/[0.05] px-3 text-white/22 transition-colors hover:bg-white/[0.03] hover:text-white/55"
+              className="group flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/25 transition-colors hover:bg-white/[0.04] hover:text-white/60"
             >
               <Terminal className="h-3 w-3" />
               <span className="font-mono text-[10px]">Terminal</span>
             </button>
 
             {/* Git branch */}
-            <div className="flex h-full items-center gap-1.5 border-r border-white/[0.05] px-3 text-white/18">
+            <div className="flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/22">
               <GitBranch className="h-3 w-3" />
               <span className="font-mono text-[10px]">main</span>
             </div>
 
             {/* Active file */}
             {activeFile && (
-              <div className="flex h-full items-center gap-1.5 border-r border-white/[0.05] px-3 text-white/15">
+              <div className="flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/20">
                 <Code2 className="h-3 w-3" />
                 <span className="max-w-[200px] truncate font-mono text-[10px]">
                   {activeFile.path.split("/").pop()}
@@ -324,14 +324,14 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
             )}
 
             {/* File count */}
-            <div className="flex h-full items-center gap-1.5 border-r border-white/[0.05] px-3 text-white/12">
+            <div className="flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/16">
               <FileCode className="h-3 w-3" />
               <span className="font-mono text-[10px]">{project.files.length} files</span>
             </div>
 
             {/* Dep count (when installed) */}
             {depCount > 0 && (
-              <div className="flex h-full items-center gap-1.5 border-r border-white/[0.05] px-3 text-white/12">
+              <div className="flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/16">
                 <span className="font-mono text-[10px]">{depCount} deps</span>
               </div>
             )}
@@ -340,28 +340,28 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
 
             {/* Node version (when known) */}
             {nodeVersion && wcStatus === "ready" && (
-              <div className="flex h-full items-center gap-1.5 border-l border-white/[0.05] px-3 text-white/20">
+              <div className="flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 text-white/22">
                 <span className="font-mono text-[10px]">Node {nodeVersion}</span>
               </div>
             )}
 
             {/* WC live URL chip */}
             {wcUrl && wcStatus === "ready" && (
-              <div className="flex h-full items-center gap-1.5 border-l border-white/[0.05] px-3 text-emerald-400/55">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_theme(colors.emerald.400)]" />
-                <span className="font-mono text-[10px]">WC live</span>
+              <div className="flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 text-emerald-400/65">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_#34d399]" />
+                <span className="font-mono text-[10px]">live</span>
               </div>
             )}
 
             {/* Runtime status */}
-            <div className={`flex h-full items-center gap-1.5 border-l border-white/[0.05] px-3 transition-colors ${statusColors.text}`}>
+            <div className={`flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 transition-colors ${statusColors.text}`}>
               <Circle className={`h-1.5 w-1.5 ${statusColors.dot}`} />
-              <Cpu className="h-2.5 w-2.5 opacity-50" />
+              <Cpu className="h-2.5 w-2.5 opacity-40" />
               <span className="font-mono text-[10px]">{statusLabel}</span>
             </div>
 
             {/* Keyboard hint */}
-            <div className="flex h-full items-center border-l border-white/[0.05] px-3 text-white/10">
+            <div className="flex h-full items-center border-l border-white/[0.04] px-3 text-white/12">
               <span className="font-mono text-[10px]">⌃`</span>
             </div>
           </div>

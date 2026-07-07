@@ -620,29 +620,29 @@ Tell me what to change and I'll plan it first, then execute it.`,
       </AnimatePresence>
 
       {/* Header */}
-      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-white/[0.06] px-4 py-3">
+      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-white/[0.05] px-4 py-3">
         <AnimatePresence>
           {isRunning && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="pointer-events-none absolute inset-0"
-              style={{ background: "linear-gradient(135deg, #f59e0b08 0%, transparent 60%)" }}
+              style={{ background: "linear-gradient(135deg, #f59e0b06 0%, transparent 60%)" }}
             />
           )}
         </AnimatePresence>
 
         <div className="relative z-[1] flex-shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/25 to-amber-700/15 ring-1 ring-amber-400/25">
-            <Cpu className="h-3.5 w-3.5 text-amber-400" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
+            <Cpu className="h-3.5 w-3.5 text-amber-400/90" />
           </div>
           <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0b0b0b] transition-colors duration-500 ${dotColor}`}>
-            {isRunning && <div className="absolute inset-0 animate-ping rounded-full bg-amber-400 opacity-75" />}
+            {isRunning && <div className="absolute inset-0 animate-ping rounded-full bg-amber-400 opacity-60" />}
           </div>
         </div>
 
         <div className="relative z-[1] min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-[13px] font-semibold text-white/85">Marcus</span>
-            <span className="rounded bg-white/[0.05] px-1 py-px text-[9px] font-medium text-white/25">Phase O</span>
+            <span className="text-[13px] font-semibold text-white/88">Marcus</span>
+            <span className="rounded-md bg-white/[0.04] px-1.5 py-px text-[8px] font-semibold text-white/22 tracking-wider">AI</span>
           </div>
           <div className={`mt-0.5 flex items-center gap-1 text-[10px] font-medium transition-colors duration-300 ${statusColor}`}>
             <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotColor}`} />
@@ -651,7 +651,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
         </div>
 
         {isRunning && (
-          <button onClick={cancel} className="relative z-[1] flex-shrink-0 rounded p-1 text-white/20 hover:text-red-400/70 transition-colors">
+          <button onClick={cancel} className="relative z-[1] flex-shrink-0 rounded-md p-1 text-white/18 hover:text-red-400/65 transition-all">
             <X className="h-3.5 w-3.5" />
           </button>
         )}
@@ -734,8 +734,8 @@ Tell me what to change and I'll plan it first, then execute it.`,
       </AnimatePresence>
 
       {/* Input */}
-      <div className="flex-shrink-0 border-t border-white/[0.06] p-3">
-        <div className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025] transition-all duration-150 focus-within:border-amber-400/20 focus-within:bg-white/[0.04]">
+      <div className="flex-shrink-0 border-t border-white/[0.04] p-3">
+        <div className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition-all duration-150 focus-within:border-amber-400/18 focus-within:bg-white/[0.035]">
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -743,17 +743,17 @@ Tell me what to change and I'll plan it first, then execute it.`,
             placeholder={pendingPlan ? "Or type a new request to cancel the plan…" : "Ask Marcus to change anything…"}
             disabled={isRunning}
             rows={3}
-            className="w-full resize-none bg-transparent px-3 py-2.5 pr-9 text-[12px] leading-[1.5] text-white/72 placeholder-white/18 outline-none disabled:opacity-40"
+            className="w-full resize-none bg-transparent px-3 py-2.5 pr-9 text-[12px] leading-[1.55] text-white/70 placeholder-white/16 outline-none disabled:opacity-35"
           />
           <button
             onClick={() => void submit()}
             disabled={!input.trim() || isRunning}
-            className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-lg bg-amber-400/12 text-amber-400 transition-all hover:bg-amber-400/22 disabled:cursor-not-allowed disabled:opacity-25"
+            className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-lg bg-amber-400/10 text-amber-400 transition-all hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-20"
           >
             {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
           </button>
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-white/15">⌘↵ to send</p>
+        <p className="mt-1.5 text-center text-[10px] text-white/12">⌘↵ to send</p>
       </div>
     </div>
   )

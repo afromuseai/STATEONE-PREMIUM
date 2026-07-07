@@ -49,7 +49,7 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
   return (
     <div
       className="relative z-10 flex w-10 flex-shrink-0 flex-col items-center
-        border-r border-white/[0.05] bg-[#090909] py-1"
+        border-r border-white/[0.04] bg-[#080808] py-1.5"
     >
       {/* Top nav — roving tabindex toolbar */}
       <div
@@ -60,7 +60,6 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
       >
         {TOP_ITEMS.map(({ id, icon: Icon, label }, idx) => {
           const active = activeSideView === id
-          // Roving tabindex: only the active item (or first if none) is in the tab order
           const tabIndex = active || (activeSideView === null && idx === 0) ? 0 : -1
 
           return (
@@ -73,23 +72,23 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
               aria-pressed={active}
               onClick={() => onSetSideView(active ? null : id)}
               onKeyDown={(e) => onKeyDown(e, idx)}
-              className={`group relative flex h-8 w-8 items-center justify-center rounded
-                transition-all duration-100
+              className={`group relative flex h-8 w-8 items-center justify-center rounded-lg
+                transition-all duration-150
                 ${active
-                  ? "bg-white/[0.07] text-white/80"
-                  : "text-white/28 hover:bg-white/[0.04] hover:text-white/65"
+                  ? "bg-amber-400/8 text-amber-400/90"
+                  : "text-white/25 hover:bg-white/[0.04] hover:text-white/60"
                 }`}
             >
-              {/* Active accent — left stripe, slides between items */}
+              {/* Active accent — left stripe */}
               {active && (
                 <motion.div
                   layoutId="activity-accent"
-                  className="pointer-events-none absolute -left-1 inset-y-1 w-[2px]
-                    rounded-r bg-amber-400/80"
+                  className="pointer-events-none absolute -left-1 inset-y-1.5 w-[2px]
+                    rounded-r bg-amber-400"
                   transition={{ type: "spring", stiffness: 500, damping: 40 }}
                 />
               )}
-              <Icon className="h-4 w-4" aria-hidden="true" />
+              <Icon className="h-[15px] w-[15px]" aria-hidden="true" />
             </button>
           )
         })}
@@ -103,10 +102,10 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
         <button
           title="Settings"
           aria-label="Settings"
-          className="flex h-8 w-8 items-center justify-center rounded text-white/18
-            transition-colors hover:bg-white/[0.04] hover:text-white/55"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/16
+            transition-all hover:bg-white/[0.04] hover:text-white/50"
         >
-          <Settings className="h-4 w-4" aria-hidden="true" />
+          <Settings className="h-[15px] w-[15px]" aria-hidden="true" />
         </button>
 
         {activeSideView && (
@@ -114,8 +113,8 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
             title="Collapse sidebar (⌘B)"
             aria-label="Collapse sidebar"
             onClick={() => onSetSideView(null)}
-            className="flex h-8 w-8 items-center justify-center rounded text-white/12
-              transition-colors hover:bg-white/[0.04] hover:text-white/45"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/12
+              transition-all hover:bg-white/[0.04] hover:text-white/42"
           >
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
           </button>

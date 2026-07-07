@@ -42,7 +42,7 @@ export function EditorTabs({
     <div
       role="tablist"
       aria-label="Editor tabs"
-      className="flex h-8 flex-shrink-0 items-stretch overflow-x-auto border-b border-white/[0.06] bg-[#0d0d0d]"
+      className="flex h-8 flex-shrink-0 items-stretch overflow-x-auto border-b border-white/[0.05] bg-[#0a0a0a]"
       style={{ scrollbarWidth: "none" }}
     >
       {tabs.map((tab) => {
@@ -68,17 +68,17 @@ export function EditorTabs({
               }
             }}
             className={`group relative flex h-full flex-shrink-0 cursor-pointer items-center gap-1.5 select-none
-              border-r border-white/[0.05] px-3 text-[11.5px] transition-colors duration-75
+              border-r border-white/[0.04] px-3 text-[11.5px] transition-all duration-100
               ${active
-                ? "bg-[#0e0e0e] text-white/80"
-                : "text-white/30 hover:bg-white/[0.025] hover:text-white/60"
+                ? "bg-[#0e0e0e] text-white/85"
+                : "text-white/28 hover:bg-white/[0.02] hover:text-white/55"
               }`}
           >
             {/* Active indicator — amber top border, shared layout-id so it slides */}
             {active && (
               <motion.div
                 layoutId="tab-indicator"
-                className="absolute inset-x-0 top-0 h-[1.5px] bg-amber-400/80"
+                className="absolute inset-x-0 top-0 h-[1.5px] bg-amber-400"
                 transition={{ type: "spring", stiffness: 500, damping: 40 }}
               />
             )}

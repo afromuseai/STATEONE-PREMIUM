@@ -1,0 +1,235 @@
+Premium UI Refinement Prompt
+
+Do not rebuild the architecture or move functionality. This is a UI/UX refinement pass only.
+
+The current interface works but looks dated, flat, and robotic. I want it to feel like a premium AI-native product on the same level as Replit, Vercel, Linear, Raycast, and Cursor—not a traditional admin dashboard.
+
+Design Goals
+Premium
+Modern
+Elegant
+AI-native
+Minimal
+Sophisticated
+High-end SaaS
+Excellent visual hierarchy
+Smooth animations
+Spacious layout
+Luxurious black + gold aesthetic
+Refine the Entire Layout
+
+Do not simply add borders or shadows.
+
+Instead redesign spacing, proportions, hierarchy, surfaces, typography, and interactions.
+
+Everything should feel intentional.
+
+Improve Layout Hierarchy
+
+The current layout feels cramped and mechanically divided into panels.
+
+Create a stronger hierarchy.
+
+The interface should immediately communicate:
+
+AI Workspace
+Active Project
+Current Artifact
+Actions
+
+instead of looking like multiple boxes placed beside each other.
+
+Premium Surfaces
+
+Avoid large flat black areas.
+
+Introduce layered surfaces using slightly different elevations.
+
+Examples:
+
+App background
+Workspace background
+Side panels
+Cards
+Toolbars
+Inputs
+
+Each should have subtle contrast.
+
+Do not rely on visible borders everywhere.
+
+Better Spacing
+
+Increase whitespace.
+
+Use consistent spacing throughout.
+
+Nothing should feel compressed.
+
+Every section should breathe.
+
+Typography
+
+Improve hierarchy using typography instead of borders.
+
+Headings should immediately stand out.
+
+Secondary information should become quieter.
+
+Status labels should look elegant.
+
+AI Workspace
+
+The Marcus panel should feel like a premium AI workspace.
+
+It should not look like a basic chat sidebar.
+
+Improve:
+
+spacing
+header
+status
+activity timeline
+prompts
+message styling
+thinking states
+
+The panel should feel alive.
+
+Preview Workspace
+
+Make the preview area feel like the hero of the interface.
+
+Improve:
+
+browser chrome
+spacing
+loading states
+transitions
+empty states
+viewport controls
+
+Avoid large empty dead space.
+
+Activity Bar
+
+Redesign the activity bar.
+
+Better hover effects.
+
+Better active indicators.
+
+Better animations.
+
+More premium icon treatment.
+
+File Explorer
+
+Make the explorer feel closer to modern IDEs.
+
+Improve:
+
+indentation
+spacing
+folder styling
+hover states
+selected state
+collapse animations
+Top Toolbar
+
+Refine grouping.
+
+Improve alignment.
+
+Improve spacing.
+
+Improve button hierarchy.
+
+The toolbar should immediately communicate:
+
+Workspace Controls
+
+↓
+
+Project Controls
+
+↓
+
+Deployment Controls
+
+Buttons
+
+Replace generic buttons with premium components.
+
+Improve:
+
+hover
+active
+focus
+transitions
+depth
+
+Primary buttons should feel luxurious.
+
+Motion
+
+Add tasteful motion.
+
+Examples:
+
+panel transitions
+hover transitions
+loading shimmer
+AI thinking
+active indicators
+subtle fades
+smooth workspace switching
+
+Nothing should feel static.
+
+Visual Density
+
+Reduce the feeling of a dashboard.
+
+Increase the feeling of a creative workspace.
+
+Consistency
+
+Every corner radius
+
+Every padding
+
+Every icon size
+
+Every font weight
+
+Every animation
+
+Every color
+
+should follow one consistent design language.
+
+Inspiration
+
+Take inspiration from the design quality of:
+
+Replit
+Vercel
+Linear
+Cursor
+Raycast
+Arc Browser
+
+Do not copy them.
+
+Instead achieve the same level of polish while preserving STAGEONE's unique black-and-gold identity.
+
+Important
+
+Do not change the existing functionality or architecture.
+
+Do not move panels.
+
+Do not rewrite business logic.
+
+Focus exclusively on making the interface feel like a premium, modern AI operating system with world-class visual polish.

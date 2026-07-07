@@ -231,17 +231,17 @@ function DrawerContent({
   return (
     <>
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.05] px-3 py-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/22">
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.04] px-3 py-2">
+        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/20">
           Explorer
         </span>
         <div className="flex items-center gap-0.5">
-          <span className="text-[10px] tabular-nums text-white/15">{files.length} files</span>
+          <span className="text-[10px] tabular-nums text-white/14">{files.length} files</span>
           <button
             title="New file"
             aria-label="New file"
-            className="ml-1.5 flex h-5 w-5 items-center justify-center rounded text-white/18
-              transition-colors hover:bg-white/[0.06] hover:text-white/55"
+            className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-md text-white/16
+              transition-all hover:bg-white/[0.06] hover:text-white/55"
           >
             <FilePlus className="h-3 w-3" />
           </button>
@@ -249,16 +249,16 @@ function DrawerContent({
       </div>
 
       {/* Search */}
-      <div className="flex-shrink-0 border-b border-white/[0.04] px-2 py-1.5">
-        <div className="flex items-center gap-1.5 rounded-md border border-white/[0.05] bg-white/[0.02]
-          px-2 py-[5px] transition-colors focus-within:border-white/[0.10]">
-          <Search className="h-3 w-3 flex-shrink-0 text-white/18" />
+      <div className="flex-shrink-0 border-b border-white/[0.03] px-2 py-1.5">
+        <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.04] bg-white/[0.015]
+          px-2 py-[5px] transition-all focus-within:border-amber-400/20 focus-within:bg-white/[0.03]">
+          <Search className="h-3 w-3 flex-shrink-0 text-white/16" />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search files…"
             aria-label="Search files"
-            className="w-full bg-transparent text-[11px] text-white/52 placeholder-white/18 outline-none"
+            className="w-full bg-transparent text-[11px] text-white/50 placeholder-white/16 outline-none"
           />
           {searchQuery && (
             <button
@@ -313,7 +313,7 @@ export function FileExplorerDrawer({
   // ── Embedded mode: no wrapper animation, fills parent ─────────────────────
   if (embedded) {
     return (
-      <div className="flex h-full w-full flex-col overflow-hidden bg-[#0a0a0a]">
+      <div className="flex h-full w-full flex-col overflow-hidden bg-[#090909]">
         <DrawerContent
           files={files}
           activeFilePath={activeFilePath}

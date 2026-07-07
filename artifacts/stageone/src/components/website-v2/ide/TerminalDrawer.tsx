@@ -71,35 +71,35 @@ export function TerminalDrawer({ onClose }: TerminalDrawerProps) {
       animate={{ height: 220, opacity: 1 }}
       exit={{ height: 0, opacity: 0 }}
       transition={{ type: "spring", stiffness: 380, damping: 40 }}
-      className="flex flex-shrink-0 flex-col overflow-hidden border-t border-white/[0.06] bg-[#090909]"
+      className="flex flex-shrink-0 flex-col overflow-hidden border-t border-white/[0.04] bg-[#080808]"
     >
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/[0.05] bg-[#0b0b0b] px-4 py-1.5">
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/[0.04] bg-[#0a0a0a] px-4 py-1.5">
         <div className="flex items-center gap-2">
           {/* Shell tabs (visual only) */}
-          <div className="flex items-center rounded-md border border-white/[0.06] bg-white/[0.03] px-2.5 py-0.5">
-            <span className="text-[11px] font-medium text-white/55">bash</span>
+          <div className="flex items-center rounded-md border border-white/[0.05] bg-white/[0.025] px-2.5 py-0.5">
+            <span className="text-[11px] font-medium text-white/50">bash</span>
           </div>
         </div>
 
         <div className="flex-1" />
 
         <div className="flex items-center gap-1.5">
-          <Circle className="h-2 w-2 fill-emerald-400/70 text-emerald-400/70" />
-          <span className="text-[10px] text-white/25">WebContainer</span>
+          <Circle className="h-1.5 w-1.5 fill-emerald-400/65 text-emerald-400/65" />
+          <span className="text-[10px] text-white/22">WebContainer</span>
         </div>
 
-        <div className="ml-2 h-3.5 w-px bg-white/[0.08]" />
+        <div className="ml-2 h-3.5 w-px bg-white/[0.06]" />
 
         <button
           onClick={onClose}
-          className="flex h-5 w-5 items-center justify-center rounded text-white/20 transition-colors hover:bg-white/[0.06] hover:text-white/55"
+          className="flex h-5 w-5 items-center justify-center rounded-md text-white/18 transition-all hover:bg-white/[0.06] hover:text-white/55"
         >
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={onClose}
-          className="flex h-5 w-5 items-center justify-center rounded text-white/20 transition-colors hover:bg-white/[0.06] hover:text-white/55"
+          className="flex h-5 w-5 items-center justify-center rounded-md text-white/18 transition-all hover:bg-white/[0.06] hover:text-white/55"
         >
           <X className="h-3 w-3" />
         </button>
