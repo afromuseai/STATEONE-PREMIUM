@@ -1,33 +1,36 @@
-import { useState } from "react"
-import { Terminal, ChevronRight, Circle } from "lucide-react"
+import { useEffect, useRef } from "react"
+import { Terminal, ChevronRight, Circle, Loader } from "lucide-react"
+import type { TerminalLine } from "@/components/website-v2/runtime/runtime-types"
 
-interface LogLine {
-  id: number
-  type: "info" | "success" | "error" | "warn" | "cmd"
-  text: string
-  time: string
-}
-
-const PLACEHOLDER_LOGS: LogLine[] = [
-  { id: 1, type: "info",    text: "WebContainer runtime ready",          time: "00:00" },
-  { id: 2, type: "cmd",     text: "$ pnpm install",                      time: "00:01" },
-  { id: 3, type: "success", text: "✓ 532 packages installed",            time: "00:04" },
-  { id: 4, type: "cmd",     text: "$ pnpm dev",                          time: "00:04" },
-  { id: 5, type: "success", text: "▲ Next.js 14.2.3",                    time: "00:05" },
-  { id: 6, type: "info",    text: "- Local: http://localhost:3000",       time: "00:05" },
-  { id: 7, type: "success", text: "✓ Ready in 842ms",                    time: "00:05" },
+// ─── Placeholder shown before WC boots ────────────────────────────────────────
+const PLACEHOLDER_LINES: TerminalLine[] = [
+  { id: -1, type: "info", text: "Waiting for WebContainer to start…", time: "00:00:00" },
 ]
 
-const LOG_COLORS: Record<LogLine["type"], string> = {
-  info:    "text-white/50",
+const LINE_COLORS: Record<TerminalLine["type"], string> = {
+  info:    "text-white/45",
   success: "text-emerald-400",
   error:   "text-red-400",
   warn:    "text-amber-400",
   cmd:     "text-amber-300 font-semibold",
 }
 
-export function TerminalPanel() {
-  const [input, setInput] = useState("")
+interface TerminalPanelProps {
+  /** Real streamed output from WebContainerProvider. Falls back to placeholder when absent. */
+  lines?: TerminalLine[]
+  /** Whether the WC boot sequence is actively running */
+  isBooting?: boolean
+}
+
+export function TerminalPanel({ lines, isBooting }: TerminalPanelProps) {
+  const bottomRef  = useRef<HTMLDivElement | null>(null)
+  const display    = lines && lines.length > 0 ? lines : PLACEHOLDER_LINES
+  const showSpinner = isBooting ?? false
+
+  // Auto-scroll to bottom whenever new lines arrive
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [lines])
 
   return (
     <div className="flex h-full flex-col bg-[#080808] font-mono">
@@ -38,34 +41,34 @@ export function TerminalPanel() {
           Terminal
         </span>
         <div className="ml-auto flex items-center gap-1.5">
-          <Circle className="h-2 w-2 fill-emerald-400 text-emerald-400" />
-          <span className="text-[10px] text-white/30">WebContainer</span>
+          {showSpinner
+            ? <Loader className="h-3 w-3 animate-spin text-amber-400/60" />
+            : <Circle  className="h-2 w-2 fill-emerald-400 text-emerald-400" />
+          }
+          <span className="text-[10px] text-white/30">
+            {showSpinner ? "Starting…" : "WebContainer"}
+          </span>
         </div>
       </div>
 
       {/* Log output */}
-      <div className="flex-1 overflow-y-auto p-3 text-[12px] leading-6">
-        {PLACEHOLDER_LOGS.map((line) => (
+      <div className="flex-1 overflow-y-auto p-3 text-[12px] leading-6" style={{ scrollbarWidth: "thin" }}>
+        {display.map((line) => (
           <div key={line.id} className="flex items-start gap-3">
-            <span className="flex-shrink-0 text-[10px] text-white/20 pt-0.5">{line.time}</span>
-            <span className={LOG_COLORS[line.type]}>{line.text}</span>
+            <span className="flex-shrink-0 pt-0.5 font-mono text-[10px] text-white/20">
+              {line.time}
+            </span>
+            <span className={LINE_COLORS[line.type]}>{line.text}</span>
           </div>
         ))}
+
+        {/* Blinking cursor */}
         <div className="mt-2 flex items-center gap-1 text-amber-400/80">
           <ChevronRight className="h-3 w-3" />
           <span className="animate-pulse">_</span>
         </div>
-      </div>
 
-      {/* Input */}
-      <div className="flex flex-shrink-0 items-center gap-2 border-t border-white/[0.07] bg-[#0d0d0d] px-3 py-2">
-        <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 text-amber-400/60" />
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a command…"
-          className="flex-1 bg-transparent text-[12px] text-white/70 placeholder-white/20 outline-none"
-        />
+        <div ref={bottomRef} />
       </div>
     </div>
   )

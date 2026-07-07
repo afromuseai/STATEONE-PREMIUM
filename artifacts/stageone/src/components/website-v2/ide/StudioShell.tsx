@@ -6,8 +6,9 @@ import { AgentPanel }         from "./AgentPanel"
 import { FileExplorerDrawer } from "./FileExplorerDrawer"
 import { EditorWorkspace }    from "./EditorWorkspace"
 import { TerminalDrawer }     from "./TerminalDrawer"
+import { useWebContainer }    from "@/components/website-v2/runtime/useWebContainer"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
-import { Terminal, GitBranch, Circle, FileCode, Code2 } from "lucide-react"
+import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu } from "lucide-react"
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 /** The four first-class workspace modes. Terminal is a full-pane mode, not a drawer. */
@@ -25,11 +26,30 @@ export interface OpenTab {
 interface StudioShellProps {
   project:    V2Project
   onRefresh:  () => void
-  /** Optional live WebContainer URL — passed through to PreviewWorkspace */
-  wcUrl?:     string | null
 }
 
-export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
+// ─── Runtime status label helpers ─────────────────────────────────────────────
+const STATUS_LABELS: Record<string, string> = {
+  idle:       "WC Idle",
+  booting:    "Booting…",
+  mounting:   "Mounting…",
+  installing: "Installing…",
+  starting:   "Starting…",
+  ready:      "WC Ready",
+  error:      "WC Error",
+}
+
+const STATUS_COLORS: Record<string, { text: string; dot: string }> = {
+  idle:       { text: "text-white/30",       dot: "fill-white/30" },
+  booting:    { text: "text-amber-400/60",   dot: "fill-amber-400 animate-pulse" },
+  mounting:   { text: "text-amber-400/60",   dot: "fill-amber-400 animate-pulse" },
+  installing: { text: "text-amber-400/60",   dot: "fill-amber-400 animate-pulse" },
+  starting:   { text: "text-amber-400/60",   dot: "fill-amber-400 animate-pulse" },
+  ready:      { text: "text-emerald-400/60", dot: "fill-emerald-400" },
+  error:      { text: "text-red-400/60",     dot: "fill-red-400" },
+}
+
+export function StudioShell({ project, onRefresh }: StudioShellProps) {
   // ── Tab state ────────────────────────────────────────────────────────────────
   const [openTabs,    setOpenTabs]    = useState<OpenTab[]>([
     { id: "preview",  label: "Preview",  pinned: true },
@@ -37,24 +57,31 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
   const [activeTabId, setActiveTabId] = useState<string>("preview")
 
   // ── Workspace mode ───────────────────────────────────────────────────────────
-  // Default: code — Monaco is the primary workspace
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("code")
 
   // ── Left side panel ──────────────────────────────────────────────────────────
-  // "marcus" shows the AI agent; "explorer" shows the file tree; null = collapsed
   const [sideView, setSideView] = useState<SideView>("marcus")
 
   // ── Terminal drawer (⌃`) ─────────────────────────────────────────────────────
-  // Separate from the "terminal" workspace mode: this is the slide-up overlay
   const [terminalDrawerOpen, setTerminalDrawerOpen] = useState(false)
+
+  // ── WebContainer runtime ─────────────────────────────────────────────────────
+  const {
+    status:        wcStatus,
+    wcUrl,
+    terminalLines,
+    nodeVersion,
+    depCount,
+    writeFile:     wcWriteFile,
+  } = useWebContainer()
+
+  const wcBooting = wcStatus !== "idle" && wcStatus !== "ready" && wcStatus !== "error"
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const activeFile =
     activeTabId === "preview" || activeTabId === "terminal"
       ? null
       : (project.files.find((f) => f.path === activeTabId) ?? null)
-
-  const isReady = project.status === "ready"
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const openFile = useCallback((file: V2ProjectFile) => {
@@ -64,14 +91,13 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
       return [...prev, { id: file.path, label }]
     })
     setActiveTabId(file.path)
-    // Switch to code mode when a file is opened (unless already in split)
     setWorkspaceMode((prev) => prev === "split" ? "split" : "code")
   }, [])
 
   const closeTab = useCallback((tabId: string) => {
     setOpenTabs((prev) => {
       const tab  = prev.find((t) => t.id === tabId)
-      if (tab?.pinned) return prev                       // can't close pinned tabs
+      if (tab?.pinned) return prev
       const idx  = prev.findIndex((t) => t.id === tabId)
       const next = prev.filter((t) => t.id !== tabId)
       if (activeTabId === tabId && next.length > 0) {
@@ -87,15 +113,13 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
 
   const handleTabClick = useCallback((tabId: string) => {
     setActiveTabId(tabId)
-    if (tabId === "preview")  setWorkspaceMode("preview")
+    if (tabId === "preview")       setWorkspaceMode("preview")
     else if (tabId === "terminal") setWorkspaceMode("terminal")
     else setWorkspaceMode((prev) => prev === "split" ? "split" : "code")
   }, [])
 
-  /** Called when the mode strip in TopCommandBar changes mode directly. */
   const handleModeChange = useCallback((mode: WorkspaceMode) => {
     setWorkspaceMode(mode)
-    // When switching to terminal mode, ensure terminal tab exists
     if (mode === "terminal") {
       setOpenTabs((prev) => {
         if (prev.find((t) => t.id === "terminal")) return prev
@@ -103,9 +127,7 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
       })
       setActiveTabId("terminal")
     }
-    // When switching to preview mode, activate the preview tab
     if (mode === "preview") setActiveTabId("preview")
-    // When switching to code mode, activate the most recent code file tab (if any)
     if (mode === "code") {
       setOpenTabs((prev) => {
         const codeTab = [...prev].reverse().find((t) => t.id !== "preview" && t.id !== "terminal")
@@ -114,6 +136,10 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
       })
     }
   }, [])
+
+  // ── Status bar display ───────────────────────────────────────────────────────
+  const statusLabel  = STATUS_LABELS[wcStatus] ?? wcStatus
+  const statusColors = STATUS_COLORS[wcStatus] ?? STATUS_COLORS.idle
 
   return (
     <motion.div
@@ -139,9 +165,7 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
           {/* Activity bar — far left 40px strip */}
           <ActivityBar activeSideView={sideView} onSetSideView={setSideView} />
 
-          {/* Side panel — Marcus or Explorer.
-              Stable key so the container never remounts when switching views;
-              only the width animates and the inner content swaps in place. */}
+          {/* Side panel — Marcus or Explorer */}
           <AnimatePresence initial={false}>
             {sideView !== null && (
               <motion.div
@@ -152,8 +176,6 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
                 transition={{ type: "spring", stiffness: 420, damping: 40 }}
                 className="flex flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.06]"
               >
-                {/* AgentPanel stays mounted but hidden when explorer is active,
-                    so its timeline / SSE state is preserved across view switches. */}
                 <div className={sideView === "marcus" ? "contents" : "hidden"}>
                   <AgentPanel
                     project={project}
@@ -183,6 +205,9 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
             activeFile={activeFile}
             workspaceMode={workspaceMode}
             wcUrl={wcUrl}
+            terminalLines={terminalLines}
+            wcBooting={wcBooting}
+            onFileWrite={wcWriteFile}
             onTabClick={handleTabClick}
             onTabClose={closeTab}
             onModeChange={handleModeChange}
@@ -228,15 +253,29 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
             )}
 
             {/* File count */}
-            <div className="flex h-full items-center gap-1.5 px-3 text-white/12">
+            <div className="flex h-full items-center gap-1.5 border-r border-white/[0.05] px-3 text-white/12">
               <FileCode className="h-3 w-3" />
               <span className="font-mono text-[10px]">{project.files.length} files</span>
             </div>
 
+            {/* Dep count (when installed) */}
+            {depCount > 0 && (
+              <div className="flex h-full items-center gap-1.5 border-r border-white/[0.05] px-3 text-white/12">
+                <span className="font-mono text-[10px]">{depCount} deps</span>
+              </div>
+            )}
+
             <div className="flex-1" />
 
-            {/* WebContainer URL indicator */}
-            {wcUrl && (
+            {/* Node version (when known) */}
+            {nodeVersion && wcStatus === "ready" && (
+              <div className="flex h-full items-center gap-1.5 border-l border-white/[0.05] px-3 text-white/20">
+                <span className="font-mono text-[10px]">Node {nodeVersion}</span>
+              </div>
+            )}
+
+            {/* WC live URL chip */}
+            {wcUrl && wcStatus === "ready" && (
               <div className="flex h-full items-center gap-1.5 border-l border-white/[0.05] px-3 text-emerald-400/55">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_theme(colors.emerald.400)]" />
                 <span className="font-mono text-[10px]">WC live</span>
@@ -244,13 +283,10 @@ export function StudioShell({ project, onRefresh, wcUrl }: StudioShellProps) {
             )}
 
             {/* Runtime status */}
-            <div className={`flex h-full items-center gap-1.5 border-l border-white/[0.05] px-3 transition-colors
-              ${isReady ? "text-emerald-400/60" : "text-amber-400/60"}`}
-            >
-              <Circle className={`h-1.5 w-1.5 ${isReady ? "fill-emerald-400" : "fill-amber-400 animate-pulse"}`} />
-              <span className="font-mono text-[10px]">
-                {isReady ? "Ready" : project.status}
-              </span>
+            <div className={`flex h-full items-center gap-1.5 border-l border-white/[0.05] px-3 transition-colors ${statusColors.text}`}>
+              <Circle className={`h-1.5 w-1.5 ${statusColors.dot}`} />
+              <Cpu className="h-2.5 w-2.5 opacity-50" />
+              <span className="font-mono text-[10px]">{statusLabel}</span>
             </div>
 
             {/* Keyboard hint */}

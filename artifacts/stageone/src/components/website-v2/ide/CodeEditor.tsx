@@ -1,6 +1,6 @@
-import { useRef } from "react"
-import Editor, { loader, type BeforeMount, type OnMount } from "@monaco-editor/react"
-import { Copy, Check, FileCode2 } from "lucide-react"
+import { useRef, useCallback, useEffect } from "react"
+import Editor, { loader, type BeforeMount, type OnMount, type OnChange } from "@monaco-editor/react"
+import { Copy, Check, FileCode2, Save } from "lucide-react"
 import { useState } from "react"
 import type { V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import * as monaco from "monaco-editor"
@@ -129,7 +129,7 @@ const EDITOR_OPTIONS: monaco.editor.IStandaloneEditorConstructionOptions = {
   foldingHighlight: false,
   wordWrap: "off",
   automaticLayout: true,
-  readOnly: true,
+  // readOnly removed — Monaco is now the live editor for WC HMR (N4)
   padding: { top: 14, bottom: 24 },
   scrollbar: {
     verticalScrollbarSize: 4,
@@ -186,19 +186,64 @@ const LANG_COLORS: Record<string, string> = {
 
 interface CodeEditorProps {
   file: V2ProjectFile | null
+  /**
+   * Called (debounced 400ms) whenever the editor content changes.
+   * The caller should write this content to the WC filesystem to trigger HMR.
+   */
+  onFileWrite?: (content: string) => void
 }
 
-export function CodeEditor({ file }: CodeEditorProps) {
-  const [copied, setCopied] = useState(false)
-  const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
+export function CodeEditor({ file, onFileWrite }: CodeEditorProps) {
+  const [copied,  setCopied]  = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const editorRef   = useRef<Parameters<OnMount>[0] | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clear pending debounce on unmount or tab switch to prevent stale writes
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
+    }
+  }, [])
 
   const handleMount: OnMount = (editor) => {
     editorRef.current = editor
+
+    // Ctrl+S / Cmd+S — flush the debounce immediately
+    editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+      () => {
+        if (!onFileWrite) return
+        if (debounceRef.current) {
+          clearTimeout(debounceRef.current)
+          debounceRef.current = null
+        }
+        const content = editor.getValue()
+        onFileWrite(content)
+        setIsDirty(false)
+      },
+    )
   }
+
+  // Debounced onChange → WC writeFile (N4)
+  const handleChange: OnChange = useCallback((value) => {
+    if (value === undefined) return
+    setIsDirty(true)
+    if (!onFileWrite) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      onFileWrite(value)
+      setIsDirty(false)
+    }, 400)
+  }, [onFileWrite])
 
   const copy = () => {
     if (!file) return
-    navigator.clipboard.writeText(file.content).then(() => {
+    const content = editorRef.current?.getValue() ?? file.content
+    navigator.clipboard.writeText(content).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -229,6 +274,14 @@ export function CodeEditor({ file }: CodeEditorProps) {
         <FileBreadcrumb path={file.path} />
 
         <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+          {/* Dirty indicator */}
+          {isDirty && onFileWrite && (
+            <div className="flex items-center gap-1 text-amber-400/60">
+              <Save className="h-3 w-3" />
+              <span className="font-mono text-[9px]">saving…</span>
+            </div>
+          )}
+
           {/* Language badge */}
           <span
             className="rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-widest"
@@ -265,6 +318,7 @@ export function CodeEditor({ file }: CodeEditorProps) {
           options={EDITOR_OPTIONS}
           beforeMount={defineStageOneTheme}
           onMount={handleMount}
+          onChange={handleChange}
         />
       </div>
     </div>

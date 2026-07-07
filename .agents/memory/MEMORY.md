@@ -12,3 +12,4 @@
 - [Chatbot bridge lifecycle](chatbot-bridge-lifecycle.md) — every early-return in generateWith must call the completion ref or triggerGenerate hangs; 5 exits identified
 - [Website save reliability](website-save-reliability.md) — capture projectId before fetch; server echoes _projectId; done handler restores context if cleared during stream
 - [Automation/Orchestrator Marcus double-mount](automation-marcus-double-mount.md) — Marcus nav can double-mount the page; typewriter progress must be module-scoped/resumable, not just per-instance-deduped
+- [WebContainer runtime integration](wc-runtime-integration.md) — Phase N WC provider; singleton/boot-promise pattern; context split for Fast Refresh; CodeEditor debounce cleanup

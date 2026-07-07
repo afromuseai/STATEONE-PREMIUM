@@ -1,0 +1,190 @@
+Phase N — WebContainer Runtime Integration
+Objective
+
+Connect the existing Website Studio IDE shell to the real WebContainer runtime so generated Next.js projects execute inside the browser with live HMR.
+
+N1. Create WebContainer Runtime Layer
+
+Create:
+
+src/components/website-v2/runtime/
+
+WebContainerProvider.tsx
+useWebContainer.ts
+runtime-types.ts
+
+Responsibilities:
+
+Boot WebContainer singleton
+Mount project files
+Install dependencies
+Start Next.js dev server
+Track runtime state
+
+States:
+
+type RuntimeStatus =
+ | "idle"
+ | "booting"
+ | "mounting"
+ | "installing"
+ | "starting"
+ | "ready"
+ | "error"
+N2. Connect Project Files → WebContainer
+
+When workspace opens:
+
+website_v2_projects.files
+              |
+              ↓
+       WebContainer FS
+              |
+              ↓
+       npm install
+              |
+              ↓
+       next dev
+
+Mount:
+
+app/
+components/
+public/
+package.json
+next.config.js
+tailwind.config.ts
+tsconfig.json
+N3. Replace Preview Mock
+
+Current:
+
+PreviewWorkspace
+
+iframe srcDoc={AI HTML}
+
+Change:
+
+PreviewWorkspace
+
+if wcUrl:
+    iframe src={wcUrl}
+
+else:
+    iframe srcDoc={fallback}
+
+The AI HTML preview remains fallback only.
+
+N4. Connect Editor Changes → Runtime
+
+When Monaco changes:
+
+Monaco
+ |
+ |
+ fs.writeFile()
+ |
+ |
+WebContainer
+ |
+ |
+Next.js HMR
+ |
+ |
+Preview updates
+
+No rebuild.
+
+No LLM preview generation.
+
+N5. Connect Agent Marcus → Runtime
+
+Current:
+
+Marcus
+ |
+ DB update
+ |
+ refresh project
+
+Change:
+
+Marcus
+ |
+ modifies files
+ |
+ DB save
+ |
+ WebContainer fs.writeFile()
+ |
+ HMR
+N6. Upgrade Terminal Panel
+
+Replace placeholder terminal.
+
+Show:
+
+$ npm install
+
+added 312 packages
+
+$ npm run dev
+
+▲ Next.js 14.2
+✓ Ready in 2.3s
+
+localhost:3000
+
+Stream:
+
+webcontainerInstance.spawn()
+
+output into TerminalPanel.
+
+N7. Status Bar Integration
+
+Connect:
+
+Bottom Status Bar
+
+● WebContainer Ready
+
+Node 20
+Next.js 14
+Files: 42
+Dependencies: 18
+N8. Error Recovery
+
+Handle:
+
+npm install failure
+broken imports
+syntax errors
+missing packages
+
+Display:
+
+Runtime Error
+
+HeroSection.tsx
+Line 42
+
+Cannot find module framer-motion
+
+[Ask Marcus to fix]
+Acceptance Test
+
+A user should be able to:
+
+Generate website
+Open Website Studio
+See files mounted
+Wait for Next.js startup
+Preview real running app
+Ask Marcus:
+
+"Change the hero background to black"
+
+Agent edits file
+Monaco updates
+Preview updates automatically
