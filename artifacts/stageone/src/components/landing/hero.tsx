@@ -891,25 +891,6 @@ export function Hero() {
       <div className="relative mx-auto max-w-[1320px] px-8 lg:px-12 flex flex-col items-start justify-center min-h-[calc(100vh-72px)] py-20">
         <div className="w-full max-w-[600px]">
 
-          {/* Badge pill */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="mb-7 inline-flex items-center gap-2 rounded-full px-4 py-1.5"
-            style={{
-              background: "rgba(184,145,68,0.10)",
-              border: "1px solid rgba(184,145,68,0.30)",
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            <motion.div className="w-1.5 h-1.5 rounded-full" style={{ background: "oklch(0.75 0.12 85)" }}
-              animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "oklch(0.75 0.12 85)" }}>
-              {t.hero.badge}
-            </span>
-          </motion.div>
-
           {/* Headline */}
           <motion.h1
             initial={{ opacity: 0, y: 18 }}
