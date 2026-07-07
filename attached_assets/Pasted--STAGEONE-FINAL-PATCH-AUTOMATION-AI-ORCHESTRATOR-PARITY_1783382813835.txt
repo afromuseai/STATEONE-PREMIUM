@@ -1,0 +1,187 @@
+# STAGEONE FINAL PATCH — AUTOMATION + AI ORCHESTRATOR PARITY
+
+## IMPORTANT
+
+Business Intelligence, Website Generator, and Chatbot Generator are now the canonical implementations.
+
+DO NOT modify them.
+
+DO NOT refactor Marcus.
+
+DO NOT modify:
+
+* ExecutionBus
+* Workspace tags
+* Copilot
+* Registry
+* Project persistence
+* SSE
+* Business Intelligence
+* Website Generator
+* Chatbot Generator
+
+Treat those as LOCKED.
+
+---
+
+# GOAL
+
+Bring ONLY these two modules into exact lifecycle parity:
+
+* Automation Builder
+* AI Orchestrator
+
+No architecture changes.
+
+No redesign.
+
+Only make them behave exactly like Chatbot.
+
+---
+
+# REFERENCE
+
+Use Chatbot Generator as the implementation reference.
+
+Do NOT invent new behaviour.
+
+For every lifecycle stage compare Chatbot against:
+
+* Automation
+* Orchestrator
+
+and make them identical.
+
+---
+
+# REQUIRED LIFECYCLE
+
+The module must execute exactly:
+
+1. Navigate
+2. Populate
+3. Typewriter completes
+4. Confirmation
+5. User confirms
+6. Existing standalone generate() executes
+7. Streaming
+8. Results render
+9. Save to project
+10. Completion notification
+
+Every stage must match Chatbot.
+
+---
+
+# AUTOMATION
+
+Audit ONLY:
+
+* bridge.populate()
+* bridge.triggerGenerate()
+* controller.generate()
+* generateWith()
+* generateCompleteCallbackRef
+* all exit paths
+
+Requirements:
+
+* Every exit path must resolve generateCompleteCallbackRef exactly once.
+* Never leave triggerGenerate() waiting forever.
+* Typewriter must finish completely before generation can begin.
+* Never start generation while typewriter is still running.
+* Save flow must match Chatbot exactly.
+
+---
+
+# AI ORCHESTRATOR
+
+Audit ONLY:
+
+* bridge.populate()
+* bridge.triggerGenerate()
+* controller.generate()
+* generateWith()
+* generateCompleteCallbackRef
+
+Requirements:
+
+* Populate lifecycle identical to Chatbot.
+* Empty prompt guard identical.
+* Typewriter timing identical.
+* Generation trigger identical.
+* Streaming identical.
+* Save identical.
+* Completion callback identical.
+
+---
+
+# DO NOT
+
+Do NOT modify:
+
+* Business Intelligence
+* Website
+* Chatbot
+* ExecutionBus
+* Marcus
+* Registry
+* Workspace routing
+* Navigation
+* SSE architecture
+
+---
+
+# VALIDATION
+
+Verify BOTH modules using this workflow:
+
+User:
+"Build onboarding automation"
+
+Expected:
+
+Navigate
+→ populate
+→ full typewriter
+→ confirmation
+→ user confirms
+→ streaming
+→ save
+→ completion
+
+Then:
+
+User:
+"Generate orchestration workflow"
+
+Expected:
+
+Navigate
+→ populate
+→ full typewriter
+→ confirmation
+→ user confirms
+→ streaming
+→ save
+→ completion
+
+---
+
+# DELIVERABLE
+
+Do NOT perform any unrelated improvements.
+
+Return only:
+
+* files modified
+* exact lifecycle mismatch found
+* exact lifecycle parity restored
+
+No refactors.
+
+No "cleanup".
+
+No architecture changes.
+
+Only lifecycle parity with Chatbot.

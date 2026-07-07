@@ -562,6 +562,14 @@ export default function AutomationBuilderPage() {
           _automationTypewriterProgress = null
           console.log("AUTOMATION_POPULATE_5 | textarea fully populated | length:", text.length)
           cacheConsumedIdea("automation", text)
+          // Phase 5: notify bridge that populate is complete — fires only after the
+          // entire description has finished typing and the form is ready for review.
+          // Matches chatbot's typewriterPopulate pattern exactly (50ms delay, same guard).
+          setTimeout(() => {
+            const cb = populateCompleteCallbackRef.current
+            populateCompleteCallbackRef.current = null
+            cb?.()
+          }, 50)
         }
       }, 18)
       console.log("TYPEWRITER_INTERVAL_ID |", marcusTypewriterRef.current)
@@ -590,9 +598,13 @@ export default function AutomationBuilderPage() {
       populate: (idea, onComplete) => {
         if (!idea) { onComplete(); return }
         businessDescRef.current = idea
-        populateIdeaRef.current = idea
+        // Store callback — typewriter effect calls it when animation completes,
+        // matching chatbot's bridge.populate pattern exactly: onComplete fires
+        // only after the full idea has finished typing and the form is ready
+        // for user review (stages 3→4 of the required lifecycle).
         populateCompleteCallbackRef.current = onComplete
-        setPopulateTick(t => t + 1)
+        marcusPopulateRef.current = idea
+        setMarcusPopulateTick(t => t + 1)
       },
       triggerGenerate: (idea) => new Promise<void>((resolve) => {
         generateCompleteCallbackRef.current = resolve

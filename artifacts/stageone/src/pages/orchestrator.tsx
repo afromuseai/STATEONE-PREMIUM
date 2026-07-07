@@ -292,6 +292,9 @@ export default function OrchestratorPage() {
   // Bridge refs — kept in sync each render so the OrchestratorBridge can always
   // call the latest version of generate() and read the current goal value.
   const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  // Stored by bridge.populate(); called by the typewriter effect once the full
+  // goal has finished animating — matches chatbot's populateCompleteCallbackRef.
+  const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
   const goalRef = useRef(goal)
   const generateRef = useRef<((ideaOverride?: string) => Promise<void>) | null>(null)
   const [userPlan, setUserPlan] = useState<string | null>(null)
@@ -391,6 +394,14 @@ export default function OrchestratorPage() {
           _orchestratorTypewriterProgress = null
           console.log("ORCHESTRATOR_POPULATE_5 | textarea fully populated | length:", text.length)
           cacheConsumedIdea("orchestrator", text)
+          // Notify bridge that populate is complete — fires only after the entire
+          // goal has finished typing and the form is ready for user review.
+          // Matches chatbot's typewriterPopulate pattern exactly (50ms delay, same guard).
+          setTimeout(() => {
+            const cb = populateCompleteCallbackRef.current
+            populateCompleteCallbackRef.current = null
+            cb?.()
+          }, 50)
         }
       }, 18)
     }, 60)
@@ -441,13 +452,14 @@ export default function OrchestratorPage() {
         // Exit #1: empty-idea guard — mirrors chatbot/automation bridge populate.
         // Resolves the controller's populate() promise immediately with no side-effects.
         if (!idea) { onComplete(); return }
-        setGoal(idea)
         goalRef.current = idea
-        // Defer onComplete by 50ms (matching automation's bridge timing) so React has
-        // time to commit the setGoal state update and re-render before the ExecutionBus
-        // advances to triggerGenerate. The 50ms margin also prevents a race where
-        // generateRef.current still holds a pre-populate closure on first render.
-        setTimeout(onComplete, 50)
+        // Store callback — typewriter effect calls it when animation completes,
+        // matching chatbot's bridge.populate pattern exactly: onComplete fires
+        // only after the full goal has finished typing and the form is ready
+        // for user review (stages 3→4 of the required lifecycle).
+        populateCompleteCallbackRef.current = onComplete
+        marcusPopulateRef.current = idea
+        setMarcusPopulateTick(t => t + 1)
       },
       triggerGenerate: (idea) => new Promise<void>((resolve) => {
         // Resolve any in-flight promise before replacing — prevents orphaned Promises
