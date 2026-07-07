@@ -45,9 +45,9 @@ export default function WebsiteStudioPage() {
       </motion.div>
 
       {/* Body */}
-      <div className="flex-1 px-6 py-6">
+      <div className="flex-1 flex flex-col min-h-0 px-6 py-6">
         {loading && (
-          <div className="flex items-center justify-center py-20">
+          <div className="flex flex-1 items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader className="h-6 w-6 animate-spin text-amber-400/60" />
               <p className="text-sm text-white/30">Loading projects…</p>
@@ -56,7 +56,7 @@ export default function WebsiteStudioPage() {
         )}
 
         {!loading && error && (
-          <div className="flex items-center justify-center py-20">
+          <div className="flex flex-1 items-center justify-center">
             <div className="flex flex-col items-center gap-3 text-center">
               <AlertCircle className="h-8 w-8 text-red-400/60" />
               <p className="text-sm text-white/50">{error}</p>
@@ -75,14 +75,14 @@ export default function WebsiteStudioPage() {
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
-            className="flex flex-col items-center justify-center py-20 text-center"
+            className="flex flex-1 flex-col items-center justify-center text-center"
           >
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.03]">
-              <Globe className="h-8 w-8 text-white/20" />
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.03]">
+              <Globe className="h-7 w-7 text-white/20" />
             </div>
-            <h2 className="text-base font-semibold text-white/50">No projects yet</h2>
-            <p className="mt-1 max-w-xs text-sm text-white/25">
-              Use the Website Generator to create your first V2 project. It will appear here once generated.
+            <h2 className="text-base font-semibold text-white/60">No projects yet</h2>
+            <p className="mt-1.5 max-w-[260px] text-sm text-white/25 leading-relaxed">
+              Generate your first AI website and it will appear here.
             </p>
             <button
               onClick={() => navigate("/website-generator")}
@@ -99,7 +99,7 @@ export default function WebsiteStudioPage() {
             <p className="mb-4 text-xs text-white/25">
               {projects.length} project{projects.length !== 1 ? "s" : ""}
             </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
               {projects.map((p, i) => (
                 <ProjectCard
                   key={p.id}

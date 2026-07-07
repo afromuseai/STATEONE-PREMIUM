@@ -1380,58 +1380,110 @@ export default function WebsiteGeneratorPage() {
           </div>
 
           {/* Preview area */}
-          <div className="flex-1 min-h-0 overflow-hidden flex items-start justify-center bg-[#030303] relative">
+          <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center bg-[#030303] relative">
             {step === "input" && (
-              <div className="flex flex-col items-center justify-center h-full text-center px-12">
-                <div className="p-5 rounded-3xl bg-white/3 border border-white/6 mb-6">
-                  <Globe className="h-10 w-10 text-muted-foreground/30" />
+              <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                {/* Website wireframe mock */}
+                <div className="w-full max-w-sm mb-7 opacity-[0.35]">
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-xl">
+                    {/* Browser bar */}
+                    <div className="h-7 bg-white/[0.04] border-b border-white/6 flex items-center px-3 gap-1.5">
+                      <div className="flex gap-1">
+                        <div className="h-2 w-2 rounded-full bg-white/15" />
+                        <div className="h-2 w-2 rounded-full bg-white/10" />
+                        <div className="h-2 w-2 rounded-full bg-white/10" />
+                      </div>
+                      <div className="flex-1 mx-2 h-3 bg-white/6 rounded-sm" />
+                    </div>
+                    {/* Hero section */}
+                    <div className="px-5 py-5 space-y-2.5 border-b border-white/5 text-center">
+                      <div className="h-2 w-14 bg-primary/30 rounded-full mx-auto" />
+                      <div className="h-3.5 w-3/4 bg-white/12 rounded-md mx-auto" />
+                      <div className="h-2.5 w-1/2 bg-white/7 rounded-md mx-auto" />
+                      <div className="flex justify-center gap-2 pt-1.5">
+                        <div className="h-6 w-20 bg-primary/30 rounded-lg" />
+                        <div className="h-6 w-20 bg-white/7 rounded-lg" />
+                      </div>
+                    </div>
+                    {/* Features row */}
+                    <div className="px-4 py-4 grid grid-cols-3 gap-2.5">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="space-y-2">
+                          <div className="h-6 w-6 bg-white/7 rounded-lg mx-auto" />
+                          <div className="h-2 w-full bg-white/8 rounded-full" />
+                          <div className="h-2 w-2/3 bg-white/5 rounded-full mx-auto" />
+                        </div>
+                      ))}
+                    </div>
+                    {/* Pricing strip */}
+                    <div className="px-4 py-3 border-t border-white/5 flex justify-center gap-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className={`h-14 w-1/4 rounded-lg ${i === 2 ? "bg-primary/20 border border-primary/20" : "bg-white/4"}`} />
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-lg font-bold text-foreground/80 mb-2">Your website preview</h3>
-                <p className="text-sm text-muted-foreground/60 max-w-[280px] leading-relaxed">
+                <h3 className="text-base font-bold text-foreground/70 mb-2">Website preview</h3>
+                <p className="text-sm text-muted-foreground/50 max-w-[260px] leading-relaxed">
                   Fill in your business idea and click Generate. Your live website will appear here.
                 </p>
-                <div className="mt-6 flex gap-3 flex-wrap justify-center">
-                  {["Hero", "Features", "Pricing", "FAQ"].map(s => (
-                    <div key={s} className="px-3 py-1.5 rounded-full border border-white/8 bg-white/3 text-xs text-muted-foreground/60">{s}</div>
-                  ))}
-                </div>
               </div>
             )}
 
             {step === "generating" && (
-              <div className="flex flex-col items-center justify-center h-full gap-6 px-12">
-                {/* Skeleton preview blocks */}
-                <div className="w-full max-w-2xl space-y-4">
-                  {[120, 200, 160, 140, 180].map((h, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: [0.05, 0.12, 0.05], y: 0 }}
-                      transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
-                      className="rounded-2xl bg-white/5 border border-white/4"
-                      style={{ height: h }}
-                    />
-                  ))}
+              <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
+                {/* Website-shaped skeleton */}
+                <div className="w-full max-w-md space-y-3">
+                  <motion.div
+                    animate={{ opacity: [0.04, 0.1, 0.04] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="rounded-xl bg-white/6 border border-white/4 h-[130px]"
+                  />
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {[0, 1, 2].map(i => (
+                      <motion.div
+                        key={i}
+                        animate={{ opacity: [0.04, 0.1, 0.04] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+                        className="rounded-xl bg-white/5 border border-white/3 h-[90px]"
+                      />
+                    ))}
+                  </div>
+                  <motion.div
+                    animate={{ opacity: [0.04, 0.1, 0.04] }}
+                    transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                    className="rounded-xl bg-white/5 border border-white/4 h-[100px]"
+                  />
                 </div>
               </div>
             )}
 
             {/* V2 loading skeleton */}
             {v2Loading && (
-              <div className="flex flex-col items-center justify-center h-full gap-6 px-12">
-                <div className="w-full max-w-2xl space-y-4">
-                  {[120, 200, 160, 140, 180].map((h, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: [0.05, 0.12, 0.05], y: 0 }}
-                      transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
-                      className="rounded-2xl bg-white/5 border border-white/4"
-                      style={{ height: h }}
-                    />
-                  ))}
+              <div className="flex flex-col items-center justify-center h-full gap-4 px-8">
+                <div className="w-full max-w-md space-y-3">
+                  <motion.div
+                    animate={{ opacity: [0.04, 0.1, 0.04] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="rounded-xl bg-white/6 border border-white/4 h-[130px]"
+                  />
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {[0, 1, 2].map(i => (
+                      <motion.div
+                        key={i}
+                        animate={{ opacity: [0.04, 0.1, 0.04] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+                        className="rounded-xl bg-white/5 border border-white/3 h-[90px]"
+                      />
+                    ))}
+                  </div>
+                  <motion.div
+                    animate={{ opacity: [0.04, 0.1, 0.04] }}
+                    transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                    className="rounded-xl bg-white/5 border border-white/4 h-[100px]"
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground animate-pulse">Loading preview…</p>
+                <p className="text-xs text-muted-foreground/50 animate-pulse">Loading preview…</p>
               </div>
             )}
 
