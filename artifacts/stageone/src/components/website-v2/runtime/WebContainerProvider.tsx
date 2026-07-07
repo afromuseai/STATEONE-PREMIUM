@@ -9,6 +9,7 @@ import type { FileSystemTree, WebContainer as WCType } from "@webcontainer/api"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import type {
   RuntimeStatus,
+  RunResult,
   TerminalLine,
   TerminalLineType,
   WCContextValue,
@@ -119,13 +120,81 @@ export function WebContainerProvider({ project, children }: Props) {
     const wc = wcSingleton
     if (!wc || status !== "ready") return
     const normalized = path.startsWith("/") ? path : `/${path}`
+    // Propagate errors so callers (including the Phase O agent tool loop) know
+    // when a write fails. Previously errors were swallowed silently.
+    await wc.fs.writeFile(normalized, content)
+    syncedFilesRef.current.set(path, content)
+  }, [status])
+
+  // ── readFile — Phase O O2: read a file from WC FS ──────────────────────────
+  const readFile = useCallback(async (path: string): Promise<string> => {
+    const wc = wcSingleton
+    if (!wc || status !== "ready") throw new Error("WebContainer not ready")
+    const normalized = path.startsWith("/") ? path : `/${path}`
     try {
-      await wc.fs.writeFile(normalized, content)
-      syncedFilesRef.current.set(path, content)
+      return await wc.fs.readFile(normalized, "utf-8")
     } catch (err) {
-      console.error("[WC] writeFile failed:", path, err)
+      throw new Error(`[WC] readFile failed: ${path} — ${err instanceof Error ? err.message : String(err)}`)
     }
   }, [status])
+
+  // ── listDir — Phase O O2: list directory entries ────────────────────────────
+  const listDir = useCallback(async (path: string): Promise<string[]> => {
+    const wc = wcSingleton
+    if (!wc || status !== "ready") throw new Error("WebContainer not ready")
+    const normalized = path.startsWith("/") ? path : `/${path}`
+    try {
+      const entries = await wc.fs.readdir(normalized, { withFileTypes: true })
+      return (entries as Array<{ name: string; isDirectory: () => boolean }>).map(
+        e => e.isDirectory() ? `${e.name}/` : e.name
+      )
+    } catch (err) {
+      throw new Error(`[WC] listDir failed: ${path} — ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }, [status])
+
+  // ── runCommand — Phase O O2/O5: spawn a process, collect output, with timeout
+  const runCommand = useCallback(async (cmd: string, args: string[]): Promise<{ output: string; exitCode: number }> => {
+    const wc = wcSingleton
+    if (!wc || status !== "ready") throw new Error("WebContainer not ready")
+    addLine(`$ ${cmd} ${args.join(" ")}`, "cmd")
+
+    // Deny long-lived server commands that would stall the agent loop
+    const BLOCKED = ["dev", "start", "serve", "watch"]
+    if (cmd === "npm" && args.some(a => BLOCKED.includes(a))) {
+      const msg = `Blocked: '${args.join(" ")}' would run a long-lived server. Use 'npm run build' or 'npm run lint' instead.`
+      addLine(msg, "warn")
+      return { output: msg, exitCode: 1 }
+    }
+
+    const TIMEOUT_MS = 60_000 // 1 minute hard limit
+
+    try {
+      const proc = await wc.spawn(cmd, args)
+      const chunks: string[] = []
+
+      proc.output.pipeTo(new WritableStream({
+        write: (chunk) => {
+          chunks.push(chunk)
+          addRaw(chunk)
+        },
+      }))
+
+      // Race the process exit against the timeout
+      const exitCode = await Promise.race<number>([
+        proc.exit,
+        new Promise<number>((_, reject) =>
+          setTimeout(() => reject(new Error(`Command timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS)
+        ),
+      ])
+
+      return { output: chunks.join(""), exitCode }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      addLine(`✗ Command failed: ${msg}`, "error")
+      return { output: msg, exitCode: 1 }
+    }
+  }, [status, addLine, addRaw])
 
   // ── Boot effect ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -316,8 +385,8 @@ export function WebContainerProvider({ project, children }: Props) {
 
   // ── Context value ───────────────────────────────────────────────────────────
   const value = useMemo<WCContextValue>(
-    () => ({ status, wcUrl, terminalLines, nodeVersion, depCount, writeFile, clearTerminal }),
-    [status, wcUrl, terminalLines, nodeVersion, depCount, writeFile, clearTerminal],
+    () => ({ status, wcUrl, terminalLines, nodeVersion, depCount, writeFile, readFile, listDir, runCommand, clearTerminal }),
+    [status, wcUrl, terminalLines, nodeVersion, depCount, writeFile, readFile, listDir, runCommand, clearTerminal],
   )
 
   return (

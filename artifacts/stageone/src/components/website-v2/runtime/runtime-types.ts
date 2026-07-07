@@ -23,6 +23,11 @@ export interface TerminalLine {
   time: string  // "HH:MM:SS"
 }
 
+export interface RunResult {
+  output:   string
+  exitCode: number
+}
+
 export interface WCContextValue {
   /** Current lifecycle stage */
   status:       RuntimeStatus
@@ -39,6 +44,18 @@ export interface WCContextValue {
    * Triggers Next.js HMR automatically — no rebuild needed.
    */
   writeFile:    (path: string, content: string) => Promise<void>
+  /**
+   * Read a file from the WebContainer filesystem. (Phase O — O2)
+   */
+  readFile:     (path: string) => Promise<string>
+  /**
+   * List entries in a directory. (Phase O — O2)
+   */
+  listDir:      (path: string) => Promise<string[]>
+  /**
+   * Spawn a command in the WebContainer terminal and collect output. (Phase O — O2/O5)
+   */
+  runCommand:   (cmd: string, args: string[]) => Promise<RunResult>
   /** Clear the terminal log */
   clearTerminal: () => void
 }
