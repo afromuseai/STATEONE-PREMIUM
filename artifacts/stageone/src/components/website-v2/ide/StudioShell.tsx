@@ -62,7 +62,7 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
   const [activeTabId, setActiveTabId] = useState<string>("preview")
 
   // ── Workspace mode ───────────────────────────────────────────────────────────
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("code")
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("preview")
 
   // ── Left side panel ──────────────────────────────────────────────────────────
   const [sideView, setSideView] = useState<SideView>("marcus")
@@ -235,9 +235,9 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
                 key="side-panel"
                 initial={{ width: 0, opacity: 0 }}
                 animate={{
-                  width: sideView === "marcus" ? 268
-                       : sideView === "collaboration" ? 248
-                       : 220,
+                  width: sideView === "marcus" ? 340
+                       : sideView === "collaboration" ? 280
+                       : 240,
                   opacity: 1,
                 }}
                 exit={{ width: 0, opacity: 0 }}

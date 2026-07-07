@@ -601,7 +601,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
   const showEmptyState = timeline.length === 0 && !isRunning && !streamText
 
   return (
-    <div className="relative flex h-full w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.05] bg-[#0b0b0b]">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#0b0b0b]">
 
       {/* Running glow */}
       <AnimatePresence>
