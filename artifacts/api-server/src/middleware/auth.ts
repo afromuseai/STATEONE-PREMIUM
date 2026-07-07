@@ -90,7 +90,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       return;
     }
   } catch {
-    // DB unavailable — allow request to continue
+    // DB unavailable — fail closed to prevent suspended users bypassing auth during outages
+    res.status(503).json({ error: "Service temporarily unavailable. Please try again." });
+    return;
   }
 
   req.user = payload;

@@ -1,0 +1,110 @@
+Phase L: Rebuild Website Studio as an AI-native IDE workspace
+
+We have completed WebContainer validation (Phase K). Now rebuild the Website Studio frontend architecture.
+
+Do not use the current preview-centric layout. The new UI should follow the modern AI IDE aesthetic:
+
+Core layout
+Premium dark theme
+Black background with gold accents
+Modern enterprise AI workspace feel
+Center canvas is the primary workspace
+Left side is AI Agent workspace
+Right side is collapsible file explorer
+
+Architecture:
+
+WebsiteStudioIDE
+
+├── TopCommandBar
+│   ├── Project name
+│   ├── Runtime status
+│   ├── Run
+│   ├── Deploy
+│   └── Settings
+
+├── AI Agent Panel (LEFT)
+│   ├── Conversation
+│   ├── Agent activity stream
+│   ├── Generation status
+│   ├── File changes
+│   └── Prompt input
+
+├── Workspace Canvas (CENTER)
+│   ├── Editor tabs
+│   ├── Code editor
+│   ├── Preview mode
+│   ├── Split view
+│   └── Terminal/output
+
+└── File Explorer Drawer (RIGHT)
+    ├── Project tree
+    ├── app/
+    ├── components/
+    ├── styles/
+    ├── assets/
+    └── package.json
+Important interaction rules
+The file explorer is RIGHT side, collapsible.
+AI Agent is LEFT side.
+The center area changes modes:
+
+Modes:
+
+Preview
+Code Editor
+Split View
+Terminal
+Diff View
+Opening a file creates editor tabs:
+
+Example:
+
+[Preview] [page.tsx] [HeroSection.tsx] [Navbar.tsx]
+
+Like browser tabs.
+
+Preview is powered by WebContainer.
+
+The current AI-generated HTML preview remains only as fallback.
+
+Create new components
+
+Location:
+
+src/components/website-v2/ide/
+
+StudioShell.tsx
+TopCommandBar.tsx
+AgentPanel.tsx
+AgentActivity.tsx
+EditorWorkspace.tsx
+EditorTabs.tsx
+CodeEditor.tsx
+PreviewWorkspace.tsx
+FileExplorerDrawer.tsx
+TerminalPanel.tsx
+Do not:
+Put preview permanently at the bottom
+Put file explorer on the left
+Put chat on the right
+Keep the old dashboard layout
+
+The goal is a Cursor/Replit/Bolt-style AI software creation environment branded as STAGEONE.
+
+After the shell is built, the next phases will connect:
+
+Phase M:
+
+Monaco editor integration
+File tabs
+Code editing
+
+Phase N:
+
+WebContainer runtime integration
+Real Next.js execution
+
+Phase O:
+
+AI Agent → filesystem edits → HMR updates
