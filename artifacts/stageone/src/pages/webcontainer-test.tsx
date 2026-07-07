@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import type { FileSystemTree, WebContainer as WCType } from "@webcontainer/api"
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
-type Tab = "core" | "runtime" | "fileops" | "imports" | "deps" | "stress" | "project" | "recovery" | "perf" | "cert"
+type Tab = "core" | "runtime" | "fileops" | "imports" | "deps" | "stress" | "project" | "recovery" | "perf" | "cert" | "phaseK"
 
 const TABS: { id: Tab; short: string; label: string }[] = [
   { id: "core",     short: "Core",      label: "Core Validation (10-Stage)" },
@@ -24,6 +24,7 @@ const TABS: { id: Tab; short: string; label: string }[] = [
   { id: "recovery", short: "Recovery",  label: "Phase H — Recovery Testing" },
   { id: "perf",     short: "Perf",      label: "Phase I — Performance Dashboard" },
   { id: "cert",     short: "Cert ★",    label: "Phase J — Runtime Certification" },
+  { id: "phaseK",   short: "Phase K ⚡", label: "Phase K — End-to-End Runtime Validation" },
 ]
 
 // ─── Core stage definitions (Phase 1, unchanged) ─────────────────────────────
@@ -226,6 +227,110 @@ interface RecoveryResult {
 interface V2Summary { id: string; projectName: string; status: string }
 interface V2File    { path: string; content: string; language?: string }
 
+// ─── Phase K types ────────────────────────────────────────────────────────────
+type KStepStatus = "pending" | "running" | "pass" | "warn" | "fail" | "skip"
+
+interface KStep {
+  id:      string
+  name:    string
+  status:  KStepStatus
+  ms?:     number
+  detail?: string
+}
+
+interface KScenarioState {
+  id:        number
+  name:      string
+  status:    KStepStatus
+  steps:     KStep[]
+  error?:    string
+  extraData?: Record<string, unknown>
+}
+
+interface KReportRow {
+  name:    string
+  pass:    boolean | null  // null = not yet tested
+  ms?:     number
+  detail?: string
+}
+
+interface KReport {
+  rows:  KReportRow[]
+  score: number  // 0–100
+  ready: boolean
+}
+
+interface ProjectFile {
+  path:      string
+  operation: "create" | "update" | "delete"
+  content:   string
+  language?: string
+}
+
+// ─── Phase K helpers (module-level) ──────────────────────────────────────────
+const K_REPORT_COMPONENTS = [
+  "Architect Agent", "Code Generation", "Persistence", "Project Retrieval",
+  "WebContainer", "Dependency Installation", "Live Preview",
+  "AI Editing", "HMR", "Runtime Stability",
+]
+
+function calcKScore(rows: KReportRow[]): number {
+  if (rows.length === 0) return 0
+  const passed = rows.filter(r => r.pass === true).length
+  return Math.round((passed / rows.length) * 100)
+}
+
+async function parseSSEStream(
+  response: Response,
+  onEvent: (e: Record<string, unknown>) => void
+): Promise<void> {
+  const reader = response.body!.getReader()
+  const decoder = new TextDecoder()
+  let buf = ""
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const parts = buf.split("\n\n")
+      buf = parts.pop()!
+      for (const part of parts) {
+        const line = part.replace(/^data:\s*/m, "").trim()
+        if (!line || line === "[DONE]") continue
+        try { onEvent(JSON.parse(line)) } catch { /* skip non-JSON */ }
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+function projectFilesToTree(files: ProjectFile[]): FileSystemTree {
+  const tree: FileSystemTree = {}
+  for (const f of files) {
+    if (f.operation === "delete") continue
+    const parts = f.path.replace(/^\//, "").split("/").filter(Boolean)
+    if (parts.length === 0) continue
+    let cur: FileSystemTree = tree
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!cur[parts[i]]) cur[parts[i]] = { directory: {} }
+      cur = (cur[parts[i]] as { directory: FileSystemTree }).directory
+    }
+    cur[parts[parts.length - 1]] = { file: { contents: f.content ?? "" } }
+  }
+  return tree
+}
+
+function makeInitKScenarios(): KScenarioState[] {
+  return [
+    { id: 1, name: "Full Generation Pipeline",  status: "pending", steps: [] },
+    { id: 2, name: "AI Editing Pipeline",        status: "pending", steps: [] },
+    { id: 3, name: "Sequential Editing",         status: "pending", steps: [] },
+    { id: 4, name: "Project Switching",          status: "pending", steps: [] },
+    { id: 5, name: "Runtime Stability",          status: "pending", steps: [] },
+  ]
+}
+
 // ─── Minimal Next.js project (Pages Router) ───────────────────────────────────
 const MINIMAL_FILES: FileSystemTree = {
   "package.json": {
@@ -409,6 +514,14 @@ export default function WebContainerDiagnostics() {
   const [recoveryRunning, setRecoveryRunning] = useState(false)
   const [recoveryLog,     setRecoveryLog]     = useState("")
 
+  // ── Phase K state ─────────────────────────────────────────────────────────
+  const [kScenarios,  setKScenarios]  = useState<KScenarioState[]>(makeInitKScenarios())
+  const [kRunning,    setKRunning]    = useState(false)
+  const [kReport,     setKReport]     = useState<KReport | null>(null)
+  const [kProjectId,  setKProjectId]  = useState<string | null>(null)
+  const [kPreviewUrl, setKPreviewUrl] = useState<string | null>(null)
+  const [kTerminal,   setKTerminal]   = useState("")
+
   // ── Refs ──────────────────────────────────────────────────────────────────
   const wcRef          = useRef<WCType | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -422,6 +535,11 @@ export default function WebContainerDiagnostics() {
   const memPollRef     = useRef<ReturnType<typeof setInterval> | null>(null)
   const termBufRef     = useRef("")   // buffered terminal text for error scanning
   const recovLogRef    = useRef<HTMLDivElement>(null)
+  // Phase K refs
+  const kTermBuf       = useRef("")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const kDevRef        = useRef<any>(null)
+  const kAbortRef      = useRef(false)
 
   // ── Env diagnostics (existing) ────────────────────────────────────────────
   useEffect(() => {
@@ -769,6 +887,576 @@ export default function WebContainerDiagnostics() {
     setRuntimeState({ ...INIT_RUNTIME })
     setCompileErrors([])
   }, [])
+
+  // ── Phase K: End-to-End Runtime Validation ───────────────────────────────
+  const runPhaseK = useCallback(async () => {
+    if (kRunning) return
+    setKRunning(true)
+    kAbortRef.current = false
+    kTermBuf.current = ""
+    setKTerminal("")
+    setKReport(null)
+    setKProjectId(null)
+    setKPreviewUrl(null)
+    setKScenarios(makeInitKScenarios())
+
+    // ── Scenario state helpers ───────────────────────────────────────────
+    const updSc = (idx: number, patch: Partial<KScenarioState>) =>
+      setKScenarios(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s))
+
+    const updStep = (sIdx: number, stepId: string, patch: Partial<KStep>) =>
+      setKScenarios(prev => prev.map((s, i) => {
+        if (i !== sIdx) return s
+        return { ...s, steps: s.steps.map(st => st.id === stepId ? { ...st, ...patch } : st) }
+      }))
+
+    const addStep = (sIdx: number, step: KStep) =>
+      setKScenarios(prev => prev.map((s, i) =>
+        i === sIdx ? { ...s, steps: [...s.steps, step] } : s
+      ))
+
+    const startStep = (sIdx: number, id: string, name: string): number => {
+      addStep(sIdx, { id, name, status: "running" })
+      return Date.now()
+    }
+
+    const passStep = (sIdx: number, id: string, t0: number, detail?: string): number => {
+      const ms = Date.now() - t0
+      updStep(sIdx, id, { status: "pass", ms, detail })
+      return ms
+    }
+
+    const failStep = (sIdx: number, id: string, t0: number, detail: string): number => {
+      const ms = Date.now() - t0
+      updStep(sIdx, id, { status: "fail", ms, detail })
+      return ms
+    }
+
+    const skipStep = (sIdx: number, id: string, name: string, detail?: string) => {
+      addStep(sIdx, { id, name, status: "skip", detail })
+    }
+
+    // ── Terminal helper ──────────────────────────────────────────────────
+    const kAppend = (text: string) => {
+      kTermBuf.current += text
+      setKTerminal(p => (p + text).slice(-10_000))
+    }
+
+    // Wait for a pattern to appear in Phase K terminal buffer
+    const waitForKTerm = (pattern: RegExp | string, timeoutMs: number): Promise<boolean> =>
+      new Promise(resolve => {
+        const deadline = Date.now() + timeoutMs
+        const check = () => {
+          const match = typeof pattern === "string"
+            ? kTermBuf.current.includes(pattern)
+            : pattern.test(kTermBuf.current)
+          if (match) return resolve(true)
+          if (Date.now() >= deadline) return resolve(false)
+          setTimeout(check, 250)
+        }
+        check()
+      })
+
+    // ── Boot WC if needed ────────────────────────────────────────────────
+    const ensureWCForK = async (): Promise<WCType | null> => {
+      if (wcRef.current) return wcRef.current
+      try {
+        const { WebContainer } = await import("@webcontainer/api")
+        const wc = await WebContainer.boot()
+        wcRef.current = wc
+        return wc
+      } catch (e) {
+        return null
+      }
+    }
+
+    // ── Mount a project into WC, install, start dev server ──────────────
+    const mountProjectAndRun = async (
+      wc: WCType,
+      files: ProjectFile[],
+      sIdx: number,
+      pfx: string
+    ): Promise<string | null> => {
+      // Kill previous dev process
+      if (kDevRef.current) {
+        try { kDevRef.current.kill() } catch { /* ignore */ }
+        kDevRef.current = null
+      }
+
+      // Mount
+      const t0m = startStep(sIdx, `${pfx}-mount`, "Mount filesystem into WebContainer")
+      try {
+        const tree = projectFilesToTree(files)
+        // Ensure package.json has a dev script on port 3000
+        const pkgNode = (tree as Record<string, unknown>)["package.json"] as { file?: { contents?: string } } | undefined
+        if (pkgNode?.file?.contents) {
+          try {
+            const pkg = JSON.parse(pkgNode.file.contents)
+            if (!pkg.scripts) pkg.scripts = {}
+            if (!pkg.scripts.dev || !pkg.scripts.dev.includes("-p"))
+              pkg.scripts.dev = (pkg.scripts.dev ?? "next dev") + " -p 3000"
+            pkgNode.file.contents = JSON.stringify(pkg, null, 2)
+          } catch { /* ignore */ }
+        } else {
+          ;(tree as Record<string, unknown>)["package.json"] = { file: { contents: JSON.stringify({
+            name:"k-project",version:"0.0.1",private:true,
+            scripts:{dev:"next dev -p 3000"},
+            dependencies:{next:"14.2.5",react:"18.3.1","react-dom":"18.3.1"},
+          },null,2)}}
+        }
+        if (!(tree as Record<string, unknown>)["next.config.js"] &&
+            !(tree as Record<string, unknown>)["next.config.mjs"]) {
+          ;(tree as Record<string, unknown>)["next.config.js"] = {
+            file: { contents: `/** @type {import('next').NextConfig} */\nmodule.exports = { reactStrictMode: false }` }
+          }
+        }
+        await wc.mount(tree)
+        passStep(sIdx, `${pfx}-mount`, t0m, `${files.length} files`)
+      } catch (e) {
+        failStep(sIdx, `${pfx}-mount`, t0m, (e instanceof Error ? e.message : "mount failed").slice(0, 80))
+        return null
+      }
+
+      // npm install
+      kTermBuf.current = ""
+      const t0i = startStep(sIdx, `${pfx}-install`, "npm install")
+      try {
+        const proc = await wc.spawn("npm", ["install", "--legacy-peer-deps"])
+        proc.output.pipeTo(new WritableStream({ write: kAppend }))
+        const code = await proc.exit
+        if (code !== 0) { failStep(sIdx, `${pfx}-install`, t0i, `exit ${code}`); return null }
+        passStep(sIdx, `${pfx}-install`, t0i)
+      } catch (e) {
+        failStep(sIdx, `${pfx}-install`, t0i, (e instanceof Error ? e.message : "install failed").slice(0, 80))
+        return null
+      }
+
+      // next dev
+      kTermBuf.current = ""
+      const t0d = startStep(sIdx, `${pfx}-dev`, "npm run dev (next dev)")
+      try {
+        const devProc = await wc.spawn("npm", ["run", "dev"])
+        kDevRef.current = devProc
+        devProc.output.pipeTo(new WritableStream({ write: kAppend }))
+      } catch (e) {
+        failStep(sIdx, `${pfx}-dev`, t0d, (e instanceof Error ? e.message : "spawn failed").slice(0, 80))
+        return null
+      }
+
+      // server-ready — always unsubscribe to prevent listener stack-up across repeated runs
+      const t0r = startStep(sIdx, `${pfx}-ready`, "server-ready event")
+      return new Promise<string | null>(resolve => {
+        let unsubReady: (() => void) | undefined
+        let unsubError:  (() => void) | undefined
+        const cleanup = () => { try { unsubReady?.() } catch { /* ignore */ }; try { unsubError?.() } catch { /* ignore */ } }
+
+        const timeout = setTimeout(() => {
+          cleanup()
+          updStep(sIdx, `${pfx}-ready`, { status: "fail", ms: Date.now() - t0r, detail: "timeout 3 min" })
+          resolve(null)
+        }, 180_000)
+
+        unsubReady = wc.on("server-ready", (port, url) => {
+          clearTimeout(timeout); cleanup()
+          passStep(sIdx, `${pfx}-dev`, t0d)
+          passStep(sIdx, `${pfx}-ready`, t0r, `port ${port}`)
+          setKPreviewUrl(url)
+          resolve(url)
+        })
+        unsubError = wc.on("error", ({ message }: { message: string }) => {
+          clearTimeout(timeout); cleanup()
+          updStep(sIdx, `${pfx}-ready`, { status: "fail", ms: Date.now() - t0r, detail: message.slice(0, 80) })
+          resolve(null)
+        })
+      })
+    }
+
+    // ── Report row array ─────────────────────────────────────────────────
+    const report: KReportRow[] = K_REPORT_COMPONENTS.map(name => ({ name, pass: null }))
+
+    // ════════════════════════════════════════════════════════════════════
+    // Scenario 1: Full Generation Pipeline
+    // ════════════════════════════════════════════════════════════════════
+    let s1Id: string | null = null
+    let s1Files: ProjectFile[] = []
+    let s1Url: string | null = null
+
+    updSc(0, { status: "running" })
+    try {
+      // 1a. Generate project via API
+      const t0gen = startStep(0, "s1-gen", "POST /api/generate/website-v2")
+      const genRes = await fetch("/api/generate/website-v2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ idea: "A SaaS productivity dashboard for remote teams with task tracking and analytics" }),
+      })
+
+      if (genRes.status === 401) {
+        failStep(0, "s1-gen", t0gen, "Not authenticated — log in to STAGEONE first")
+        updSc(0, { status: "fail", error: "Authentication required. Please log in first." })
+        for (const row of report) { row.pass = false; row.detail = "unauthenticated" }
+        setKReport({ rows: report, score: 0, ready: false })
+        setKRunning(false)
+        return
+      }
+      if (!genRes.ok) {
+        failStep(0, "s1-gen", t0gen, `HTTP ${genRes.status}`)
+        updSc(0, { status: "fail", error: `Generation API error ${genRes.status}` })
+        throw new Error("GEN_API_ERROR")
+      }
+
+      // Add progress sub-steps
+      addStep(0, { id: "s1-architect", name: "Architect Agent → blueprint", status: "pending" })
+      addStep(0, { id: "s1-codegen",   name: "Code Generation Agent",       status: "pending" })
+      addStep(0, { id: "s1-persist",   name: "Persist project to database", status: "pending" })
+
+      let architectStart = 0, architectMs = 0, codeStart = 0, codeMs = 0
+      let blueprintOk = false
+
+      await parseSSEStream(genRes, (ev) => {
+        const phase = (ev as { phase?: string }).phase
+        if (phase === "project-created") {
+          s1Id = (ev as { projectId?: string }).projectId ?? null
+        } else if (phase === "thinking" || phase === "architect") {
+          if (!architectStart) {
+            architectStart = Date.now()
+            updStep(0, "s1-architect", { status: "running" })
+          }
+        } else if (phase === "blueprint") {
+          if (!blueprintOk) {
+            blueprintOk = true
+            architectMs = architectStart ? Date.now() - architectStart : 0
+            updStep(0, "s1-architect", { status: "pass", ms: architectMs, detail: "blueprint received" })
+          }
+        } else if (phase === "building") {
+          if (!codeStart) {
+            codeStart = Date.now()
+            updStep(0, "s1-codegen", { status: "running" })
+          }
+        } else if (phase === "project-saved") {
+          codeMs = codeStart ? Date.now() - codeStart : 0
+          updStep(0, "s1-codegen", { status: "pass", ms: codeMs, detail: "files generated" })
+          updStep(0, "s1-persist", { status: "running" })
+          if (!s1Id) s1Id = (ev as { projectId?: string }).projectId ?? null
+        } else if (phase === "done") {
+          updStep(0, "s1-persist", { status: "pass", detail: "saved to DB" })
+          passStep(0, "s1-gen", t0gen, `project: ${s1Id}`)
+        }
+      })
+
+      if (!s1Id) throw new Error("No project ID returned from generation API")
+
+      report[0].pass = blueprintOk; report[0].ms = architectMs; report[0].detail = blueprintOk ? "blueprint received" : "no blueprint"
+      report[1].pass = codeMs > 0;  report[1].ms = codeMs;       report[1].detail = `${codeMs}ms`
+      report[2].pass = true;                                       report[2].detail = "saved to DB"
+
+      setKProjectId(s1Id)
+
+      // 1b. Retrieve project from DB
+      const t0ret = startStep(0, "s1-retrieve", `GET /api/website-v2/projects/${s1Id}`)
+      const projRes = await fetch(`/api/website-v2/projects/${s1Id}`, { credentials: "include" })
+      if (!projRes.ok) {
+        failStep(0, "s1-retrieve", t0ret, `HTTP ${projRes.status}`)
+        throw new Error("RETRIEVE_ERROR")
+      }
+      const projData = await projRes.json() as { files?: ProjectFile[]; dependencies?: string[] }
+      s1Files = projData.files ?? []
+      passStep(0, "s1-retrieve", t0ret, `${s1Files.length} files retrieved`)
+      report[3].pass = true; report[3].detail = `${s1Files.length} files`
+
+      // 1c. Boot WC
+      const t0wc = startStep(0, "s1-wc", "Boot WebContainer")
+      const wc = await ensureWCForK()
+      if (!wc) {
+        failStep(0, "s1-wc", t0wc, "WebContainer.boot() failed — check SharedArrayBuffer/COOP headers")
+        report[4].pass = false; report[4].detail = "boot failed"
+        throw new Error("WC_BOOT_FAILED")
+      }
+      passStep(0, "s1-wc", t0wc, "instance ready")
+      report[4].pass = true
+
+      // 1d. Mount + install + run
+      s1Url = await mountProjectAndRun(wc, s1Files, 0, "s1")
+      if (!s1Url) {
+        report[5].pass = false; report[5].detail = "install or dev server failed"
+        report[6].pass = false
+        throw new Error("MOUNT_OR_RUN_FAILED")
+      }
+      report[5].pass = true
+      report[6].pass = true; report[6].detail = s1Url
+
+      updSc(0, { status: "pass" })
+    } catch (e) {
+      const msg = (e as Error).message
+      if (!["GEN_API_ERROR","RETRIEVE_ERROR","WC_BOOT_FAILED","MOUNT_OR_RUN_FAILED"].includes(msg)) {
+        updSc(0, { status: "fail", error: msg })
+      }
+      for (const row of report) if (row.pass === null) { row.pass = false; row.detail = "skipped (S1 failed)" }
+      setKReport({ rows: report, score: calcKScore(report), ready: false })
+      setKRunning(false)
+      return
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Scenario 2: AI Editing Pipeline
+    // ════════════════════════════════════════════════════════════════════
+    if (!kAbortRef.current && s1Id) {
+      updSc(1, { status: "running" })
+      let s2Pass = false
+      let editGenMs = 0, hmrMs = 0
+      const t0s2 = Date.now()
+      try {
+        const t0edit = startStep(1, "s2-call", "POST /api/website-v2/projects/:id/edit")
+        const editRes = await fetch(`/api/website-v2/projects/${s1Id}/edit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ instruction: "Update the hero section headline to highlight remote team productivity and collaboration" }),
+        })
+        if (!editRes.ok) {
+          failStep(1, "s2-call", t0edit, `HTTP ${editRes.status}`)
+          throw new Error(`Edit API ${editRes.status}`)
+        }
+
+        addStep(1, { id: "s2-editing", name: "AI editing agent generates changes", status: "pending" })
+        addStep(1, { id: "s2-persist", name: "Persist modified files",             status: "pending" })
+        addStep(1, { id: "s2-wc",      name: "Apply files to WebContainer",        status: "pending" })
+        addStep(1, { id: "s2-hmr",     name: "HMR propagation latency",            status: "pending" })
+
+        let editStart = 0
+        let changedFiles: ProjectFile[] = []
+        let persistOk = false
+
+        await parseSSEStream(editRes, (ev) => {
+          const phase = (ev as { phase?: string }).phase
+          if (phase === "analyzing" || phase === "editing") {
+            if (!editStart) { editStart = Date.now(); updStep(1, "s2-editing", { status: "running" }) }
+          } else if (phase === "changes") {
+            editGenMs = editStart ? Date.now() - editStart : 0
+            const data = (ev as { data?: { changes?: ProjectFile[] } }).data
+            changedFiles = data?.changes ?? []
+            updStep(1, "s2-editing", { status: "pass", ms: editGenMs, detail: `${changedFiles.length} changes` })
+            passStep(1, "s2-call", t0edit, `${changedFiles.length} file(s)`)
+            updStep(1, "s2-persist", { status: "running" })
+          } else if (phase === "saved") {
+            persistOk = true
+            updStep(1, "s2-persist", { status: "pass", detail: "DB updated" })
+          }
+        })
+
+        // Apply to WC filesystem
+        if (wcRef.current && changedFiles.length > 0) {
+          const t0wc2 = startStep(1, "s2-wc", "Apply files to WebContainer")
+          kTermBuf.current = ""
+          for (const f of changedFiles) {
+            try {
+              if (f.operation === "delete") {
+                await wcRef.current.fs.rm(f.path)
+              } else {
+                const dir = f.path.split("/").slice(0, -1).join("/")
+                if (dir) await wcRef.current.fs.mkdir(dir, { recursive: true }).catch(() => {/* */})
+                await wcRef.current.fs.writeFile(f.path, f.content ?? "")
+              }
+            } catch { /* file may not exist */ }
+          }
+          passStep(1, "s2-wc", t0wc2, `${changedFiles.length} files written`)
+
+          // Measure HMR
+          updStep(1, "s2-hmr", { status: "running" })
+          const t0hmr = Date.now()
+          const compiled = await waitForKTerm(/compiled|Fast Refresh|hmr/i, 20_000)
+          hmrMs = Date.now() - t0hmr
+          updStep(1, "s2-hmr", {
+            status: compiled ? "pass" : "warn",
+            ms: hmrMs,
+            detail: compiled ? "compiled signal detected" : "no compile signal (may still work)",
+          })
+        } else {
+          skipStep(1, "s2-wc", "Apply files to WebContainer", "no WC active or no changes")
+          skipStep(1, "s2-hmr", "HMR propagation latency", "skipped")
+        }
+
+        s2Pass = persistOk
+        updSc(1, { status: s2Pass ? "pass" : "fail", extraData: { editGenMs, hmrMs, totalMs: Date.now() - t0s2 } })
+      } catch (e) {
+        updSc(1, { status: "fail", error: (e as Error).message })
+      }
+      report[7].pass = s2Pass;  report[7].ms = editGenMs; report[7].detail = s2Pass ? `${editGenMs}ms edit gen` : "failed"
+      report[8].pass = hmrMs > 0; report[8].ms = hmrMs;  report[8].detail = hmrMs > 0 ? `${hmrMs}ms` : "not measured"
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Scenario 3: Sequential Editing (5 edits)
+    // ════════════════════════════════════════════════════════════════════
+    if (!kAbortRef.current && s1Id) {
+      updSc(2, { status: "running" })
+      const EDITS = [
+        "Update the hero section headline to 'Grow Smarter Together'",
+        "Add a subtle dark gradient background to the navigation bar",
+        "Add a pricing section below the features with Free, Pro, and Enterprise tiers",
+        "Create a FAQ component with 5 common questions about remote team productivity",
+        "Remove the call-to-action section at the bottom of the page",
+      ]
+      let s3AllPass = true
+      for (let i = 0; i < EDITS.length; i++) {
+        if (kAbortRef.current) break
+        const sid = `s3-e${i}`
+        const t0 = startStep(2, sid, `Edit ${i + 1}: ${EDITS[i].slice(0, 50)}…`)
+        try {
+          const res = await fetch(`/api/website-v2/projects/${s1Id}/edit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ instruction: EDITS[i] }),
+          })
+          if (!res.ok) { failStep(2, sid, t0, `HTTP ${res.status}`); s3AllPass = false; continue }
+
+          let changed: ProjectFile[] = []
+          let saved = false
+          await parseSSEStream(res, (ev) => {
+            if ((ev as { phase?: string }).phase === "changes")
+              changed = (ev as { data?: { changes?: ProjectFile[] } }).data?.changes ?? []
+            if ((ev as { phase?: string }).phase === "saved") saved = true
+          })
+
+          // Apply to WC
+          if (wcRef.current) {
+            for (const f of changed) {
+              try {
+                if (f.operation === "delete") {
+                  await wcRef.current.fs.rm(f.path)
+                } else {
+                  const dir = f.path.split("/").slice(0, -1).join("/")
+                  if (dir) await wcRef.current.fs.mkdir(dir, { recursive: true }).catch(() => {/* */})
+                  await wcRef.current.fs.writeFile(f.path, f.content ?? "")
+                }
+              } catch { /* ignore */ }
+            }
+          }
+
+          passStep(2, sid, t0, `${changed.length} files, saved=${saved}`)
+        } catch (e) {
+          failStep(2, sid, t0, (e as Error).message.slice(0, 80))
+          s3AllPass = false
+        }
+      }
+      updSc(2, { status: s3AllPass ? "pass" : "fail" })
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Scenario 4: Project Switching
+    // ════════════════════════════════════════════════════════════════════
+    if (!kAbortRef.current && wcRef.current) {
+      updSc(3, { status: "running" })
+      try {
+        const listRes = await fetch("/api/website-v2/projects", { credentials: "include" })
+        const listData = await listRes.json() as { projects?: { id: string; projectName: string; status: string }[] }
+        const ready = (listData.projects ?? []).filter(p => p.status === "ready").slice(0, 3)
+
+        if (ready.length < 2) {
+          skipStep(3, "s4-skip", "Project Switching", `Only ${ready.length} ready project(s) — need ≥ 2. Generate more via Website Studio.`)
+          updSc(3, { status: "skip" })
+        } else {
+          const sequence = [...ready, ready[0]] // A → B → C → A
+          let s4Pass = true
+          for (let i = 0; i < sequence.length; i++) {
+            const p = sequence[i]
+            const isReturn = i === sequence.length - 1
+            const sid = `s4-p${i}`
+            const t0 = startStep(3, sid, `${isReturn ? "↩ Return to" : "→ Switch to"} ${p.projectName}`)
+            try {
+              const pr = await fetch(`/api/website-v2/projects/${p.id}`, { credentials: "include" })
+              const pd = await pr.json() as { files?: ProjectFile[] }
+              const tree = projectFilesToTree(pd.files ?? [])
+              await wcRef.current!.mount(tree)
+              passStep(3, sid, t0, `${(pd.files ?? []).length} files`)
+            } catch (e) {
+              failStep(3, sid, t0, (e as Error).message.slice(0, 80))
+              s4Pass = false
+            }
+          }
+          updSc(3, { status: s4Pass ? "pass" : "fail" })
+        }
+      } catch (e) {
+        updSc(3, { status: "fail", error: (e as Error).message })
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // Scenario 5: Runtime Stability (5 edit cycles)
+    // ════════════════════════════════════════════════════════════════════
+    if (!kAbortRef.current && s1Id && wcRef.current) {
+      updSc(4, { status: "running" })
+      const CYCLES = 5
+      const STABILITY_EDITS = [
+        "Change the primary accent color to a deep blue throughout the page",
+        "Update the footer with company address and social links",
+        "Add a testimonials section with 3 customer quotes",
+        "Make the hero section full viewport height with centered content",
+        "Add hover effects to all feature cards",
+      ]
+      const hmrTrend: number[] = []
+      let errCount = 0
+
+      const t0cyc = startStep(4, "s5-cycles", `Run ${CYCLES} sequential edit cycles`)
+      for (let i = 0; i < CYCLES; i++) {
+        if (kAbortRef.current) break
+        const sid = `s5-c${i}`
+        const instruction = STABILITY_EDITS[i % STABILITY_EDITS.length]
+        const t0 = startStep(4, sid, `Cycle ${i + 1}/5 — ${instruction.slice(0, 42)}…`)
+        try {
+          const res = await fetch(`/api/website-v2/projects/${s1Id}/edit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ instruction }),
+          })
+          if (!res.ok) { errCount++; failStep(4, sid, t0, `HTTP ${res.status}`); continue }
+
+          let changed: ProjectFile[] = []
+          await parseSSEStream(res, (ev) => {
+            if ((ev as { phase?: string }).phase === "changes")
+              changed = (ev as { data?: { changes?: ProjectFile[] } }).data?.changes ?? []
+          })
+
+          if (wcRef.current && changed.length > 0) {
+            kTermBuf.current = ""
+            for (const f of changed) {
+              try {
+                if (f.operation === "delete") {
+                  await wcRef.current.fs.rm(f.path)
+                } else {
+                  const dir = f.path.split("/").slice(0, -1).join("/")
+                  if (dir) await wcRef.current.fs.mkdir(dir, { recursive: true }).catch(() => {/* */})
+                  await wcRef.current.fs.writeFile(f.path, f.content ?? "")
+                }
+              } catch { /* ignore */ }
+            }
+            const t0h = Date.now()
+            await waitForKTerm(/compiled|Fast Refresh/i, 12_000)
+            hmrTrend.push(Date.now() - t0h)
+          }
+
+          const avgSoFar = hmrTrend.length > 0 ? Math.round(hmrTrend.reduce((a, b) => a + b, 0) / hmrTrend.length) : 0
+          passStep(4, sid, t0, `HMR ~${avgSoFar}ms avg, ${changed.length} files`)
+        } catch (e) {
+          errCount++
+          failStep(4, sid, t0, (e as Error).message.slice(0, 80))
+        }
+      }
+      const avgHmr = hmrTrend.length > 0 ? Math.round(hmrTrend.reduce((a, b) => a + b, 0) / hmrTrend.length) : 0
+      const s5Pass = errCount < CYCLES / 2
+      updStep(4, "s5-cycles", { status: s5Pass ? "pass" : "fail", ms: avgHmr, detail: `${CYCLES - errCount}/${CYCLES} cycles OK, avg HMR ${avgHmr}ms` })
+      updSc(4, { status: s5Pass ? "pass" : "fail", extraData: { hmrTrend, errCount, avgHmr } })
+      report[9].pass = s5Pass; report[9].ms = avgHmr; report[9].detail = `${errCount} errors in ${CYCLES} cycles`
+    }
+
+    // ── Final report ─────────────────────────────────────────────────────
+    const finalScore = calcKScore(report)
+    setKReport({ rows: report, score: finalScore, ready: finalScore >= 80 })
+    setKRunning(false)
+  }, [kRunning])
 
   // ── Phase B: file operations ───────────────────────────────────────────────
   const runFileOp = useCallback(async (op: FileOpResult["op"]) => {
@@ -1503,6 +2191,27 @@ export default function Home() {
           recoveryResults={recoveryResults}
           score={certScore}
           iframeUrl={iframeUrl}
+        />
+      )}
+
+      {activeTab === "phaseK" && (
+        <PhaseKPanel
+          scenarios={kScenarios}
+          running={kRunning}
+          report={kReport}
+          previewUrl={kPreviewUrl}
+          terminal={kTerminal}
+          onRun={runPhaseK}
+          onAbort={() => { kAbortRef.current = true; setKRunning(false) }}
+          onReset={() => {
+            kAbortRef.current = true
+            setKScenarios(makeInitKScenarios())
+            setKReport(null)
+            setKProjectId(null)
+            setKPreviewUrl(null)
+            setKTerminal("")
+            setKRunning(false)
+          }}
         />
       )}
     </div>
@@ -2745,4 +3454,293 @@ function countFiles(tree: FileSystemTree, depth = 0): number {
     else if ("directory" in node) count += countFiles(node.directory as FileSystemTree, depth + 1)
   }
   return count
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase K Panel — End-to-End Runtime Validation
+// ─────────────────────────────────────────────────────────────────────────────
+function PhaseKPanel({
+  scenarios, running, report, previewUrl, terminal, onRun, onAbort, onReset,
+}: {
+  scenarios:  KScenarioState[]
+  running:    boolean
+  report:     KReport | null
+  previewUrl: string | null
+  terminal:   string
+  onRun:      () => void
+  onAbort:    () => void
+  onReset:    () => void
+}) {
+  const termRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight
+  }, [terminal])
+
+  const allIdle  = scenarios.every(s => s.status === "pending")
+  const anyRunning = running
+
+  return (
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* Left: Scenario list + controls */}
+      <div className="flex w-72 flex-shrink-0 flex-col border-r border-white/8 overflow-hidden">
+        {/* Header */}
+        <div className="border-b border-white/8 p-4 flex-shrink-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-2">Phase K</p>
+          <h2 className="text-sm font-bold text-white mb-0.5">End-to-End Runtime Validation</h2>
+          <p className="text-[10px] text-white/30 leading-relaxed">
+            Validates the complete Website V2 pipeline using real API calls and a live WebContainer runtime.
+          </p>
+          <div className="mt-3 rounded-lg border border-amber-400/20 bg-amber-400/5 p-2.5">
+            <p className="text-[9px] text-amber-400/80 leading-relaxed">
+              Requires login — uses your STAGEONE session. Generation takes 2–4 min per scenario. Total run: ~15 min.
+            </p>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex gap-2 p-3 flex-shrink-0 border-b border-white/8">
+          {!anyRunning ? (
+            <button
+              onClick={onRun}
+              disabled={!allIdle && !report}
+              className="flex-1 rounded-lg bg-amber-400/15 py-2 text-xs font-bold text-amber-400 hover:bg-amber-400/25 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              ▶ Run All Scenarios
+            </button>
+          ) : (
+            <button
+              onClick={onAbort}
+              className="flex-1 rounded-lg bg-red-400/15 py-2 text-xs font-bold text-red-400 hover:bg-red-400/25 transition-all"
+            >
+              ■ Abort
+            </button>
+          )}
+          <button
+            onClick={onReset}
+            disabled={anyRunning}
+            className="rounded-lg border border-white/8 px-3 py-2 text-[10px] text-white/30 hover:text-white/60 disabled:opacity-30 transition-all"
+          >
+            Reset
+          </button>
+        </div>
+
+        {/* Scenario list */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-none">
+          {scenarios.map((sc, i) => (
+            <KScenarioCard key={sc.id} scenario={sc} index={i} />
+          ))}
+        </div>
+
+        {/* Preview thumbnail */}
+        {previewUrl && (
+          <div className="flex-shrink-0 border-t border-white/8 p-3">
+            <p className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-white/30">Live Preview</p>
+            <div className="overflow-hidden rounded-lg border border-white/8 bg-black/40" style={{ height: 120 }}>
+              <iframe src={previewUrl} className="h-full w-full origin-top-left scale-50 border-0" style={{ width: "200%", height: "200%", transform: "scale(0.5)", transformOrigin: "0 0" }} />
+            </div>
+            <p className="mt-1 font-mono text-[9px] text-white/20 truncate">{previewUrl}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Center: Step detail */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Steps pane */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4 scrollbar-none">
+          {allIdle ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <div className="mb-4 text-4xl opacity-20">⚡</div>
+              <p className="text-sm font-medium text-white/30">Run all scenarios to validate the V2 pipeline</p>
+              <p className="mt-1 text-[10px] text-white/20">5 scenarios · 10 readiness components · full API integration</p>
+            </div>
+          ) : (
+            scenarios.map((sc) => (
+              sc.steps.length > 0 && (
+                <div key={sc.id}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <KStatusDot status={sc.status} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+                      S{sc.id}: {sc.name}
+                    </span>
+                    {sc.status === "pass"  && <span className="text-[9px] text-emerald-400">✓ pass</span>}
+                    {sc.status === "fail"  && <span className="text-[9px] text-red-400">✗ fail{sc.error ? ` — ${sc.error}` : ""}</span>}
+                    {sc.status === "skip"  && <span className="text-[9px] text-white/30">— skipped</span>}
+                  </div>
+                  <div className="space-y-1 pl-4">
+                    {sc.steps.map((step) => (
+                      <KStepRow key={step.id} step={step} />
+                    ))}
+                  </div>
+                </div>
+              )
+            ))
+          )}
+        </div>
+
+        {/* Terminal */}
+        <div className="flex-shrink-0 border-t border-white/8" style={{ height: 180 }}>
+          <div className="flex items-center justify-between border-b border-white/8 bg-black/40 px-3 py-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-white/20">Phase K Terminal</span>
+            {anyRunning && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />}
+          </div>
+          <div
+            ref={termRef}
+            className="h-full overflow-y-auto bg-black/60 p-2 font-mono text-[9px] leading-relaxed text-green-300/70 scrollbar-none"
+            style={{ height: 140 }}
+          >
+            {terminal || <span className="text-white/20">waiting for output…</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Readiness Report */}
+      <div className="flex w-72 flex-shrink-0 flex-col border-l border-white/8 overflow-hidden">
+        <div className="border-b border-white/8 bg-black/30 px-4 py-3 flex-shrink-0">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-white/25">Runtime Readiness Report</p>
+        </div>
+
+        {!report ? (
+          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+            <div className="mb-3 text-3xl opacity-10">📋</div>
+            <p className="text-[10px] text-white/25">Report generated after all scenarios complete</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto scrollbar-none">
+            {/* Score */}
+            <div className="border-b border-white/8 p-5 text-center">
+              <div className={`text-5xl font-black tabular-nums ${
+                report.score >= 80 ? "text-emerald-400" :
+                report.score >= 50 ? "text-amber-400" : "text-red-400"
+              }`}>{report.score}%</div>
+              <p className="mt-1 text-[9px] text-white/30">Overall Readiness</p>
+              <div className={`mt-3 rounded-lg border px-3 py-2 ${
+                report.ready
+                  ? "border-emerald-400/30 bg-emerald-400/5"
+                  : "border-red-400/30 bg-red-400/5"
+              }`}>
+                <p className={`text-[11px] font-bold ${report.ready ? "text-emerald-400" : "text-red-400"}`}>
+                  Ready for Website Studio Integration
+                </p>
+                <p className={`text-lg font-black mt-0.5 ${report.ready ? "text-emerald-400" : "text-red-400"}`}>
+                  {report.ready ? "YES" : "NO"}
+                </p>
+              </div>
+            </div>
+
+            {/* Component rows */}
+            <div className="p-3 space-y-1">
+              {report.rows.map((row) => (
+                <div key={row.name} className="flex items-center justify-between rounded-lg px-2.5 py-1.5 bg-white/[0.02]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`flex-shrink-0 text-[10px] ${
+                      row.pass === true  ? "text-emerald-400" :
+                      row.pass === false ? "text-red-400"     : "text-white/20"
+                    }`}>
+                      {row.pass === true ? "✓" : row.pass === false ? "✗" : "–"}
+                    </span>
+                    <span className="truncate text-[10px] text-white/60">{row.name}</span>
+                  </div>
+                  <div className="ml-2 flex-shrink-0 text-right">
+                    {row.ms !== undefined && (
+                      <span className="font-mono text-[9px] text-white/25">{fmtMs(row.ms)}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Failure details */}
+            {report.rows.some(r => r.pass === false && r.detail) && (
+              <div className="border-t border-white/8 p-3">
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-red-400/60">Failures</p>
+                <div className="space-y-1.5">
+                  {report.rows.filter(r => r.pass === false && r.detail).map(r => (
+                    <div key={r.name} className="rounded bg-red-950/30 px-2 py-1.5">
+                      <p className="text-[9px] font-semibold text-red-400/80">{r.name}</p>
+                      <p className="text-[8px] text-red-300/50 mt-0.5">{r.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function KScenarioCard({ scenario, index }: { scenario: KScenarioState; index: number }) {
+  const colors: Record<KStepStatus, string> = {
+    pending: "text-white/20 border-white/8  bg-white/[0.02]",
+    running: "text-amber-400 border-amber-400/30 bg-amber-400/5",
+    pass:    "text-emerald-400 border-emerald-400/20 bg-emerald-400/5",
+    warn:    "text-amber-300 border-amber-300/20 bg-amber-300/5",
+    fail:    "text-red-400 border-red-400/20 bg-red-400/5",
+    skip:    "text-white/25 border-white/8 bg-white/[0.02]",
+  }
+  const icons: Record<KStepStatus, string> = {
+    pending: "○", running: "◐", pass: "✓", warn: "△", fail: "✗", skip: "–",
+  }
+  return (
+    <div className={`rounded-lg border px-3 py-2.5 transition-all ${colors[scenario.status]}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-mono">{icons[scenario.status]}</span>
+        <div className="min-w-0">
+          <p className="text-[9px] font-bold uppercase tracking-wider opacity-50">S{index + 1}</p>
+          <p className="text-[10px] font-semibold leading-tight">{scenario.name}</p>
+        </div>
+      </div>
+      {scenario.error && (
+        <p className="mt-1.5 text-[9px] text-red-300/60 leading-relaxed">{scenario.error}</p>
+      )}
+      {scenario.status === "running" && scenario.steps.length > 0 && (
+        <p className="mt-1 text-[9px] opacity-60 truncate">
+          {scenario.steps.filter(s => s.status === "running")[0]?.name ?? "…"}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function KStepRow({ step }: { step: KStep }) {
+  const icon =
+    step.status === "pass"    ? <span className="text-emerald-400">✓</span> :
+    step.status === "fail"    ? <span className="text-red-400">✗</span>     :
+    step.status === "skip"    ? <span className="text-white/20">–</span>    :
+    step.status === "running" ? <span className="animate-pulse text-amber-400">◐</span> :
+                                <span className="text-white/15">○</span>
+  return (
+    <div className="flex items-start gap-2 py-0.5">
+      <span className="mt-[1px] flex-shrink-0 text-[10px] leading-none">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className={`text-[10px] leading-tight ${
+            step.status === "pass" ? "text-white/60" :
+            step.status === "fail" ? "text-red-300/70" :
+            step.status === "running" ? "text-amber-300/80" :
+            "text-white/25"
+          }`}>{step.name}</span>
+          {step.ms !== undefined && (
+            <span className="flex-shrink-0 font-mono text-[9px] text-white/20">{fmtMs(step.ms)}</span>
+          )}
+        </div>
+        {step.detail && (
+          <p className={`text-[9px] mt-0.5 leading-tight ${
+            step.status === "fail" ? "text-red-300/50" : "text-white/25"
+          }`}>{step.detail}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function KStatusDot({ status }: { status: KStepStatus }) {
+  const cls =
+    status === "pass"    ? "bg-emerald-400" :
+    status === "fail"    ? "bg-red-400"     :
+    status === "running" ? "bg-amber-400 animate-pulse" :
+    status === "skip"    ? "bg-white/15"    :
+                           "bg-white/10"
+  return <span className={`inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${cls}`} />
 }

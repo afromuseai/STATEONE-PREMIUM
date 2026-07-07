@@ -1,0 +1,177 @@
+Website Architect V2 — Phase K: End-to-End Runtime Validation
+
+The WebContainer diagnostics laboratory is now comprehensive.
+
+Do NOT integrate WebContainer into Website Studio yet.
+
+The objective of this phase is to validate the entire Website Architect V2 runtime pipeline, not WebContainer in isolation.
+
+Everything should use real Website V2 projects, not synthetic examples, whenever possible.
+
+Validation Scenario 1 — Full Generation Pipeline
+
+Build an automated scenario that performs the complete production workflow:
+
+Business Idea
+    ↓
+Architect Agent
+    ↓
+Website Blueprint
+    ↓
+Code Generation Agent
+    ↓
+Persist Project
+    ↓
+Retrieve Project
+    ↓
+Mount into WebContainer
+    ↓
+Install Dependencies
+    ↓
+Run Next.js
+    ↓
+Server Ready
+    ↓
+Render Live Preview
+
+Measure every stage.
+
+Generate a timing report.
+
+Validation Scenario 2 — AI Editing Pipeline
+
+Validate the exact editing flow used by Website Studio.
+
+User Instruction
+    ↓
+Editing Agent
+    ↓
+Modified Files
+    ↓
+Persist Files
+    ↓
+Refresh Project
+    ↓
+Update WebContainer Files
+    ↓
+Next.js HMR
+    ↓
+Preview Updates
+
+Measure:
+
+edit generation time
+persistence time
+filesystem update time
+HMR latency
+total edit-to-preview latency
+Validation Scenario 3 — Sequential Editing
+
+Run multiple edits against the same project.
+
+Example:
+
+Edit Hero
+Edit Navbar
+Add Pricing Section
+Create FAQ component
+Delete CTA component
+
+After every edit verify:
+
+project still compiles
+preview still renders
+HMR still functions
+no runtime restart required
+Validation Scenario 4 — Project Switching
+
+Validate switching between multiple Website V2 projects.
+
+Project A
+
+↓
+
+Project B
+
+↓
+
+Project C
+
+↓
+
+Return to Project A
+
+Measure:
+
+boot reuse
+dependency reuse
+mount time
+runtime stability
+Validation Scenario 5 — Runtime Stability
+
+Stress-test a single project.
+
+Run repeated edit cycles.
+
+Collect:
+
+memory usage
+HMR latency trend
+compile latency
+runtime errors
+whether restart becomes necessary
+Runtime Readiness Report
+
+At the end, generate a certification report.
+
+Example:
+
+Architect Agent
+
+PASS
+
+Code Generation
+
+PASS
+
+Persistence
+
+PASS
+
+Project Retrieval
+
+PASS
+
+WebContainer
+
+PASS
+
+Dependency Installation
+
+PASS
+
+Live Preview
+
+PASS
+
+AI Editing
+
+PASS
+
+HMR
+
+PASS
+
+Runtime Stability
+
+PASS
+
+Overall Readiness
+
+98%
+
+Ready for Website Studio Integration
+
+YES / NO
+
+The report should explain any failures with enough detail to guide fixes.

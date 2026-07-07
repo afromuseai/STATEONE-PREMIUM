@@ -8,6 +8,7 @@
 - [Generator orchestration standardization](generator-orchestration-std.md) — chatbot+automation migrated to useGeneratorOrchestration hook; website/BI/orchestrator received targeted event+save fixes; BI draft→active status promotion must be explicit after ensureProject
 - [Execution trace system](execution-trace-system.md) — 12-stage tracer wired additively across all 5 generator modules; guard every call with `if (traceId)`, log 11/12 inline for orchestrator/BI which don't use the shared hook
 - [Website Generator canonical reference](website-generator-canonical.md) — Website is the locked reference; never touch ExecutionBus, controller registration, bridge lifecycle, or shared orchestration without a demonstrated Website regression first
+- [Phase K WebContainer diagnostics](phase-k-diagnostics.md) — Phase K tab added to webcontainer-test.tsx; uses real V2 API (SSE); KStepStatus must include "warn"; wc.on must always unsubscribe via returned fn
 - [Chatbot bridge lifecycle](chatbot-bridge-lifecycle.md) — every early-return in generateWith must call the completion ref or triggerGenerate hangs; 5 exits identified
 - [Website save reliability](website-save-reliability.md) — capture projectId before fetch; server echoes _projectId; done handler restores context if cleared during stream
 - [Automation/Orchestrator Marcus double-mount](automation-marcus-double-mount.md) — Marcus nav can double-mount the page; typewriter progress must be module-scoped/resumable, not just per-instance-deduped
