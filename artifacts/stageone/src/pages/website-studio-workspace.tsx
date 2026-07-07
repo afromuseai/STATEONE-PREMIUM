@@ -46,8 +46,10 @@ export default function WebsiteStudioWorkspacePage({ id }: WebsiteStudioWorkspac
   }
 
   return (
-    <WebContainerProvider project={project}>
-      <StudioShell project={project} onRefresh={refresh} />
-    </WebContainerProvider>
+    <div className="flex flex-1 min-w-0 h-full overflow-hidden">
+      <WebContainerProvider project={project}>
+        <StudioShell project={project} onRefresh={refresh} />
+      </WebContainerProvider>
+    </div>
   )
 }

@@ -206,7 +206,8 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.18 }}
-      className="flex h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-[#080808]"
+      className="flex h-full w-full min-w-0 flex-col overflow-hidden bg-[#080808]"
+      style={{ flex: "1 1 0%", minWidth: 0 }}
     >
       {/* ── Top command bar ────────────────────────────────────────────────── */}
       <TopCommandBar
@@ -222,8 +223,8 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
       />
 
       {/* ── Main workspace row ────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 w-full flex-1 overflow-hidden">
 
           {/* Activity bar — far left 40px strip */}
           <ActivityBar activeSideView={sideView} onSetSideView={setSideView} />
