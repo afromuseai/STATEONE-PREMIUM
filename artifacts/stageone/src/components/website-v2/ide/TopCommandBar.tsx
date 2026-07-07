@@ -1,7 +1,7 @@
 import {
   ArrowLeft, Play, Upload, Settings, Monitor, Code2,
   Columns2, CheckCircle, Clock, Layers,
-  Loader, AlertCircle, Terminal, TerminalSquare,
+  Loader, AlertCircle, Terminal, TerminalSquare, Shield, Search,
 } from "lucide-react"
 import { useLocation } from "wouter"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
@@ -31,6 +31,12 @@ interface TopCommandBarProps {
   terminalDrawerOpen:    boolean
   onToggleTerminalDrawer: () => void
   activeFile?:           V2ProjectFile | null
+  /** P4 — Trigger AI code review panel */
+  onCodeReview:          () => void
+  /** P5 — Open deployment pipeline modal */
+  onDeploy:              () => void
+  /** P1 — Open command palette */
+  onOpenPalette:         () => void
 }
 
 export function TopCommandBar({
@@ -39,6 +45,9 @@ export function TopCommandBar({
   onModeChange,
   terminalDrawerOpen,
   onToggleTerminalDrawer,
+  onCodeReview,
+  onDeploy,
+  onOpenPalette,
 }: TopCommandBarProps) {
   const [, navigate] = useLocation()
   const status       = STATUS_CFG[project.status] ?? STATUS_CFG.planning
@@ -112,6 +121,28 @@ export function TopCommandBar({
 
       {/* ── Right actions ────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1">
+        {/* P1 — Command Palette hint */}
+        <button
+          onClick={onOpenPalette}
+          title="Command Palette (Ctrl+K)"
+          aria-label="Command Palette"
+          className="hidden items-center gap-1.5 rounded border border-white/[0.06] bg-white/[0.02] px-2 py-1 text-[11px] text-white/28 transition-colors hover:border-white/12 hover:text-white/55 md:flex"
+        >
+          <Search className="h-3 w-3" />
+          <span>⌃K</span>
+        </button>
+
+        {/* P4 — AI Code Review */}
+        <button
+          onClick={onCodeReview}
+          title="AI Code Review"
+          aria-label="AI Code Review"
+          className="flex items-center gap-1 rounded border border-pink-400/20 bg-pink-400/6 px-2 py-1 text-[11px] text-pink-400/70 transition-colors hover:bg-pink-400/14 hover:text-pink-400"
+        >
+          <Shield className="h-3 w-3" />
+          <span className="hidden md:inline">Review</span>
+        </button>
+
         <button
           title="Run project"
           aria-label="Run project"
@@ -121,8 +152,10 @@ export function TopCommandBar({
           <span className="hidden md:inline">Run</span>
         </button>
 
+        {/* P5 — Deploy button wired */}
         <button
-          title="Deploy project"
+          onClick={onDeploy}
+          title="Deploy project (P5)"
           aria-label="Deploy project"
           className="flex items-center gap-1 rounded border border-amber-400/25 bg-amber-400/8 px-2 py-1 text-[11px] font-medium text-amber-400/80 transition-colors hover:bg-amber-400/15 hover:text-amber-400"
         >

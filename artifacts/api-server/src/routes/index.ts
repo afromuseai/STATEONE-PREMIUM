@@ -58,6 +58,7 @@ import websiteV2ProjectsRouter from "./website-v2-projects";
 import editWebsiteV2Router from "./edit-website-v2";
 import websiteV2PreviewRouter from "./website-v2-preview";
 import copilotAgentRouter from "./copilot-agent";
+import copilotCodeReviewRouter from "./copilot-code-review";
 
 const router: IRouter = Router();
 
@@ -120,5 +121,6 @@ router.use(websiteV2ProjectsRouter);
 router.use(editWebsiteV2Router);
 router.use(websiteV2PreviewRouter);
 router.use(copilotAgentRouter);
+router.use(copilotCodeReviewRouter);
 
 export default router;

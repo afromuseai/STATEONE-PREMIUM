@@ -1,7 +1,6 @@
-import { useRef, useCallback, useEffect } from "react"
+import { useRef, useCallback, useEffect, useState } from "react"
 import Editor, { loader, type BeforeMount, type OnMount, type OnChange } from "@monaco-editor/react"
-import { Copy, Check, FileCode2, Save } from "lucide-react"
-import { useState } from "react"
+import { Copy, Check, FileCode2, Save, Wand2, ChevronDown, Sparkles } from "lucide-react"
 import type { V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import * as monaco from "monaco-editor"
 
@@ -184,6 +183,15 @@ const LANG_COLORS: Record<string, string> = {
   yaml:       "#94a3b8",
 }
 
+// ─── Inline AI command labels ──────────────────────────────────────────────────
+const INLINE_COMMANDS = [
+  { id: "explain",  label: "Explain",        emoji: "💡" },
+  { id: "improve",  label: "Improve",         emoji: "✨" },
+  { id: "rewrite",  label: "Rewrite",         emoji: "♻️" },
+  { id: "tests",    label: "Generate tests",  emoji: "🧪" },
+] as const
+type InlineCmd = typeof INLINE_COMMANDS[number]["id"]
+
 interface CodeEditorProps {
   file: V2ProjectFile | null
   /**
@@ -191,11 +199,18 @@ interface CodeEditorProps {
    * The caller should write this content to the WC filesystem to trigger HMR.
    */
   onFileWrite?: (content: string) => void
+  /**
+   * P2 — Called when user picks an inline AI command on selected text.
+   * Receives the prompt text pre-formatted for Marcus.
+   */
+  onInlineCommand?: (prompt: string) => void
 }
 
-export function CodeEditor({ file, onFileWrite }: CodeEditorProps) {
-  const [copied,  setCopied]  = useState(false)
-  const [isDirty, setIsDirty] = useState(false)
+export function CodeEditor({ file, onFileWrite, onInlineCommand }: CodeEditorProps) {
+  const [copied,       setCopied]       = useState(false)
+  const [isDirty,      setIsDirty]      = useState(false)
+  const [selectedText, setSelectedText] = useState<string | null>(null)  // P2
+  const [menuOpen,     setMenuOpen]     = useState(false)                 // P2
   const editorRef   = useRef<Parameters<OnMount>[0] | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -226,7 +241,36 @@ export function CodeEditor({ file, onFileWrite }: CodeEditorProps) {
         setIsDirty(false)
       },
     )
+
+    // P2 — track text selection for inline AI menu
+    editor.onDidChangeCursorSelection(() => {
+      const sel   = editor.getSelection()
+      const model = editor.getModel()
+      if (!sel || sel.isEmpty() || !model) {
+        setSelectedText(null)
+        setMenuOpen(false)
+        return
+      }
+      const text = model.getValueInRange(sel).trim()
+      setSelectedText(text.length >= 8 ? text : null)
+      if (text.length < 8) setMenuOpen(false)
+    })
   }
+
+  // P2 — dispatch inline command to parent
+  const handleInlineCmd = useCallback((cmdId: InlineCmd) => {
+    if (!selectedText || !file || !onInlineCommand) return
+    setMenuOpen(false)
+    const filename = file.path.split("/").pop() ?? file.path
+
+    const prompts: Record<InlineCmd, string> = {
+      explain: `Explain this code from ${filename}:\n\`\`\`\n${selectedText}\n\`\`\`\nWalk me through what it does step by step.`,
+      improve: `Improve this code from ${filename} — make it cleaner, more readable, and follow best practices:\n\`\`\`\n${selectedText}\n\`\`\`\nRead the full file first, then apply your improvements in context.`,
+      rewrite: `Rewrite this code from ${filename} from scratch with a better approach:\n\`\`\`\n${selectedText}\n\`\`\`\nRead the full file first, then apply your rewrite in context.`,
+      tests:   `Generate comprehensive unit tests for this code from ${filename}:\n\`\`\`\n${selectedText}\n\`\`\`\nCover edge cases. Read the full file first, then create a test file.`,
+    }
+    onInlineCommand(prompts[cmdId])
+  }, [selectedText, file, onInlineCommand])
 
   // Debounced onChange → WC writeFile (N4)
   const handleChange: OnChange = useCallback((value) => {
@@ -279,6 +323,35 @@ export function CodeEditor({ file, onFileWrite }: CodeEditorProps) {
             <div className="flex items-center gap-1 text-amber-400/60">
               <Save className="h-3 w-3" />
               <span className="font-mono text-[9px]">saving…</span>
+            </div>
+          )}
+
+          {/* P2 — Inline AI menu: appears when text is selected */}
+          {selectedText && onInlineCommand && (
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(v => !v)}
+                className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-400/8 px-1.5 py-0.5 text-[10px] font-medium text-amber-400/80 transition-all hover:bg-amber-400/15 hover:text-amber-400"
+              >
+                <Sparkles className="h-3 w-3" />
+                Ask Marcus
+                <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+              </button>
+
+              {menuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-white/[0.10] bg-[#141414] py-1 shadow-xl shadow-black/60">
+                  {INLINE_COMMANDS.map(({ id, label, emoji }) => (
+                    <button
+                      key={id}
+                      onClick={() => handleInlineCmd(id)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-white/60 hover:bg-white/[0.06] hover:text-white/85 transition-colors"
+                    >
+                      <span>{emoji}</span>
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

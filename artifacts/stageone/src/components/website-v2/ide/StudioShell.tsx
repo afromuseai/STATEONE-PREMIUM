@@ -1,12 +1,16 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { TopCommandBar }      from "./TopCommandBar"
-import { ActivityBar }        from "./ActivityBar"
-import { AgentPanel }         from "./AgentPanel"
-import { FileExplorerDrawer } from "./FileExplorerDrawer"
-import { EditorWorkspace }    from "./EditorWorkspace"
-import { TerminalDrawer }     from "./TerminalDrawer"
-import { useWebContainer }    from "@/components/website-v2/runtime/useWebContainer"
+import { TopCommandBar }       from "./TopCommandBar"
+import { ActivityBar }         from "./ActivityBar"
+import { AgentPanel }          from "./AgentPanel"
+import { FileExplorerDrawer }  from "./FileExplorerDrawer"
+import { EditorWorkspace }     from "./EditorWorkspace"
+import { TerminalDrawer }      from "./TerminalDrawer"
+import { CommandPalette }      from "./CommandPalette"   // P1
+import { DiffReviewPanel, type FileDiff } from "./DiffReviewPanel"  // P3
+import { CodeReviewPanel }     from "./CodeReviewPanel"  // P4
+import { DeploymentPipeline }  from "./DeploymentPipeline" // P5
+import { useWebContainer }     from "@/components/website-v2/runtime/useWebContainer"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu } from "lucide-react"
 
@@ -65,6 +69,13 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
   // ── Terminal drawer (⌃`) ─────────────────────────────────────────────────────
   const [terminalDrawerOpen, setTerminalDrawerOpen] = useState(false)
 
+  // ── Phase P: new panel states ─────────────────────────────────────────────────
+  const [paletteOpen,    setPaletteOpen]    = useState(false)   // P1
+  const [codeReviewOpen, setCodeReviewOpen] = useState(false)   // P4
+  const [deployOpen,     setDeployOpen]     = useState(false)   // P5
+  const [pendingDiffs,   setPendingDiffs]   = useState<FileDiff[]>([])  // P3
+  const [marcusInput,    setMarcusInput]    = useState<string | null>(null) // P2
+
   // ── WebContainer runtime ─────────────────────────────────────────────────────
   const {
     status:        wcStatus,
@@ -74,6 +85,54 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
     depCount,
     writeFile:     wcWriteFile,
   } = useWebContainer()
+
+  // ── P1: Ctrl+K global shortcut ───────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault()
+        setPaletteOpen(v => !v)
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [])
+
+  // ── P3: Diff handling ─────────────────────────────────────────────────────────
+  const handleFileDiff = useCallback((diff: FileDiff) => {
+    setPendingDiffs(prev => [...prev, diff])
+  }, [])
+
+  const handleDiffAccept = useCallback((id: string) => {
+    setPendingDiffs(prev => prev.filter(d => d.id !== id))
+  }, [])
+
+  const handleDiffReject = useCallback(async (id: string) => {
+    const diff = pendingDiffs.find(d => d.id === id)
+    if (diff) {
+      try { await wcWriteFile(diff.path, diff.oldContent) } catch { /* ignore */ }
+    }
+    setPendingDiffs(prev => prev.filter(d => d.id !== id))
+  }, [pendingDiffs, wcWriteFile])
+
+  const handleDiffModify = useCallback((diff: FileDiff) => {
+    // Open the file in the editor so user can hand-edit
+    const file = project.files.find(f => f.path === diff.path)
+    if (file) openFile(file)
+    setPendingDiffs(prev => prev.filter(d => d.id !== diff.id))
+  }, [pendingDiffs, project.files]) // openFile added below
+
+  // ── P2: Route inline AI commands to Marcus ────────────────────────────────────
+  const handleInlineCommand = useCallback((prompt: string) => {
+    setSideView("marcus")
+    setMarcusInput(prompt)
+  }, [])
+
+  // ── P1: Ask Marcus via command palette ────────────────────────────────────────
+  const handleAskMarcus = useCallback((prompt: string) => {
+    setSideView("marcus")
+    if (prompt) setMarcusInput(prompt)
+  }, [])
 
   const wcBooting = wcStatus !== "idle" && wcStatus !== "ready" && wcStatus !== "error"
 

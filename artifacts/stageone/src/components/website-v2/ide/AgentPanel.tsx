@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import { useWebContainer } from "@/components/website-v2/runtime/useWebContainer"
+import type { FileDiff } from "./DiffReviewPanel"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ProjectMemory {
@@ -190,9 +191,14 @@ interface AgentPanelProps {
   project:        V2Project
   onEditComplete: () => void
   onFileOpen:     (file: V2ProjectFile) => void
+  /** P3 — called after every write_file tool with old+new content for diff review */
+  onFileDiff?:    (diff: FileDiff) => void
+  /** P2 — pre-fill the input from an inline AI command (e.g. "Explain this code…") */
+  externalInput?: string | null
+  onExternalInputConsumed?: () => void
 }
 
-export function AgentPanel({ project, onEditComplete }: AgentPanelProps) {
+export function AgentPanel({ project, onEditComplete, onFileDiff, externalInput, onExternalInputConsumed }: AgentPanelProps) {
   const { status: wcStatus, readFile, listDir, runCommand, writeFile } = useWebContainer()
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -208,6 +214,15 @@ export function AgentPanel({ project, onEditComplete }: AgentPanelProps) {
   const abortRef   = useRef<AbortController | null>(null)
   const bottomRef  = useRef<HTMLDivElement | null>(null)
   const isRunning  = phase !== null
+
+  // P2 — accept external prompt from inline AI commands
+  useEffect(() => {
+    if (externalInput) {
+      setInput(externalInput)
+      onExternalInputConsumed?.()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalInput])
 
   // ── Add entry helper ────────────────────────────────────────────────────────
   const addEntry = useCallback((payload: TimelinePayload): string => {
@@ -329,7 +344,18 @@ Tell me what to change and I'll plan it first, then execute it.`,
       if (name === "write_file") {
         const path    = params.path    as string
         const content = params.content as string
+        // P3 — capture old content for diff review before writing
+        const oldContent = await readFile(path).catch(() => "")
         await writeFile(path, content)
+        if (onFileDiff) {
+          onFileDiff({
+            id:         `diff-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            path,
+            oldContent,
+            newContent: content,
+            isNew:      oldContent === "",
+          })
+        }
         return { name, params, result: `✓ Wrote ${path}`, ok: true }
       }
 

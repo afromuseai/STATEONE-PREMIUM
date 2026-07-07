@@ -24,6 +24,8 @@ interface EditorWorkspaceProps {
    * EditorWorkspace calls this with (activeFile.path, newContent) on Monaco onChange.
    */
   onFileWrite?:   (path: string, content: string) => Promise<void>
+  /** P2 — Inline AI command from selected text inside Monaco */
+  onInlineCommand?: (prompt: string) => void
   onTabClick:     (id: string) => void
   onTabClose:     (id: string) => void
   onModeChange:   (mode: WorkspaceMode) => void
@@ -39,6 +41,7 @@ export function EditorWorkspace({
   terminalLines,
   wcBooting,
   onFileWrite,
+  onInlineCommand,
   onTabClick,
   onTabClose,
 }: EditorWorkspaceProps) {
@@ -74,7 +77,7 @@ export function EditorWorkspace({
         {/* ── CODE mode: Monaco full width ──────────────────────────────── */}
         {workspaceMode === "code" && (
           <div className="flex min-w-0 flex-1 overflow-hidden">
-            <CodeEditor file={activeFile} onFileWrite={fileWriter} />
+            <CodeEditor file={activeFile} onFileWrite={fileWriter} onInlineCommand={onInlineCommand} />
           </div>
         )}
 
@@ -97,7 +100,7 @@ export function EditorWorkspace({
               className="flex flex-col overflow-hidden"
               style={{ width: `${splitPct}%`, flexShrink: 0 }}
             >
-              <CodeEditor file={activeFile} onFileWrite={fileWriter} />
+              <CodeEditor file={activeFile} onFileWrite={fileWriter} onInlineCommand={onInlineCommand} />
             </div>
 
             {/* Drag handle */}
