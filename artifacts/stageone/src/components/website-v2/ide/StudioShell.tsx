@@ -10,6 +10,7 @@ import { CommandPalette }      from "./CommandPalette"   // P1
 import { DiffReviewPanel, type FileDiff } from "./DiffReviewPanel"  // P3
 import { CodeReviewPanel }     from "./CodeReviewPanel"  // P4
 import { DeploymentPipeline }  from "./DeploymentPipeline" // P5
+import { CollaborationPanel }  from "./CollaborationPanel" // P6
 import { useWebContainer }     from "@/components/website-v2/runtime/useWebContainer"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu } from "lucide-react"
@@ -19,7 +20,7 @@ import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu } from "lucide-react"
 export type WorkspaceMode = "code" | "preview" | "split" | "terminal"
 
 /** Which left-side panel is visible (null = collapsed). */
-export type SideView = "marcus" | "explorer" | null
+export type SideView = "marcus" | "explorer" | "collaboration" | null
 
 export interface OpenTab {
   id:    string   // file path, "preview", or "terminal"
@@ -215,6 +216,9 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
         terminalDrawerOpen={terminalDrawerOpen}
         onToggleTerminalDrawer={() => setTerminalDrawerOpen((v) => !v)}
         activeFile={activeFile}
+        onCodeReview={() => setCodeReviewOpen(true)}
+        onDeploy={() => setDeployOpen(true)}
+        onOpenPalette={() => setPaletteOpen(true)}
       />
 
       {/* ── Main workspace row ────────────────────────────────────────────── */}
@@ -224,13 +228,18 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
           {/* Activity bar — far left 40px strip */}
           <ActivityBar activeSideView={sideView} onSetSideView={setSideView} />
 
-          {/* Side panel — Marcus or Explorer */}
+          {/* Side panel — Marcus, Explorer, or Collaboration */}
           <AnimatePresence initial={false}>
             {sideView !== null && (
               <motion.div
                 key="side-panel"
                 initial={{ width: 0, opacity: 0 }}
-                animate={{ width: sideView === "marcus" ? 268 : 220, opacity: 1 }}
+                animate={{
+                  width: sideView === "marcus" ? 268
+                       : sideView === "collaboration" ? 248
+                       : 220,
+                  opacity: 1,
+                }}
                 exit={{ width: 0, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 420, damping: 40 }}
                 className="flex flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.06]"
@@ -251,6 +260,9 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
                     onClose={() => setSideView(null)}
                     embedded
                   />
+                )}
+                {sideView === "collaboration" && (
+                  <CollaborationPanel project={project} />
                 )}
               </motion.div>
             )}

@@ -1,6 +1,6 @@
 import { useRef, useCallback } from "react"
 import { motion } from "framer-motion"
-import { Cpu, FolderOpen, Settings, ChevronLeft } from "lucide-react"
+import { Cpu, FolderOpen, Users, Settings, ChevronLeft } from "lucide-react"
 import type { SideView } from "./StudioShell"
 
 interface ActivityBarProps {
@@ -15,8 +15,9 @@ interface NavItem {
 }
 
 const TOP_ITEMS: NavItem[] = [
-  { id: "marcus",   icon: Cpu,        label: "Marcus AI" },
-  { id: "explorer", icon: FolderOpen, label: "Explorer"  },
+  { id: "marcus",        icon: Cpu,        label: "Marcus AI"     },
+  { id: "explorer",      icon: FolderOpen, label: "Explorer"      },
+  { id: "collaboration", icon: Users,      label: "Collaboration" },
 ]
 
 /**
@@ -33,7 +34,7 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent, idx: number) => {
-      const total = TOP_ITEMS.length
+      const total = TOP_ITEMS.length  // now 3 items
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault()
         itemRefs.current[(idx + 1) % total]?.focus()
