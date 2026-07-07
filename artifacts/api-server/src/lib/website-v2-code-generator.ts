@@ -337,50 +337,58 @@ export function parseGeneratedProject(
   // values (raw LF/CR/TAB instead of \n/\r/\t).  Must run after bracket-slicing
   // so we only process the actual JSON object, and before JSON.parse which
   // rejects any control character < 0x20 inside a string.
+  const sanitizeStart = Date.now();
   clean = sanitizeJsonControlChars(clean);
+  const sanitizeMs = Date.now() - sanitizeStart;
+  logger.info(
+    { layer: "v2:parse", stage: "sanitize_ok", sanitizeMs, cleanLen: clean.length },
+    `[v2:parse] ── sanitizeJsonControlChars done in ${sanitizeMs}ms — ${clean.length} chars ──`
+  );
 
+  const jsonParseStart = Date.now();
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(clean) as Record<string, unknown>;
+    const jsonParseMs = Date.now() - jsonParseStart;
     logger.info(
-      { layer: "v2:parse", stage: "json_parse_ok", cleanLen: clean.length, parseMs: Date.now() - parseStart },
-      "[v2:parse] JSON.parse succeeded (strict)"
+      { layer: "v2:parse", stage: "json_parse_ok", cleanLen: clean.length, jsonParseMs, parseMs: Date.now() - parseStart },
+      `[v2:parse] ── JSON.parse succeeded in ${jsonParseMs}ms ──`
     );
   } catch (strictErr) {
+    const jsonParseMs = Date.now() - jsonParseStart;
     logger.warn(
       {
         layer: "v2:parse",
         stage: "json_parse_failed",
+        jsonParseMs,
         error: String(strictErr),
         cleanLen: clean.length,
-        // Log the region around the parse error — SyntaxError message usually contains position
         errorPosition: String(strictErr).match(/position (\d+)/)?.[1] ?? "unknown",
-        // Show 200 chars around the error position for diagnosis
         snippetAtError: (() => {
           const pos = parseInt(String(strictErr).match(/position (\d+)/)?.[1] ?? "-1");
           return pos >= 0 ? clean.slice(Math.max(0, pos - 100), pos + 100) : "(position unknown)";
         })(),
       },
-      "[v2:parse] FAILURE: JSON.parse failed — attempting jsonrepair"
+      `[v2:parse] JSON.parse failed in ${jsonParseMs}ms — attempting jsonrepair`
     );
+    const repairStart = Date.now();
     try {
       parsed = JSON.parse(jsonrepair(clean)) as Record<string, unknown>;
       logger.info(
-        { layer: "v2:parse", stage: "jsonrepair_ok", cleanLen: clean.length, parseMs: Date.now() - parseStart },
-        "[v2:parse] jsonrepair succeeded"
+        { layer: "v2:parse", stage: "jsonrepair_ok", repairMs: Date.now() - repairStart, cleanLen: clean.length, parseMs: Date.now() - parseStart },
+        `[v2:parse] ── jsonrepair succeeded in ${Date.now() - repairStart}ms ──`
       );
     } catch (repairErr) {
       logger.error(
         {
           layer: "v2:parse",
           stage: "jsonrepair_failed",
+          repairMs: Date.now() - repairStart,
           strictError: String(strictErr),
           repairError: String(repairErr),
           cleanLen: clean.length,
           rawLen: raw.length,
-          // Is this a truncation? Last 500 chars will show if JSON is cut mid-string
           cleanTail: clean.slice(-500),
-          // Check if the content looks truncated (doesn't end with closing braces)
           looksComplete: clean.trimEnd().endsWith("}"),
         },
         "[v2:parse] FAILURE: jsonrepair also failed — cannot parse model output"
@@ -677,8 +685,9 @@ export async function generateProjectCode(
   let thinkingSent   = false;
   let contentStarted = false;
 
-  // Track the last observed finish_reason so we can log it when the stream ends.
+  // Track the last observed finish_reason and usage so we can log them when the stream ends.
   let lastFinishReason: string | null = null;
+  let nvidiaUsage: { promptTokens?: number; completionTokens?: number; totalTokens?: number } | null = null;
 
   const processLines = (text: string) => {
     const lines = text.split("\n");
@@ -703,17 +712,30 @@ export async function generateProjectCode(
         const thinking    = delta?.reasoning_content;
         const finishReason = choice?.finish_reason;
 
-        // Track finish_reason — NVIDIA sends it on the final chunk (e.g. "stop", "length")
+        // Extract token usage — NVIDIA includes this on the final chunk when stream_options.include_usage is set,
+        // or sometimes unconditionally depending on the model/endpoint version.
+        const usage = parsed.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined;
+        if (usage && (usage.prompt_tokens || usage.completion_tokens || usage.total_tokens)) {
+          nvidiaUsage = {
+            promptTokens:     usage.prompt_tokens,
+            completionTokens: usage.completion_tokens,
+            totalTokens:      usage.total_tokens,
+          };
+        }
+
+        // Track finish_reason — NVIDIA sends it on the final content chunk (e.g. "stop", "length")
         if (finishReason) {
           lastFinishReason = finishReason;
           logger.info(
             {
-              layer:       "v2:codegen",
-              stage:       "finish_reason",
+              layer:        "v2:codegen",
+              stage:        "finish_reason",
               finishReason,
-              bufferLen:   buffer.length,
+              bufferLen:    buffer.length,
+              // "length" means the model hit max_tokens — output is truncated
+              truncated:    finishReason === "length",
             },
-            `[v2:codegen] NVIDIA finish_reason="${finishReason}" at buffer=${buffer.length} chars`
+            `[v2:codegen] NVIDIA finish_reason="${finishReason}" at buffer=${buffer.length} chars${finishReason === "length" ? " — WARNING: output truncated at max_tokens" : ""}`
           );
         }
 
@@ -828,13 +850,18 @@ export async function generateProjectCode(
       streamMs,
       rawChunkCount,
       lastFinishReason,
+      // "length" finish_reason means output was truncated at max_tokens — root cause of incomplete JSON
+      truncatedAtMaxTokens: lastFinishReason === "length",
+      nvidiaPromptTokens:     nvidiaUsage?.promptTokens,
+      nvidiaCompletionTokens: nvidiaUsage?.completionTokens,
+      nvidiaTotalTokens:      nvidiaUsage?.totalTokens,
       thinkingWasActive: thinkingSent,
       contentStarted,
       // Capture first and last 500 chars to verify the JSON is complete
       bufferHead: buffer.slice(0, 500),
       bufferTail: buffer.slice(-500),
     },
-    `[v2:codegen] STAGE COMPLETE: stream done in ${streamMs}ms, buffer=${buffer.length} chars, chunks=${rawChunkCount}, finish_reason=${lastFinishReason ?? "(none)"}`
+    `[v2:codegen] ── Stream done in ${streamMs}ms — buffer=${buffer.length} chars, chunks=${rawChunkCount}, finish_reason=${lastFinishReason ?? "(none)"}, tokens=${nvidiaUsage?.totalTokens ?? "?"} ──`
   );
 
   if (!buffer || buffer.length < 100) {

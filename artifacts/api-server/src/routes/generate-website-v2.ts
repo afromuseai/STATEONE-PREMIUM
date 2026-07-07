@@ -194,6 +194,12 @@ router.post(
     res.setHeader("Connection", "keep-alive");
 
     const userId = req.user?.userId ?? "";
+    const pipelineStart = Date.now();
+
+    req.log.info(
+      { layer: "v2:pipeline", stage: "request_start", userId },
+      "[v2:pipeline] ── Website V2 pipeline started ──"
+    );
 
     try {
       const body = req.body as Record<string, unknown>;
@@ -234,6 +240,19 @@ router.post(
       // Stream the architect agent's JSON generation token-by-token.
       // Each content chunk is forwarded as { phase: "architect", content: "..." }
       // so the client can show a live typing indicator.
+      const architectStart = Date.now();
+      req.log.info(
+        {
+          layer:       "v2:architect",
+          stage:       "llm_start",
+          model:       ARCHITECT_MODEL,
+          maxTokens:   3000,
+          userId,
+          elapsedMsPipeline: Date.now() - pipelineStart,
+        },
+        "[v2:architect] ── Architect LLM stream started ──"
+      );
+
       const stream = await streamNvidia({
         model:       ARCHITECT_MODEL,
         temperature: 0.7,
@@ -326,6 +345,19 @@ router.post(
         reader.releaseLock();
       }
 
+      const architectMs = Date.now() - architectStart;
+      req.log.info(
+        {
+          layer:             "v2:architect",
+          stage:             "llm_end",
+          architectMs,
+          bufLen:            buffer.length,
+          elapsedMsPipeline: Date.now() - pipelineStart,
+          thinkingWasActive: thinkingSent,
+        },
+        `[v2:architect] ── Architect LLM stream ended in ${architectMs}ms — ${buffer.length} chars ──`
+      );
+
       if (!buffer || buffer.length < 50) {
         req.log.error({ userId, bufLen: buffer.length }, "[v2:architect] Empty response from Architect Agent");
         sseWrite(res, {
@@ -338,12 +370,25 @@ router.post(
       }
 
       // ── Parse blueprint ──────────────────────────────────────────────────────
+      const blueprintParseStart = Date.now();
+      req.log.info(
+        { layer: "v2:blueprint", stage: "parse_start", bufLen: buffer.length },
+        "[v2:blueprint] ── Blueprint JSON parse started ──"
+      );
       let blueprint: WebsiteBlueprint;
       try {
         blueprint = extractJson(buffer) as WebsiteBlueprint;
       } catch (parseErr) {
         req.log.error(
-          { userId, parseErr, bufLen: buffer.length, bufSnippet: buffer.slice(0, 200) },
+          {
+            layer:      "v2:blueprint",
+            stage:      "parse_failed",
+            blueprintParseMs: Date.now() - blueprintParseStart,
+            userId,
+            parseErr,
+            bufLen:     buffer.length,
+            bufSnippet: buffer.slice(0, 200),
+          },
           "[v2:architect] Blueprint JSON parse failed"
         );
         sseWrite(res, {
@@ -354,6 +399,26 @@ router.post(
         res.end();
         return;
       }
+
+      req.log.info(
+        {
+          layer:            "v2:blueprint",
+          stage:            "parse_ok",
+          blueprintParseMs: Date.now() - blueprintParseStart,
+          projectType:      (blueprint as unknown as Record<string,unknown>)?.projectType,
+          pageCount:        Array.isArray((blueprint as unknown as Record<string,unknown>)?.pages)
+                              ? ((blueprint as unknown as Record<string,unknown>).pages as unknown[]).length
+                              : 0,
+        },
+        `[v2:blueprint] ── Blueprint JSON parsed in ${Date.now() - blueprintParseStart}ms ──`
+      );
+
+      // ── Validate blueprint schema ────────────────────────────────────────────
+      const blueprintValidateStart = Date.now();
+      req.log.info(
+        { layer: "v2:blueprint", stage: "validate_start" },
+        "[v2:blueprint] ── Blueprint schema validation started ──"
+      );
 
       // Fix: runtime schema guard — validate required fields before emitting.
       // extractJson succeeds but the model may omit required keys or produce
@@ -428,10 +493,18 @@ router.post(
         }
       }
 
+      const blueprintValidateMs = Date.now() - blueprintValidateStart;
       if (schemaErrors.length > 0) {
         req.log.error(
-          { userId, schemaErrors, bufSnippet: buffer.slice(0, 300) },
-          "[v2:architect] Blueprint failed schema validation"
+          {
+            layer:              "v2:blueprint",
+            stage:              "validate_failed",
+            blueprintValidateMs,
+            schemaErrors,
+            bufSnippet:         buffer.slice(0, 300),
+            userId,
+          },
+          `[v2:blueprint] Blueprint schema validation FAILED in ${blueprintValidateMs}ms — ${schemaErrors.length} error(s)`
         );
         sseWrite(res, {
           phase:   "error",
@@ -442,21 +515,37 @@ router.post(
         return;
       }
 
-      // ── Save blueprint (Phase 3) ─────────────────────────────────────────────
-      if (projectId) {
-        await saveBlueprint(projectId, blueprint);
-      }
-
-      // ── Emit completed blueprint ─────────────────────────────────────────────
       req.log.info(
         {
-          userId,
-          projectType:  blueprint.projectType,
-          pageCount:    blueprint.pages?.length ?? 0,
-          industry:     context.industry,
+          layer:              "v2:blueprint",
+          stage:              "validate_ok",
+          blueprintValidateMs,
+          projectType:        blueprint.projectType,
+          pageCount:          blueprint.pages?.length ?? 0,
+          componentCount:     blueprint.pages?.reduce((n, p) => n + (p.components?.length ?? 0), 0) ?? 0,
+          elapsedMsPipeline:  Date.now() - pipelineStart,
         },
-        "[v2:architect] Blueprint complete"
+        `[v2:blueprint] ── Blueprint schema valid in ${blueprintValidateMs}ms — ${blueprint.pages?.length ?? 0} pages ──`
       );
+
+      // ── Save blueprint (Phase 3) ─────────────────────────────────────────────
+      const blueprintSaveStart = Date.now();
+      if (projectId) {
+        req.log.info(
+          { layer: "v2:blueprint", stage: "save_start", projectId },
+          "[v2:blueprint] ── Blueprint DB save started ──"
+        );
+        await saveBlueprint(projectId, blueprint);
+        req.log.info(
+          {
+            layer:            "v2:blueprint",
+            stage:            "save_ok",
+            blueprintSaveMs:  Date.now() - blueprintSaveStart,
+            projectId,
+          },
+          `[v2:blueprint] ── Blueprint saved to DB in ${Date.now() - blueprintSaveStart}ms ──`
+        );
+      }
 
       sseWrite(res, { phase: "blueprint", data: blueprint });
 
@@ -464,13 +553,15 @@ router.post(
       const codegenStart = Date.now();
       req.log.info(
         {
-          userId,
-          model:      CODE_GENERATOR_MODEL,
-          projectId:  projectId ?? "(none)",
-          pageCount:  blueprint.pages?.length ?? 0,
-          stage:      "codegen_start",
+          layer:             "v2:codegen",
+          stage:             "llm_start",
+          model:             CODE_GENERATOR_MODEL,
+          projectId:         projectId ?? "(none)",
+          pageCount:         blueprint.pages?.length ?? 0,
+          componentCount:    blueprint.pages?.reduce((n, p) => n + (p.components?.length ?? 0), 0) ?? 0,
+          elapsedMsPipeline: Date.now() - pipelineStart,
         },
-        "[v2:codegen] STAGE ENTERED: Code Generation Agent"
+        "[v2:codegen] ── Code Generation LLM started ──"
       );
 
       // Emit building phase-start signal (no content = signal only)
@@ -485,41 +576,60 @@ router.post(
           (content) => sseWrite(res, { phase: "building", content }),
           (active)  => sseWrite(res, { phase: "thinking", active }),
         );
+        const codegenMs = Date.now() - codegenStart;
+        // Analyse output for bottleneck signals
+        const totalChars    = project.files.reduce((n, f) => n + f.content.length, 0);
+        const largestFile   = project.files.reduce(
+          (best, f) => f.content.length > best.size ? { path: f.path, size: f.content.length } : best,
+          { path: "(none)", size: 0 }
+        );
         req.log.info(
           {
-            userId,
-            projectId:  projectId ?? "(none)",
-            fileCount:  project.files.length,
-            depCount:   project.dependencies.length,
-            previewLen: project.preview.length,
-            elapsedMs:  Date.now() - codegenStart,
-            stage:      "codegen_ok",
+            layer:             "v2:codegen",
+            stage:             "llm_end",
+            codegenMs,
+            elapsedMsPipeline: Date.now() - pipelineStart,
+            fileCount:         project.files.length,
+            depCount:          project.dependencies.length,
+            totalChars,
+            largestFilePath:   largestFile.path,
+            largestFileChars:  largestFile.size,
+            previewLen:        project.preview.length,
+            projectId:         projectId ?? "(none)",
+            // Bottleneck flag: flag if codegen took over 3 minutes or output is very large
+            bottleneckFlag:
+              codegenMs > 180_000          ? "SLOW_MODEL_OVER_3MIN" :
+              codegenMs > 60_000           ? "SLOW_MODEL_OVER_1MIN" :
+              totalChars > 500_000         ? "LARGE_OUTPUT_OVER_500K" :
+              largestFile.size > 100_000   ? "LARGE_SINGLE_FILE_OVER_100K" :
+              "OK",
           },
-          `[v2:codegen] STAGE COMPLETE: Code Generation Agent succeeded in ${Date.now() - codegenStart}ms`
+          `[v2:codegen] ── Code Generation done in ${codegenMs}ms — ${project.files.length} files, ${totalChars} chars, largest: ${largestFile.path} (${largestFile.size} chars) ──`
         );
       } catch (codeErr) {
-        const elapsedMs = Date.now() - codegenStart;
+        const codegenMs = Date.now() - codegenStart;
         req.log.error(
           {
+            layer:     "v2:codegen",
+            stage:     "llm_failed",
             err:       String(codeErr),
             errName:   codeErr instanceof Error ? codeErr.name : "unknown",
             errMsg:    codeErr instanceof Error ? codeErr.message : String(codeErr),
             userId,
             projectId: projectId ?? "(none)",
-            elapsedMs,
-            stage:     "codegen_failed",
-            // Determine failure category from error message
+            codegenMs,
+            elapsedMsPipeline: Date.now() - pipelineStart,
             failureCategory:
-              String(codeErr).includes("JSON parse failed")       ? "JSON_PARSE_ERROR" :
-              String(codeErr).includes("schema errors")           ? "SCHEMA_VALIDATION_ERROR" :
-              String(codeErr).includes("empty response")          ? "EMPTY_RESPONSE" :
-              String(codeErr).includes("HTTP 4")                  ? "NVIDIA_HTTP_ERROR" :
-              String(codeErr).includes("HTTP 5")                  ? "NVIDIA_HTTP_ERROR" :
-              String(codeErr).includes("TimeoutError")            ? "TIMEOUT" :
-              String(codeErr).includes("AbortError")              ? "ABORTED" :
+              String(codeErr).includes("JSON parse failed")  ? "JSON_PARSE_ERROR"       :
+              String(codeErr).includes("schema errors")      ? "SCHEMA_VALIDATION_ERROR" :
+              String(codeErr).includes("empty response")     ? "EMPTY_RESPONSE"          :
+              String(codeErr).includes("HTTP 4")             ? "NVIDIA_HTTP_ERROR"       :
+              String(codeErr).includes("HTTP 5")             ? "NVIDIA_HTTP_ERROR"       :
+              String(codeErr).includes("TimeoutError")       ? "TIMEOUT"                 :
+              String(codeErr).includes("AbortError")         ? "ABORTED"                 :
               "UNKNOWN",
           },
-          `[v2:codegen] FAILURE: Code Generation Agent threw after ${elapsedMs}ms — ${String(codeErr).slice(0, 300)}`
+          `[v2:codegen] ── FAILURE after ${codegenMs}ms — ${String(codeErr).slice(0, 300)} ──`
         );
         if (projectId) await markProjectFailed(projectId, String(codeErr));
         sseWrite(res, {
@@ -531,27 +641,70 @@ router.post(
         return;
       }
 
-      req.log.info(
-        {
-          userId,
-          fileCount:  project.files.length,
-          previewLen: project.preview.length,
-        },
-        "[v2:codegen] Project generation complete"
-      );
-
       // ── Save generated files (Phase 3) ──────────────────────────────────────
+      const dbSaveStart = Date.now();
       if (projectId) {
+        req.log.info(
+          {
+            layer:     "v2:db",
+            stage:     "save_start",
+            projectId,
+            fileCount: project.files.length,
+          },
+          "[v2:db] ── DB save started ──"
+        );
         await saveGeneratedFiles(
           projectId,
           project.files,
           project.dependencies,
           project.preview
         );
+        const dbSaveMs = Date.now() - dbSaveStart;
         project = { ...project, projectId };
+        req.log.info(
+          {
+            layer:     "v2:db",
+            stage:     "save_ok",
+            dbSaveMs,
+            projectId,
+            fileCount: project.files.length,
+          },
+          `[v2:db] ── DB save complete in ${dbSaveMs}ms ──`
+        );
         sseWrite(res, { phase: "project-saved", projectId });
       }
 
+      // ── Pipeline complete — emit final summary log before SSE done ───────────
+      const totalPipelineMs = Date.now() - pipelineStart;
+      const totalCharsAll   = project.files.reduce((n: number, f: { content: string }) => n + f.content.length, 0);
+      const largestFileAll  = project.files.reduce(
+        (best: { path: string; size: number }, f: { path: string; content: string }) =>
+          f.content.length > best.size ? { path: f.path, size: f.content.length } : best,
+        { path: "(none)", size: 0 }
+      );
+      req.log.info(
+        {
+          layer:             "v2:pipeline",
+          stage:             "pipeline_done",
+          totalPipelineMs,
+          architectMs:       Date.now() - architectStart - (Date.now() - codegenStart),  // approximate
+          codegenMs:         Date.now() - codegenStart,
+          dbSaveMs:          Date.now() - dbSaveStart,
+          fileCount:         project.files.length,
+          depCount:          project.dependencies.length,
+          totalChars:        totalCharsAll,
+          largestFilePath:   largestFileAll.path,
+          largestFileChars:  largestFileAll.size,
+          projectId:         projectId ?? "(none)",
+          userId,
+        },
+        `[v2:pipeline] ══ PIPELINE COMPLETE in ${totalPipelineMs}ms — ${project.files.length} files, ${totalCharsAll} total chars, largest: ${largestFileAll.path} (${largestFileAll.size} chars) ══`
+      );
+
+      req.log.info(
+        { layer: "v2:pipeline", stage: "sse_done", projectId: projectId ?? "(none)" },
+        "[v2:pipeline] Sending SSE done event"
+      );
       sseWrite(res, { phase: "done", projectId: projectId ?? "", data: project });
       res.end();
 
