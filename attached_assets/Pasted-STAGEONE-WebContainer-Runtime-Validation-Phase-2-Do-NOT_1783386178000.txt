@@ -1,0 +1,437 @@
+STAGEONE — WebContainer Runtime Validation Phase 2
+
+Do NOT integrate WebContainer into Website Studio.
+
+The goal is to turn /webcontainer-test into a complete runtime diagnostics laboratory that validates every operation Website Studio will eventually depend on.
+
+Do NOT simplify anything.
+
+Do NOT remove any existing diagnostics.
+
+Extend the current implementation.
+
+Existing diagnostics must remain
+
+Keep everything already implemented:
+
+Environment diagnostics
+COOP / COEP validation
+SharedArrayBuffer validation
+Service Worker validation
+WebContainer.boot()
+Virtual filesystem mount
+npm install
+next dev
+server-ready
+iframe rendering
+fs.writeFile()
+HMR validation
+Performance metrics
+Terminal output
+
+These are the baseline.
+
+Phase A — Runtime State Inspector
+
+Add a new diagnostics panel called:
+
+Runtime State
+
+It should display in real time:
+
+WebContainer Status
+
+Booted
+
+Installing
+
+Running
+
+Restarting
+
+Stopped
+
+Error
+
+Also display:
+
+Current URL
+
+Boot Time
+
+Install Time
+
+Memory Usage (if available)
+
+CPU Usage (if available)
+
+Node Version
+
+npm Version
+
+Working Directory
+
+Files Mounted
+
+Dependencies Installed
+
+Dev Server PID
+
+Everything should update live.
+
+Phase B — File Operation Validation
+
+Add a new testing section:
+
+File Operations
+
+The tester should be able to execute:
+
+Create file
+
+Update file
+
+Rename file
+
+Move file
+
+Delete file
+
+Each operation should immediately update the mounted filesystem.
+
+Verify:
+
+✓ File exists
+
+✓ Build succeeds
+
+✓ HMR works
+
+or
+
+✗ Compile failed
+
+Reason:
+Phase C — Import Validation
+
+Automatically perform tests like:
+
+Create TestComponent.tsx
+
+↓
+
+Import into page.tsx
+
+↓
+
+Save
+
+↓
+
+Compile
+
+↓
+
+Preview updates
+
+Then
+
+Rename component
+
+↓
+
+Update imports
+
+↓
+
+Compile
+
+Then
+
+Delete component
+
+↓
+
+Compilation fails
+
+↓
+
+Diagnostics capture exact error
+
+This validates filesystem correctness.
+
+Phase D — Dependency Validation
+
+Add a Dependency Test section.
+
+Allow selecting packages such as:
+
+framer-motion
+
+lucide-react
+
+clsx
+
+tailwind-merge
+
+react-icons
+
+zod
+
+For every package:
+
+Install
+
+↓
+
+Import
+
+↓
+
+Compile
+
+↓
+
+Render
+
+↓
+
+Remove
+
+↓
+
+Compile again
+
+Show timing for every stage.
+
+Phase E — Compilation Diagnostics
+
+Whenever compilation fails:
+
+Display:
+
+Compilation Error
+
+File
+
+Line
+
+Column
+
+Message
+
+Stack Trace
+
+Suggested Cause
+
+Keep the runtime alive.
+
+Do NOT restart automatically.
+
+The user should be able to repair the file and continue.
+
+Phase F — Stress Testing
+
+Add automated stress scenarios.
+
+Examples:
+
+50 files
+
+100 files
+
+250 files
+
+500 files
+
+Measure:
+
+Mount time
+
+Compile time
+
+Memory
+
+HMR latency
+
+Display graphs.
+
+Phase G — Project Validation
+
+Current implementation loads a V2 project.
+
+Expand this.
+
+Validate:
+
+package.json exists
+
+layout.tsx exists
+
+globals.css exists
+
+next.config exists
+
+tsconfig exists
+
+Tailwind configured
+
+Dependencies valid
+
+Routes valid
+
+Imports valid
+
+Generate a report like:
+
+Project Health
+
+92%
+
+Warnings
+
+2
+
+Errors
+
+0
+Phase H — Recovery Testing
+
+Simulate failures.
+
+Examples:
+
+Broken import
+
+Missing dependency
+
+Syntax error
+
+Deleted layout.tsx
+
+Deleted package.json
+
+Missing page.tsx
+
+Measure:
+
+Recovery time
+
+Rebuild time
+
+Can runtime continue
+
+Need restart?
+Phase I — Performance Dashboard
+
+Create a dashboard.
+
+Example:
+
+Boot
+
+Install
+
+Compile
+
+Render
+
+HMR
+
+Memory
+
+CPU
+
+Filesystem
+
+Server Ready
+
+Average HMR
+
+Peak Memory
+
+Total Runtime
+
+Display charts where appropriate.
+
+Phase J — Final Runtime Certification
+
+When all tests complete, produce a final report.
+
+Example:
+
+Runtime Certification
+
+Environment
+
+PASS
+
+Filesystem
+
+PASS
+
+Dependencies
+
+PASS
+
+Compilation
+
+PASS
+
+HMR
+
+PASS
+
+Recovery
+
+PASS
+
+Stress Test
+
+PASS
+
+Project Loading
+
+PASS
+
+Overall Score
+
+98%
+
+Ready for Website Studio Integration
+
+YES
+
+If anything fails:
+
+Clearly explain why.
+
+UI Requirements
+
+Do NOT make this look like a developer demo.
+
+Design it like an enterprise diagnostics console.
+
+Dark theme.
+
+Modern spacing.
+
+Minimal borders.
+
+Large workspace.
+
+Smooth animations.
+
+Professional typography.
+
+Everything should feel like part of STAGEONE.
+
+Important
+
+This is NOT Website Studio.
+
+This is an engineering validation laboratory.
+
+The objective is to completely eliminate uncertainty before integrating WebContainer into Website Studio.
+
+Build this as a robust diagnostics platform, not a proof of concept.

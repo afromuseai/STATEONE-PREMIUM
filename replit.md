@@ -8,7 +8,7 @@ All three services start together via the **Project** workflow (the green Run bu
 
 | Service | Port | Command |
 |---------|------|---------|
-| Frontend (Vite / React) | 5000 | `cd artifacts/stageone && PORT=5000 pnpm run dev` |
+| Frontend (Vite / React) | 5000 | `cd artifacts/stageone && PORT=5000 BASE_PATH=/ pnpm run dev` |
 | API Server (Express 5) | 8000 | `cd artifacts/api-server && pnpm run dev` |
 | Mockup sandbox (Vite) | 8080 | `cd artifacts/mockup-sandbox && PORT=8080 pnpm run dev` |
 
@@ -32,7 +32,7 @@ pnpm --filter @workspace/db run push  # push DB schema to Postgres
 | Key | Type | Notes |
 |-----|------|-------|
 | `NVIDIA_API_KEY` | Secret | NVIDIA API for all AI generation endpoints |
-| `JWT_SECRET` | Env var (shared) | Signing key for auth tokens — move to secret |
+| `JWT_SECRET` | Secret | Signing key for auth tokens |
 | `DATABASE_URL` | Runtime-managed | Auto-injected by Replit Postgres |
 
 Optional (email features):
@@ -72,6 +72,6 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-- `JWT_SECRET` is currently a plain env var — should be rotated and moved to Replit Secrets
+- `BASE_PATH` must be set when starting the frontend dev server (workflow sets it to `/`)
 - SMTP vars are optional; missing them silently disables email features (no startup error)
 - `admin.tsx` is >500 KB and triggers Babel deopt warning — normal, not a crash
