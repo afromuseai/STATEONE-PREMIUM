@@ -295,7 +295,7 @@ export function CodeEditor({ file, onFileWrite, onInlineCommand }: CodeEditorPro
 
   if (!file) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#0d0d0d]">
+      <div className="flex h-full w-full items-center justify-center bg-[#0d0d0d]">
         <div className="text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.05] bg-white/[0.02]">
             <FileCode2 className="h-5 w-5 text-white/12" />
@@ -312,7 +312,7 @@ export function CodeEditor({ file, onFileWrite, onInlineCommand }: CodeEditorPro
   const langColor = LANG_COLORS[language] ?? "#6b7280"
 
   return (
-    <div className="flex h-full flex-col bg-[#0d0d0d]">
+    <div className="flex h-full w-full flex-col bg-[#0d0d0d]">
       {/* ── File info bar ──────────────────────────────────────────────── */}
       <div className="flex flex-shrink-0 items-center gap-3 border-b border-white/[0.05] bg-[#0b0b0b] px-4 py-1.5">
         <FileBreadcrumb path={file.path} />

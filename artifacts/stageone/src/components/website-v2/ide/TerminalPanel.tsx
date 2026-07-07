@@ -33,7 +33,7 @@ export function TerminalPanel({ lines, isBooting }: TerminalPanelProps) {
   }, [lines])
 
   return (
-    <div className="flex h-full flex-col bg-[#080808] font-mono">
+    <div className="flex h-full w-full flex-col bg-[#080808] font-mono">
       {/* Terminal header */}
       <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/[0.07] bg-[#0d0d0d] px-3 py-2">
         <Terminal className="h-3.5 w-3.5 text-white/30" />

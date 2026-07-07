@@ -47,7 +47,7 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
     : `stageone.dev / preview / ${slug}`
 
   return (
-    <div className="flex h-full flex-col bg-[#0c0c0c]">
+    <div className="flex h-full w-full flex-col bg-[#0c0c0c]">
 
       {/* ── Browser chrome ─────────────────────────────────────────────── */}
       <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/[0.05] bg-[#0c0c0c] px-3 py-2">
@@ -165,7 +165,7 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
 
       {/* ── Preview canvas ─────────────────────────────────────────────── */}
       <div
-        className="relative flex flex-1 items-start justify-center overflow-auto bg-[#0f0f0f]"
+        className="relative flex flex-1 items-center justify-center overflow-auto bg-[#0f0f0f]"
         style={{
           backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)",
           backgroundSize: "24px 24px",
