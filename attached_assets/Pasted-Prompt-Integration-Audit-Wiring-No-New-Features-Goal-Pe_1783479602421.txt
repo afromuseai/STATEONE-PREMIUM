@@ -1,0 +1,193 @@
+Prompt — Integration Audit & Wiring (No New Features)
+Goal
+
+Perform a comprehensive architecture audit of both Website Generator and Website Studio to identify every location where the new Marcus architecture exists but is not connected to the live execution flow.
+
+This is an integration task, not a feature task.
+
+Do not build new capabilities.
+
+Do not create new prompts.
+
+Do not add new abstractions.
+
+The objective is to wire the existing Marcus architecture into the application's real execution path.
+
+Scope
+
+Audit both systems completely:
+
+1. Website Generator
+
+Trace the complete lifecycle from:
+
+User prompt
+Generate button
+generateWithIdea()
+generateV2Core()
+SSE reader
+Backend route
+Architect
+Code Generator
+Database save
+Success navigation
+
+For every stage determine:
+
+Is MarcusController involved?
+Is MarcusTaskBus involved?
+Is MarcusConversationEngine involved?
+Is agent SSE emitted?
+Is the UI consuming it?
+Is any old implementation still bypassing Marcus?
+2. Website Studio
+
+Audit the entire workspace including:
+
+Chat pane
+Conversation rendering
+Streaming renderer
+File explorer
+Editor
+Preview
+Terminal
+WebContainer integration
+Edit pipeline
+AI edit route
+File modifications
+Timeline (if any)
+Activity panel (if any)
+
+Determine whether each subsystem is driven by:
+
+Marcus
+Legacy pipeline
+Placeholder implementation
+Mock implementation
+Direct SSE
+Static UI
+Required Output
+
+Produce a complete integration report.
+
+For every subsystem include:
+
+Current Owner
+
+Example:
+
+Website Generator Progress
+
+Owner:
+Legacy generateV2Core()
+Desired Owner
+
+Example:
+
+Marcus Controller
+Integration Status
+
+One of:
+
+Connected
+
+Partially Connected
+
+Disconnected
+
+Legacy Only
+Required Wiring
+
+List the exact files and functions that must be modified.
+
+Blocking Dependencies
+
+If any.
+
+Chat Pane Audit
+
+Specifically audit the Website Studio chat.
+
+Answer:
+
+Where do chat messages originate?
+Are they MarcusConversation events?
+Are they directly rendered SSE?
+Are they placeholders?
+Are they simulated?
+Does streaming come from the backend or frontend?
+Is typing animation fake or token-based?
+Are messages stored?
+Are events replayable after refresh?
+Can file activity be attached to messages?
+Can task events be attached?
+Can terminal output be attached?
+Streaming Audit
+
+Determine whether streaming currently represents:
+
+LLM token stream
+Backend progress events
+Simulated typing
+Frontend timers
+Static messages
+
+Identify every place where streaming bypasses Marcus.
+
+Task Bus Audit
+
+Verify whether MarcusTaskBus is actually used.
+
+If not, identify every place where events should be emitted instead of directly calling ConversationEngine.
+
+Conversation Engine Audit
+
+Verify whether ConversationEngine is:
+
+producing events
+
+or
+
+actually driving UI conversation.
+
+Determine every missing connection.
+
+Marcus Controller Audit
+
+Determine whether MarcusController currently orchestrates anything.
+
+If it exists but is unused, identify exactly where control should be transferred.
+
+Deliverables
+
+Return:
+
+1. Architecture ownership map
+
+Every major subsystem and its current owner.
+
+2. Wiring gaps
+
+Every missing integration.
+
+3. Legacy code still in control
+
+Every place where old code still owns execution.
+
+4. Recommended wiring order
+
+Ordered from highest impact to lowest impact.
+
+Important
+
+This is an audit only.
+
+Do not implement changes.
+
+Do not create new files.
+
+Do not refactor.
+
+Do not add features.
+
+The purpose is to understand why the Marcus architecture currently feels disconnected and produce a precise wiring plan before any further implementation.
