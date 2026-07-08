@@ -45,6 +45,7 @@ import {
   MarcusConversationEngine,
 } from "../lib/agents/marcus-conversation";
 import type { ConversationEvent } from "../lib/agents/marcus-conversation";
+import { MarcusTaskBus } from "../lib/agents/marcus-task-bus";
 
 const router = Router();
 
@@ -372,16 +373,41 @@ router.post(
     // Accumulates ConversationEvents and flushes them to SSE via flushEngine().
     const engine = new MarcusConversationEngine();
 
-    req.log.info(
-      { layer: "v2:pipeline", stage: "request_start", userId },
-      "[v2:pipeline] ── Website V2 pipeline started ──"
-    );
+    // ── Marcus Task Bus — one instance per request ─────────────────────────────
+    // Single source of truth for every execution action during generation.
+    // A subscriber translates bus events into SSE writes (preserving all
+    // existing frame shapes) and replaces scattered req.log.info milestone calls.
+    // No globals. No singletons. Lifetime = this request only.
+    const bus = new MarcusTaskBus();
+    const unsubscribeBus = bus.subscribe((event) => {
+      // llm:architect_start running → { phase: "start", model, industry }
+      if (event.category === "llm" && event.action === "architect_start" && event.status === "running") {
+        sseWrite(res, {
+          phase:    "start",
+          model:    String(event.metadata.model    ?? ARCHITECT_MODEL),
+          industry: String(event.metadata.industry ?? ""),
+        });
+      }
+      // database:save_project completed → { phase: "project-created", projectId }
+      if (event.category === "database" && event.action === "save_project" && event.status === "completed") {
+        const pid = event.metadata.projectId;
+        if (pid) sseWrite(res, { phase: "project-created", projectId: String(pid) });
+      }
+      // database:save_files completed → { phase: "project-saved", projectId }
+      if (event.category === "database" && event.action === "save_files" && event.status === "completed") {
+        const pid = event.metadata.projectId;
+        if (pid) sseWrite(res, { phase: "project-saved", projectId: String(pid) });
+      }
+    });
+
+    bus.emit("pipeline", "start", "running", { userId }, "pipeline");
 
     try {
       const body = req.body as Record<string, unknown>;
 
       // ── Input validation ────────────────────────────────────────────────────
       if (!body.idea || typeof body.idea !== "string" || !String(body.idea).trim()) {
+        bus.emit("pipeline", "error", "failed", { error: "NO_IDEA", userId }, "pipeline");
         sseWrite(res, {
           phase: "error",
           message: "No business idea provided. Please describe your business.",
@@ -394,23 +420,16 @@ router.post(
       // ── Assemble BusinessContext ────────────────────────────────────────────
       const context = extractBusinessContext(body);
 
-      req.log.info(
-        { userId, industry: context.industry, ideaLength: context.idea.length },
-        "[v2:architect] Starting Website Architect V2 — Phase 1 + Persistence"
-      );
-
       // ── Create project record (Phase 3) ─────────────────────────────────────
+      bus.emit("database", "save_project", "running", { userId, industry: context.industry, ideaLength: context.idea.length }, "pipeline");
       const projectId = await createV2Project(userId, context);
-      if (projectId) {
-        sseWrite(res, { phase: "project-created", projectId });
-      }
-
-      // ── Signal start to client ──────────────────────────────────────────────
-      sseWrite(res, {
-        phase: "start",
-        model: ARCHITECT_MODEL,
-        industry: context.industry,
-      });
+      bus.emit(
+        "database", "save_project",
+        projectId ? "completed" : "failed",
+        { projectId: projectId ?? undefined, userId, industry: context.industry, ideaLength: context.idea.length },
+        "pipeline",
+      );
+      // ↑ subscriber writes sseWrite({ phase: "project-created", projectId }) when completed
 
       // Marcus: UNDERSTAND phase begins — narrate the architect LLM work.
       engine.emitPhaseStart("UNDERSTAND");
@@ -421,17 +440,14 @@ router.post(
       // Each content chunk is forwarded as { phase: "architect", content: "..." }
       // so the client can show a live typing indicator.
       const architectStart = Date.now();
-      req.log.info(
-        {
-          layer:       "v2:architect",
-          stage:       "llm_start",
-          model:       ARCHITECT_MODEL,
-          maxTokens:   3000,
-          userId,
-          elapsedMsPipeline: Date.now() - pipelineStart,
-        },
-        "[v2:architect] ── Architect LLM stream started ──"
-      );
+      bus.emit("llm", "architect_start", "running", {
+        model:             ARCHITECT_MODEL,
+        maxTokens:         3000,
+        userId,
+        industry:          context.industry,
+        elapsedMsPipeline: Date.now() - pipelineStart,
+      }, "architect");
+      // ↑ subscriber writes sseWrite({ phase: "start", model, industry })
 
       const stream = await streamNvidia({
         model:       ARCHITECT_MODEL,
@@ -526,20 +542,16 @@ router.post(
       }
 
       const architectMs = Date.now() - architectStart;
-      req.log.info(
-        {
-          layer:             "v2:architect",
-          stage:             "llm_end",
-          architectMs,
-          bufLen:            buffer.length,
-          elapsedMsPipeline: Date.now() - pipelineStart,
-          thinkingWasActive: thinkingSent,
-        },
-        `[v2:architect] ── Architect LLM stream ended in ${architectMs}ms — ${buffer.length} chars ──`
-      );
+      bus.emit("llm", "architect_complete", "completed", {
+        model:             ARCHITECT_MODEL,
+        durationMs:        architectMs,
+        bufLen:            buffer.length,
+        elapsedMsPipeline: Date.now() - pipelineStart,
+        thinkingWasActive: thinkingSent,
+      }, "architect");
 
       if (!buffer || buffer.length < 50) {
-        req.log.error({ userId, bufLen: buffer.length }, "[v2:architect] Empty response from Architect Agent");
+        bus.emit("pipeline", "error", "failed", { error: "EMPTY_RESPONSE", bufLen: buffer.length, userId }, "architect");
         engine.emitError("UNDERSTAND", "Generation stopped — the architecture agent returned an empty response. Please try again.");
         flushEngine(engine, res);
         sseWrite(res, {
@@ -553,26 +565,19 @@ router.post(
 
       // ── Parse blueprint ──────────────────────────────────────────────────────
       const blueprintParseStart = Date.now();
-      req.log.info(
-        { layer: "v2:blueprint", stage: "parse_start", bufLen: buffer.length },
-        "[v2:blueprint] ── Blueprint JSON parse started ──"
-      );
+      bus.emit("validation", "blueprint", "running", { bufLen: buffer.length }, "blueprint-parse");
       let blueprint: WebsiteBlueprint;
       try {
         blueprint = extractJson(buffer) as WebsiteBlueprint;
       } catch (parseErr) {
-        req.log.error(
-          {
-            layer:      "v2:blueprint",
-            stage:      "parse_failed",
-            blueprintParseMs: Date.now() - blueprintParseStart,
-            userId,
-            parseErr,
-            bufLen:     buffer.length,
-            bufSnippet: buffer.slice(0, 200),
-          },
-          "[v2:architect] Blueprint JSON parse failed"
-        );
+        bus.emit("validation", "blueprint", "failed", {
+          durationMs: Date.now() - blueprintParseStart,
+          error:      String(parseErr),
+          bufLen:     buffer.length,
+          bufSnippet: buffer.slice(0, 200),
+          userId,
+        }, "blueprint-parse");
+        bus.emit("pipeline", "error", "failed", { error: "PARSE_ERROR", userId }, "blueprint-parse");
         engine.emitError("UNDERSTAND", "Generation stopped while parsing the architecture blueprint. I'm collecting diagnostic information.");
         flushEngine(engine, res);
         sseWrite(res, {
@@ -584,25 +589,17 @@ router.post(
         return;
       }
 
-      req.log.info(
-        {
-          layer:            "v2:blueprint",
-          stage:            "parse_ok",
-          blueprintParseMs: Date.now() - blueprintParseStart,
-          projectType:      (blueprint as unknown as Record<string,unknown>)?.projectType,
-          pageCount:        Array.isArray((blueprint as unknown as Record<string,unknown>)?.pages)
-                              ? ((blueprint as unknown as Record<string,unknown>).pages as unknown[]).length
-                              : 0,
-        },
-        `[v2:blueprint] ── Blueprint JSON parsed in ${Date.now() - blueprintParseStart}ms ──`
-      );
+      bus.emit("validation", "blueprint", "completed", {
+        durationMs:  Date.now() - blueprintParseStart,
+        projectType: String((blueprint as unknown as Record<string,unknown>)?.projectType ?? ""),
+        pageCount:   Array.isArray((blueprint as unknown as Record<string,unknown>)?.pages)
+                       ? ((blueprint as unknown as Record<string,unknown>).pages as unknown[]).length
+                       : 0,
+      }, "blueprint-parse");
 
       // ── Validate blueprint schema ────────────────────────────────────────────
       const blueprintValidateStart = Date.now();
-      req.log.info(
-        { layer: "v2:blueprint", stage: "validate_start" },
-        "[v2:blueprint] ── Blueprint schema validation started ──"
-      );
+      bus.emit("validation", "schema", "running", {}, "schema-validate");
 
       // Fix: runtime schema guard — validate required fields before emitting.
       // extractJson succeeds but the model may omit required keys or produce
@@ -679,17 +676,14 @@ router.post(
 
       const blueprintValidateMs = Date.now() - blueprintValidateStart;
       if (schemaErrors.length > 0) {
-        req.log.error(
-          {
-            layer:              "v2:blueprint",
-            stage:              "validate_failed",
-            blueprintValidateMs,
-            schemaErrors,
-            bufSnippet:         buffer.slice(0, 300),
-            userId,
-          },
-          `[v2:blueprint] Blueprint schema validation FAILED in ${blueprintValidateMs}ms — ${schemaErrors.length} error(s)`
-        );
+        bus.emit("validation", "schema", "failed", {
+          durationMs:  blueprintValidateMs,
+          error:       schemaErrors.join(", "),
+          errorCount:  schemaErrors.length,
+          bufSnippet:  buffer.slice(0, 300),
+          userId,
+        }, "schema-validate");
+        bus.emit("pipeline", "error", "failed", { error: "SCHEMA_ERROR", schemaErrorCount: schemaErrors.length, userId }, "schema-validate");
         engine.emitError("UNDERSTAND", "Generation stopped while validating the project architecture. I'm collecting diagnostic information.");
         flushEngine(engine, res);
         sseWrite(res, {
@@ -701,18 +695,13 @@ router.post(
         return;
       }
 
-      req.log.info(
-        {
-          layer:              "v2:blueprint",
-          stage:              "validate_ok",
-          blueprintValidateMs,
-          projectType:        blueprint.projectType,
-          pageCount:          blueprint.pages?.length ?? 0,
-          componentCount:     blueprint.pages?.reduce((n, p) => n + (p.components?.length ?? 0), 0) ?? 0,
-          elapsedMsPipeline:  Date.now() - pipelineStart,
-        },
-        `[v2:blueprint] ── Blueprint schema valid in ${blueprintValidateMs}ms — ${blueprint.pages?.length ?? 0} pages ──`
-      );
+      bus.emit("validation", "schema", "completed", {
+        durationMs:        blueprintValidateMs,
+        projectType:       blueprint.projectType,
+        pageCount:         blueprint.pages?.length ?? 0,
+        componentCount:    blueprint.pages?.reduce((n, p) => n + (p.components?.length ?? 0), 0) ?? 0,
+        elapsedMsPipeline: Date.now() - pipelineStart,
+      }, "schema-validate");
 
       // Marcus: UNDERSTAND phase complete — we have a validated blueprint.
       // Then emit a brief PLAN thought to narrate the transition to code generation.
@@ -723,20 +712,12 @@ router.post(
       // ── Save blueprint (Phase 3) ─────────────────────────────────────────────
       const blueprintSaveStart = Date.now();
       if (projectId) {
-        req.log.info(
-          { layer: "v2:blueprint", stage: "save_start", projectId },
-          "[v2:blueprint] ── Blueprint DB save started ──"
-        );
+        bus.emit("database", "save_blueprint", "running", { projectId }, "architect");
         await saveBlueprint(projectId, blueprint);
-        req.log.info(
-          {
-            layer:            "v2:blueprint",
-            stage:            "save_ok",
-            blueprintSaveMs:  Date.now() - blueprintSaveStart,
-            projectId,
-          },
-          `[v2:blueprint] ── Blueprint saved to DB in ${Date.now() - blueprintSaveStart}ms ──`
-        );
+        bus.emit("database", "save_blueprint", "completed", {
+          projectId,
+          durationMs: Date.now() - blueprintSaveStart,
+        }, "architect");
       }
 
       sseWrite(res, { phase: "blueprint", data: blueprint });
@@ -985,18 +966,13 @@ router.post(
 
       // ── Phase 2: Code Generation Agent ──────────────────────────────────────
       const codegenStart = Date.now();
-      req.log.info(
-        {
-          layer:             "v2:codegen",
-          stage:             "llm_start",
-          model:             CODE_GENERATOR_MODEL,
-          projectId:         projectId ?? "(none)",
-          pageCount:         blueprint.pages?.length ?? 0,
-          componentCount:    blueprint.pages?.reduce((n, p) => n + (p.components?.length ?? 0), 0) ?? 0,
-          elapsedMsPipeline: Date.now() - pipelineStart,
-        },
-        "[v2:codegen] ── Code Generation LLM started ──"
-      );
+      bus.emit("llm", "codegen_start", "running", {
+        model:             CODE_GENERATOR_MODEL,
+        projectId:         projectId ?? undefined,
+        pageCount:         blueprint.pages?.length ?? 0,
+        componentCount:    blueprint.pages?.reduce((n, p) => n + (p.components?.length ?? 0), 0) ?? 0,
+        elapsedMsPipeline: Date.now() - pipelineStart,
+      }, "codegen");
 
       // Emit building phase-start signal (no content = signal only)
       sseWrite(res, { phase: "building" });
@@ -1021,29 +997,24 @@ router.post(
           (best, f) => f.content.length > best.size ? { path: f.path, size: f.content.length } : best,
           { path: "(none)", size: 0 }
         );
-        req.log.info(
-          {
-            layer:             "v2:codegen",
-            stage:             "llm_end",
-            codegenMs,
-            elapsedMsPipeline: Date.now() - pipelineStart,
-            fileCount:         project.files.length,
-            depCount:          project.dependencies.length,
-            totalChars,
-            largestFilePath:   largestFile.path,
-            largestFileChars:  largestFile.size,
-            previewLen:        project.preview.length,
-            projectId:         projectId ?? "(none)",
-            // Bottleneck flag: flag if codegen took over 3 minutes or output is very large
-            bottleneckFlag:
-              codegenMs > 180_000          ? "SLOW_MODEL_OVER_3MIN" :
-              codegenMs > 60_000           ? "SLOW_MODEL_OVER_1MIN" :
-              totalChars > 500_000         ? "LARGE_OUTPUT_OVER_500K" :
-              largestFile.size > 100_000   ? "LARGE_SINGLE_FILE_OVER_100K" :
-              "OK",
-          },
-          `[v2:codegen] ── Code Generation done in ${codegenMs}ms — ${project.files.length} files, ${totalChars} chars, largest: ${largestFile.path} (${largestFile.size} chars) ──`
-        );
+        bus.emit("llm", "codegen_complete", "completed", {
+          model:             CODE_GENERATOR_MODEL,
+          durationMs:        codegenMs,
+          elapsedMsPipeline: Date.now() - pipelineStart,
+          fileCount:         project.files.length,
+          depCount:          project.dependencies.length,
+          totalChars,
+          largestFilePath:   largestFile.path,
+          largestFileChars:  largestFile.size,
+          previewLen:        project.preview.length,
+          projectId:         projectId ?? undefined,
+          bottleneckFlag:
+            codegenMs > 180_000          ? "SLOW_MODEL_OVER_3MIN" :
+            codegenMs > 60_000           ? "SLOW_MODEL_OVER_1MIN" :
+            totalChars > 500_000         ? "LARGE_OUTPUT_OVER_500K" :
+            largestFile.size > 100_000   ? "LARGE_SINGLE_FILE_OVER_100K" :
+            "OK",
+        }, "codegen");
 
         // ── Infrastructure file injection ──────────────────────────────────────
         // The code gen prompt is constrained to 8 component/page files and does
@@ -1052,8 +1023,9 @@ router.post(
         // Inject canonical boilerplate for any missing infrastructure files so
         // the mounted project is always runnable without changing the AI output scope.
 
-        // Marcus: emit a file event for every LLM-generated file, then flush once.
+        // Emit filesystem events for every LLM-generated file, then flush narration once.
         for (const f of project.files) {
+          bus.emit("filesystem", "create_file", "completed", { path: f.path }, "codegen");
           engine.emitFileOperation(f.path, "create", "BUILD");
         }
         flushEngine(engine, res);
@@ -1061,6 +1033,7 @@ router.post(
         const existingPaths = new Set(project.files.map((f) => f.path));
 
         if (!existingPaths.has("package.json")) {
+          bus.emit("filesystem", "create_file", "completed", { path: "package.json", operation: "injected" }, "build");
           engine.emitWarning("BUILD", "The generated project doesn't include package.json. Creating it automatically.");
           engine.emitFileOperation("package.json", "create", "BUILD");
           flushEngine(engine, res);
@@ -1098,6 +1071,7 @@ router.post(
         }
 
         if (!existingPaths.has("tailwind.config.ts")) {
+          bus.emit("filesystem", "create_file", "completed", { path: "tailwind.config.ts", operation: "injected" }, "build");
           engine.emitWarning("BUILD", "The generated project doesn't include tailwind.config.ts. Creating it automatically.");
           engine.emitFileOperation("tailwind.config.ts", "create", "BUILD");
           flushEngine(engine, res);
@@ -1119,6 +1093,7 @@ router.post(
         }
 
         if (!existingPaths.has("tsconfig.json")) {
+          bus.emit("filesystem", "create_file", "completed", { path: "tsconfig.json", operation: "injected" }, "build");
           engine.emitWarning("BUILD", "The generated project doesn't include tsconfig.json. Creating it automatically.");
           engine.emitFileOperation("tsconfig.json", "create", "BUILD");
           flushEngine(engine, res);
@@ -1152,6 +1127,7 @@ router.post(
         }
 
         if (!existingPaths.has("postcss.config.mjs")) {
+          bus.emit("filesystem", "create_file", "completed", { path: "postcss.config.mjs", operation: "injected" }, "build");
           engine.emitWarning("BUILD", "The generated project doesn't include postcss.config.mjs. Creating it automatically.");
           engine.emitFileOperation("postcss.config.mjs", "create", "BUILD");
           flushEngine(engine, res);
@@ -1175,29 +1151,25 @@ router.post(
 
       } catch (codeErr) {
         const codegenMs = Date.now() - codegenStart;
-        req.log.error(
-          {
-            layer:     "v2:codegen",
-            stage:     "llm_failed",
-            err:       String(codeErr),
-            errName:   codeErr instanceof Error ? codeErr.name : "unknown",
-            errMsg:    codeErr instanceof Error ? codeErr.message : String(codeErr),
-            userId,
-            projectId: projectId ?? "(none)",
-            codegenMs,
-            elapsedMsPipeline: Date.now() - pipelineStart,
-            failureCategory:
-              String(codeErr).includes("JSON parse failed")  ? "JSON_PARSE_ERROR"       :
-              String(codeErr).includes("schema errors")      ? "SCHEMA_VALIDATION_ERROR" :
-              String(codeErr).includes("empty response")     ? "EMPTY_RESPONSE"          :
-              String(codeErr).includes("HTTP 4")             ? "NVIDIA_HTTP_ERROR"       :
-              String(codeErr).includes("HTTP 5")             ? "NVIDIA_HTTP_ERROR"       :
-              String(codeErr).includes("TimeoutError")       ? "TIMEOUT"                 :
-              String(codeErr).includes("AbortError")         ? "ABORTED"                 :
-              "UNKNOWN",
-          },
-          `[v2:codegen] ── FAILURE after ${codegenMs}ms — ${String(codeErr).slice(0, 300)} ──`
-        );
+        const failureCategory =
+          String(codeErr).includes("JSON parse failed")  ? "JSON_PARSE_ERROR"        :
+          String(codeErr).includes("schema errors")      ? "SCHEMA_VALIDATION_ERROR" :
+          String(codeErr).includes("empty response")     ? "EMPTY_RESPONSE"          :
+          String(codeErr).includes("HTTP 4")             ? "NVIDIA_HTTP_ERROR"       :
+          String(codeErr).includes("HTTP 5")             ? "NVIDIA_HTTP_ERROR"       :
+          String(codeErr).includes("TimeoutError")       ? "TIMEOUT"                 :
+          String(codeErr).includes("AbortError")         ? "ABORTED"                 :
+          "UNKNOWN";
+        bus.emit("pipeline", "error", "failed", {
+          error:             String(codeErr),
+          errName:           codeErr instanceof Error ? codeErr.name    : "unknown",
+          errMsg:            codeErr instanceof Error ? codeErr.message : String(codeErr),
+          userId,
+          projectId:         projectId ?? undefined,
+          durationMs:        codegenMs,
+          elapsedMsPipeline: Date.now() - pipelineStart,
+          failureCategory,
+        }, "codegen");
         if (projectId) await markProjectFailed(projectId, String(codeErr));
         engine.emitError("BUILD", "Generation stopped while building the project. I'm collecting diagnostic information.");
         flushEngine(engine, res);
@@ -1218,15 +1190,10 @@ router.post(
       // ── Save generated files (Phase 3) ──────────────────────────────────────
       const dbSaveStart = Date.now();
       if (projectId) {
-        req.log.info(
-          {
-            layer:     "v2:db",
-            stage:     "save_start",
-            projectId,
-            fileCount: project.files.length,
-          },
-          "[v2:db] ── DB save started ──"
-        );
+        bus.emit("database", "save_files", "running", {
+          projectId,
+          fileCount: project.files.length,
+        }, "persist");
         await saveGeneratedFiles(
           projectId,
           project.files,
@@ -1235,17 +1202,12 @@ router.post(
         );
         const dbSaveMs = Date.now() - dbSaveStart;
         project = { ...project, projectId };
-        req.log.info(
-          {
-            layer:     "v2:db",
-            stage:     "save_ok",
-            dbSaveMs,
-            projectId,
-            fileCount: project.files.length,
-          },
-          `[v2:db] ── DB save complete in ${dbSaveMs}ms ──`
-        );
-        sseWrite(res, { phase: "project-saved", projectId });
+        bus.emit("database", "save_files", "completed", {
+          projectId,
+          durationMs: dbSaveMs,
+          fileCount:  project.files.length,
+        }, "persist");
+        // ↑ subscriber writes sseWrite({ phase: "project-saved", projectId })
       }
 
       // ── Pipeline complete — emit final summary log before SSE done ───────────
@@ -1256,29 +1218,16 @@ router.post(
           f.content.length > best.size ? { path: f.path, size: f.content.length } : best,
         { path: "(none)", size: 0 }
       );
-      req.log.info(
-        {
-          layer:             "v2:pipeline",
-          stage:             "pipeline_done",
-          totalPipelineMs,
-          architectMs:       Date.now() - architectStart - (Date.now() - codegenStart),  // approximate
-          codegenMs:         Date.now() - codegenStart,
-          dbSaveMs:          Date.now() - dbSaveStart,
-          fileCount:         project.files.length,
-          depCount:          project.dependencies.length,
-          totalChars:        totalCharsAll,
-          largestFilePath:   largestFileAll.path,
-          largestFileChars:  largestFileAll.size,
-          projectId:         projectId ?? "(none)",
-          userId,
-        },
-        `[v2:pipeline] ══ PIPELINE COMPLETE in ${totalPipelineMs}ms — ${project.files.length} files, ${totalCharsAll} total chars, largest: ${largestFileAll.path} (${largestFileAll.size} chars) ══`
-      );
-
-      req.log.info(
-        { layer: "v2:pipeline", stage: "sse_done", projectId: projectId ?? "(none)" },
-        "[v2:pipeline] Sending SSE done event"
-      );
+      bus.emit("pipeline", "finish", "completed", {
+        durationMs:        totalPipelineMs,
+        fileCount:         project.files.length,
+        depCount:          project.dependencies.length,
+        totalChars:        totalCharsAll,
+        largestFilePath:   largestFileAll.path,
+        largestFileChars:  largestFileAll.size,
+        projectId:         projectId ?? undefined,
+        userId,
+      }, "pipeline");
       // Marcus: REPORT phase complete — entire pipeline finished.
       engine.emitPhaseComplete("REPORT", Date.now() - pipelineStart);
       engine.emitDone(Date.now() - pipelineStart);
@@ -1296,7 +1245,11 @@ router.post(
         ? "The Architect Agent timed out — the AI service is busy. Please try again."
         : "An unexpected error occurred in the Website Architect. Please try again.";
 
-      req.log.error({ err: String(err), isTimeout, userId }, "[v2:architect] Unhandled error");
+      bus.emit("pipeline", "error", "failed", {
+        error:     String(err),
+        isTimeout,
+        userId,
+      }, "pipeline");
 
       // Best-effort: mark project failed if we created one
       // (projectId may not be in scope here if the error happened before creation;
@@ -1309,6 +1262,11 @@ router.post(
       } else {
         res.status(500).json({ error: message });
       }
+    } finally {
+      // Tear down the per-request bus: remove the subscriber and discard history.
+      // This prevents memory leaks and ensures no cross-request event delivery.
+      unsubscribeBus();
+      bus.clear();
     }
   }
 );

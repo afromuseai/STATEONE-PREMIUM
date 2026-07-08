@@ -51,7 +51,13 @@ export type LlmAction =
   | "codegen_start"
   | "codegen_complete";
 
-export type ValidationAction = "typescript" | "eslint" | "next_build" | "preview";
+export type ValidationAction =
+  | "typescript"
+  | "eslint"
+  | "next_build"
+  | "preview"
+  | "blueprint"   // Architect JSON parse + schema check
+  | "schema";     // Runtime blueprint schema validation
 
 export type DatabaseAction = "save_project" | "save_blueprint" | "save_files";
 

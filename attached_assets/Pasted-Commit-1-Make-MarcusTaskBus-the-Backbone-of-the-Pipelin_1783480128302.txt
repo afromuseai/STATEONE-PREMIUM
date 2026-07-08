@@ -1,0 +1,206 @@
+Commit 1 — Make MarcusTaskBus the Backbone of the Pipeline
+Objective
+
+Replace direct event emission throughout the Website Generator pipeline with MarcusTaskBus.
+
+The Task Bus should become the single source of truth for every action occurring during generation.
+
+This is an integration/refactor commit.
+
+Do not change prompts.
+
+Do not add features.
+
+Do not change UI.
+
+Do not change LLM behavior.
+
+Only replace execution ownership.
+
+Current Problem
+
+Today the route directly performs work like:
+
+emitting SSE
+emitting conversation events
+logging
+reporting file creation
+reporting database saves
+
+This creates multiple independent event sources.
+
+Instead, every action should first become a Task Bus event.
+
+Everything else listens to the Task Bus.
+
+New Architecture
+
+Instead of:
+
+Route
+ ├── emit SSE
+ ├── ConversationEngine
+ ├── logger
+ └── file events
+
+The route becomes:
+
+Route
+      │
+      ▼
+MarcusTaskBus
+      │
+      ├── ConversationEngine
+      ├── SSE Writer
+      ├── Logger
+      ├── Activity Stream
+      └── Future subscribers
+
+The route should never narrate work directly.
+
+Scope
+
+Only integrate the Website Generator route.
+
+Do not touch the edit route yet.
+
+Step 1
+
+Instantiate exactly one MarcusTaskBus for every generation request.
+
+It should exist for the entire lifetime of the request.
+
+No globals.
+
+No singleton.
+
+Per-request only.
+
+Step 2
+
+Emit real events instead of direct reporting.
+
+Replace every lifecycle milestone with Task Bus emissions.
+
+Examples include:
+
+Pipeline
+
+generation started
+generation completed
+generation failed
+request cancelled
+
+LLM
+
+architect started
+architect completed
+code generation started
+code generation completed
+token stream started
+token stream completed
+
+Filesystem
+
+file created
+file updated
+infrastructure injected
+
+Database
+
+project created
+blueprint saved
+project saved
+generation marked failed
+
+Validation
+
+blueprint validated
+project validated
+schema validated
+Step 3
+
+Every emitted event must contain rich metadata.
+
+Examples:
+
+{
+    projectId,
+    userId,
+    phase,
+    timestamp,
+    durationMs,
+    model,
+    filePath,
+    componentName,
+    tokenCount,
+    estimatedTokens,
+    simplified,
+    operation,
+    reason
+}
+
+Populate every field that is naturally available.
+
+Do not invent values.
+
+Step 4
+
+Create a temporary subscriber inside the route.
+
+This subscriber should ONLY:
+
+forward events to the existing SSE stream
+preserve current behavior
+
+Do not redesign SSE.
+
+Do not redesign ConversationEngine.
+
+The purpose is compatibility.
+
+Step 5
+
+Logging
+
+Replace scattered logging with Task Bus events.
+
+Logs should originate from the subscriber.
+
+Not from the route.
+
+Step 6
+
+Remove duplicated reporting.
+
+After this refactor the route should no longer manually emit:
+
+file activity
+pipeline activity
+database activity
+
+Those should originate from the Task Bus.
+
+Do NOT
+
+Do not modify:
+
+Marcus prompts
+Conversation templates
+Website Studio
+Frontend
+Editor
+Activity panel
+Controller logic
+Success Criteria
+
+At the end of this commit:
+
+every generation request owns one MarcusTaskBus
+every major lifecycle action emits through the bus
+SSE continues to function unchanged
+no user-visible behavior changes
+no prompt changes
+no new features
+no regression in generation
+existing tests and TypeScript remain clean
