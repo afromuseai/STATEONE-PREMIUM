@@ -1,0 +1,164 @@
+PHASE 1 — COMMIT 5
+Marcus Task Bus (Internal Execution Events)
+Goal
+
+Introduce an internal Task Bus beneath the Marcus Conversation Engine.
+
+The Task Bus becomes the single source of truth for all execution activity.
+
+Marcus Conversation must never invent work.
+
+Instead, Marcus observes Task Bus events and converts them into natural language for the user.
+
+This separates execution from presentation and creates the foundation for autonomous engineering.
+
+Create
+artifacts/api-server/src/lib/agents/marcus-task-bus.ts
+Responsibilities
+
+Create a lightweight event bus responsible for broadcasting execution events occurring during website generation.
+
+The bus must not know anything about SSE, UI, React, Website Studio, or LLM prompts.
+
+It only represents execution.
+
+Event Categories
+
+Support the following categories:
+
+filesystem
+terminal
+llm
+validation
+database
+webcontainer
+browser
+pipeline
+tool
+Event Structure
+
+Every event must contain:
+
+id
+timestamp
+category
+action
+status
+metadata
+phase
+
+where
+
+status is one of
+
+queued
+running
+completed
+failed
+Supported Actions
+
+The initial implementation should support at minimum:
+
+Filesystem
+
+read_file
+open_file
+create_file
+update_file
+delete_file
+rename_file
+
+Terminal
+
+run_command
+stdout
+stderr
+
+LLM
+
+architect_start
+architect_complete
+
+codegen_start
+codegen_complete
+
+Validation
+
+typescript
+eslint
+next_build
+preview
+
+Database
+
+save_project
+save_blueprint
+save_files
+
+Pipeline
+
+start
+
+finish
+
+error
+Bus API
+
+Expose methods similar to:
+
+emit()
+
+subscribe()
+
+unsubscribe()
+
+history()
+
+clear()
+
+The bus must allow multiple listeners.
+
+Marcus Conversation will become one listener.
+
+Future WebContainer integration will become another.
+
+Website Studio Timeline will become another.
+
+Event History
+
+Maintain an in-memory history for the current request.
+
+History must preserve ordering.
+
+History should be retrievable at any time.
+
+Logging
+
+Every emitted event should produce a structured log.
+
+Example:
+
+[MARCUS][TASK]
+
+category=filesystem
+
+action=create_file
+
+status=completed
+
+path=components/Hero.tsx
+Do NOT
+
+Do not modify
+
+generate-website-v2.ts
+
+Do not modify
+
+MarcusConversationEngine
+
+Do not change any prompts.
+
+Do not introduce SSE.
+
+This commit creates only the internal execution layer.
