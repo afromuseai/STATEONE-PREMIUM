@@ -1,0 +1,299 @@
+Commit 4 — Replace Website Studio Edit Pipeline With Marcus Runtime
+Objective
+
+Make Website Studio Chat use the same Marcus architecture.
+
+Current:
+
+User instruction
+
+↓
+
+EditorChatPanel.tsx
+
+↓
+
+edit-website-v2.ts
+
+↓
+
+LLM
+
+↓
+
+raw SSE messages
+
+↓
+
+Chat UI
+
+New:
+
+User instruction
+
+↓
+
+Marcus Runtime
+
+↓
+
+MarcusController
+
+↓
+
+TaskBus
+
+↓
+
+ConversationEngine
+
+↓
+
+SSE
+
+↓
+
+Chat UI
+Scope
+
+Only modify the Website Studio edit flow.
+
+Do not modify:
+
+Website Generator
+Generation prompts
+WebContainer
+Monaco editor
+Preview
+Terminal
+Step 1 — Create Marcus Runtime for Edit Requests
+
+Inside:
+
+edit-website-v2.ts
+
+Create:
+
+MarcusTaskBus
+MarcusConversationEngine
+MarcusController
+
+per request.
+
+No global instances.
+
+Step 2 — Connect User Request to Marcus
+
+The user instruction:
+
+Example:
+
+"Change the hero section to a luxury design"
+
+should become a Marcus task context:
+
+{
+ projectId,
+ userId,
+ idea,
+ businessContext,
+ currentFiles,
+ instruction
+}
+
+Marcus should understand:
+
+what the user wants
+current project structure
+affected files
+expected outcome
+Step 3 — Create Edit Agent Workflow
+
+Add a dedicated edit flow:
+
+UNDERSTAND
+
+↓
+
+Inspect current files
+
+↓
+
+PLAN
+
+↓
+
+Decide modifications
+
+↓
+
+BUILD
+
+↓
+
+Modify files
+
+↓
+
+TEST
+
+↓
+
+Validate
+
+↓
+
+REPORT
+
+↓
+
+Explain changes
+Step 4 — Connect File Operations
+
+Every modification must emit:
+
+Example:
+
+{
+ type:"file",
+ operation:"update",
+ path:"components/Hero.tsx",
+ phase:"BUILD"
+}
+
+The user should see:
+
+"Updating components/Hero.tsx"
+
+and later be able to click it.
+
+Step 5 — Connect Tool/Action Narration
+
+Examples:
+
+Instead of:
+
+Generating...
+
+show:
+
+Marcus:
+"I’m reviewing the existing Hero component."
+
+Marcus:
+"I found the current layout uses a standard SaaS pattern."
+
+Marcus:
+"I'm replacing it with a premium conversion-focused layout."
+
+Marcus:
+"Updating components/Hero.tsx"
+
+Marcus:
+"Testing the preview."
+
+These messages must come from real events.
+
+No timers.
+
+No fake typing.
+
+Step 6 — Replace EditorChatPanel SSE Handling
+
+Currently:
+
+phase
+content
+done
+
+The frontend should consume:
+
+ConversationEvent
+
+Types:
+
+message
+action
+step
+file
+warning
+error
+complete
+Step 7 — Preserve Existing Editing
+
+The final file modification system stays.
+
+Marcus does not directly edit Monaco.
+
+Flow remains:
+
+Marcus decision
+
+↓
+
+FileModification[]
+
+↓
+
+existing editor update mechanism
+
+↓
+
+WebContainer refresh
+Step 8 — Add Permission-Free Execution Rule
+
+Add this behavior to Marcus system instructions:
+
+When a user explicitly requests a modification:
+
+Example:
+
+"Change the hero section"
+
+Marcus should execute immediately.
+
+Do not ask:
+
+"Would you like me to proceed?"
+
+Only ask when:
+
+destructive operation
+unclear requirement
+missing critical information
+security-sensitive action
+Verification
+
+After this commit:
+
+User opens Website Studio.
+
+Types:
+
+"Make this website look more premium."
+
+Expected:
+
+Marcus:
+"I'll analyze the current design system."
+
+Marcus:
+"Reviewing Hero.tsx"
+
+[file event]
+components/Hero.tsx
+
+Marcus:
+"Updating typography and spacing."
+
+[file event]
+components/globals.css
+
+Marcus:
+"Testing the updated preview."
+
+complete
+
+The preview updates.
+
+The chat history shows what happened.
