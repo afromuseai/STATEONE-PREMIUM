@@ -58,6 +58,10 @@ scripts/          # Seed + post-merge utilities
 docs/             # Roadmap and design docs
 ```
 
+## Setup status
+
+Imported project fully configured and verified running (July 2026): dependencies installed via pnpm, database schema pushed with drizzle-kit, and all three workflows (frontend, API server, mockup sandbox) confirmed healthy. Secrets `SESSION_SECRET`, `JWT_SECRET`, `NVIDIA_API_KEY` are set.
+
 ## User preferences
 
 _None recorded yet._
