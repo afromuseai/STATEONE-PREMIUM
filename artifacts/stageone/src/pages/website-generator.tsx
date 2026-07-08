@@ -569,6 +569,16 @@ export default function WebsiteGeneratorPage() {
             const comps = bpData?.pages?.[0]?.components?.map((c: { name: string }) => c.name) ?? []
             if (comps.length > 0) setBlueprintComponents(comps)
           }
+          if (phase === "design-review") {
+            setV2GenPhase("design-review")
+          }
+          if (phase === "blueprint-updated") {
+            setV2GenPhase("blueprint-updated")
+            // Update component list if design review changed the blueprint
+            const bpData = msg.data as { pages?: { components?: { name: string }[] }[] } | null
+            const comps = bpData?.pages?.[0]?.components?.map((c: { name: string }) => c.name) ?? []
+            if (comps.length > 0) setBlueprintComponents(comps)
+          }
           if (phase === "building") {
             setV2GenPhase("building")
             setGenStep(2)

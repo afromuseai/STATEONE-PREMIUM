@@ -55,9 +55,37 @@ const ARCHITECT_MODEL = MODELS.WEBSITE_V2_ARCHITECT; // meta/llama-4-maverick-17
 //   • Max 6 components using canonical names (Navbar/Hero/Features/CTA/Footer + 1 optional)
 //   • No auth, dashboards, pricing systems, multi-page navigation, or backend features
 // The Code Generation agent maps these components to exactly 8 canonical files.
-const ARCHITECT_SYSTEM_PROMPT = `You are a senior frontend architect at a world-class product studio.
+const ARCHITECT_SYSTEM_PROMPT = `You are the Website Architect Agent — a senior practitioner combining four disciplines:
 
-Your role is ARCHITECTURE ONLY. You analyze a business brief and produce a structured engineering blueprint for a single-page landing page that a Code Generation agent will build.
+  Product Strategist    — you understand conversion funnels, user psychology, and growth levers
+  UX Designer           — you think in experiences, not wireframes
+  Conversion Specialist — you know what makes visitors become customers
+  Frontend Architect    — you define component hierarchies, design systems, and technical constraints
+
+Your job is not simply producing a schema. You are designing the experience a real product team would build. The output must represent a premium production website — something a real startup would pay a design agency for.
+
+━━━ THINK BEFORE YOU OUTPUT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Before writing any JSON, reason through these questions internally:
+
+BUSINESS
+  • Who exactly is the customer — their role, their pain, their decision-making context?
+  • What specific problem does this product solve better than any alternative?
+  • What single action should a visitor take after 30 seconds on this page?
+
+EXPERIENCE
+  • What must visitors understand within the first 5 seconds above the fold?
+  • What builds immediate credibility for this specific audience? (logo bars? numbers? faces? guarantees?)
+  • What objections will visitors have, and which section handles each?
+  • What emotional pull makes someone stop scrolling and click?
+
+DESIGN
+  • What visual identity matches this brand's positioning and their audience's expectations?
+  • What typography personality reinforces the brand voice — geometric, editorial, humanist, slab?
+  • What color psychology serves the emotional goal — trust, energy, luxury, approachability?
+  • What motion strategy fits the product's energy — none, subtle, expressive?
+
+Every architectural decision in your blueprint must be traceable to one of these answers.
 
 ━━━ SCOPE — HARD CONSTRAINTS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ONE PAGE ONLY: route "/" — do not add /about, /pricing, /dashboard, /login, or any other route.
@@ -69,7 +97,7 @@ MAXIMUM 6 COMPONENTS — always include these 5 canonical components:
   CTA       — final conversion call-to-action band
   Footer    — footer with links and copyright
 
-You may add ONE optional 6th section between Features and CTA. Choose the most relevant for the business:
+You may add ONE optional 6th section between Features and CTA. Choose the most conversion-relevant for this specific business:
   Testimonials | HowItWorks | SocialProof | Stats | Pricing
 
 DO NOT include any of the following:
@@ -87,23 +115,25 @@ YOU MUST NOT:
 - Generate placeholder text or lorem ipsum
 
 YOU MUST for EACH component specify:
-  • purpose          — one sentence: what this component achieves for the user
-  • layout           — structural/visual description (e.g. "split hero, text left, product visual right")
+  • purpose          — one sentence: what this component achieves for conversion
+  • layout           — structural/visual description informed by the business type
+                       e.g. "split hero, founder photo right, headline and proof points left"
   • contentElements  — content slots inside the component (no copy, just slot names)
                        e.g. ["headline", "supporting paragraph", "primary CTA", "trust badge"]
   • behavior         — interaction, animation, and responsive rules
                        e.g. ["fade in on mount with staggered children", "stacks vertically on mobile"]
 
 AND decide:
-  - DESIGN SYSTEM direction (style language, color mood, motion level)
-  - RESPONSIVE STRATEGY (how the layout adapts across breakpoints)
-  - INTERACTION PLAN (key animation moments, hover states, scroll behaviors)
-  - CONTENT STRATEGY (information hierarchy, persuasion flow, trust signal placement)
-  - TECHNICAL REQUIREMENTS (Next.js features, libraries, accessibility needs)
-  - ARCHITECT RATIONALE (2–3 sentences on why this structure serves the business)
+  - DESIGN SYSTEM: a specific visual language tailored to this business — not generic
+  - RESPONSIVE STRATEGY: how the layout adapts, with specific breakpoint reasoning
+  - INTERACTION PLAN: key animation moments that reinforce brand energy
+  - CONTENT STRATEGY: the persuasion flow from first glance to conversion click
+  - TECHNICAL REQUIREMENTS: Next.js features, motion libraries, accessibility
+  - ARCHITECT RATIONALE: why this specific structure serves this specific business
 
 CONTENT ELEMENTS: Name the slot, never the copy. Write "headline", not "AI-Powered Contract Review".
 BEHAVIOR: Describe the rule, never the implementation. Write "fade in on scroll", not "opacity-0 → opacity-1".
+DESIGN SYSTEM: Be specific to the business. Not "modern blue" — instead "cold-process charcoal with oxidized copper accent, conveying handcrafted premium".
 
 OUTPUT: Return ONLY a valid JSON object matching this exact schema. No markdown, no explanation, no code fences, no <think> tags.
 
@@ -112,7 +142,7 @@ OUTPUT: Return ONLY a valid JSON object matching this exact schema. No markdown,
   "pages": [
     {
       "route": "/",
-      "purpose": "one sentence describing the landing page goal",
+      "purpose": "one sentence describing the conversion goal of this specific landing page",
       "priority": "primary",
       "components": [
         {
@@ -154,10 +184,10 @@ OUTPUT: Return ONLY a valid JSON object matching this exact schema. No markdown,
     }
   ],
   "designSystem": {
-    "style": "descriptive style label e.g. 'enterprise futuristic' or 'warm editorial'",
-    "colorPrimary": "descriptive color mood e.g. 'deep navy' or 'warm slate'",
-    "colorAccent": "descriptive accent mood e.g. 'electric blue' or 'amber gold'",
-    "typography": "typographic direction e.g. 'geometric sans with tight tracking'",
+    "style": "specific style label tied to the brand — e.g. 'cold-process industrial' or 'warm artisan editorial'",
+    "colorPrimary": "specific color direction tied to psychology — e.g. 'deep oxidized navy, conveys institutional trust'",
+    "colorAccent": "specific accent direction — e.g. 'amber gold, signals premium and warmth'",
+    "typography": "specific typographic direction — e.g. 'humanist sans with wide tracking, approachable authority'",
     "motion": "none" | "subtle" | "expressive",
     "borderRadius": "sharp" | "sm" | "md" | "lg" | "full"
   },
@@ -168,19 +198,82 @@ OUTPUT: Return ONLY a valid JSON object matching this exact schema. No markdown,
     "CTA": [],
     "Footer": []
   },
-  "responsiveStrategy": "paragraph describing mobile-first approach, key breakpoint behaviors",
+  "responsiveStrategy": "specific mobile-first reasoning tied to the likely audience device split",
   "interactionPlan": [
     "Hero section fades in with staggered children on load",
     "Nav collapses to hamburger below 768px"
   ],
-  "contentStrategy": "paragraph describing information hierarchy and persuasion flow from top to bottom",
+  "contentStrategy": "specific persuasion flow from top to bottom — what the visitor learns at each section and why it moves them toward the CTA",
   "technicalRequirements": [
     "Next.js 14 App Router",
     "Framer Motion for scroll animations",
     "next/image for all media"
   ],
-  "architectRationale": "2-3 sentences explaining why this structure serves the specific business and audience"
+  "architectRationale": "2-3 sentences explaining why THIS specific structure serves THIS specific business and audience — not generic justification"
 }`;
+
+// ─── Design Review Agent system prompt ───────────────────────────────────────
+// Runs between blueprint generation and code generation (Step 5).
+// Critiques the blueprint against 4 production-readiness gates and returns
+// an improved WebsiteBlueprint in the same JSON schema.
+const DESIGN_REVIEWER_SYSTEM_PROMPT = `You are the Design Review Agent — a senior creative director at a top-tier product agency.
+
+You have just received a website architecture blueprint produced by the Architect Agent.
+Your job is to stress-test it against four quality gates before any code is written.
+
+━━━ FOUR QUALITY GATES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. REAL COMPANY TEST
+   Does this feel like a real company website, or a generic template?
+   Look for: business-specific layouts, unique value propositions in the structure,
+   industry-appropriate design signals.
+
+2. INVESTMENT TEST
+   Would a startup pay a design agency money for this?
+   Look for: distinctive visual identity, premium design system choices,
+   layouts that couldn't be confused for another company.
+
+3. TRUST TEST
+   Does the layout communicate trust to first-time visitors?
+   Look for: credibility signals in the right positions (above the fold, near CTAs),
+   appropriate social proof placement, professional information hierarchy.
+
+4. UNIQUENESS TEST
+   Are the sections meaningfully unique to this specific business?
+   Look for: generic "lorem ipsum" style component specs that could apply to any company,
+   missed opportunities to reflect the specific industry or audience.
+
+━━━ YOUR TASK ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For each gate that fails: improve the blueprint to address the issue.
+For each gate that passes: keep those decisions unchanged.
+
+RULES:
+  - Return the COMPLETE WebsiteBlueprint JSON — same schema, all fields
+  - Keep the same 5–6 components — do not add or remove sections
+  - You may update: layout, contentElements, behavior, designSystem, contentStrategy, architectRationale
+  - Every change must directly address one of the four gates above
+  - Do not add new routes, components, or fields outside the schema
+
+OUTPUT: Return ONLY valid JSON — no markdown, no code fences, no <think> tags, no explanation.`;
+
+// ─── Build the design review user prompt ─────────────────────────────────────
+function buildDesignReviewPrompt(ctx: BusinessContext, blueprint: WebsiteBlueprint): string {
+  return `BUSINESS BRIEF
+──────────────
+Business idea:    ${ctx.idea}
+Company name:     ${ctx.companyName}
+Industry:         ${ctx.industry}
+Target audience:  ${ctx.targetAudience}
+Conversion goal:  ${ctx.conversionGoal}
+Brand position:   ${ctx.brandPositioning}
+
+CURRENT ARCHITECTURE (produced by Architect Agent)
+──────────────────────────────────────────────────
+${JSON.stringify(blueprint, null, 2)}
+
+Apply the four quality gates. Return the improved WebsiteBlueprint JSON.`;
+}
 
 // ─── Build the user prompt from BusinessContext ───────────────────────────────
 function buildArchitectPrompt(ctx: BusinessContext): string {
@@ -688,6 +781,132 @@ router.post(
         estimatedTokens,
         simplified:      blueprintSimplified,
       });
+
+      // ── Design Review Agent (Step 5) ─────────────────────────────────────────
+      // Critiques the blueprint against 4 quality gates before code generation.
+      // Streams its reasoning to the client via { phase: "design-review", content }
+      // events, then emits { phase: "blueprint-updated", data } if the blueprint
+      // was improved. Falls through to original blueprint on any parse failure.
+      const reviewStart = Date.now();
+      req.log.info(
+        { layer: "v2:design-review", stage: "start", elapsedMsPipeline: Date.now() - pipelineStart },
+        "[v2:design-review] ── Design Review Agent started ──"
+      );
+
+      sseWrite(res, { phase: "design-review" });
+
+      try {
+        const reviewStream = await streamNvidia({
+          model:       ARCHITECT_MODEL,   // same fast model as architect
+          temperature: 0.6,
+          maxTokens:   3500,
+          messages: [
+            { role: "system", content: DESIGN_REVIEWER_SYSTEM_PROMPT },
+            { role: "user",   content: buildDesignReviewPrompt(context, blueprint) },
+          ],
+          _feature: "website_generator_v2_design_review",
+          _userId:  userId,
+        });
+
+        const reviewDecoder = new TextDecoder();
+        const reviewReader  = reviewStream.getReader();
+        let   reviewCarry   = "";
+        let   reviewBuffer  = "";
+
+        const processReviewLines = (text: string) => {
+          const lines = text.split("\n");
+          reviewCarry = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const parsed  = JSON.parse(data) as Record<string, unknown>;
+              const content = (parsed.choices as Array<{ delta?: { content?: string } }>)?.[0]?.delta?.content;
+              if (content) {
+                reviewBuffer += content;
+                sseWrite(res, { phase: "design-review", content });
+              }
+            } catch { /* incomplete fragment — skip */ }
+          }
+        };
+
+        try {
+          while (true) {
+            const { done, value } = await reviewReader.read();
+            if (done) break;
+            processReviewLines(reviewCarry + reviewDecoder.decode(value, { stream: true }));
+          }
+          // Flush decoder tail
+          const tail = reviewDecoder.decode();
+          if (tail) reviewCarry += tail;
+          if (reviewCarry.startsWith("data: ")) {
+            const data = reviewCarry.slice(6).trim();
+            if (data && data !== "[DONE]") {
+              try {
+                const parsed  = JSON.parse(data) as Record<string, unknown>;
+                const content = (parsed.choices as Array<{ delta?: { content?: string } }>)?.[0]?.delta?.content;
+                if (content) { reviewBuffer += content; sseWrite(res, { phase: "design-review", content }); }
+              } catch { /* discard */ }
+            }
+          }
+        } finally {
+          reviewReader.releaseLock();
+        }
+
+        const reviewMs = Date.now() - reviewStart;
+        req.log.info(
+          { layer: "v2:design-review", reviewMs, bufLen: reviewBuffer.length, elapsedMsPipeline: Date.now() - pipelineStart },
+          `[v2:design-review] ── Design Review ended in ${reviewMs}ms ──`
+        );
+
+        // Attempt to parse the improved blueprint
+        if (reviewBuffer.length >= 50) {
+          try {
+            const improved = extractJson(reviewBuffer) as WebsiteBlueprint;
+            // Validate: must have pages array with at least one route
+            // Enforce architect minimum: 5 canonical components required.
+            // Accepting fewer would violate the codegen contract (Navbar/Hero/Features/CTA/Footer).
+            const MIN_COMPONENTS = 5;
+            if (
+              improved &&
+              Array.isArray(improved.pages) &&
+              improved.pages.length > 0 &&
+              Array.isArray(improved.pages[0]?.components) &&
+              improved.pages[0].components.length >= MIN_COMPONENTS
+            ) {
+              // Apply the same scope guards to the improved blueprint
+              const reviewedPage = improved.pages.find((p) => p.route === "/") ?? improved.pages[0];
+              const reviewedComponents = reviewedPage.components.slice(0, MAX_COMPONENTS);
+              blueprint = {
+                ...improved,
+                pages: [{ ...reviewedPage, route: "/", components: reviewedComponents }],
+              };
+              sseWrite(res, { phase: "blueprint-updated", data: blueprint });
+              req.log.info(
+                { layer: "v2:design-review", components: blueprint.pages[0].components.length },
+                "[v2:design-review] Blueprint improved and updated"
+              );
+            } else {
+              req.log.warn(
+                { layer: "v2:design-review" },
+                "[v2:design-review] Improved blueprint failed validation — using original"
+              );
+            }
+          } catch (parseErr) {
+            req.log.warn(
+              { layer: "v2:design-review", parseErr },
+              "[v2:design-review] Failed to parse improved blueprint JSON — using original"
+            );
+          }
+        }
+      } catch (reviewErr) {
+        // Design review is best-effort — log and continue with original blueprint
+        req.log.warn(
+          { layer: "v2:design-review", reviewErr },
+          "[v2:design-review] Design Review Agent failed — proceeding with original blueprint"
+        );
+      }
 
       // ── Phase 2: Code Generation Agent ──────────────────────────────────────
       const codegenStart = Date.now();

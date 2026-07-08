@@ -167,6 +167,13 @@ export type V2SseEvent =
    * Summarises the blueprint's complexity and signals whether it was trimmed.
    */
   | { phase: "blueprint-summary"; components: number; files: number; estimatedTokens: number; simplified: boolean }
+  /**
+   * Design Review Agent (Step 5): reviews the blueprint against 4 quality gates
+   * before the code generation phase begins. content chunks stream the agent's
+   * reasoning; blueprint-updated carries the improved blueprint when it changes.
+   */
+  | { phase: "design-review";     content?: string }
+  | { phase: "blueprint-updated"; data: WebsiteBlueprint }
   | { phase: "building";          content?: string }
   | { phase: "project-saved";     projectId: string }
   | { phase: "done";              projectId: string; data: GeneratedProject }

@@ -32,11 +32,13 @@ function phaseToActive(phase: string): AgentId {
     case "start":
     case "project-created":   // DB record created — pipeline hasn't moved yet
       return "marcus"
-    // Phase 1: architect LLM
+    // Phase 1: architect LLM + Design Review (runs between blueprint and codegen)
     case "thinking":
     case "architect":
     case "blueprint":
     case "blueprint-summary":
+    case "design-review":
+    case "blueprint-updated":
       return "architect"
     // Phase 2: code generation LLM
     case "building":
