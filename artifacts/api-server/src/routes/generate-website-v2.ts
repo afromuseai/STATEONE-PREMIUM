@@ -41,6 +41,10 @@ import type {
   WebsiteBlueprint,
   V2SseEvent,
 } from "../lib/website-v2-types";
+import {
+  MarcusConversationEngine,
+} from "../lib/agents/marcus-conversation";
+import type { ConversationEvent } from "../lib/agents/marcus-conversation";
 
 const router = Router();
 
@@ -319,6 +323,36 @@ function sseWrite(res: import("express").Response, event: V2SseEvent): void {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
 }
 
+// ─── Marcus Conversation helpers ──────────────────────────────────────────────
+// Emit a single ConversationEvent over SSE and mirror it to the backend log.
+// The log line matches the pattern: [MARCUS] conversation event type=… phase=… path=…
+function sseWriteAgent(res: import("express").Response, event: ConversationEvent): void {
+  sseWrite(res, { phase: "agent", event });
+  logger.info(
+    {
+      tag:       "[MARCUS]",
+      type:      event.type,
+      phase:     event.phase,
+      ...(event.metadata?.path      !== undefined && { path:      event.metadata.path }),
+      ...(event.metadata?.operation !== undefined && { operation: event.metadata.operation }),
+      ...(event.metadata?.status    !== undefined && { status:    event.metadata.status }),
+    },
+    `[MARCUS] conversation event type=${event.type} phase=${event.phase ?? "global"}${event.metadata?.path ? ` path=${String(event.metadata.path)}` : ""}`,
+  );
+}
+
+// Drain the engine buffer and stream every accumulated event to the client.
+// Always call this immediately after emitting engine events so the client
+// receives them in the same order they were produced.
+function flushEngine(
+  engine: MarcusConversationEngine,
+  res:    import("express").Response,
+): void {
+  for (const ev of engine.collect()) {
+    sseWriteAgent(res, ev);
+  }
+}
+
 // ─── Route ────────────────────────────────────────────────────────────────────
 router.post(
   "/generate/website-v2",
@@ -333,6 +367,10 @@ router.post(
 
     const userId = req.user?.userId ?? "";
     const pipelineStart = Date.now();
+
+    // Marcus Conversation Engine — one instance per request.
+    // Accumulates ConversationEvents and flushes them to SSE via flushEngine().
+    const engine = new MarcusConversationEngine();
 
     req.log.info(
       { layer: "v2:pipeline", stage: "request_start", userId },
@@ -373,6 +411,10 @@ router.post(
         model: ARCHITECT_MODEL,
         industry: context.industry,
       });
+
+      // Marcus: UNDERSTAND phase begins — narrate the architect LLM work.
+      engine.emitPhaseStart("UNDERSTAND");
+      flushEngine(engine, res);
 
       // ── Phase 1: Website Architect Agent ────────────────────────────────────
       // Stream the architect agent's JSON generation token-by-token.
@@ -498,6 +540,8 @@ router.post(
 
       if (!buffer || buffer.length < 50) {
         req.log.error({ userId, bufLen: buffer.length }, "[v2:architect] Empty response from Architect Agent");
+        engine.emitError("UNDERSTAND", "Generation stopped — the architecture agent returned an empty response. Please try again.");
+        flushEngine(engine, res);
         sseWrite(res, {
           phase:   "error",
           message: "The Architect Agent returned an empty response. Please try again.",
@@ -529,6 +573,8 @@ router.post(
           },
           "[v2:architect] Blueprint JSON parse failed"
         );
+        engine.emitError("UNDERSTAND", "Generation stopped while parsing the architecture blueprint. I'm collecting diagnostic information.");
+        flushEngine(engine, res);
         sseWrite(res, {
           phase:   "error",
           message: "Failed to parse the architecture blueprint. Please try again.",
@@ -644,6 +690,8 @@ router.post(
           },
           `[v2:blueprint] Blueprint schema validation FAILED in ${blueprintValidateMs}ms — ${schemaErrors.length} error(s)`
         );
+        engine.emitError("UNDERSTAND", "Generation stopped while validating the project architecture. I'm collecting diagnostic information.");
+        flushEngine(engine, res);
         sseWrite(res, {
           phase:   "error",
           message: `The architecture blueprint is incomplete (${schemaErrors.join(", ")}). Please try again.`,
@@ -665,6 +713,12 @@ router.post(
         },
         `[v2:blueprint] ── Blueprint schema valid in ${blueprintValidateMs}ms — ${blueprint.pages?.length ?? 0} pages ──`
       );
+
+      // Marcus: UNDERSTAND phase complete — we have a validated blueprint.
+      // Then emit a brief PLAN thought to narrate the transition to code generation.
+      engine.emitPhaseComplete("UNDERSTAND");
+      engine.emitMessage(null, "Preparing the implementation...");
+      flushEngine(engine, res);
 
       // ── Save blueprint (Phase 3) ─────────────────────────────────────────────
       const blueprintSaveStart = Date.now();
@@ -782,6 +836,19 @@ router.post(
         simplified:      blueprintSimplified,
       });
 
+      // Marcus: narrate the blueprint outcome before design review begins.
+      engine.emitAction(
+        null,
+        `Architecture complete. ${finalComponents} reusable component${finalComponents === 1 ? "" : "s"} selected. Estimated generation size: ${finalFiles} file${finalFiles === 1 ? "" : "s"}.`,
+      );
+      if (blueprintSimplified) {
+        engine.emitWarning(
+          null,
+          "The original architecture was too large. I've simplified it to ensure reliable generation.",
+        );
+      }
+      flushEngine(engine, res);
+
       // ── Design Review Agent (Step 5) ─────────────────────────────────────────
       // Critiques the blueprint against 4 quality gates before code generation.
       // Streams its reasoning to the client via { phase: "design-review", content }
@@ -792,6 +859,10 @@ router.post(
         { layer: "v2:design-review", stage: "start", elapsedMsPipeline: Date.now() - pipelineStart },
         "[v2:design-review] ── Design Review Agent started ──"
       );
+
+      // Marcus: DESIGN phase begins — narrate the design review work.
+      engine.emitPhaseStart("DESIGN");
+      flushEngine(engine, res);
 
       sseWrite(res, { phase: "design-review" });
 
@@ -908,6 +979,10 @@ router.post(
         );
       }
 
+      // Marcus: DESIGN phase complete — design review finished (success or best-effort).
+      engine.emitPhaseComplete("DESIGN");
+      flushEngine(engine, res);
+
       // ── Phase 2: Code Generation Agent ──────────────────────────────────────
       const codegenStart = Date.now();
       req.log.info(
@@ -925,6 +1000,10 @@ router.post(
 
       // Emit building phase-start signal (no content = signal only)
       sseWrite(res, { phase: "building" });
+
+      // Marcus: BUILD phase begins — narrate the code generation work.
+      engine.emitPhaseStart("BUILD");
+      flushEngine(engine, res);
 
       let project;
       try {
@@ -972,9 +1051,19 @@ router.post(
         // WebContainer requires package.json to run `npm install` and `npm run dev`.
         // Inject canonical boilerplate for any missing infrastructure files so
         // the mounted project is always runnable without changing the AI output scope.
+
+        // Marcus: emit a file event for every LLM-generated file, then flush once.
+        for (const f of project.files) {
+          engine.emitFileOperation(f.path, "create", "BUILD");
+        }
+        flushEngine(engine, res);
+
         const existingPaths = new Set(project.files.map((f) => f.path));
 
         if (!existingPaths.has("package.json")) {
+          engine.emitWarning("BUILD", "The generated project doesn't include package.json. Creating it automatically.");
+          engine.emitFileOperation("package.json", "create", "BUILD");
+          flushEngine(engine, res);
           const deps: Record<string, string> = {
             next: "14.2.5",
             react: "^18",
@@ -1009,6 +1098,9 @@ router.post(
         }
 
         if (!existingPaths.has("tailwind.config.ts")) {
+          engine.emitWarning("BUILD", "The generated project doesn't include tailwind.config.ts. Creating it automatically.");
+          engine.emitFileOperation("tailwind.config.ts", "create", "BUILD");
+          flushEngine(engine, res);
           project.files.push({
             path:      "tailwind.config.ts",
             operation: "create",
@@ -1027,6 +1119,9 @@ router.post(
         }
 
         if (!existingPaths.has("tsconfig.json")) {
+          engine.emitWarning("BUILD", "The generated project doesn't include tsconfig.json. Creating it automatically.");
+          engine.emitFileOperation("tsconfig.json", "create", "BUILD");
+          flushEngine(engine, res);
           project.files.push({
             path:      "tsconfig.json",
             operation: "create",
@@ -1057,6 +1152,9 @@ router.post(
         }
 
         if (!existingPaths.has("postcss.config.mjs")) {
+          engine.emitWarning("BUILD", "The generated project doesn't include postcss.config.mjs. Creating it automatically.");
+          engine.emitFileOperation("postcss.config.mjs", "create", "BUILD");
+          flushEngine(engine, res);
           project.files.push({
             path:      "postcss.config.mjs",
             operation: "create",
@@ -1070,6 +1168,10 @@ router.post(
           });
           req.log.info({ layer: "v2:inject" }, "[v2:inject] Injected postcss.config.mjs");
         }
+
+        // Marcus: BUILD phase complete — all files generated and infrastructure injected.
+        engine.emitPhaseComplete("BUILD");
+        flushEngine(engine, res);
 
       } catch (codeErr) {
         const codegenMs = Date.now() - codegenStart;
@@ -1097,6 +1199,8 @@ router.post(
           `[v2:codegen] ── FAILURE after ${codegenMs}ms — ${String(codeErr).slice(0, 300)} ──`
         );
         if (projectId) await markProjectFailed(projectId, String(codeErr));
+        engine.emitError("BUILD", "Generation stopped while building the project. I'm collecting diagnostic information.");
+        flushEngine(engine, res);
         sseWrite(res, {
           phase:   "error",
           message: "The Code Generation Agent failed to produce a valid project. Please try again.",
@@ -1105,6 +1209,11 @@ router.post(
         res.end();
         return;
       }
+
+      // Marcus: REPORT phase begins — project is being persisted.
+      engine.emitPhaseStart("REPORT");
+      engine.emitMessage("REPORT", "Saving your project...");
+      flushEngine(engine, res);
 
       // ── Save generated files (Phase 3) ──────────────────────────────────────
       const dbSaveStart = Date.now();
@@ -1170,6 +1279,11 @@ router.post(
         { layer: "v2:pipeline", stage: "sse_done", projectId: projectId ?? "(none)" },
         "[v2:pipeline] Sending SSE done event"
       );
+      // Marcus: REPORT phase complete — entire pipeline finished.
+      engine.emitPhaseComplete("REPORT", Date.now() - pipelineStart);
+      engine.emitDone(Date.now() - pipelineStart);
+      flushEngine(engine, res);
+
       sseWrite(res, { phase: "done", projectId: projectId ?? "", data: project });
       res.end();
 

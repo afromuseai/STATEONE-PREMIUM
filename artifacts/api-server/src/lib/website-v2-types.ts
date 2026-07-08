@@ -1,4 +1,5 @@
 // ─── Website Architect V2 — Shared Types ─────────────────────────────────────
+import type { ConversationEvent } from "./agents/marcus-conversation";
 // These types define the V2 pipeline data contracts.
 // V1 types (WebsiteOutput, etc.) in website-html-generator.ts are untouched.
 //
@@ -177,7 +178,9 @@ export type V2SseEvent =
   | { phase: "building";          content?: string }
   | { phase: "project-saved";     projectId: string }
   | { phase: "done";              projectId: string; data: GeneratedProject }
-  | { phase: "error";             message: string; code?: string };
+  | { phase: "error";             message: string; code?: string }
+  /** Marcus Conversation Engine events — narrate real agent work alongside generation. */
+  | { phase: "agent";             event: ConversationEvent };
 
 // SSE events from the editing route.
 export type V2EditSseEvent =
