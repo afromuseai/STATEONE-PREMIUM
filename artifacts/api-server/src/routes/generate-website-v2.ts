@@ -221,7 +221,7 @@ router.post(
 //
 // SSE event shapes: see StreamAgentSseEvent in marcus-stream-agent.ts
 router.post(
-  "/website-v2/stream",
+  "/generate/website-v2/stream",
   requireAuth,
   requireFeature("website_generator"),
   async (req, res): Promise<void> => {
