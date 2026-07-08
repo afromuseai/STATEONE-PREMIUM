@@ -44,8 +44,10 @@ function escCssColor(s: string, fallback: string): string {
 }
 
 // ─── Model assignment ─────────────────────────────────────────────────────────
-// Nemotron Ultra 550B: frontier code generation with extended thinking enabled.
-export const CODE_GENERATOR_MODEL = MODELS.COMPONENT_GENERATION;
+// A/B test: stepfun-ai/step-3.7-flash — fast, large-context code generation.
+// MODELS.COMPONENT_GENERATION (nvidia/nemotron-3-ultra-550b-a55b) was the prior model;
+// switching here without touching models.ts keeps the editor/preview routes unchanged.
+export const CODE_GENERATOR_MODEL = "stepfun-ai/step-3.7-flash";
 
 // ─── Language inference from file extension ───────────────────────────────────
 function inferLanguage(path: string): string {
@@ -645,7 +647,7 @@ export async function generateProjectCode(
       userId,
       model: CODE_GENERATOR_MODEL,
       maxTokens: 16000,
-      thinkingDisabled: true,
+      thinkingDisabled: false,
       userPromptLen: userPrompt.length,
       systemPromptLen: CODE_GENERATOR_SYSTEM_PROMPT.length,
       company: ctx.companyName,
@@ -656,19 +658,13 @@ export async function generateProjectCode(
     "[v2:codegen] STAGE ENTERED: Code Generation Agent"
   );
 
-  // ── FIX: disable extended thinking for code generation ──────────────────────
-  // MODEL_KWARGS for nemotron-3-ultra-550b-a55b defaults to
-  //   { enable_thinking: true, reasoning_budget: 16384 }
-  // At ~32ms/token that thinking phase alone takes ~524 seconds (8.7 min),
-  // causing the stream to time out before any output token is produced.
-  // Code generation is structured JSON fill-in — it does not benefit from
-  // extended reasoning. Override chatTemplateKwargs to disable thinking so
-  // all token budget goes directly to content output.
+  // A/B test: stepfun-ai/step-3.7-flash — no special kwargs needed.
+  // (Previous model, nemotron-3-ultra-550b-a55b, required chatTemplateKwargs
+  //  { enable_thinking: false } to prevent an ~8-min thinking timeout.)
   const stream = await streamNvidia({
-    model:              CODE_GENERATOR_MODEL,
-    temperature:        0.4,
-    maxTokens:          16000,
-    chatTemplateKwargs: { enable_thinking: false },
+    model:       CODE_GENERATOR_MODEL,
+    temperature: 0.4,
+    maxTokens:   16000,
     messages: [
       { role: "system", content: CODE_GENERATOR_SYSTEM_PROMPT },
       { role: "user",   content: userPrompt },
