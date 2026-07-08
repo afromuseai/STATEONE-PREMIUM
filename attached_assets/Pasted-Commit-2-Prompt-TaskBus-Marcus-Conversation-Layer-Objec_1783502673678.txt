@@ -1,0 +1,240 @@
+Commit 2 Prompt — TaskBus → Marcus Conversation Layer
+Objective
+
+Connect MarcusConversationEngine as a subscriber of MarcusTaskBus.
+
+The Conversation Engine should no longer receive manually created events from routes.
+
+It should translate real execution events into human-readable Marcus conversations.
+
+Do not modify prompts.
+
+Do not modify LLM execution.
+
+Do not modify generation behavior.
+
+Only connect the event architecture.
+
+Current Problem
+
+The pipeline now emits real events through:
+
+MarcusTaskBus
+
+but the user-facing narration still depends on manual calls like:
+
+engine.emitPhaseStart()
+engine.emitMessage()
+engine.emitFileOperation()
+
+This creates duplicate event ownership.
+
+The TaskBus should own truth.
+
+The ConversationEngine should interpret truth.
+
+Required Architecture
+
+Implement:
+
+MarcusTaskBus
+
+      |
+      |
+      v
+
+MarcusConversationEngine subscriber
+
+      |
+      |
+      v
+
+ConversationEvent stream
+
+      |
+      |
+      v
+
+SSE agent events
+Step 1 — Add TaskBus subscription
+
+Create a method:
+
+attachTaskBus(bus: MarcusTaskBus)
+
+inside:
+
+marcus-conversation.ts
+
+The engine should subscribe to:
+
+pipeline events
+LLM events
+filesystem events
+validation events
+database events
+Step 2 — Translate events into conversation
+
+Examples:
+
+LLM
+
+TaskBus:
+
+category:"llm"
+action:"architect_start"
+status:"running"
+
+becomes:
+
+"I’m designing the website architecture based on your business requirements."
+
+TaskBus:
+
+category:"llm"
+action:"codegen_complete"
+status:"completed"
+
+becomes:
+
+"The application structure is ready. I generated the required components and files."
+Files
+
+TaskBus:
+
+filesystem
+create_file
+components/Hero.tsx
+
+becomes:
+
+"Creating Hero component"
+
+with attached metadata:
+
+{
+ path:"components/Hero.tsx",
+ operation:"create"
+}
+Database
+
+TaskBus:
+
+database
+save_files
+completed
+
+becomes:
+
+"Saving the completed project workspace."
+Step 3 — Preserve structured events
+
+Do not convert everything into text.
+
+The ConversationEvent should maintain:
+
+{
+ type,
+ message,
+ phase,
+ metadata,
+ timestamp
+}
+
+File events must remain clickable later.
+
+Example:
+
+{
+ type:"file",
+ message:"Creating Hero.tsx",
+ metadata:{
+   path:"components/Hero.tsx"
+ }
+}
+Step 4 — Remove duplicate manual narration
+
+After the TaskBus subscription works:
+
+Remove redundant:
+
+emitPhaseStart()
+emitPhaseComplete()
+emitFileOperation()
+
+calls from:
+
+generate-website-v2.ts
+
+The route should only emit TaskBus events.
+
+Step 5 — Connect SSE
+
+The existing SSE should forward:
+
+ConversationEvent
+
+through:
+
+phase:"agent"
+
+without changing other SSE phases.
+
+Example:
+
+{
+ phase:"agent",
+ event:{
+   type:"message",
+   message:"Creating Hero component"
+ }
+}
+Step 6 — Verification
+
+Confirm:
+
+generation still works
+TaskBus emits events
+ConversationEngine receives events
+SSE contains agent events
+no duplicate messages
+no prompt changes
+no frontend changes yet
+Do NOT
+
+Do not:
+
+change Website Studio UI
+change EditorChatPanel
+add database persistence
+replace SSE completely
+modify MarcusController
+modify prompts
+Success Criteria
+
+After this commit:
+
+A generation run should produce a real event stream like:
+
+Marcus:
+"I’m analyzing your business idea."
+
+Marcus:
+"Designing website architecture."
+
+Marcus:
+"Creating components/Navbar.tsx"
+
+Marcus:
+"Creating components/Hero.tsx"
+
+Marcus:
+"Validating generated files."
+
+Marcus:
+"Saving your project workspace."
+
+Marcus:
+"Your website is ready."
+
+Every message must be generated from actual pipeline events, not timers or hardcoded progress.

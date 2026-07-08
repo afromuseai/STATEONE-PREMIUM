@@ -27,6 +27,7 @@
 // accumulated events for SSE forwarding, persistence, or replay.
 
 import crypto from "crypto";
+import type { MarcusTaskBus, TaskEvent, Unsubscribe } from "./marcus-task-bus";
 
 // ─── Phase identifier ─────────────────────────────────────────────────────────
 // Mirrors MarcusAgentPhase from marcus-website-agent.ts.
@@ -573,6 +574,126 @@ export class MarcusConversationEngine {
    */
   reset(): void {
     this._events = [];
+  }
+
+  // ─── TaskBus integration ───────────────────────────────────────────────────
+
+  /**
+   * Subscribe this engine to a MarcusTaskBus so it auto-translates
+   * real execution events into human-readable ConversationEvents.
+   *
+   * After calling this, the route should no longer call emitPhaseStart,
+   * emitPhaseComplete, or emitFileOperation manually — those are driven
+   * by the bus event stream.
+   *
+   * @returns An Unsubscribe function — call it in the route's `finally` block.
+   */
+  attachTaskBus(bus: MarcusTaskBus): Unsubscribe {
+    return bus.subscribe((event) => this._handleTaskEvent(event));
+  }
+
+  /**
+   * Translate a single TaskEvent into one or more ConversationEvents.
+   * All branching logic lives here, keeping routes free of narration concerns.
+   */
+  private _handleTaskEvent(event: TaskEvent): void {
+    const { category, action, status, metadata, phase } = event;
+    const durationMs = Number(metadata.durationMs ?? 0);
+    const isDesignReview = phase === "design-review";
+
+    // ── pipeline ─────────────────────────────────────────────────────────────
+    if (category === "pipeline") {
+      if (action === "start" && status === "running") {
+        // Open the UNDERSTAND phase — narration begins immediately.
+        this.emitPhaseStart("UNDERSTAND");
+      }
+      if (action === "finish" && status === "completed") {
+        // Entire pipeline done — close REPORT and signal completion.
+        this.emitPhaseComplete("REPORT", durationMs);
+        this.emitDone(durationMs);
+      }
+      // pipeline:error → handled by explicit engine.emitError() in the route
+      // (those calls carry specific, user-facing messages not available here).
+    }
+
+    // ── llm ──────────────────────────────────────────────────────────────────
+    if (category === "llm") {
+      if (action === "architect_start" && status === "running") {
+        if (isDesignReview) {
+          // Design Review Agent begins — enter the DESIGN phase.
+          this.emitPhaseStart("DESIGN");
+        } else {
+          // Main architect begins — narrate intent to the user.
+          this.emitMessage(
+            "UNDERSTAND",
+            "I'm designing the website architecture based on your business requirements.",
+          );
+        }
+      }
+      if (action === "architect_complete" && status === "completed") {
+        if (isDesignReview) {
+          // Design review finished (success or best-effort).
+          this.emitPhaseComplete("DESIGN");
+        } else {
+          // Main architect done — bridging step before validation completes UNDERSTAND.
+          this.emitStep(
+            "UNDERSTAND",
+            "Architecture design complete. Validating blueprint...",
+          );
+        }
+      }
+      if (action === "codegen_start" && status === "running") {
+        // Code Generation Agent begins — enter BUILD phase.
+        this.emitPhaseStart("BUILD");
+      }
+      if (action === "codegen_complete" && status === "completed") {
+        // All code generated — announce and close BUILD phase.
+        this.emitMessage(
+          "BUILD",
+          "The application structure is ready. I generated the required components and files.",
+        );
+        this.emitPhaseComplete("BUILD", durationMs);
+      }
+    }
+
+    // ── filesystem ────────────────────────────────────────────────────────────
+    if (category === "filesystem") {
+      if (action === "create_file" && status === "completed") {
+        const filePath = String(metadata.path ?? "");
+        const injected = metadata.operation === "injected";
+        if (filePath) {
+          if (injected) {
+            this.emitWarning(
+              "BUILD",
+              `The generated project doesn't include ${filePath}. Creating it automatically.`,
+            );
+          }
+          this.emitFileOperation(filePath, "create", "BUILD");
+        }
+      }
+    }
+
+    // ── validation ────────────────────────────────────────────────────────────
+    if (category === "validation") {
+      if (action === "schema" && status === "completed") {
+        // Blueprint is valid — UNDERSTAND is now truly complete.
+        this.emitPhaseComplete("UNDERSTAND");
+        this.emitMessage(null, "Preparing the implementation...");
+      }
+      // validation:blueprint/schema failed → handled by engine.emitError() in route.
+    }
+
+    // ── database ──────────────────────────────────────────────────────────────
+    if (category === "database") {
+      if (action === "save_files" && status === "running") {
+        // Persistence begins — open REPORT phase.
+        this.emitPhaseStart("REPORT");
+        this.emitMessage("REPORT", "Saving your project...");
+      }
+      if (action === "save_files" && status === "completed") {
+        this.emitMessage("REPORT", "Saving the completed project workspace.");
+      }
+    }
   }
 }
 
