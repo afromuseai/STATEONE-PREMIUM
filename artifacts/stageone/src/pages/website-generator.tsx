@@ -18,6 +18,7 @@ import { registerBridge, unregisterBridge } from "@/lib/module-architecture/webs
 import { websiteController } from "@/lib/module-architecture/controllers/website-controller"
 import { registerController, unregisterController } from "@/lib/module-architecture/registry"
 import { tracer } from "@/lib/execution-tracer"
+import { MarcusAgentStream } from "@/components/website-v2/MarcusAgentStream"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type Step = "input" | "generating" | "done"
@@ -150,6 +151,8 @@ export default function WebsiteGeneratorPage() {
   const [v2GenPhase, setV2GenPhase] = useState<string>("idle")
   const [v2Project, setV2Project] = useState<V2Project | null>(null)
   const [v2Loading, setV2Loading] = useState(false)
+  // Component names extracted from the blueprint SSE event — feeds MarcusAgentStream
+  const [blueprintComponents, setBlueprintComponents] = useState<string[]>([])
   const { openUpgradeModal } = useUpgradeModal()
   const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
   const [, setLocation] = useLocation()
@@ -561,6 +564,10 @@ export default function WebsiteGeneratorPage() {
           if (phase === "blueprint") {
             setV2GenPhase("blueprint")
             setGenStep(2)
+            // Extract component names → feeds MarcusAgentStream developer items
+            const bpData = msg.data as { pages?: { components?: { name: string }[] }[] } | null
+            const comps = bpData?.pages?.[0]?.components?.map((c: { name: string }) => c.name) ?? []
+            if (comps.length > 0) setBlueprintComponents(comps)
           }
           if (phase === "building") {
             setV2GenPhase("building")
@@ -634,6 +641,7 @@ export default function WebsiteGeneratorPage() {
       ideaRef.current = ideaOverride
     }
     setContextBanner(true)
+    setBlueprintComponents([])
     console.log("WEBSITE_FLOW:5 generateWithIdea started | idea (first 80):", ideaOverride.slice(0, 80))
     setStep("generating")
     abortRef.current = new AbortController()
@@ -1075,83 +1083,14 @@ export default function WebsiteGeneratorPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex flex-col flex-1 min-h-0 items-center justify-center px-6"
+                className="flex flex-col flex-1 min-h-0"
               >
-                <div className="w-full max-w-[280px]">
-                  {/* Animated logo */}
-                  <div className="flex justify-center mb-8">
-                    <div className="relative">
-                      <div className="h-14 w-14 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center">
-                        <Globe className="h-7 w-7 text-primary" />
-                      </div>
-                      <div className="absolute -inset-1 rounded-[20px] border border-primary/20 animate-pulse" />
-                    </div>
-                  </div>
-                  <h2 className="text-center text-base font-bold text-foreground mb-2">Marcus is designing your website…</h2>
-                  <p className="text-center text-xs text-muted-foreground mb-8">
-                    <span className="text-primary font-semibold">{style}</span> · <span className="text-primary/80">{tone}</span>
-                  </p>
-
-                  {/* V2 phase steps — driven by real SSE events */}
-                  <div className="space-y-2.5">
-                    {V2_GEN_STEPS.map((s, i) => (
-                      <motion.div
-                        key={s}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: i <= genStep ? 1 : 0.25, x: 0 }}
-                        transition={{ duration: 0.3, delay: i * 0.08 }}
-                        className="flex items-center gap-3"
-                      >
-                        <div className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 transition-all ${
-                          i < genStep ? "bg-primary/20 border-primary/50" : i === genStep ? "border-primary animate-pulse" : "border-white/10"
-                        }`}>
-                          {i < genStep ? (
-                            <Check className="h-3 w-3 text-primary" />
-                          ) : i === genStep ? (
-                            <Loader2 className="h-3 w-3 text-primary animate-spin" />
-                          ) : null}
-                        </div>
-                        <span className={`text-xs transition-colors ${i <= genStep ? "text-foreground" : "text-muted-foreground/40"}`}>
-                          {i < genStep ? <span className="text-primary/80">✓ {s}</span> : s}
-                        </span>
-                      </motion.div>
-                    ))}
-                  </div>
-
-                  {/* Thinking indicator — shown during LLM reasoning phase */}
-                  <AnimatePresence>
-                    {v2GenPhase === "thinking" && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="mt-3 flex items-center gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2"
-                      >
-                        <Sparkles className="h-3 w-3 text-primary/70 animate-pulse shrink-0" />
-                        <span className="text-[10px] text-primary/60 font-medium">Marcus is reasoning…</span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Progress bar */}
-                  <div className="mt-8 h-1 rounded-full bg-white/5 overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-primary"
-                      animate={{ width: `${Math.min(((genStep + 1) / V2_GEN_STEPS.length) * 100, 100)}%` }}
-                      transition={{ duration: 0.6, ease: "easeOut" }}
-                    />
-                  </div>
-                  <p className="text-center text-[10px] text-muted-foreground mt-3">
-                    {Math.min(Math.round(((genStep + 1) / V2_GEN_STEPS.length) * 100), 100)}% complete
-                  </p>
-
-                  <button
-                    onClick={() => { abortRef.current?.abort(); setStep("input") }}
-                    className="mt-8 w-full text-xs text-muted-foreground hover:text-foreground border border-white/8 py-2 rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                <MarcusAgentStream
+                  v2GenPhase={v2GenPhase}
+                  idea={idea}
+                  blueprintComponents={blueprintComponents}
+                  onCancel={() => { abortRef.current?.abort(); setStep("input") }}
+                />
               </motion.div>
             )}
 
