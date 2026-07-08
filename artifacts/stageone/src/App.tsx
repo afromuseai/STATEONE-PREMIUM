@@ -54,6 +54,7 @@ import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import WebsiteStudioPage from "@/pages/website-studio";
 import WebsiteStudioWorkspacePage from "@/pages/website-studio-workspace";
+import WebsiteStudioCreatePage from "@/pages/website-studio-create";
 import WebContainerTestPage from "@/pages/webcontainer-test";
 import NotFound from "@/pages/not-found";
 
@@ -195,6 +196,9 @@ function Router() {
       </Route>
       <Route path="/website-studio">
         <ProtectedRoute><WebsiteStudioPage /></ProtectedRoute>
+      </Route>
+      <Route path="/website-studio/new">
+        <ProtectedRoute><WebsiteStudioCreatePage /></ProtectedRoute>
       </Route>
       <Route path="/website-studio/:id">
         {(params) => (

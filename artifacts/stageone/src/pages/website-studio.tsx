@@ -35,7 +35,7 @@ export default function WebsiteStudioPage() {
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => navigate("/website-generator")}
+            onClick={() => navigate("/website-studio/new")}
             className="flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3.5 py-1.5 text-sm font-semibold text-amber-400 transition-all hover:bg-amber-400/15"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -85,7 +85,7 @@ export default function WebsiteStudioPage() {
               Generate your first AI website and it will appear here.
             </p>
             <button
-              onClick={() => navigate("/website-generator")}
+              onClick={() => navigate("/website-studio/new")}
               className="mt-5 flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-5 py-2 text-sm font-semibold text-amber-400 transition-all hover:bg-amber-400/15"
             >
               <Plus className="h-4 w-4" />

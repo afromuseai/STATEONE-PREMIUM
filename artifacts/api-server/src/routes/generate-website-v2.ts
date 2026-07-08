@@ -30,6 +30,7 @@ import { MarcusConversationEngine } from "../lib/agents/marcus-conversation";
 import type { ConversationEvent } from "../lib/agents/marcus-conversation";
 import { MarcusTaskBus } from "../lib/agents/marcus-task-bus";
 import { MarcusController, ARCHITECT_MODEL } from "../lib/agents/marcus-controller";
+import { runMarcusStreamAgent } from "../lib/agents/marcus-stream-agent";
 
 const router = Router();
 
@@ -209,6 +210,47 @@ router.post(
       engineBusUnsub();
       unsubscribeBus();
       bus.clear();
+    }
+  }
+);
+
+// ─── POST /api/generate/website-v2/stream ─────────────────────────────────────
+// Replit-style: single-pass streaming agent. Marcus thinks aloud, then writes
+// files one by one using tool_call XML blocks. The frontend receives file tokens
+// in real-time and streams them into Monaco editor. WebContainer boots when done.
+//
+// SSE event shapes: see StreamAgentSseEvent in marcus-stream-agent.ts
+router.post(
+  "/website-v2/stream",
+  requireAuth,
+  requireFeature("website_generator"),
+  async (req, res): Promise<void> => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const userId = req.user?.userId ?? "";
+    const body   = req.body as Record<string, unknown>;
+
+    if (!body.idea || typeof body.idea !== "string" || !String(body.idea).trim()) {
+      res.write(`data: ${JSON.stringify({ phase: "error", message: "No business idea provided." })}\n\n`);
+      res.end();
+      return;
+    }
+
+    const context = extractBusinessContext(body);
+    logger.info({ userId, industry: context.industry }, "[MARCUS_STREAM_ROUTE] Starting stream generation");
+
+    try {
+      await runMarcusStreamAgent(context, userId, res);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected generation error";
+      logger.error({ err, userId }, "[MARCUS_STREAM_ROUTE] Unhandled error");
+      if (!res.writableEnded) {
+        res.write(`data: ${JSON.stringify({ phase: "error", message })}\n\n`);
+      }
+    } finally {
+      if (!res.writableEnded) res.end();
     }
   }
 );
