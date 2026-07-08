@@ -1,0 +1,143 @@
+We need to complete the migration from the legacy Website Generator flow to the new Marcus streaming agent architecture.
+
+Do not create another parallel system.
+
+Goal:
+There must be ONE generation entry flow:
+
+User → Website Studio → Marcus Streaming Agent → Task Bus → Files → WebContainer → Workspace
+
+Tasks:
+
+1. Remove legacy generation ownership from website-generator.tsx.
+
+The following must no longer directly call:
+
+POST /api/generate/website-v2
+
+Replace all generation triggers with:
+
+POST /api/generate/website-v2/stream
+
+
+2. Update Marcus/Copilot generation trigger.
+
+Current:
+Copilot executes:
+websiteController.generate()
+which depends on WebsiteGeneratorPage bridge.
+
+Problem:
+It only works when old page is mounted.
+
+Change architecture:
+
+websiteController.generate()
+should dispatch into the Marcus streaming generation flow.
+
+Do not depend on a React page being mounted.
+
+The controller should create a generation task that Website Studio can subscribe to.
+
+
+3. Make Website Studio the owner.
+
+Website Studio should own:
+
+- new project creation
+- generation state
+- Marcus stream
+- activity events
+- file streaming
+- WebContainer transition
+
+
+4. Remove duplicate progress systems.
+
+Delete dependency on:
+
+MarcusAgentStream.tsx
+V2_GEN_STEPS
+timer-based progress
+
+
+Replace with:
+
+StreamGenerationScreen
++
+real Marcus events
+
+
+5. Connect MarcusTaskBus to frontend.
+
+Create an SSE event stream that forwards:
+
+filesystem:
+- create_file
+- update_file
+- delete_file
+
+terminal:
+- npm install
+- npm run dev
+- build errors
+
+llm:
+- thinking
+- generating
+
+pipeline:
+- started
+- completed
+- failed
+
+
+Frontend components should consume the same events:
+
+- StreamGenerationScreen
+- AgentActivity
+- EditorChatPanel
+
+
+6. AgentActivity.tsx should no longer receive local ActivityItem props.
+
+Convert it into a live subscriber to Marcus events.
+
+
+7. Connect EditorChatPanel.
+
+The Studio chat pane should display:
+
+Marcus:
+"I am analyzing your request"
+
+Marcus:
+"Creating components/Hero.tsx"
+
+Marcus:
+"Running npm build"
+
+Marcus:
+"I found a Tailwind error. Repairing."
+
+These messages must come from backend events.
+
+No simulated messages.
+
+8. Preserve existing successful pieces:
+
+Keep:
+
+- Monaco
+- WebContainer
+- Database persistence
+- Preview
+- Project files
+
+
+After implementation provide:
+
+1. Remaining old generation entry points
+2. New unified architecture diagram
+3. List of removed duplicate flows
+4. TypeScript/build status

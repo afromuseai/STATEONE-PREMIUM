@@ -1,12 +1,23 @@
 ---
-name: Website Generator canonical reference
-description: Website Generator is the locked reference implementation for ExecutionBus, controller registration, bridge lifecycle, and shared orchestration — do not modify those layers without a demonstrated regression in Website first.
+name: Website Studio canonical reference
+description: Website Studio (website-studio-create.tsx, the only live website-generation entry point) is the locked reference for ExecutionBus, controller registration, bridge lifecycle, and shared orchestration — do not modify those layers without a demonstrated regression there first.
 ---
 
-# Website Generator — Canonical Reference Implementation
+# Website Studio — Canonical Reference Implementation
+
+## Superseded: website-generator.tsx was already dead code, now deleted
+`website-generator.tsx` (the page this file used to name as canonical) was never actually reachable — `App.tsx`'s
+`/website-generator` route rendered `WebsiteStudioCreatePage` (website-studio-create.tsx), not that page. It
+registered the module-architecture bridge that Copilot's `generate_website` ExecutionBus command depends on, so its
+orphaning silently broke that Copilot flow. Fixed by porting bridge/pendingIntent/workspace-signal wiring into
+`website-studio-create.tsx` (the actually-live page) and deleting `website-generator.tsx` + `MarcusAgentStream.tsx`.
+`website-studio-create.tsx` now owns bridge registration and is the canonical reference below.
+
+**Lesson:** an unused import of a page component in the router doesn't prove the page is dead — check which
+component the *route path* actually resolves to before assuming a file is live or planning changes to it.
 
 ## Rule
-Website Generator is the canonical reference implementation for:
+Website Studio (website-studio-create.tsx) is the canonical reference implementation for:
 - ExecutionBus dispatch and event handling
 - Controller registration patterns
 - Bridge lifecycle (start / stop / reconnect)

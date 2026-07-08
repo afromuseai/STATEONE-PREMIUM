@@ -7,7 +7,8 @@
 - [Six missing capability fixes](six-capability-fixes.md) — #4 email, #5 onboarding, #6 error tracking, #8 retention analytics, #9 RBAC, #10 referral program all implemented; ErrorBoundary must live inside AuthProvider not outside it
 - [Generator orchestration standardization](generator-orchestration-std.md) — chatbot+automation migrated to useGeneratorOrchestration hook; website/BI/orchestrator received targeted event+save fixes; BI draft→active status promotion must be explicit after ensureProject
 - [Execution trace system](execution-trace-system.md) — 12-stage tracer wired additively across all 5 generator modules; guard every call with `if (traceId)`, log 11/12 inline for orchestrator/BI which don't use the shared hook
-- [Website Generator canonical reference](website-generator-canonical.md) — Website is the locked reference; never touch ExecutionBus, controller registration, bridge lifecycle, or shared orchestration without a demonstrated Website regression first
+- [Website Studio canonical reference](website-studio-canonical.md) — website-studio-create.tsx (not the deleted website-generator.tsx) is now the locked bridge/ExecutionBus reference
+- [Unified website generation flow](unified-website-generation-flow.md) — one live entry point (Website Studio → Marcus stream → task bus); check route target, not just imports, before assuming a page is dead
 - [Phase K WebContainer diagnostics](phase-k-diagnostics.md) — Phase K tab added to webcontainer-test.tsx; uses real V2 API (SSE); KStepStatus must include "warn"; wc.on must always unsubscribe via returned fn
 - [Chatbot bridge lifecycle](chatbot-bridge-lifecycle.md) — every early-return in generateWith must call the completion ref or triggerGenerate hangs; 5 exits identified
 - [Website save reliability](website-save-reliability.md) — capture projectId before fetch; server echoes _projectId; done handler restores context if cleared during stream

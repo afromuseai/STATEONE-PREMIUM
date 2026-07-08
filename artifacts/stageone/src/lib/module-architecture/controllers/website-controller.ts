@@ -4,7 +4,7 @@
  * Phase 3: Real ModuleController implementation.
  *
  * All four methods delegate to the WebsiteBridge, which is populated
- * by WebsiteGeneratorPage on mount. This keeps the controller as the
+ * by WebsiteStudioCreatePage on mount. This keeps the controller as the
  * single operational interface while ensuring zero duplication of generation
  * logic — the existing generateWithIdea, SSE parsing, and ensureProject
  * flows are untouched.

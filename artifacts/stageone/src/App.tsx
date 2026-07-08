@@ -27,7 +27,6 @@ import DashboardPage from "@/pages/dashboard";
 import BusinessIntelligencePage from "@/pages/business-intelligence";
 import ProjectPage from "@/pages/project";
 import SettingsPage from "@/pages/settings";
-import WebsiteGeneratorPage from "@/pages/website-generator";
 import ChatbotGeneratorPage from "@/pages/chatbot-generator";
 import AutomationBuilderPage from "@/pages/automation-builder";
 import OrchestratorPage from "@/pages/orchestrator";

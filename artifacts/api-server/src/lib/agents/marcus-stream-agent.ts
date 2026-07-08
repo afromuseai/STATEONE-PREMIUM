@@ -24,6 +24,7 @@ import { MODELS } from "../models";
 import type { BusinessContext, ProjectFile, GeneratedProject, WebsiteBlueprint } from "../website-v2-types";
 import { createV2Project, saveBlueprint, saveGeneratedFiles, markProjectFailed } from "../website-v2-projects";
 import type { Response } from "express";
+import type { MarcusTaskBus } from "./marcus-task-bus";
 
 export type StreamAgentSseEvent =
   | { phase: "agent-thinking"; token: string }
@@ -129,10 +130,13 @@ export async function runMarcusStreamAgent(
   ctx: BusinessContext,
   userId: string,
   res: Response,
+  taskBus?: MarcusTaskBus,
 ): Promise<void> {
   let projectId: string | undefined;
   const files: ProjectFile[] = [];
   const fileContents = new Map<string, string>();
+
+  taskBus?.emit("pipeline", "start", "running", { userId }, "pipeline");
 
   const userPrompt = `
 BUSINESS BRIEF
@@ -150,12 +154,17 @@ Generate the complete Next.js website now. Start with 3-5 sentences of thinking,
 
   try {
     // ── Create project record ────────────────────────────────────────────────
-    const project = await createV2Project(userId, ctx);
-    projectId = project.id;
+    const createdProjectId = await createV2Project(userId, ctx);
+    if (!createdProjectId) {
+      throw new Error("Failed to create project record");
+    }
+    projectId = createdProjectId;
     sseWrite(res, { phase: "project-created", projectId });
+    taskBus?.emit("database", "save_project", "completed", { projectId, userId }, "pipeline");
     logger.info({ projectId, userId }, "[MARCUS_STREAM] Project created");
 
     // ── Start streaming call ─────────────────────────────────────────────────
+    taskBus?.emit("llm", "codegen_start", "running", { model: MODELS.WEBSITE_V2_CODE_GEN, projectId }, "pipeline");
     const stream = await streamNvidia({
       model:       MODELS.WEBSITE_V2_CODE_GEN,
       messages: [
@@ -267,6 +276,7 @@ Generate the complete Next.js website now. Start with 3-5 sentences of thinking,
           currentContent = "";
 
           sseWrite(res, { phase: "file-start", path: currentPath, language: currentLang });
+          taskBus?.emit("filesystem", "create_file", "running", { path: currentPath, projectId }, "pipeline");
           logger.info({ projectId, path: currentPath }, "[MARCUS_STREAM] File start");
 
           state = "in_file";
@@ -305,6 +315,7 @@ Generate the complete Next.js website now. Start with 3-5 sentences of thinking,
           const content = currentContent.replace(/^\n/, "");
 
           sseWrite(res, { phase: "file-done", path: currentPath, content });
+          taskBus?.emit("filesystem", "create_file", "completed", { path: currentPath, projectId, bytes: content.length }, "pipeline");
           logger.info({ projectId, path: currentPath, bytes: content.length }, "[MARCUS_STREAM] File done");
 
           fileContents.set(currentPath, content);
@@ -354,8 +365,11 @@ Generate the complete Next.js website now. Start with 3-5 sentences of thinking,
       architectRationale:     `Generated for ${ctx.companyName} — ${ctx.idea}`,
     };
 
+    taskBus?.emit("llm", "codegen_complete", "completed", { projectId, fileCount: files.length }, "pipeline");
+    taskBus?.emit("database", "save_files", "running", { projectId, fileCount: files.length }, "pipeline");
     await saveBlueprint(projectId, minimalBlueprint);
     await saveGeneratedFiles(projectId, files, ["framer-motion", "lucide-react"], "");
+    taskBus?.emit("database", "save_files", "completed", { projectId, fileCount: files.length }, "pipeline");
 
     const generatedProject: GeneratedProject = {
       projectId,
@@ -368,12 +382,14 @@ Generate the complete Next.js website now. Start with 3-5 sentences of thinking,
     };
 
     sseWrite(res, { phase: "done", projectId, data: generatedProject });
+    taskBus?.emit("pipeline", "finish", "completed", { projectId, fileCount: files.length }, "pipeline");
     logger.info({ projectId, fileCount: files.length }, "[MARCUS_STREAM] Generation complete");
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error({ err, projectId }, "[MARCUS_STREAM] Generation failed");
     if (projectId) await markProjectFailed(projectId, message).catch(() => {});
+    taskBus?.emit("pipeline", "error", "failed", { error: message, projectId }, "pipeline");
     sseWrite(res, { phase: "error", message });
   }
 }

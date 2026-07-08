@@ -2,9 +2,10 @@
  * STAGEONE Module Architecture — Website Bridge
  *
  * A singleton bridge between the plain ModuleController and the React component
- * that owns Website Generator state. The Website page registers its imperative
- * handlers here on mount and unregisters on unmount. The controller reads from
- * this bridge so it can delegate to the existing implementation without
+ * that owns Website Studio's generation state. WebsiteStudioCreatePage
+ * (src/pages/website-studio-create.tsx) registers its imperative handlers
+ * here on mount and unregisters on unmount. The controller reads from this
+ * bridge so it can delegate to the existing implementation without
  * duplicating any generation logic.
  *
  * Phase 3 only. No other module uses this file.
@@ -44,7 +45,7 @@ let _bridge: WebsiteBridge | null = null;
 // the registration of the live instance.
 let _currentRegId = 0;
 
-/** Called by WebsiteGeneratorPage on mount to register its handlers.
+/** Called by WebsiteStudioCreatePage on mount to register its handlers.
  *  Returns a registration ID that must be passed to unregisterBridge(). */
 export function registerBridge(bridge: WebsiteBridge): number {
   const id = ++_currentRegId;
@@ -53,7 +54,7 @@ export function registerBridge(bridge: WebsiteBridge): number {
   return id;
 }
 
-/** Called by WebsiteGeneratorPage on unmount to clean up.
+/** Called by WebsiteStudioCreatePage on unmount to clean up.
  *  Pass the ID returned by registerBridge(). Stale IDs are silently ignored. */
 export function unregisterBridge(registrationId: number): void {
   if (_currentRegId !== registrationId) {

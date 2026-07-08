@@ -241,8 +241,20 @@ router.post(
     const context = extractBusinessContext(body);
     logger.info({ userId, industry: context.industry }, "[MARCUS_STREAM_ROUTE] Starting stream generation");
 
+    // Same MarcusTaskBus backbone as the non-stream route — gives this pipeline
+    // a single source of execution events too, for logging and future live
+    // activity-feed consumers (see AgentActivity). SSE frame shapes emitted by
+    // runMarcusStreamAgent are unchanged; the bus is purely additive here.
+    const bus = new MarcusTaskBus();
+    const unsubscribeBus = bus.subscribe((event) => {
+      logger.info(
+        { tag: "[MARCUS_STREAM_BUS]", category: event.category, action: event.action, status: event.status },
+        `[MARCUS_STREAM_BUS] ${event.category}:${event.action} ${event.status}`,
+      );
+    });
+
     try {
-      await runMarcusStreamAgent(context, userId, res);
+      await runMarcusStreamAgent(context, userId, res, bus);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected generation error";
       logger.error({ err, userId }, "[MARCUS_STREAM_ROUTE] Unhandled error");
@@ -250,6 +262,8 @@ router.post(
         res.write(`data: ${JSON.stringify({ phase: "error", message })}\n\n`);
       }
     } finally {
+      unsubscribeBus();
+      bus.clear();
       if (!res.writableEnded) res.end();
     }
   }

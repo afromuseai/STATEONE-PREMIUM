@@ -2,7 +2,7 @@
 // Replit-style generation UI: agent thinking on the left, Monaco code streaming
 // on the right. Files appear token-by-token as Marcus writes them.
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   FileCode, CheckCircle2, Loader2, AlertCircle,
@@ -11,6 +11,7 @@ import {
 import Editor, { loader } from "@monaco-editor/react"
 import * as monaco from "monaco-editor"
 import type { GenerationState } from "@/hooks/useMarcusStreamGeneration"
+import { AgentActivity, type ActivityItem } from "@/components/website-v2/ide/AgentActivity"
 
 loader.config({ monaco })
 
@@ -132,6 +133,19 @@ export function StreamGenerationScreen({ state, onCancel }: StreamGenerationScre
     ...(activeFilePath && !files.find(f => f.path === activeFilePath) ? [activeFilePath] : []),
   ]
 
+  // ─── Live activity feed — derived from the real generation state (no
+  // separate event stream): a "created" item per completed file, driven
+  // directly by the same file-done frames the file list above uses.
+  const activityItems: ActivityItem[] = useMemo(() => (
+    files.map((f, i) => ({
+      id:        `file-${f.path}-${i}`,
+      type:      "file_change",
+      path:      f.path,
+      operation: "create",
+      timestamp: i,
+    }))
+  ), [files])
+
   const statusLabel = {
     idle:       "Idle",
     connecting: "Connecting…",
@@ -211,6 +225,11 @@ export function StreamGenerationScreen({ state, onCancel }: StreamGenerationScre
               </div>
             )}
           </div>
+          {activityItems.length > 0 && (
+            <div className="max-h-40 shrink-0 overflow-y-auto border-t border-white/[0.06] px-3 py-2">
+              <AgentActivity items={activityItems} />
+            </div>
+          )}
         </div>
 
         {/* Error */}
@@ -303,13 +322,12 @@ export function StreamGenerationScreen({ state, onCancel }: StreamGenerationScre
               // Auto-scroll to bottom as tokens arrive
               onMount={(editor) => {
                 const model = editor.getModel()
-                if (model) {
-                  const disposable = model.onDidChangeContent(() => {
-                    const lineCount = model.getLineCount()
-                    editor.revealLine(lineCount, 1)
-                  })
-                  return () => disposable.dispose()
-                }
+                if (!model) return undefined
+                const disposable = model.onDidChangeContent(() => {
+                  const lineCount = model.getLineCount()
+                  editor.revealLine(lineCount, 1)
+                })
+                return () => disposable.dispose()
               }}
             />
           ) : (

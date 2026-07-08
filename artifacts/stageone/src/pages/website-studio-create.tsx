@@ -13,6 +13,19 @@ import {
 import { useLocation } from "wouter"
 import { useMarcusStreamGeneration } from "@/hooks/useMarcusStreamGeneration"
 import { StreamGenerationScreen } from "@/components/website-v2/StreamGenerationScreen"
+import { consumeCopilotAutorun, consumePendingIntent, dequeueWorkspaceSignals } from "@/lib/generation-context"
+import { registerBridge, unregisterBridge } from "@/lib/module-architecture/website-bridge"
+import { websiteController } from "@/lib/module-architecture/controllers/website-controller"
+import { registerController, unregisterController } from "@/lib/module-architecture/registry"
+
+// Module-level: bridges a same-tick unmount/remount cycle (e.g. React Strict
+// Mode's mount→cleanup→mount, or AnimatePresence swapping the page in/out)
+// so a pendingIntent consumed by the first mount isn't lost when the second
+// mount's effect re-runs. Deliberately short-lived (see MOUNT_CACHE_TTL_MS) —
+// it must NOT act as a long-term fallback that could reapply a stale idea to
+// an unrelated later visit of this page.
+let _websiteMountIntentCache: { idea: string; capturedAt: number } | null = null
+const MOUNT_CACHE_TTL_MS = 1500
 
 type Step = "input" | "generating" | "redirecting"
 
@@ -59,13 +72,87 @@ export default function WebsiteStudioCreatePage() {
 
   const { state: genState, generate, cancel } = useMarcusStreamGeneration()
 
+  // Always-current mirror of form.idea — safe to read from stable closures
+  // (the bridge's getCurrentIdea/triggerGenerate) without stale-state bugs.
+  const formIdeaRef = useRef<string>("")
+  useEffect(() => { formIdeaRef.current = form.idea }, [form.idea])
+
+  // Settles the bridge's triggerGenerate() promise — set by triggerGenerate(),
+  // fired once generation reaches done/error/cancelled OR handleGenerate bails
+  // out early (e.g. empty idea). Must always be settled on every exit path or
+  // an ExecutionBus caller (e.g. Copilot) awaiting it would hang forever.
+  const generateCompleteRef = useRef<((ok: boolean) => void) | null>(null)
+  const settleGenerateComplete = useCallback((ok: boolean) => {
+    generateCompleteRef.current?.(ok)
+    generateCompleteRef.current = null
+  }, [])
+
   // Focus textarea on mount
   useEffect(() => { ideaRef.current?.focus() }, [])
+
+  // ─── Module-architecture bridge: lets Copilot drive this page via the
+  // ExecutionBus (bus.execute({ module: "website", action: "generate" })).
+  // Mirrors the pattern used by chatbot/automation/intelligence controllers —
+  // without this, Copilot-triggered website generation silently no-ops.
+  useEffect(() => {
+    const bridgeRegId = registerBridge({
+      navigate: () => navigate("/website-studio/new"),
+      populate: (populateIdea, onComplete) => {
+        if (!populateIdea) { onComplete(); return }
+        formIdeaRef.current = populateIdea
+        setForm(prev => ({ ...prev, idea: populateIdea }))
+        onComplete()
+      },
+      triggerGenerate: (idea) => new Promise<void>((resolve, reject) => {
+        generateCompleteRef.current = (ok) => (ok ? resolve() : reject(new Error("Website generation did not complete")))
+        void handleGenerateRef.current?.(idea)
+      }),
+      // Generation is auto-persisted by the stream route (createV2Project +
+      // saveGeneratedFiles) — there is no separate "re-save" step needed here.
+      save: async () => {},
+      getCurrentIdea: () => formIdeaRef.current,
+    })
+    const controllerRegId = registerController("website", websiteController)
+    return () => {
+      unregisterBridge(bridgeRegId)
+      unregisterController("website", controllerRegId)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Consume a durable pending intent written by Copilot before navigating
+  // here (setPendingIntent({ type: "website", idea })), plus any queued live
+  // workspace signal fired while this page was mid-mount.
+  useEffect(() => {
+    consumeCopilotAutorun() // clear only — generation is triggered via the bridge above
+
+    let ideaFromIntent: string | null = null
+    if (_websiteMountIntentCache && Date.now() - _websiteMountIntentCache.capturedAt < MOUNT_CACHE_TTL_MS) {
+      ideaFromIntent = _websiteMountIntentCache.idea
+      _websiteMountIntentCache = null
+    } else {
+      _websiteMountIntentCache = null // drop anything stale before consuming a fresh intent
+      const intent = consumePendingIntent("website")
+      if (intent?.idea) {
+        _websiteMountIntentCache = { idea: intent.idea, capturedAt: Date.now() }
+        ideaFromIntent = intent.idea
+      }
+    }
+
+    const queued = dequeueWorkspaceSignals("website")
+    const populateSignal = queued.find(s => s.type === "populate" && s.payload)
+    const idea = ideaFromIntent || populateSignal?.payload || null
+
+    if (idea) {
+      formIdeaRef.current = idea
+      setForm(prev => ({ ...prev, idea }))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-navigate to workspace when generation is done
   useEffect(() => {
     if (genState.status === "done" && genState.projectId) {
       setStep("redirecting")
+      settleGenerateComplete(true)
       setTimeout(() => {
         navigate(`/website-studio/${genState.projectId}`)
       }, 1200)
@@ -73,13 +160,20 @@ export default function WebsiteStudioCreatePage() {
     if (genState.status === "error" && genState.error) {
       setError(genState.error)
       setStep("input")
+      settleGenerateComplete(false)
     }
-  }, [genState.status, genState.projectId, genState.error, navigate])
+  }, [genState.status, genState.projectId, genState.error, navigate, settleGenerateComplete])
 
-  const handleGenerate = useCallback(async () => {
-    if (!form.idea.trim()) {
+  // ideaOverride lets the module-architecture bridge (triggerGenerate) drive
+  // generation with an idea supplied by Copilot, independent of form state.
+  const handleGenerate = useCallback(async (ideaOverride?: string) => {
+    const idea = (ideaOverride ?? form.idea).trim()
+    if (!idea) {
       setError("Please describe your business idea.")
       ideaRef.current?.focus()
+      // Bail-out path: still settle any pending bridge triggerGenerate() so a
+      // Copilot-initiated call never hangs on a missing/blank idea.
+      settleGenerateComplete(false)
       return
     }
     setError(null)
@@ -93,13 +187,21 @@ export default function WebsiteStudioCreatePage() {
     if (form.brandPositioning) bi.brandPositioning = form.brandPositioning
     if (form.conversionGoal)   bi.conversionGoal   = form.conversionGoal
 
-    await generate(form.idea.trim(), Object.keys(bi).length > 0 ? bi : undefined)
+    await generate(idea, Object.keys(bi).length > 0 ? bi : undefined)
   }, [form, generate])
+
+  // Stable ref so the bridge (registered in a mount-only effect) always calls
+  // the latest handleGenerate closure without needing to re-register itself.
+  const handleGenerateRef = useRef(handleGenerate)
+  useEffect(() => { handleGenerateRef.current = handleGenerate }, [handleGenerate])
 
   const handleCancel = useCallback(() => {
     cancel()
     setStep("input")
-  }, [cancel])
+    // A pending Copilot-driven triggerGenerate() must not hang forever just
+    // because the user cancelled from the UI mid-stream.
+    settleGenerateComplete(false)
+  }, [cancel, settleGenerateComplete])
 
   const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [key]: e.target.value }))
