@@ -138,7 +138,7 @@ function Router() {
         <ProtectedRoute><SettingsPage /></ProtectedRoute>
       </Route>
       <Route path="/website-generator">
-        <ProtectedRoute><WebsiteGeneratorPage /></ProtectedRoute>
+        <ProtectedRoute><WebsiteStudioCreatePage /></ProtectedRoute>
       </Route>
       <Route path="/chatbot-generator">
         <ProtectedRoute><ChatbotGeneratorPage /></ProtectedRoute>
