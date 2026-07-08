@@ -190,7 +190,9 @@ export type V2EditSseEvent =
   | { phase: "saved";         fileCount: number }
   | { phase: "regenerating" }
   | { phase: "preview-ready" }
-  | { phase: "error";         message: string };
+  | { phase: "error";         message: string }
+  /** Marcus Conversation Engine events — real narration of the edit run (Commit 4). */
+  | { phase: "agent";         event: ConversationEvent };
 
 // SSE events from the preview regeneration route.
 export type V2PreviewSseEvent =

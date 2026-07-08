@@ -1,23 +1,35 @@
 // ─── Website Architect V2 — AI Editing Route ──────────────────────────────────
 // POST /api/website-v2/projects/:id/edit
 //
-// Full pipeline after this change:
-//   Request (instruction + optional selectedFiles)
-//     ↓ analyzing
-//     ↓ editing  (LLM → file modifications)
-//     ↓ changes  (send diff to client)
-//     ↓ saved    (files persisted; client refreshes file explorer)
-//     ↓ regenerating  (preview LLM running)
-//     ↓ preview-ready (preview persisted; client refreshes iframe)
+// Commit 4: MarcusController now owns the edit pipeline (Editing Agent →
+// file persistence → preview regeneration/validation), narrated through the
+// same MarcusTaskBus / MarcusConversationEngine backbone used by website
+// generation. This route is the thin request-lifecycle shell:
+//
+//   Auth + load project
+//     ↓
+//   Build the Marcus runtime (task bus + conversation engine), per request
+//     ↓
+//   MarcusController.runEditFlow(runtime) — owns UNDERSTAND → PLAN → BUILD → TEST → REPORT
+//     ↓
+//   Stream the SSE frames the controller forwards via onSse
+//     ↓
+//   Write the final `saved` / `preview-ready` / `error` frame
+//
+// The legacy phase frames (analyzing/editing/changes/saved/regenerating/
+// preview-ready) are preserved unchanged so the existing file-explorer and
+// preview-refresh triggers keep working. The new `agent` frames carry real
+// ConversationEvents for chat narration (Step 6/7 of the spec).
 //
 // V1 is completely untouched. website-html-generator.ts is NOT used here.
 
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { logger } from "../lib/logger";
-import { runEditingAgent } from "../lib/website-v2-editor";
-import { runPreviewGenerator } from "../lib/website-v2-preview-generator";
-import { getV2Project, updateProjectFiles, updateProjectPreview } from "../lib/website-v2-projects";
+import { getV2Project } from "../lib/website-v2-projects";
+import { MarcusConversationEngine } from "../lib/agents/marcus-conversation";
+import { MarcusTaskBus } from "../lib/agents/marcus-task-bus";
+import { MarcusController } from "../lib/agents/marcus-controller";
 import type {
   BusinessContext,
   WebsiteBlueprint,
@@ -57,6 +69,12 @@ router.post("/website-v2/projects/:id/edit", requireAuth, async (req, res) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
 
+  // Marcus runtime for this edit request — one bus + one engine, per request,
+  // discarded when the request ends. No global instances.
+  const bus    = new MarcusTaskBus();
+  const engine = new MarcusConversationEngine();
+  const pipelineStart = Date.now();
+
   try {
     // ── Load project ──────────────────────────────────────────────────────────
     const project = await getV2Project(id, userId);
@@ -81,56 +99,39 @@ router.post("/website-v2/projects/:id/edit", requireAuth, async (req, res) => {
       "[v2:edit] Starting edit request"
     );
 
-    // ── analyzing ─────────────────────────────────────────────────────────────
+    // ── analyzing / editing — legacy lifecycle frames, kept for the existing
+    //    status-strip UI while the richer `agent` narration streams alongside ──
     emit({ phase: "analyzing" });
-
-    // ── editing (LLM call) ────────────────────────────────────────────────────
     emit({ phase: "editing" });
 
-    const result = await runEditingAgent(
-      context,
+    const result = await MarcusController.runEditFlow({
+      taskBus:            bus,
+      conversationEngine: engine,
+      projectId:          id,
+      userId,
+      businessContext:    context,
       blueprint,
       files,
-      instruction.trim(),
+      instruction:        instruction.trim(),
       selectedFiles,
-      { userId, projectId: id }
-    );
+      pipelineStart,
+      onSse: emit,
+    });
 
-    // ── send changes to client ────────────────────────────────────────────────
-    emit({ phase: "changes", data: result });
-
-    // ── persist file changes ──────────────────────────────────────────────────
-    const { files: updatedFiles, ok } = await updateProjectFiles(id, result.changes);
-    if (!ok) {
-      emit({ phase: "error", message: "Failed to save changes to database" });
+    if (!result.ok) {
+      emit({ phase: "error", message: result.message });
       res.end();
       return;
     }
 
+    // ── send changes to client (unchanged contract: FileModification[] + summary)
+    emit({ phase: "changes", data: { changes: result.changes, summary: result.summary } });
+
     // ── files saved — client can immediately refresh the code explorer ────────
-    emit({ phase: "saved", fileCount: result.changes.length });
+    emit({ phase: "saved", fileCount: result.fileCount });
 
-    // ── regenerate preview from updated files ─────────────────────────────────
+    // ── preview regenerated (or non-fatally skipped) — client refreshes iframe ─
     emit({ phase: "regenerating" });
-
-    try {
-      const preview = await runPreviewGenerator(
-        context,
-        blueprint,
-        updatedFiles.length > 0 ? updatedFiles : files,
-        { userId, projectId: id }
-      );
-      await updateProjectPreview(id, preview);
-      logger.info({ projectId: id }, "[v2:edit] Preview regenerated and saved");
-    } catch (previewErr: unknown) {
-      // Preview failure is non-fatal — files are already saved. Log and continue.
-      logger.warn(
-        { err: String(previewErr), projectId: id },
-        "[v2:edit] Preview regeneration failed (non-fatal)"
-      );
-    }
-
-    // ── preview-ready — client refreshes iframe ───────────────────────────────
     emit({ phase: "preview-ready" });
     res.end();
 

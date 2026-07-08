@@ -21,8 +21,18 @@
 import { streamNvidia, extractJson } from "../nvidia";
 import { logger } from "../logger";
 import { generateProjectCode, CODE_GENERATOR_MODEL } from "../website-v2-code-generator";
-import { saveBlueprint, saveGeneratedFiles, markProjectFailed } from "../website-v2-projects";
-import type { BusinessContext, WebsiteBlueprint, GeneratedProject, V2SseEvent } from "../website-v2-types";
+import { saveBlueprint, saveGeneratedFiles, markProjectFailed, updateProjectFiles, updateProjectPreview } from "../website-v2-projects";
+import { runEditingAgent, EDITOR_MODEL } from "../website-v2-editor";
+import { runPreviewGenerator } from "../website-v2-preview-generator";
+import type {
+  BusinessContext,
+  WebsiteBlueprint,
+  GeneratedProject,
+  V2SseEvent,
+  V2EditSseEvent,
+  ProjectFile,
+  FileModification,
+} from "../website-v2-types";
 import { MarcusConversationEngine } from "./marcus-conversation";
 import type { MarcusTaskBus } from "./marcus-task-bus";
 import { MODELS } from "../models";
@@ -306,6 +316,33 @@ export type MarcusWebsiteRunResult =
   | { ok: true; project: GeneratedProject & { projectId?: string } }
   | { ok: false; code: string; message: string };
 
+// ─── Runtime injected into the controller for an edit request (Commit 4) ──────
+//
+// edit-website-v2.ts owns request-lifecycle concerns — auth, loading the
+// project, SSE headers — and hands the controller a runtime scoped to a
+// single edit request. The controller owns the Editing Agent call, the
+// BUILD/TEST phases, and persistence of file + preview changes.
+
+export interface MarcusEditRuntime {
+  taskBus: MarcusTaskBus;
+  conversationEngine: MarcusConversationEngine;
+  projectId: string;
+  userId: string;
+  businessContext: BusinessContext;
+  blueprint: WebsiteBlueprint | null;
+  /** The project's full current file set — never mutated in place. */
+  files: ProjectFile[];
+  instruction: string;
+  selectedFiles?: string[];
+  pipelineStart: number;
+  /** Forward one SSE frame to the client. */
+  onSse: (event: V2EditSseEvent) => void;
+}
+
+export type MarcusEditRunResult =
+  | { ok: true; changes: FileModification[]; summary: string; fileCount: number }
+  | { ok: false; code: string; message: string };
+
 const TAG = "[MARCUS]";
 
 // ─── Engine flush helper ──────────────────────────────────────────────────────
@@ -314,6 +351,26 @@ const TAG = "[MARCUS]";
 // after any bus.emit() that produces conversation events so the client
 // receives them in the same order they were produced.
 function flushEngine(engine: MarcusConversationEngine, onSse: (event: V2SseEvent) => void): void {
+  for (const ev of engine.collect()) {
+    onSse({ phase: "agent", event: ev });
+    logger.info(
+      {
+        tag: TAG,
+        type: ev.type,
+        phase: ev.phase,
+        ...(ev.metadata?.path !== undefined && { path: ev.metadata.path }),
+        ...(ev.metadata?.operation !== undefined && { operation: ev.metadata.operation }),
+        ...(ev.metadata?.status !== undefined && { status: ev.metadata.status }),
+      },
+      `${TAG} conversation event type=${ev.type} phase=${ev.phase ?? "global"}${ev.metadata?.path ? ` path=${String(ev.metadata.path)}` : ""}`,
+    );
+  }
+}
+
+// Same drain-and-forward helper, typed for the edit route's SSE union instead
+// of the generation route's. Kept separate rather than generic to avoid
+// coupling the two SSE contracts together.
+function flushEditEngine(engine: MarcusConversationEngine, onSse: (event: V2EditSseEvent) => void): void {
   for (const ev of engine.collect()) {
     onSse({ phase: "agent", event: ev });
     logger.info(
@@ -1009,5 +1066,153 @@ export const MarcusController = {
     flush();
 
     return { ok: true, project: resultProject };
+  },
+
+  /**
+   * Owns the Website Studio edit pipeline (Commit 4): inspect current files →
+   * decide + write modifications via the Editing Agent → persist file changes
+   * → regenerate + validate the preview → report what changed.
+   *
+   * Maps onto the five relevant Marcus phases: UNDERSTAND, PLAN, BUILD, TEST,
+   * REPORT. Every step emits real ConversationEvents — no timers, no fake
+   * typing — driven entirely by confirmed work (files read, files written,
+   * a completed LLM call, a completed persistence write).
+   *
+   * The final file-modification system is untouched: this method returns
+   * FileModification[] which the caller applies via the existing DB update
+   * path; Marcus never edits Monaco or the WebContainer directly.
+   */
+  async runEditFlow(rt: MarcusEditRuntime): Promise<MarcusEditRunResult> {
+    const {
+      taskBus: bus,
+      conversationEngine: engine,
+      projectId,
+      userId,
+      businessContext: context,
+      blueprint,
+      files,
+      instruction,
+      selectedFiles,
+      pipelineStart,
+      onSse,
+    } = rt;
+    const flush = () => flushEditEngine(engine, onSse);
+
+    // ── UNDERSTAND: inspect current files ────────────────────────────────────
+    engine.emitPhaseStart("UNDERSTAND");
+    flush();
+
+    // Only narrate specific file reads for files we can *guarantee* were sent
+    // to the editing agent — the user's own file-focus selection. Otherwise
+    // describe the review truthfully without naming files we didn't confirm.
+    if (selectedFiles?.length) {
+      for (const path of selectedFiles) {
+        engine.emitFileOperation(path, "read", "UNDERSTAND");
+      }
+    } else {
+      engine.emitMessage(
+        "UNDERSTAND",
+        `Reviewing the current project (${files.length} file${files.length !== 1 ? "s" : ""}) to plan this change.`,
+      );
+    }
+    flush();
+    engine.emitPhaseComplete("UNDERSTAND");
+    flush();
+
+    // ── PLAN: the Editing Agent decides + writes the modifications ──────────
+    engine.emitPhaseStart("PLAN");
+    flush();
+
+    const editStart = Date.now();
+    bus.emit("llm", "edit_start", "running", {
+      model: EDITOR_MODEL,
+      userId,
+      projectId,
+      elapsedMsPipeline: Date.now() - pipelineStart,
+    }, "edit");
+    flush();
+
+    let result: { changes: FileModification[]; summary: string };
+    try {
+      result = await runEditingAgent(context, blueprint, files, instruction, selectedFiles, { userId, projectId });
+    } catch (err) {
+      const editMs = Date.now() - editStart;
+      bus.emit("llm", "edit_complete", "failed", {
+        model: EDITOR_MODEL, userId, projectId, durationMs: editMs, error: String(err),
+      }, "edit");
+      engine.emitPhaseFailed("PLAN", "I couldn't generate a valid set of changes for that request. Please try rephrasing it.", editMs);
+      flush();
+      return { ok: false, code: "EDIT_ERROR", message: err instanceof Error ? err.message : "Edit failed" };
+    }
+
+    const editMs = Date.now() - editStart;
+    bus.emit("llm", "edit_complete", "completed", {
+      model: EDITOR_MODEL, userId, projectId, durationMs: editMs, changeCount: result.changes.length,
+    }, "edit");
+    engine.emitMessage("PLAN", result.summary);
+    engine.emitPhaseComplete("PLAN", editMs);
+    flush();
+
+    if (result.changes.length === 0) {
+      engine.emitWarning(null, "I didn't find anything that needed to change for that instruction.");
+      engine.emitDone(Date.now() - pipelineStart, "No changes were needed.");
+      flush();
+      return { ok: true, changes: [], summary: result.summary, fileCount: 0 };
+    }
+
+    // ── BUILD: apply + persist the file modifications ────────────────────────
+    engine.emitPhaseStart("BUILD");
+    flush();
+
+    for (const change of result.changes) {
+      const fsAction = change.operation === "create" ? "create_file" : change.operation === "delete" ? "delete_file" : "update_file";
+      bus.emit("filesystem", fsAction, "completed", { path: change.path }, "BUILD");
+      engine.emitFileOperation(change.path, change.operation, "BUILD", change.reason);
+      flush();
+    }
+
+    bus.emit("database", "save_edit", "running", { projectId, fileCount: result.changes.length }, "BUILD");
+    flush();
+
+    const { files: updatedFiles, ok: savedOk } = await updateProjectFiles(projectId, result.changes);
+    if (!savedOk) {
+      bus.emit("database", "save_edit", "failed", { projectId }, "BUILD");
+      engine.emitPhaseFailed("BUILD", "I wasn't able to save these changes to the project.");
+      flush();
+      return { ok: false, code: "SAVE_ERROR", message: "Failed to save changes to database" };
+    }
+
+    bus.emit("database", "save_edit", "completed", { projectId, fileCount: result.changes.length }, "BUILD");
+    engine.emitPhaseComplete("BUILD");
+    flush();
+
+    // ── TEST: regenerate + validate the preview ───────────────────────────────
+    engine.emitPhaseStart("TEST");
+    engine.emitMessage("TEST", "Testing the updated preview.");
+    flush();
+
+    try {
+      const preview = await runPreviewGenerator(
+        context, blueprint, updatedFiles.length > 0 ? updatedFiles : files, { userId, projectId },
+      );
+      await updateProjectPreview(projectId, preview);
+      engine.emitPhaseComplete("TEST");
+    } catch (previewErr) {
+      // Preview failure is non-fatal — files are already saved.
+      logger.warn({ err: String(previewErr), projectId }, "[v2:edit] Preview regeneration failed (non-fatal)");
+      engine.emitWarning("TEST", "The live preview couldn't be regenerated, but your file changes were saved.");
+      engine.emitPhaseComplete("TEST");
+    }
+    flush();
+
+    // ── REPORT: explain what changed ──────────────────────────────────────────
+    const totalMs = Date.now() - pipelineStart;
+    engine.emitPhaseStart("REPORT");
+    engine.emitMessage("REPORT", result.summary);
+    engine.emitPhaseComplete("REPORT", totalMs);
+    engine.emitDone(totalMs, result.summary);
+    flush();
+
+    return { ok: true, changes: result.changes, summary: result.summary, fileCount: result.changes.length };
   },
 } as const;

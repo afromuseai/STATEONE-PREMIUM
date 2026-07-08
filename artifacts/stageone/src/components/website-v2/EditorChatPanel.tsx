@@ -1,7 +1,28 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Sparkles, Send, CheckCircle, AlertCircle, Loader, ChevronDown, ChevronUp, FileCode, RefreshCw } from "lucide-react"
+import { Sparkles, Send, CheckCircle, AlertCircle, Loader, ChevronDown, ChevronUp, FileCode, RefreshCw, FilePen, FilePlus, FileMinus } from "lucide-react"
 import type { V2ProjectFile } from "@/hooks/useWebsiteV2Project"
+
+// ─── ConversationEvent (mirrors the backend's Marcus Conversation Engine) ─────
+// Kept as a local type so this component has no import dependency on the
+// api-server package — only the shape is shared.
+type MarcusPhase = "UNDERSTAND" | "PLAN" | "DESIGN" | "BUILD" | "TEST" | "IMPROVE" | "REPORT"
+type ConversationEventType = "message" | "action" | "step" | "file" | "warning" | "error" | "complete" | "progress"
+type FileOperation = "create" | "update" | "delete" | "rename" | "read" | "open"
+
+interface ConversationEvent {
+  id: string
+  type: ConversationEventType
+  phase: MarcusPhase | null
+  timestamp: string
+  message: string
+  metadata?: {
+    path?: string
+    operation?: FileOperation
+    status?: string
+    [key: string]: unknown
+  }
+}
 
 // ─── SSE reader helper ────────────────────────────────────────────────────────
 // POST + read text/event-stream without EventSource (which only supports GET).
@@ -50,9 +71,11 @@ interface EditorChatPanelProps {
   projectId:      string
   files:          V2ProjectFile[]
   onEditComplete: () => void
+  /** Optional — called when the user clicks a file mentioned in the chat transcript. */
+  onOpenFile?:    (path: string) => void
 }
 
-export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChatPanelProps) {
+export function EditorChatPanel({ projectId, files, onEditComplete, onOpenFile }: EditorChatPanelProps) {
   const [instruction, setInstruction]       = useState("")
   const [phase, setPhase]                   = useState<string | null>(null)
   const [summary, setSummary]               = useState<string | null>(null)
@@ -61,7 +84,9 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
   const [showChanges, setShowChanges]       = useState(false)
   const [selectedFiles, setSelectedFiles]   = useState<Set<string>>(new Set())
   const [showFileSelect, setShowFileSelect] = useState(false)
+  const [transcript, setTranscript]         = useState<ConversationEvent[]>([])
   const abortRef = useRef<AbortController | null>(null)
+  const transcriptEndRef = useRef<HTMLDivElement | null>(null)
 
   // Running = any phase before the two terminal phases (preview-ready / error)
   const isRunning = phase !== null && phase !== "preview-ready" && phase !== "error"

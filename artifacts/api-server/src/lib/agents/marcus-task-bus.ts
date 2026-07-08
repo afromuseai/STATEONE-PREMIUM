@@ -49,7 +49,9 @@ export type LlmAction =
   | "architect_start"
   | "architect_complete"
   | "codegen_start"
-  | "codegen_complete";
+  | "codegen_complete"
+  | "edit_start"
+  | "edit_complete";
 
 export type ValidationAction =
   | "typescript"
@@ -59,7 +61,7 @@ export type ValidationAction =
   | "blueprint"   // Architect JSON parse + schema check
   | "schema";     // Runtime blueprint schema validation
 
-export type DatabaseAction = "save_project" | "save_blueprint" | "save_files";
+export type DatabaseAction = "save_project" | "save_blueprint" | "save_files" | "save_edit";
 
 export type WebcontainerAction = string; // extensible for future integration
 export type BrowserAction = string;      // extensible for future integration
