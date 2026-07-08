@@ -277,6 +277,7 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
             activeFile={activeFile}
             workspaceMode={workspaceMode}
             wcUrl={wcUrl}
+            wcStatus={wcStatus}
             terminalLines={terminalLines}
             wcBooting={wcBooting}
             onFileWrite={wcWriteFile}

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { Terminal, ChevronRight, Circle, Loader } from "lucide-react"
-import type { TerminalLine } from "@/components/website-v2/runtime/runtime-types"
+import type { TerminalLine, RuntimeStatus } from "@/components/website-v2/runtime/runtime-types"
+import { RuntimeAgentObserver } from "./RuntimeAgentObserver"
 
 // ─── Placeholder shown before WC boots ────────────────────────────────────────
 const PLACEHOLDER_LINES: TerminalLine[] = [
@@ -20,11 +21,15 @@ interface TerminalPanelProps {
   lines?: TerminalLine[]
   /** Whether the WC boot sequence is actively running */
   isBooting?: boolean
+  /** Full WC lifecycle status — drives the Runtime Agent Observer card */
+  wcStatus?: RuntimeStatus
+  /** Live dev-server URL — shown in the Observer card when ready */
+  wcUrl?: string | null
 }
 
-export function TerminalPanel({ lines, isBooting }: TerminalPanelProps) {
-  const bottomRef  = useRef<HTMLDivElement | null>(null)
-  const display    = lines && lines.length > 0 ? lines : PLACEHOLDER_LINES
+export function TerminalPanel({ lines, isBooting, wcStatus, wcUrl }: TerminalPanelProps) {
+  const bottomRef   = useRef<HTMLDivElement | null>(null)
+  const display     = lines && lines.length > 0 ? lines : PLACEHOLDER_LINES
   const showSpinner = isBooting ?? false
 
   // Auto-scroll to bottom whenever new lines arrive
@@ -52,22 +57,34 @@ export function TerminalPanel({ lines, isBooting }: TerminalPanelProps) {
       </div>
 
       {/* Log output */}
-      <div className="flex-1 overflow-y-auto p-3 text-[12px] leading-6" style={{ scrollbarWidth: "thin" }}>
-        {display.map((line) => (
-          <div key={line.id} className="flex items-start gap-3">
-            <span className="flex-shrink-0 pt-0.5 font-mono text-[10px] text-white/20">
-              {line.time}
-            </span>
-            <span className={LINE_COLORS[line.type]}>{line.text}</span>
-          </div>
-        ))}
+      <div className="flex-1 overflow-y-auto text-[12px] leading-6" style={{ scrollbarWidth: "thin" }}>
+        <div className="p-3">
+          {display.map((line) => (
+            <div key={line.id} className="flex items-start gap-3">
+              <span className="flex-shrink-0 pt-0.5 font-mono text-[10px] text-white/20">
+                {line.time}
+              </span>
+              <span className={LINE_COLORS[line.type]}>{line.text}</span>
+            </div>
+          ))}
 
-        {/* Blinking cursor */}
-        <div className="mt-2 flex items-center gap-1 text-amber-400/80">
-          <ChevronRight className="h-3 w-3" />
-          <span className="animate-pulse">_</span>
+          {/* Blinking cursor */}
+          <div className="mt-2 flex items-center gap-1 text-amber-400/80">
+            <ChevronRight className="h-3 w-3" />
+            <span className="animate-pulse">_</span>
+          </div>
         </div>
 
+        {/* Runtime Agent Observer — appears after WC becomes ready */}
+        <RuntimeAgentObserver
+          status={wcStatus ?? "idle"}
+          terminalLines={lines ?? []}
+          wcUrl={wcUrl ?? null}
+          scrollIntoView={bottomRef}
+        />
+
+        {/* Scroll anchor — lives after the observer so scroll-to-bottom
+            always reveals the checklist card once it appears            */}
         <div ref={bottomRef} />
       </div>
     </div>

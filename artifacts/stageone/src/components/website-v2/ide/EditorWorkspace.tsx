@@ -6,7 +6,7 @@ import { TerminalPanel }     from "./TerminalPanel"
 import { ResizableHandle }   from "./ResizableHandle"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import type { OpenTab, WorkspaceMode }   from "./StudioShell"
-import type { TerminalLine }             from "@/components/website-v2/runtime/runtime-types"
+import type { TerminalLine, RuntimeStatus } from "@/components/website-v2/runtime/runtime-types"
 
 interface EditorWorkspaceProps {
   project:        V2Project
@@ -15,6 +15,8 @@ interface EditorWorkspaceProps {
   activeFile:     V2ProjectFile | null
   workspaceMode:  WorkspaceMode
   wcUrl?:         string | null
+  /** Full WC lifecycle status — passed to TerminalPanel for RuntimeAgentObserver */
+  wcStatus?:      RuntimeStatus
   /** Streamed WC terminal output — passed through to TerminalPanel */
   terminalLines?: TerminalLine[]
   /** Whether the WC boot sequence is in progress */
@@ -38,6 +40,7 @@ export function EditorWorkspace({
   activeFile,
   workspaceMode,
   wcUrl,
+  wcStatus,
   terminalLines,
   wcBooting,
   onFileWrite,
@@ -123,7 +126,12 @@ export function EditorWorkspace({
         {/* ── TERMINAL mode: full-pane terminal ─────────────────────────── */}
         {workspaceMode === "terminal" && (
           <div className="flex min-w-0 flex-1 overflow-hidden">
-            <TerminalPanel lines={terminalLines} isBooting={wcBooting} />
+            <TerminalPanel
+              lines={terminalLines}
+              isBooting={wcBooting}
+              wcStatus={wcStatus}
+              wcUrl={wcUrl}
+            />
           </div>
         )}
       </div>
