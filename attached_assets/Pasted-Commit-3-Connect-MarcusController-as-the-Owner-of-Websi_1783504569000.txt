@@ -1,0 +1,281 @@
+Commit 3 — Connect MarcusController as the Owner of Website Generation Pipeline
+Objective
+
+Transfer ownership of Website Generation from the legacy route orchestration into MarcusController.
+
+Currently:
+
+generate-website-v2.ts
+
+ ├── Architect LLM call
+ ├── Blueprint parsing
+ ├── Code generation call
+ ├── Validation
+ ├── File handling
+ ├── Database saving
+ └── SSE narration
+
+Marcus exists but is unused.
+
+After this commit:
+
+generate-website-v2.ts
+
+        |
+        v
+
+MarcusController
+
+        |
+        ├── UNDERSTAND
+        ├── PLAN
+        ├── DESIGN
+        ├── BUILD
+        ├── TEST
+        ├── IMPROVE
+        └── REPORT
+
+        |
+        v
+
+TaskBus
+
+        |
+        v
+
+ConversationEngine
+
+        |
+        v
+
+SSE
+Scope
+
+Only move orchestration ownership.
+
+Do not redesign prompts.
+
+Do not add new agent capabilities.
+
+Do not change UI.
+
+Do not modify WebContainer.
+
+Step 1 — Inject runtime dependencies
+
+Update MarcusController so it receives:
+
+{
+ taskBus,
+ conversationEngine,
+ projectId,
+ userId,
+ businessContext
+}
+
+The controller should not create these internally.
+
+Step 2 — Replace Architect execution
+
+Remove this ownership from:
+
+generate-website-v2.ts
+
+Current:
+
+streamNvidia({
+ model: ARCHITECT_MODEL,
+ ...
+})
+
+Move responsibility into:
+
+marcus-controller.ts
+
+using:
+
+buildMarcusSystemPrompt("UNDERSTAND")
+buildMarcusUserPrompt()
+
+The controller should call the existing NVIDIA infrastructure.
+
+No fake responses.
+
+Step 3 — Connect phase outputs
+
+Each phase should pass its output into the next phase.
+
+Example:
+
+UNDERSTAND
+      |
+      v
+business understanding JSON
+
+PLAN
+      |
+      v
+architecture decisions
+
+DESIGN
+      |
+      v
+blueprint
+
+BUILD
+      |
+      v
+generated files
+
+TEST
+      |
+      v
+validation report
+
+IMPROVE
+      |
+      v
+fixes
+
+REPORT
+      |
+      v
+final summary
+Step 4 — Preserve current generation output
+
+Important:
+
+The existing:
+
+WebsiteBlueprint
+GeneratedProject
+ProjectFile[]
+preview
+dependencies
+
+formats must remain unchanged.
+
+Marcus should replace orchestration, not data contracts.
+
+Step 5 — Move code generation ownership
+
+Currently:
+
+website-v2-code-generator.ts
+
+is called directly.
+
+Change:
+
+MarcusController BUILD phase
+          |
+          v
+generateProjectCode()
+
+The code generator remains responsible for producing files.
+
+Marcus controls when and why it runs.
+
+Step 6 — Connect TaskBus events
+
+Each phase must emit:
+
+Example:
+
+taskBus.emit(
+ "pipeline",
+ "phase_start",
+ "running",
+ {
+   phase:"BUILD"
+ }
+)
+
+and:
+
+taskBus.emit(
+ "pipeline",
+ "phase_complete",
+ "completed",
+ {
+   phase:"BUILD",
+   durationMs
+ }
+)
+Step 7 — Remove legacy orchestration
+
+After wiring:
+
+generate-website-v2.ts should only:
+
+Authenticate request
+Create project
+Create Marcus runtime
+Start controller
+Stream events
+Return result
+
+It should NOT:
+
+call models directly
+manage phase order
+build prompts
+narrate actions
+Step 8 — Error handling
+
+Failures should flow:
+
+Agent failure
+
+↓
+
+TaskBus error event
+
+↓
+
+ConversationEngine
+
+↓
+
+SSE
+
+↓
+
+User sees Marcus explaining issue
+
+Example:
+
+"I couldn't validate the generated structure. I'm analyzing the issue and preparing a correction."
+Verification
+
+After this commit:
+
+A generation should still produce:
+
+✅ database project
+✅ blueprint
+✅ generated files
+✅ preview
+✅ SSE stream
+
+But internally:
+
+Before:
+
+Route → LLM → Save
+
+After:
+
+Route → MarcusController → Agents → TaskBus → Conversation → Save
+Do NOT
+
+Do not:
+
+build Studio Chat UI
+persist conversations
+add memory
+add autonomous repair
+add permissions
+change prompts
+
+Those come after the architecture is truly connected.

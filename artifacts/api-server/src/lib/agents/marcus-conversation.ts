@@ -647,12 +647,13 @@ export class MarcusConversationEngine {
         this.emitPhaseStart("BUILD");
       }
       if (action === "codegen_complete" && status === "completed") {
-        // All code generated — announce and close BUILD phase.
+        // All code generated — announce completion. BUILD phase is closed
+        // explicitly by the route after infra file injections are complete,
+        // once the full file set is known (engine.emitPhaseComplete("BUILD")).
         this.emitMessage(
           "BUILD",
           "The application structure is ready. I generated the required components and files.",
         );
-        this.emitPhaseComplete("BUILD", durationMs);
       }
     }
 
