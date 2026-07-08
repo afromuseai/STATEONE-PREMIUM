@@ -1,0 +1,212 @@
+Phase 1 — Commit 3: Marcus Conversation Engine + File Activity Event System
+
+We have completed:
+
+Commit 1 — Marcus Website Agent prompt architecture
+Commit 2 — Marcus Controller orchestration
+
+This commit must NOT modify the website generation pipeline yet. The objective is to build the conversation/event layer that will later plug into SSE.
+
+Objective
+
+Implement a dedicated Marcus Conversation Engine that generates rich agent conversations independently from the LLM output.
+
+The conversation engine must never stream raw model JSON or prompt text to the user.
+
+Instead, it should translate controller lifecycle events into natural engineering progress updates similar to Replit Agent.
+
+Create
+artifacts/api-server/src/lib/agents/marcus-conversation.ts
+Responsibilities
+
+Create a conversation engine responsible for converting controller activity into user-facing events.
+
+The conversation layer must not call any LLM.
+
+It is purely deterministic.
+
+Input:
+
+Marcus phase changes
+controller lifecycle
+file operations
+warnings
+retries
+validation
+completion
+
+Output:
+
+AgentEvent objects.
+
+Create AgentEvent
+
+Support at minimum:
+
+message
+action
+step
+file
+warning
+error
+complete
+
+Each event should include:
+
+type
+phase
+timestamp
+message
+optional metadata
+
+The event system should be extensible because future modules (Automation Studio, Chatbot Studio, Agent Builder) will reuse it.
+
+Conversation Templates
+
+Create reusable template collections instead of hardcoded strings.
+
+For example:
+
+UNDERSTAND
+
+Learning about your business...
+Understanding your requirements...
+Analyzing your product idea...
+
+PLAN
+
+Planning project architecture...
+Organizing the implementation...
+Defining the application structure...
+
+DESIGN
+
+Designing the user experience...
+Creating the visual hierarchy...
+Preparing the design system...
+
+BUILD
+
+Building production-ready components...
+Generating application files...
+Implementing the project...
+
+TEST
+
+Validating generated files...
+Checking project integrity...
+Running structural verification...
+
+REPORT
+
+Finalizing the project...
+Preparing Website Studio...
+Everything looks good.
+
+Randomize template selection so repeated generations feel natural.
+
+File Activity Events
+
+Add a dedicated event type for filesystem activity.
+
+Support:
+
+create
+update
+delete
+rename
+read
+open
+
+Each event must include:
+
+path
+operation
+phase
+timestamp
+
+Example events
+
+Creating components/Hero.tsx
+
+Updating app/layout.tsx
+
+Reading package.json
+
+Creating tailwind.config.ts
+
+Deleting obsolete component
+
+Opening app/page.tsx
+
+These events will later allow the frontend to:
+
+open files automatically
+highlight edits
+build an activity timeline
+replay generation history
+display diffs
+
+Do not implement the frontend yet.
+
+Only produce the backend event model.
+
+Progress Events
+
+Support progress events.
+
+Example
+
+UNDERSTAND
+completed
+
+PLAN
+running
+
+DESIGN
+waiting
+
+These will later drive the sidebar timeline.
+
+Helper Functions
+
+Create helper methods including (or equivalent):
+
+emitPhaseStart()
+
+emitPhaseComplete()
+
+emitMessage()
+
+emitFileOperation()
+
+emitWarning()
+
+emitError()
+
+emitDone()
+
+The API should be reusable by every future autonomous agent.
+
+Design Requirements
+
+The conversation engine must:
+
+never generate fake work
+never fabricate completed operations
+only emit events corresponding to real controller actions
+be deterministic
+avoid direct dependency on Website Studio
+remain reusable for future AI modules
+Out of Scope
+
+Do NOT modify:
+
+generate-website-v2.ts
+SSE route
+MarcusController execution
+frontend chat
+WebContainer
+Website Studio UI
+
+This commit only builds the conversation infrastructure.
