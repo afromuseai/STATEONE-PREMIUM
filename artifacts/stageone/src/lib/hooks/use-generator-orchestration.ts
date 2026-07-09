@@ -193,6 +193,14 @@ export function useGeneratorOrchestration({
     idea: string,
   ): Promise<EnsureProjectResult> => {
     const traceId = tracer.getActiveExecutionId(effectiveRegistryId)
+    console.log("[SAVE_AUDIT]", JSON.stringify({
+      mode: "standalone",
+      projectType: projectTypeStable,
+      hasChatbotOutput: !!output,
+      outputLength: JSON.stringify(output).length,
+      ideaLength: idea.length,
+      timestamp: new Date().toISOString(),
+    }))
     const result = await ensureProject({
       type: projectTypeStable,
       idea,
@@ -208,6 +216,9 @@ export function useGeneratorOrchestration({
       })
     }
     emitRef.current({ type: completionEventStable, data: { saved: result.saved } })
+    if (result.saved) {
+      try { window.dispatchEvent(new CustomEvent("project-updated")) } catch { /* non-critical */ }
+    }
     if (traceId) {
       tracer.logStage(traceId, 12, "Completion event", {
         functionName: "useGeneratorOrchestration.completeGeneration",

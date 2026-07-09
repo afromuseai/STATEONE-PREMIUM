@@ -56,6 +56,7 @@ router.get("/projects", requireAuth, async (req, res): Promise<void> => {
     .from(projectsTable)
     .where(eq(projectsTable.userId, userId))
     .orderBy(desc(projectsTable.updatedAt));
+  req.log.info({ event: "PROJECT_LIST", count: projects.length, ids: projects.map(p => p.id), titles: projects.map(p => p.title), userId }, "[PROJECT_LIST] returning projects");
   res.json({ projects });
 });
 
@@ -160,7 +161,10 @@ router.patch("/projects/:id", requireAuth, async (req, res): Promise<void> => {
     updates.websiteOutput = parsed.data.websiteOutput;
     if (existingWebsiteOutput) updates.websiteVersionHistory = currentVersionHistory;
   }
-  if (parsed.data.chatbotOutput !== undefined) updates.chatbotOutput = parsed.data.chatbotOutput;
+  if (parsed.data.chatbotOutput !== undefined) {
+    updates.chatbotOutput = parsed.data.chatbotOutput;
+    req.log.info({ event: "SAVE_AUDIT", projectId: id, hasChatbotOutput: true, outputSize: JSON.stringify(parsed.data.chatbotOutput).length, timestamp: new Date().toISOString() }, "[SAVE_AUDIT] chatbotOutput present in PATCH body");
+  }
   if (parsed.data.automationOutput !== undefined) updates.automationOutput = parsed.data.automationOutput;
   if (parsed.data.orchestratorOutput !== undefined) updates.orchestratorOutput = parsed.data.orchestratorOutput;
 

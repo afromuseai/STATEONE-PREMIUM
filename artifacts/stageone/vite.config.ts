@@ -55,6 +55,9 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ["sonner"],
+    // Monaco Editor ships Web Workers that Vite cannot pre-bundle.
+    // Excluding it forces Vite to serve the package files as-is.
+    exclude: ["monaco-editor"],
   },
   root: path.resolve(import.meta.dirname),
   build: {

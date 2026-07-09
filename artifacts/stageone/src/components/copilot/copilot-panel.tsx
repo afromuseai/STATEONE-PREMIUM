@@ -42,9 +42,11 @@ import {
   setMarcusWorkspaceSignal,
   setPendingIntent,
   saveProjectContext,
+  clearProjectContext,
   peekPendingIntent,
   type PendingIntent,
 } from "@/lib/generation-context";
+import { decideProjectContinuity } from "@/lib/project-continuity";
 import { useWorkspaceController } from "@/lib/workspace-controller-context";
 import { useUpgradeModal } from "@/lib/upgrade-modal-context";
 import { ListChecks, Trash2 } from "lucide-react";
@@ -1113,12 +1115,18 @@ export function CopilotPanel() {
           );
           return;
         }
+        console.log("[MARCUS_WORKSPACE_PAYLOAD] generic idea | activeModule:", activeModule, "| payload:", JSON.stringify(idea));
         if (activeModule === "website") {
           // Same logic as the "website_idea" command handler below.
           console.log("WEBSITE_POPULATE_1 | idea command received | activeModule: website | length:", idea.length, "| first 80:", idea.slice(0, 80));
           console.log("WEBSITE_FLOW:A idea stored via generic idea command | length:", idea.length, "| first 80:", idea.slice(0, 80));
           if (currentProject) {
-            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+            const decision = decideProjectContinuity(currentProject, idea);
+            if (decision.action === "continue") {
+              saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+            } else {
+              clearProjectContext();
+            }
           }
           setPendingIntent({ type: "website", idea });
           // Always emit the signal regardless of current location.
@@ -1139,7 +1147,12 @@ export function CopilotPanel() {
           console.log("AUTOMATION_TRACE: Command received | command: idea (generic, routed to automation) | payload:", JSON.stringify(payload));
           lastAutomationIdeaRef.current = idea;
           if (currentProject) {
-            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+            const decision = decideProjectContinuity(currentProject, idea);
+            if (decision.action === "continue") {
+              saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+            } else {
+              clearProjectContext();
+            }
           }
           setPendingIntent({ type: "automation", idea });
           emitWorkspaceSignal({ target: "automation", type: "populate", payload: idea });
@@ -1164,7 +1177,12 @@ export function CopilotPanel() {
           // command fires in a separate stream chunk (mirrors lastBiIdeaRef pattern).
           lastChatbotIdeaRef.current = idea_c;
           if (currentProject) {
-            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+            const decision = decideProjectContinuity(currentProject, idea_c);
+            if (decision.action === "continue") {
+              saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+            } else {
+              clearProjectContext();
+            }
           }
           setPendingIntent({ type: "chatbot", idea: idea_c });
           // Always emit unconditionally — queued if page not yet subscribed, drained on subscribe.
@@ -1177,7 +1195,12 @@ export function CopilotPanel() {
           // Same logic as the "orchestrator_idea" command handler below.
           lastOrchestratorIdeaRef.current = idea;
           if (currentProject) {
-            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+            const decision = decideProjectContinuity(currentProject, idea);
+            if (decision.action === "continue") {
+              saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+            } else {
+              clearProjectContext();
+            }
           }
           setPendingIntent({ type: "orchestrator", idea });
           emitWorkspaceSignal({ target: "orchestrator", type: "populate", payload: idea });
@@ -1230,6 +1253,7 @@ export function CopilotPanel() {
       } else if (command === "bi_idea") {
         const idea = payload.trim();
         if (!idea) return;
+        console.log("[MARCUS_WORKSPACE_PAYLOAD] bi_idea | payload:", JSON.stringify(idea));
         lastBiIdeaRef.current = idea;
         // Write pendingIntent so the server bypass can fire on the next confirmation.
         // BI uses workspace signals for actual generation, but the server needs
@@ -1280,10 +1304,16 @@ export function CopilotPanel() {
       } else if (command === "website_idea") {
         const idea = payload.trim();
         if (!idea) return;
+        console.log("[MARCUS_WORKSPACE_PAYLOAD] website_idea | payload:", JSON.stringify(idea));
         // WEBSITE_FLOW:A — idea stored BEFORE any navigation
         console.log("WEBSITE_FLOW:A idea stored | length:", idea.length, "| first 80:", idea.slice(0, 80));
         if (currentProject) {
-          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          const decision = decideProjectContinuity(currentProject, idea);
+          if (decision.action === "continue") {
+            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          } else {
+            clearProjectContext();
+          }
         }
         setPendingIntent({ type: "website", idea });
         if (location === "/website-generator") {
@@ -1346,9 +1376,15 @@ export function CopilotPanel() {
           );
           return;
         }
+        console.log("[MARCUS_WORKSPACE_PAYLOAD] automation_idea | payload:", JSON.stringify(idea));
         lastAutomationIdeaRef.current = idea;
         if (currentProject) {
-          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          const decision = decideProjectContinuity(currentProject, idea);
+          if (decision.action === "continue") {
+            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          } else {
+            clearProjectContext();
+          }
         }
         // 1. Write sessionStorage (belt-and-suspenders for mount-based Phase 1 path).
         console.log(
@@ -1387,9 +1423,15 @@ export function CopilotPanel() {
       } else if (command === "orchestrator_idea") {
         const idea = payload.trim();
         if (!idea) return;
+        console.log("[MARCUS_WORKSPACE_PAYLOAD] orchestrator_idea | payload:", JSON.stringify(idea));
         lastOrchestratorIdeaRef.current = idea;
         if (currentProject) {
-          saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          const decision = decideProjectContinuity(currentProject, idea);
+          if (decision.action === "continue") {
+            saveProjectContext({ projectId: currentProject.id, projectTitle: currentProject.title, originatingBusinessIntelligenceId: currentProject.id, continuityMode: "continuation", source: "Marcus" });
+          } else {
+            clearProjectContext();
+          }
         }
         setPendingIntent({ type: "orchestrator", idea });
         emitWorkspaceSignal({ target: "orchestrator", type: "populate", payload: idea });
@@ -1416,6 +1458,7 @@ export function CopilotPanel() {
         const rawModule = payload.slice(0, sepIdx).trim();
         const idea = payload.slice(sepIdx + 1).trim();
         if (!rawModule || !idea) return;
+        console.log("[MARCUS_WORKSPACE_PAYLOAD] run | module:", rawModule, "| payload:", JSON.stringify(idea));
         console.log("[ExecutionBus] run command received | module:", rawModule, "| idea length:", idea.length);
         const traceIdRun = tracer.startExecution(rawModule);
         tracer.logStage(traceIdRun, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "run", module: rawModule } });
@@ -1473,6 +1516,7 @@ export function CopilotPanel() {
           },
           abortRef.current.signal,
           (buffer) => {
+            console.log("[MARCUS_CHAT_OUTPUT]", JSON.stringify(buffer));
             console.log(
               "[TRACE] FINAL MESSAGE SENT TO CHAT UI | content:",
               buffer,
@@ -1602,6 +1646,7 @@ export function CopilotPanel() {
       setAutorunCountdown(null);
       // Write autorun intent so target page picks it up and executes immediately
       const idea = crossSystem.lastBusinessIdea ?? undefined;
+      console.log("[MARCUS_WORKSPACE_PAYLOAD] action:", action.id, "| payload:", JSON.stringify(idea));
       setCopilotAutorun({ action: action.id, idea, timestamp: Date.now() });
       // generate_website / generate_intelligence ACTION path: route through ExecutionBus.
       // The bus calls the registered module controller's generate() which drives the

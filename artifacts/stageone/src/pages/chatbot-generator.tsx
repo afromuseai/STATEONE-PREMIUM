@@ -20,6 +20,7 @@ import { registerBridge, unregisterBridge } from "@/lib/module-architecture/chat
 import { chatbotController } from "@/lib/module-architecture/controllers/chatbot-controller"
 import { useGeneratorOrchestration } from "@/lib/hooks/use-generator-orchestration"
 import { tracer } from "@/lib/execution-tracer"
+import { Markdown } from "@/lib/markdown-renderer"
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -238,17 +239,29 @@ export default function ChatbotGeneratorPage() {
         typewriterPopulate(idea)
       },
       triggerGenerate: (idea) => new Promise<void>((resolve) => {
+        console.log("[BRIDGE_TRIGGER_GENERATE_IDEA] idea:", JSON.stringify(idea), "| length:", idea.length);
         generateCompleteCallbackRef.current = resolve
         generateWith(idea, chatbotTypeRef.current, industryRef.current, toneRef.current)
       }),
       save: async () => {
         if (!latestDataRef.current) return
-        await ensureProject({
+        console.log("[SAVE_AUDIT]", JSON.stringify({
+          mode: "marcus",
+          projectType: "chatbot",
+          hasChatbotOutput: true,
+          outputLength: JSON.stringify(latestDataRef.current).length,
+          ideaLength: (chatbotIdeaRef.current || businessDescRef.current || "Chatbot").length,
+          timestamp: new Date().toISOString(),
+        }))
+        const result = await ensureProject({
           type: "chatbot",
           idea: chatbotIdeaRef.current || businessDescRef.current || "Chatbot",
           outputField: "chatbotOutput",
           output: latestDataRef.current as unknown as Record<string, unknown>,
-        }).catch(() => {})
+        }).catch(() => ({ projectId: "", created: false, saved: false } as const))
+        if (result.saved) {
+          try { window.dispatchEvent(new CustomEvent("project-updated")) } catch { /* non-critical */ }
+        }
       },
       // Use the stable ref first (set synchronously on populate) then fall back to
       // the React-state mirror — exactly how BI uses marcusBiIdeaRef.
@@ -437,6 +450,7 @@ export default function ChatbotGeneratorPage() {
     console.log("GENERATE_CHATBOT_FUNCTION_ENTERED | descLength:", desc.trim().length, "| type:", type, "| ind:", ind, "| tn:", tn);
     // ── CHATBOT_PARSE_1 ──────────────────────────────────────────────────────────
     console.log("[CHATBOT_PARSE_1] generateWith started", { descLength: desc.trim().length, chatbotType: type, industry: ind, tone: tn });
+    console.log("[GENERATE_IDEA_RECEIVED] desc:", JSON.stringify(desc), "| type:", type, "| ind:", ind, "| tn:", tn);
     if (!desc.trim()) {
       // Resolve bridge promise immediately — no generation will happen
       generateCompleteCallbackRef.current?.()
@@ -457,6 +471,7 @@ export default function ChatbotGeneratorPage() {
       // ── CHATBOT_PARSE_2 ──────────────────────────────────────────────────────
       const _parse2Body = JSON.stringify({ businessDescription: desc.trim(), chatbotType: type, tone: tn, industry: ind, language: lang });
       console.log("[CHATBOT_PARSE_2] request sent", { endpoint: "/api/generate/chatbot", model: "determined by backend (MODELS.CHATBOT)", bodyLength: _parse2Body.length, chatbotType: type, industry: ind, tone: tn, descLength: desc.trim().length });
+      console.log("[GENERATE_REQUEST_BODY]", _parse2Body);
       if (traceId) {
         tracer.logStage(traceId, 9, "HTTP request", {
           functionName: "generateWith",
@@ -481,6 +496,7 @@ export default function ChatbotGeneratorPage() {
       }
       if (res.status === 403) {
         const errData = await res.json().catch(() => ({}))
+        console.log("[GENERATE_BACKEND_ERROR] status: 403 | body:", JSON.stringify(errData));
         if (errData.error === "UPGRADE_REQUIRED") {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("input")
@@ -492,8 +508,10 @@ export default function ChatbotGeneratorPage() {
         }
       }
       if (!res.ok || !res.body) {
-        traceOutcome = { success: false, reason: `HTTP ${res.status}` }
-        throw new Error("Request failed")
+        const errBody = await res.text().catch(() => "(failed to read)");
+        console.log("[GENERATE_BACKEND_ERROR] status:", res.status, "| body:", errBody);
+        traceOutcome = { success: false, reason: `HTTP ${res.status}: ${errBody.slice(0, 500)}` }
+        throw new Error(`Request failed (HTTP ${res.status}): ${errBody.slice(0, 200)}`)
       }
       const reader = res.body.getReader()
       const dec = new TextDecoder()
@@ -506,6 +524,7 @@ export default function ChatbotGeneratorPage() {
         carry = lines.pop() ?? ""
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue
+          console.log("[GENERATE_SSE_RAW_LINE] line:", line);
           try {
             const msg = JSON.parse(line.slice(6))
             if (msg.content) {
@@ -518,6 +537,8 @@ export default function ChatbotGeneratorPage() {
               buffer += msg.content
             }
             if (msg.error) {
+              console.log("[GENERATE_SSE_ERROR] error:", JSON.stringify(msg.error), "| fullMsg:", JSON.stringify(msg));
+              console.log("[GENERATE_RAW_BUFFER_ON_ERROR] bufferLength:", buffer.length, "| buffer:", buffer);
               setGenError(msg.error); setStep("input")
               traceOutcome = { success: false, reason: msg.error }
               // Bug 3 fix: resolve bridge promise on error so generate.complete fires
@@ -546,6 +567,7 @@ export default function ChatbotGeneratorPage() {
           } catch (sseParseErr) {
             // ── CHATBOT_PARSE_SSE_FRAGMENT — frontend SSE JSON parse failure ────
             console.warn("[CHATBOT_PARSE_SSE_FRAGMENT] frontend SSE JSON.parse failed", { exception: String(sseParseErr), rawLine: line.slice(0, 200) });
+            console.log("[GENERATE_SSE_PARSE_FAILURE] error:", String(sseParseErr), "| failingLine:", JSON.stringify(line), "| lineLength:", line.length, "| lineSlice(6):", JSON.stringify(line.slice(6)));
           }
         }
       }
@@ -1230,7 +1252,7 @@ function ChatWidget({
               <div className="max-w-[75%]">
                 <div className="px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed text-white"
                   style={{ background: m.role === "user" ? userBubble : botBubble, borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", border: m.role === "bot" && !isWA ? "1px solid rgba(255,255,255,0.06)" : undefined }}>
-                  {m.text}
+                  <Markdown text={m.text} />
                 </div>
                 <div className="text-[10px] text-white/25 mt-1 px-1" style={{ textAlign: m.role === "user" ? "right" : "left" }}>now</div>
               </div>

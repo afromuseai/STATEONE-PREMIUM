@@ -75,12 +75,18 @@ export async function ensureProject(
     console.log(`PROJECT_REUSED | projectId=${existingId}`);
     console.log(`PROJECT_REUSE: true`);
     console.log(`PROJECT_CREATED: false`);
-    const saved = await patchProject(existingId, outputField, output);
-    console.log(
-      `[ensureProject] ${saved ? "saved" : "save failed"} — reusing projectId=${existingId} (continuation from ${source})`,
-    );
-    console.log(`PROJECT_ID_AFTER: ${existingId}`);
-    return { projectId: existingId, created: false, saved };
+    const exists = await fetch(`/api/projects/${existingId}`, { method: "HEAD", credentials: "include" }).then(r => r.ok).catch(() => false)
+    if (!exists) {
+      console.log(`ENSURE_PROJECT_CONTINUATION_STALE | projectId=${existingId} — project no longer exists, falling through to create new`);
+      clearProjectContext();
+    } else {
+      const saved = await patchProject(existingId, outputField, output);
+      console.log(
+        `[ensureProject] ${saved ? "saved" : "save failed"} — reusing projectId=${existingId} (continuation from ${source})`,
+      );
+      console.log(`PROJECT_ID_AFTER: ${existingId}`);
+      return { projectId: existingId, created: false, saved };
+    }
   }
 
   if (existingId) {
@@ -116,6 +122,13 @@ export async function ensureProject(
       project: { id: string; title: string };
     };
     const newId = project.id;
+
+    console.log("[PROJECT_CREATED]", JSON.stringify({
+      id: newId,
+      title: projectTitle,
+      type,
+      timestamp: new Date().toISOString(),
+    }))
 
     saveProjectContext({
       projectId: newId,

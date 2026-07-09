@@ -4,6 +4,7 @@ import { useLocation } from "wouter"
 import { StudioShell }           from "@/components/website-v2/ide/StudioShell"
 import { WebContainerProvider }  from "@/components/website-v2/runtime/WebContainerProvider"
 import { useWebsiteV2Project }   from "@/hooks/useWebsiteV2Project"
+import { MarcusSessionProvider } from "@/lib/marcus-session/context"
 
 interface WebsiteStudioWorkspacePageProps {
   id: string
@@ -46,10 +47,12 @@ export default function WebsiteStudioWorkspacePage({ id }: WebsiteStudioWorkspac
   }
 
   return (
-    <div className="flex flex-1 min-w-0 h-full overflow-hidden">
-      <WebContainerProvider project={project}>
-        <StudioShell project={project} onRefresh={refresh} />
-      </WebContainerProvider>
-    </div>
+    <MarcusSessionProvider>
+      <div className="flex flex-1 min-w-0 h-full overflow-hidden">
+        <WebContainerProvider project={project}>
+          <StudioShell project={project} onRefresh={refresh} />
+        </WebContainerProvider>
+      </div>
+    </MarcusSessionProvider>
   )
 }

@@ -56,13 +56,17 @@ export default function DashboardPage() {
   // Subscription state for usage warning
   const [subscription, setSubscription] = useState<{ aiGenerationsUsed: number; aiGenerationsLimit: number; plan: string } | null>(null)
 
-  useEffect(() => {
+  const fetchProjects = useCallback(() => {
     api.projects.list().then(({ projects }) => {
       setProjects(projects)
       projectsRef.current = projects
       const hasWebsite = projects.some(p => p.websiteOutput)
       if (hasWebsite) setWebsiteGenerated(true)
     }).catch(() => {}).finally(() => setProjectsLoading(false))
+  }, [])
+
+  useEffect(() => {
+    fetchProjects()
 
     fetch("/api/memory", { credentials: "include" })
       .then(r => r.json())
@@ -78,7 +82,13 @@ export default function DashboardPage() {
       .then(r => r.json())
       .then(d => { if (d.subscription) setSubscription(d.subscription) })
       .catch(() => {})
-  }, [])
+  }, [fetchProjects])
+
+  useEffect(() => {
+    const handler = () => fetchProjects()
+    window.addEventListener("project-updated", handler)
+    return () => window.removeEventListener("project-updated", handler)
+  }, [fetchProjects])
 
   const handleDeleteProject = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()

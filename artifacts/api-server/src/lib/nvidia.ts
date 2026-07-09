@@ -71,6 +71,21 @@ function getApiKey(): string {
   return key;
 }
 
+const CHATBOT_JSON_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    identity: { type: "object" },
+    systemPrompt: { type: "object" },
+    conversationFlows: { type: "object" },
+    suggestedPrompts: { type: "array" },
+    integrations: { type: "object" },
+    automation: { type: "object" },
+    deployment: { type: "object" },
+    kpis: { type: "object" },
+  },
+  required: ["identity", "systemPrompt", "conversationFlows", "suggestedPrompts", "integrations", "automation", "deployment", "kpis"],
+};
+
 function buildBody(options: NvidiaCallOptions, stream: boolean): Record<string, unknown> {
   const { model, messages, temperature = 0.7, topP, maxTokens = 4000, chatTemplateKwargs, nvextParams } = options;
 
@@ -94,6 +109,11 @@ function buildBody(options: NvidiaCallOptions, stream: boolean): Record<string, 
 
   if (nvextParams) {
     body.nvext = nvextParams;
+  }
+
+  if (model === "nvidia/llama-3.3-nemotron-super-49b-v1") {
+    const combined = { ...((body.nvext as Record<string, unknown>) ?? {}), guided_json: CHATBOT_JSON_SCHEMA };
+    body.nvext = combined;
   }
 
   return body;

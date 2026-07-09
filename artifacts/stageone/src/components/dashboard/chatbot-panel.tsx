@@ -7,6 +7,7 @@ import {
 } from "lucide-react"
 import { useLocation } from "wouter"
 import { useLang } from "@/lib/i18n"
+import { Markdown } from "@/lib/markdown-renderer"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -168,7 +169,7 @@ function ChatWidget({
               <div className="max-w-[75%]">
                 <div className="px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed text-white"
                   style={{ background: m.role === "user" ? userBubble : botBubble, borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", border: m.role === "bot" && !isWA ? "1px solid rgba(255,255,255,0.06)" : undefined }}>
-                  {m.text}
+                  <Markdown text={m.text} />
                 </div>
                 <div className="text-[10px] text-white/25 mt-1 px-1" style={{ textAlign: m.role === "user" ? "right" : "left" }}>now</div>
               </div>

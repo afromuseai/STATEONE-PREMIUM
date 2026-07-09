@@ -9,6 +9,11 @@
  */
 
 import { getController } from '@/lib/module-architecture/registry';
+import { getBridge as getIntelligenceBridge } from '@/lib/module-architecture/intelligence-bridge';
+import { getBridge as getWebsiteBridge } from '@/lib/module-architecture/website-bridge';
+import { getBridge as getChatbotBridge } from '@/lib/module-architecture/chatbot-bridge';
+import { getBridge as getAutomationBridge } from '@/lib/module-architecture/automation-bridge';
+import { getBridge as getOrchestratorBridge } from '@/lib/module-architecture/orchestrator-bridge';
 import type { ModuleContext } from '@/lib/module-architecture/types';
 import type { ExecutionModuleId, ExecutionPayload } from './types';
 
@@ -22,6 +27,20 @@ export const MODULE_ROUTES: Record<ExecutionModuleId, string> = {
   chatbot:      '/chatbot-generator',
   automation:   '/automation-builder',
   orchestrator: '/orchestrator',
+};
+
+/**
+ * Map each module ID to its bridge getter so the adapter can verify the
+ * bridge is registered before delegating to the controller. When the bridge
+ * is null the controller would silently abort and the bus would see a
+ * resolved promise → COMPLETED with no generation having occurred.
+ */
+const BRIDGE_GETTERS: Record<ExecutionModuleId, () => unknown | null> = {
+  intelligence: getIntelligenceBridge,
+  website:      getWebsiteBridge,
+  chatbot:      getChatbotBridge,
+  automation:   getAutomationBridge,
+  orchestrator: getOrchestratorBridge,
 };
 
 /**
@@ -55,6 +74,12 @@ export function resolveExecutionModule(moduleId: ExecutionModuleId): ExecutionMo
     navigate: () => controller.navigate(),
 
     populate: (payload: ExecutionPayload) => {
+      const bridge = BRIDGE_GETTERS[moduleId]?.();
+      if (!bridge) {
+        return Promise.reject(
+          new Error(`[ExecutionBus] Bridge not registered for module '${moduleId}' — cannot populate`)
+        );
+      }
       const context: ModuleContext = {
         moduleId,
         projectId: payload.projectId,
@@ -66,6 +91,12 @@ export function resolveExecutionModule(moduleId: ExecutionModuleId): ExecutionMo
     },
 
     generate: (payload?: ExecutionPayload) => {
+      const bridge = BRIDGE_GETTERS[moduleId]?.();
+      if (!bridge) {
+        return Promise.reject(
+          new Error(`[ExecutionBus] Bridge not registered for module '${moduleId}' — cannot generate`)
+        );
+      }
       const context: ModuleContext = {
         moduleId,
         projectId: payload?.projectId,
@@ -73,6 +104,7 @@ export function resolveExecutionModule(moduleId: ExecutionModuleId): ExecutionMo
         businessIdea: payload?.idea,
         metadata: payload?.metadata,
       };
+      console.log("[BRIDGE_TRIGGER_GENERATE] moduleId:", moduleId, "| idea:", context.businessIdea);
       return controller.generate(context);
     },
     save:     () => controller.save(),

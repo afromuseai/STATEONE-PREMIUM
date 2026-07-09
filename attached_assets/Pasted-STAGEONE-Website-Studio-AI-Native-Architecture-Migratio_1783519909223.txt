@@ -1,0 +1,290 @@
+STAGEONE Website Studio — AI-Native Architecture Migration (Single Marcus Session)
+Objective
+
+We are no longer adding features.
+
+We are restructuring the Website Studio architecture so it behaves like Replit Agent, Cursor, Claude Code, and other AI-native IDEs.
+
+This is an architectural migration.
+
+Do NOT create new parallel systems.
+
+Refactor and consolidate the existing architecture.
+
+Current Problem
+
+The backend has become increasingly agentic.
+
+However, the frontend still behaves like several independent applications.
+
+Examples discovered during audit:
+
+Generation uses useMarcusStreamGeneration
+Editing uses AgentPanel
+Multiple SSE consumers exist
+Multiple tool event models exist
+Multiple thinking streams exist
+Multiple project ID sources exist
+Multiple signal systems exist
+Multiple file representations exist
+
+The result is that Marcus does not feel like one continuous teammate.
+
+Instead, it feels like multiple disconnected workflows.
+
+This migration solves that.
+
+Goal
+
+After this migration there must be one Marcus.
+
+Not:
+
+Generation Marcus
+
+↓
+
+Editing Marcus
+
+↓
+
+Workspace Marcus
+
+Instead:
+
+Marcus Session
+
+↓
+
+Marcus TaskBus
+
+↓
+
+Marcus Session Event Stream
+
+↓
+
+Entire UI
+
+Everything should subscribe to the same live execution.
+
+Build a MarcusSession Runtime
+
+Create a long-lived runtime representing one autonomous engineering session.
+
+It owns:
+
+sessionId
+projectId
+conversation
+thinking
+tool execution
+filesystem
+validation
+active file
+current phase
+event history
+status
+errors
+
+The UI must never own this state.
+
+The runtime owns it.
+
+Build One Event Stream
+
+Create a single event contract.
+
+Every backend action emits one event shape.
+
+Example categories:
+
+session.started
+session.finished
+session.failed
+phase.changed
+thinking.token
+tool.started
+tool.completed
+tool.failed
+file.opened
+file.read
+file.created
+file.updated
+file.deleted
+terminal.started
+terminal.output
+terminal.completed
+validation.started
+validation.completed
+deployment.started
+deployment.completed
+preview.updated
+
+Every UI component renders from these events.
+
+Nothing invents its own state.
+
+Replace Multiple SSE Consumers
+
+Remove independent SSE readers.
+
+Generation and editing must consume the same Marcus session stream.
+
+One reader.
+
+One reducer.
+
+One runtime.
+
+Remove Duplicate Agent State
+
+Eliminate duplicate ownership.
+
+There must be only one owner for:
+
+thinking
+tool execution
+conversation
+active file
+project id
+errors
+current phase
+validation
+progress
+Replace Multiple Signal Systems
+
+Remove legacy navigation signals.
+
+Keep one signal queue.
+
+Everything routes through it.
+
+Remove Generation Mode
+
+The user should not leave one application and enter another.
+
+Instead:
+
+User enters Website Studio.
+
+Marcus immediately begins working inside the IDE.
+
+Files appear.
+
+Editor streams.
+
+Terminal runs.
+
+Preview updates.
+
+Conversation continues.
+
+No redirect.
+
+No second AI.
+
+No second experience.
+
+Workspace Behaviour
+
+Marcus remains active after generation.
+
+User says:
+
+"Make the hero section larger."
+
+Marcus continues.
+
+User says:
+
+"Deploy."
+
+Marcus continues.
+
+User says:
+
+"Fix the TypeScript errors."
+
+Marcus continues.
+
+The same session persists.
+
+Component Responsibilities
+
+Components become renderers only.
+
+Chat
+
+↓
+
+renders conversation
+
+Activity
+
+↓
+
+renders task events
+
+Monaco
+
+↓
+
+renders streamed file state
+
+Terminal
+
+↓
+
+renders terminal events
+
+Preview
+
+↓
+
+renders preview updates
+
+Nothing owns business logic.
+
+Final Architecture
+User
+
+↓
+
+MarcusSession Runtime
+
+↓
+
+MarcusTaskBus
+
+↓
+
+MarcusSessionEvent Stream
+
+↓
+
+Chat
+Activity
+Editor
+Terminal
+Preview
+Files
+Status
+
+Every UI panel must derive from this single runtime.
+
+No duplicated execution state.
+
+No duplicated event models.
+
+No duplicated agent logic.
+
+Requirements
+Do not introduce parallel architectures.
+Reuse existing MarcusTaskBus wherever possible.
+Reuse MarcusConversationEngine as a TaskBus subscriber.
+Reuse existing WebContainer integration.
+Reuse Monaco integration.
+Preserve existing backend functionality.
+Migrate incrementally without breaking generation or editing.
+When complete, generation and editing must feel like one uninterrupted Marcus session.

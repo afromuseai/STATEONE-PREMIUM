@@ -325,6 +325,7 @@ class ExecutionBus {
   ): Promise<ExecutionRecord> {
     // ── generate-only path ───────────────────────────────────────────────────
     if (action === 'generate') {
+      console.log("[MARCUS_GENERATE_DISPATCH] action:", action, "| executionId:", executionId, "| moduleId:", moduleId);
       return await this._runGenerate(executionId, moduleId, mod, traceId, payload);
     }
 
@@ -364,6 +365,7 @@ class ExecutionBus {
         safeTransition(executionId, 'CONFIRMATION_WAIT');
         emitBusEvent('execution:confirmation_required', executionId, moduleId, { executionId });
         await this._waitForConfirmationTraced(executionId, moduleId, traceId);
+        console.log("[MARCUS_GENERATE_DISPATCH] action:", action, "| executionId:", executionId, "| moduleId:", moduleId);
         return await this._runGenerate(executionId, moduleId, mod, traceId, payload);
       }
 
@@ -386,6 +388,7 @@ class ExecutionBus {
         await this._waitForConfirmationTraced(executionId, moduleId, traceId);
       }
 
+      console.log("[MARCUS_GENERATE_DISPATCH] action:", action, "| executionId:", executionId, "| moduleId:", moduleId);
       return await this._runGenerate(executionId, moduleId, mod, traceId, payload);
     }
 
@@ -472,6 +475,7 @@ class ExecutionBus {
       _confirmationGates.set(executionId, (approved) => {
         _confirmationGates.delete(executionId);
         if (approved) {
+          console.log("[MARCUS_CONFIRM] executionId:", executionId, "| moduleId:", moduleId);
           emitBusEvent('execution:confirmation_approved', executionId, moduleId, { auto: false });
           resolve();
         } else {

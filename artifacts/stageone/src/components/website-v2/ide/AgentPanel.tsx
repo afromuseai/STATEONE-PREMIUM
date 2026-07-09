@@ -17,6 +17,7 @@ import {
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import { useWebContainer } from "@/components/website-v2/runtime/useWebContainer"
 import type { FileDiff } from "./DiffReviewPanel"
+import { useOptionalMarcusSession } from "@/lib/marcus-session/context"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ProjectMemory {
@@ -215,6 +216,9 @@ export function AgentPanel({ project, onEditComplete, onFileDiff, externalInput,
   const bottomRef  = useRef<HTMLDivElement | null>(null)
   const isRunning  = phase !== null
 
+  // ── Marcus session context (optional — works inside both create + workspace) ─
+  const sessionDispatch = useOptionalMarcusSession()?.dispatch ?? null
+
   // P2 — accept external prompt from inline AI commands
   useEffect(() => {
     if (externalInput) {
@@ -250,6 +254,7 @@ export function AgentPanel({ project, onEditComplete, onFileDiff, externalInput,
   const scanProject = async () => {
     setScanStatus("scanning")
     const scanId = addEntry({ kind: "scan", status: "running" })
+    sessionDispatch?.({ type: "scan.started" })
 
     try {
       const mem: ProjectMemory = { previousChanges: [], userPreferences: [] }
@@ -309,6 +314,7 @@ export function AgentPanel({ project, onEditComplete, onFileDiff, externalInput,
       ].filter(Boolean).join(" · ")
 
       updateEntry(scanId, { status: "done", summary } as Partial<TimelineEntry>)
+      sessionDispatch?.({ type: "scan.completed", summary })
 
       // Welcome message now that we know the project
       addEntry({
@@ -325,6 +331,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
     } catch (err) {
       setScanStatus("error")
       updateEntry(scanId, { status: "error" } as Partial<TimelineEntry>)
+      sessionDispatch?.({ type: "scan.failed", error: "scan error" })
       addEntry({ kind: "agent-msg", text: "Could not scan project — the WebContainer may still be starting.", phase: "error" })
       console.error("[AgentPanel:scan]", err)
     }
@@ -436,6 +443,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
       if (mode === "plan") {
         const displayText = stripToolCalls(fullText)
         addEntry({ kind: "plan", text: displayText })
+        sessionDispatch?.({ type: "plan.created", text: displayText, id: Math.random().toString(36).slice(2) })
         setPendingPlan(fullText)
         setConversation([
           ...conv,
@@ -451,6 +459,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
 
       if (displayText) {
         addEntry({ kind: "agent-msg", text: displayText })
+        sessionDispatch?.({ type: "agent.message", text: displayText, id: Math.random().toString(36).slice(2) })
       }
 
       if (toolCalls.length === 0) {
@@ -484,10 +493,16 @@ Tell me what to change and I'll plan it first, then execute it.`,
 
         const meta = TOOL_META[tc.name]
         const entryId = addEntry({ kind: "tool-call", name: tc.name, params: tc.params, status: "running" })
+        sessionDispatch?.({ type: "tool.started", tool: tc.name, path: tc.params.path as string | undefined })
 
         const toolResult = await executeTool(tc)
 
         updateEntry(entryId, { status: toolResult.ok ? "done" : "error", result: toolResult.result } as Partial<TimelineEntry>)
+        if (toolResult.ok) {
+          sessionDispatch?.({ type: "tool.completed", tool: tc.name, path: tc.params.path as string | undefined, detail: toolResult.result.slice(0, 200) })
+        } else {
+          sessionDispatch?.({ type: "tool.failed", tool: tc.name, error: toolResult.result.slice(0, 200) })
+        }
 
         // If it's a file write, also add a file-change entry
         if (tc.name === "write_file") {
@@ -496,6 +511,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
             kind: "file-change",
             change: { path, operation: "update" },
           })
+          sessionDispatch?.({ type: "file.changed", path, operation: "update" })
         }
 
         // Format result for next LLM call
@@ -550,6 +566,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
     setPendingPlan(null)
 
     addEntry({ kind: "user-msg", text })
+    sessionDispatch?.({ type: "user.message", text, id: Math.random().toString(36).slice(2) })
 
     const newConv: AgentMessage[] = [
       ...conversation,

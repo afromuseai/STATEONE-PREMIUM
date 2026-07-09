@@ -1,0 +1,76 @@
+Let me read all the relevant files in parallel before writing anything.
+
+
+4 actions
+Now let me read the frontend components and the conversation engine to understand the full picture.
+
+
+4 actions
+Let me read the AgentPanel and the website-studio-create page to understand the full frontend picture.
+
+
+3 actions
+Let me read the remaining pieces — the stream generation hook and screen — to understand every SSE event the frontend consumes.
+
+
+4 actions
+Let me read the two remaining pieces I need before writing.
+
+
+3 actions
+I now have a complete picture of the entire system. Let me plan and write the upgraded agent cleanly.
+
+Plan:
+
+Backend (marcus-stream-agent.ts) — upgrade to autonomous loop: UNDERSTAND → PLAN+EXECUTE (streaming, existing XML parser) → OBSERVE (structural validation) → FIX (second streaming call if needed, max 2 iterations) → VALIDATE → REPORT. Every phase emits TaskBus events + new SSE events.
+Frontend hook (useMarcusStreamGeneration.ts) — extend state to capture new loop-phase and tool-call events.
+Frontend screen (StreamGenerationScreen.tsx) — render the loop phases and tool events in the left panel.
+
+2 actions
+Now let me update the frontend hook and StreamGenerationScreen in parallel to consume and render the new events.
+
+
+2 actions
+Now let me update the StreamGenerationScreen to render the new loop phases and tool events.
+
+
+2 actions
+Now let me restart the API server to pick up the changes and check for any TypeScript errors.
+
+
+4 actions
+All three workflows are running and the build succeeded. Let me take a screenshot to confirm everything looks right.
+
+
+2 actions
+Everything is running. Let me update memory to capture this architectural change, then give the user a clean summary.
+
+
+6 actions
+Everything is built, compiled, and running. Here's what changed:
+
+Backend — marcus-stream-agent.ts (upgraded, not replaced)
+
+The single LLM call is now a 7-phase autonomous loop:
+
+Phase	What happens
+UNDERSTAND	Reads the business brief, emits context, creates the DB project record
+PLAN	Streaming LLM call — Marcus thinks aloud about architecture & design
+EXECUTE	Same LLM stream continues — writes files via <write_file> blocks token-by-token into Monaco (existing parser preserved exactly)
+OBSERVE	Structural validation: checks required files exist, are non-empty, package.json is valid JSON, TSX files have default exports
+FIX	If issues found: a second streaming LLM call with the specific errors — Marcus fixes and rewrites the affected files (max 2 iterations)
+VALIDATE	Re-runs the same structural check and emits a pass/fail result
+REPORT	Saves blueprint + files to DB, emits done
+Every tool execution (write_file, read_file, list_files, inspect_build_error) emits real TaskBus events and SSE events. No simulated messages.
+
+Frontend — StreamGenerationScreen.tsx (upgraded)
+
+The left panel now shows:
+
+Phase tracker — a mini progress rail showing the active loop phase with live status
+Tool calls list — every write_file, inspect_build_error, etc. with start/done/failed state
+Fix banner — appears during FIX phase with the specific issues being resolved
+Validation banner — appears on structural pass
+All existing event shapes are preserved — the file streaming, Monaco editor, file tab bar, and auto-redirect to workspace work exactly as before.
+
+Next, I can add a run_command tool to the FIX phase that actually boots npm run build inside the WebContainer post-generation and feeds real TypeScript compiler errors back into the fix loop. Would you like me to do that?
