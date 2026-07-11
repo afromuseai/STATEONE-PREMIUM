@@ -2,18 +2,21 @@ import { useState, useCallback, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { TopCommandBar }       from "./TopCommandBar"
 import { ActivityBar }         from "./ActivityBar"
-import { AgentPanel }          from "./AgentPanel"
+import { AgentConversation }   from "./AgentConversation"
 import { FileExplorerDrawer }  from "./FileExplorerDrawer"
 import { EditorWorkspace }     from "./EditorWorkspace"
 import { TerminalDrawer }      from "./TerminalDrawer"
 import { CommandPalette }      from "./CommandPalette"   // P1
-import { DiffReviewPanel, type FileDiff } from "./DiffReviewPanel"  // P3
+import { AgentRuntime } from "./AgentRuntime"  // P3
+import type { FileDiff } from "./DiffReviewPanel"
 import { CodeReviewPanel }     from "./CodeReviewPanel"  // P4
 import { DeploymentPipeline }  from "./DeploymentPipeline" // P5
 import { CollaborationPanel }  from "./CollaborationPanel" // P6
 import { useWebContainer }     from "@/components/website-v2/runtime/useWebContainer"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
-import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu } from "lucide-react"
+import type { MarcusSessionState } from "@/lib/marcus-session/types"
+import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu, Check, X, Loader2, Brain, Zap, Search, FileText, Terminal as TerminalIcon } from "lucide-react"
+import type { ConversationEntry } from "@/lib/marcus-session/types"
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 /** The four first-class workspace modes. Terminal is a full-pane mode, not a drawer. */
@@ -31,6 +34,194 @@ export interface OpenTab {
 interface StudioShellProps {
   project:    V2Project
   onRefresh:  () => void
+  /** Optional Marcus session — when provided (during generation), the side panel
+   *  shows the live streaming activity instead of the editing chat. */
+  session?:   MarcusSessionState | null
+}
+
+// ─── Marcus Generation Stream View (during generation) ─────────────────────────
+function GenerationStream({ session }: { session: MarcusSessionState }) {
+  const entries = session.conversation ?? []
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden bg-zinc-950/50">
+      {/* Header */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2.5">
+        <div className="flex h-6 w-6 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/[0.08]">
+          <Zap className="h-3 w-3 text-amber-400" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-white/90 truncate">Marcus is building…</p>
+          <p className="text-[10px] text-white/30 truncate">
+            {session.currentPhase ? `${session.phaseMessage || session.currentPhase}` : "Thinking…"}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {session.activeFilePath && (
+            <span className="flex items-center gap-1 text-[10px] text-amber-400/80 px-2 py-0.5 rounded bg-amber-400/[0.06]">
+              <FileText className="h-2.5 w-2.5" />
+              {session.activeFilePath.split("/").pop()}
+            </span>
+          )}
+          <div className="flex h-5 w-5 items-center justify-center">
+            <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
+          </div>
+        </div>
+      </div>
+
+      {/* Conversation stream */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+        {entries.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-white/20">
+            <p className="text-xs">Marcus is starting up…</p>
+          </div>
+        ) : (
+          <>
+            {entries.map((entry, i) => (
+              <StreamEntry key={`${entry.id}-${i}`} entry={entry} />
+            ))}
+            {/* Live thinking stream */}
+            {session.streamingText && (
+              <StreamEntry
+                entry={{
+                  kind: "thinking",
+                  text: session.streamingText!,
+                  id: "live-thinking",
+                  ts: Date.now(),
+                  phase: session.currentPhase ?? undefined
+                }}
+                isLive
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Status bar */}
+      <div className="flex shrink-0 items-center justify-between border-t border-white/[0.06] px-3 py-2 text-[10px] text-white/30">
+        <span>Files: {session.fileCount || 0}</span>
+        <span>Phase {session.fixIteration || 0}</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Individual stream entry ───────────────────────────────────────────────────
+function StreamEntry({ entry, isLive }: { entry: ConversationEntry; isLive?: boolean }) {
+  const isThinking = entry.kind === "thinking"
+  const isTool = entry.kind === "tool"
+  const isAgent = entry.kind === "agent"
+  const isPlan = entry.kind === "plan"
+  const isScan = entry.kind === "scan"
+  const isValidation = entry.kind === "validation"
+  const isFileChange = entry.kind === "file-change"
+
+  if (isThinking) {
+    return (
+      <div className="flex items-start gap-2 text-[11px] text-white/40 animate-in fade-in slide-in-from-left-1 duration-200">
+        <Brain className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400/70" />
+        <div className="flex-1 min-w-0">
+          {entry.phase && (
+            <p className="text-[9px] font-medium text-amber-400/60 mb-0.5 uppercase tracking-wider">
+              {entry.phase}
+            </p>
+          )}
+          <p className="font-mono leading-relaxed">{entry.text}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isTool) {
+    const statusColor = entry.status === "running" ? "text-amber-400" :
+                        entry.status === "done" ? "text-emerald-400" :
+                        "text-red-400"
+    const icon = entry.status === "running" ? <Loader2 className="h-3 w-3 animate-spin" /> :
+                 entry.status === "done" ? <Check className="h-3 w-3" /> :
+                 <X className="h-3 w-3" />
+    return (
+      <div className="flex items-start gap-2 text-[11px]">
+        <TerminalIcon className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${statusColor}`} />
+        <div className="flex-1 min-w-0">
+          <p className="flex items-center gap-1.5 font-mono">
+            <span className={statusColor}>{entry.tool}</span>
+            {entry.path && <span className="text-white/30">{entry.path}</span>}
+            {entry.detail && <span className="text-white/20">— {entry.detail}</span>}
+          </p>
+        </div>
+        <div className={statusColor}>{icon}</div>
+      </div>
+    )
+  }
+
+  if (isAgent) {
+    return (
+      <div className="flex items-start gap-2 text-[11px]">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-400/[0.1] border border-emerald-400/20">
+          <Cpu className="h-3 w-3 text-emerald-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-mono text-white/70 leading-relaxed">{entry.text}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isPlan) {
+    return (
+      <div className="flex items-start gap-2 text-[11px] border-l border-amber-400/30 pl-3">
+        <Search className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400/70" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] font-medium text-amber-400/60 mb-0.5 uppercase tracking-wider">Plan</p>
+          <p className="font-mono text-white/50 leading-relaxed">{entry.text}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isScan) {
+    return (
+      <div className="flex items-start gap-2 text-[11px] border-l border-emerald-400/30 pl-3">
+        <FileText className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-400/70" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] font-medium text-emerald-400/60 mb-0.5 uppercase tracking-wider">
+            {entry.status === "running" ? "Scanning…" : entry.status === "done" ? "Scan complete" : "Scan failed"}
+          </p>
+          {entry.summary && <p className="font-mono text-white/50">{entry.summary}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  if (isValidation) {
+    const isOk = entry.success
+    return (
+      <div className={`flex items-start gap-2 text-[11px] border-l pl-3 ${isOk ? "border-emerald-400/30" : "border-red-400/30"}`}>
+        {isOk ? <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-400" /> : <X className="h-3.5 w-3.5 shrink-0 mt-0.5 text-red-400" />}
+        <div className="flex-1 min-w-0">
+          <p className={`text-[9px] font-medium mb-0.5 uppercase tracking-wider ${isOk ? "text-emerald-400/60" : "text-red-400/60"}`}>
+            {isOk ? "Validation passed" : "Validation failed"}
+          </p>
+          {!isOk && entry.errors && entry.errors.map((e, i) => (
+            <p key={i} className="font-mono text-red-400/70 text-[10px]">• {e}</p>
+          ))}
+          {isOk && entry.fixed && <p className="font-mono text-emerald-400/70 text-[10px]">Auto-fixed</p>}
+        </div>
+      </div>
+    )
+  }
+
+  if (isFileChange) {
+    return (
+      <div className="flex items-center gap-2 text-[11px] text-white/50">
+        <FileCode className="h-3.5 w-3.5 shrink-0" />
+        <span className="font-mono">{entry.path}</span>
+        <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.05] capitalize">{entry.operation}</span>
+      </div>
+    )
+  }
+
+  return null
 }
 
 // ─── Runtime status label helpers ─────────────────────────────────────────────
@@ -54,7 +245,7 @@ const STATUS_COLORS: Record<string, { text: string; dot: string }> = {
   error:      { text: "text-red-400/60",     dot: "fill-red-400" },
 }
 
-export function StudioShell({ project, onRefresh }: StudioShellProps) {
+export function StudioShell({ project, onRefresh, session }: StudioShellProps) {
   // ── Tab state ────────────────────────────────────────────────────────────────
   const [openTabs,    setOpenTabs]    = useState<OpenTab[]>([
     { id: "preview",  label: "Preview",  pinned: true },
@@ -66,6 +257,13 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
 
   // ── Left side panel ──────────────────────────────────────────────────────────
   const [sideView, setSideView] = useState<SideView>("marcus")
+
+  // Auto-open marcus panel when generation is in progress
+  useEffect(() => {
+    if (session?.status === "generating") {
+      setSideView("marcus")
+    }
+  }, [session?.status])
 
   // ── Terminal drawer (⌃`) ─────────────────────────────────────────────────────
   const [terminalDrawerOpen, setTerminalDrawerOpen] = useState(false)
@@ -85,6 +283,7 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
     nodeVersion,
     depCount,
     writeFile:     wcWriteFile,
+    writeFileForReview: wcWriteFileForReview,
   } = useWebContainer()
 
   // ── P1: Ctrl+K global shortcut ───────────────────────────────────────────────
@@ -104,14 +303,22 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
     setPendingDiffs(prev => [...prev, diff])
   }, [])
 
-  const handleDiffAccept = useCallback((id: string) => {
+  const handleDiffAccept = useCallback(async (id: string) => {
+    const diff = pendingDiffs.find(d => d.id === id)
+    if (diff) {
+      try { await wcWriteFile(diff.path, diff.newContent) } catch { /* ignore */ }
+      // Record accepted pattern
+      AgentRuntime.recordDiffOutcome(true, diff.path, diff.oldContent ? "update" : "create")
+    }
     setPendingDiffs(prev => prev.filter(d => d.id !== id))
-  }, [])
+  }, [pendingDiffs, wcWriteFile])
 
   const handleDiffReject = useCallback(async (id: string) => {
     const diff = pendingDiffs.find(d => d.id === id)
     if (diff) {
       try { await wcWriteFile(diff.path, diff.oldContent) } catch { /* ignore */ }
+      // Record rejected pattern
+      AgentRuntime.recordDiffOutcome(false, diff.path, diff.oldContent ? "update" : "create")
     }
     setPendingDiffs(prev => prev.filter(d => d.id !== id))
   }, [pendingDiffs, wcWriteFile])
@@ -137,11 +344,67 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
 
   const wcBooting = wcStatus !== "idle" && wcStatus !== "ready" && wcStatus !== "error"
 
+  // ── Context snapshot for Marcus (Phase 4) ────────────────────────────────
+  const [editorContext, setEditorContext] = useState<{
+    activeFilePath: string | null
+    activeFileContent: string | null
+    selection: string | null
+    terminalOutput: string
+    fileTree: string
+  }>({
+    activeFilePath: null,
+    activeFileContent: null,
+    selection: null,
+    terminalOutput: "",
+    fileTree: "",
+  })
+
+  // Update terminal output (last 50 lines)
+  useEffect(() => {
+    if (terminalLines.length > 0) {
+      const output = terminalLines.slice(-50).map(l => `${l.time} ${l.text}`).join("\n")
+      setEditorContext(prev => ({ ...prev, terminalOutput: output }))
+    }
+  }, [terminalLines])
+
+  // Update file tree (condensed)
+  useEffect(() => {
+    const buildTree = (files: V2ProjectFile[]): string => {
+      const dirs = new Set<string>()
+      files.forEach(f => {
+        const parts = f.path.split("/")
+        for (let i = 0; i < parts.length - 1; i++) {
+          dirs.add(parts.slice(0, i + 1).join("/"))
+        }
+      })
+      const allPaths = [...dirs, ...files.map(f => f.path)].sort()
+      return allPaths.map(p => (dirs.has(p) ? `${p}/` : p)).join("\n")
+    }
+    setEditorContext(prev => ({ ...prev, fileTree: buildTree(project.files) }))
+  }, [project.files])
+
   // ── Derived ──────────────────────────────────────────────────────────────────
   const activeFile =
     activeTabId === "preview" || activeTabId === "terminal"
       ? null
       : (project.files.find((f) => f.path === activeTabId) ?? null)
+
+  // Update editor context when active file/tab changes
+  useEffect(() => {
+    if (activeFile) {
+      setEditorContext(prev => ({
+        ...prev,
+        activeFilePath: activeFile.path,
+        activeFileContent: activeFile.content,
+      }))
+    } else {
+      setEditorContext(prev => ({
+        ...prev,
+        activeFilePath: null,
+        activeFileContent: null,
+      }))
+    }
+  }, [activeFile])
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const openFile = useCallback((file: V2ProjectFile) => {
@@ -245,13 +508,18 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
                 transition={{ type: "spring", stiffness: 420, damping: 40 }}
                 className="flex flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.06]"
               >
-                <div className={sideView === "marcus" ? "contents" : "hidden"}>
-                  <AgentPanel
+                {sideView === "marcus" && session?.status === "generating" ? (
+                  <GenerationStream session={session} />
+                ) : sideView === "marcus" ? (
+                  <AgentConversation
                     project={project}
                     onEditComplete={onRefresh}
                     onFileOpen={openFile}
+                    onFileDiff={handleFileDiff}
+                    writeFileForReview={wcWriteFileForReview}
+                    editorContext={editorContext}
                   />
-                </div>
+                ) : null}
                 {sideView === "explorer" && (
                   <FileExplorerDrawer
                     open={true}
@@ -352,6 +620,28 @@ export function StudioShell({ project, onRefresh }: StudioShellProps) {
               <div className="flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 text-emerald-400/65">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_#34d399]" />
                 <span className="font-mono text-[10px]">live</span>
+              </div>
+            )}
+
+            {/* Pending changes indicator */}
+            {pendingDiffs.length > 0 && (
+              <div className="flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 text-amber-400/80">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="font-mono text-[10px]">{pendingDiffs.length} pending</span>
+                <button
+                  onClick={() => pendingDiffs.forEach(d => handleDiffAccept(d.id))}
+                  className="flex items-center gap-1 rounded-md bg-emerald-500/12 px-2 py-0.5 text-[9px] font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                  title="Accept all"
+                >
+                  <Check className="h-2.5 w-2.5" /> All
+                </button>
+                <button
+                  onClick={() => pendingDiffs.forEach(d => handleDiffReject(d.id))}
+                  className="flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-0.5 text-[9px] font-semibold text-red-300 hover:bg-red-500/18 transition-colors"
+                  title="Reject all"
+                >
+                  <X className="h-2.5 w-2.5" /> All
+                </button>
               </div>
             )}
 

@@ -17,17 +17,11 @@ import {
   saveDashboardState,
   loadDashboardState,
   clearDashboardState,
-  consumeCopilotAutorun,
-  consumeMarcusWorkspaceSignal,
-  consumePendingIntent,
-  dequeueWorkspaceSignals,
 } from "@/lib/generation-context"
-import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import { tracer } from "@/lib/execution-tracer"
 import { ensureProject } from "@/lib/ensure-project"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/intelligence-bridge"
 import { intelligenceController } from "@/lib/module-architecture/controllers/intelligence-controller"
-import { registerController, unregisterController } from "@/lib/module-architecture/registry"
 import { useLang } from "@/lib/i18n"
 import {
   Globe,
@@ -124,7 +118,6 @@ export default function BusinessIntelligencePage() {
   const { user } = useAuth()
   const { setBusinessData } = useBusinessContext()
   const { openUpgradeModal } = useUpgradeModal()
-  const { subscribeWorkspaceSignal, emit } = useWorkspaceController()
   const search = useSearch()
   const { mobileOpen: mobileSidebarOpen, setMobileOpen } = useDashboardShell()
 
@@ -159,6 +152,14 @@ export default function BusinessIntelligencePage() {
   // Phase 2 architecture: refs used by the IntelligenceBridge
   const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
   const latestResultsRef = useRef<BusinessIntelligence | null>(null)
+
+  // ─── Generator Orchestration ───────────────────────────────────────────────
+  const { completeGeneration } = {
+    completeGeneration: async (output: Record<string, unknown>, idea: string) => {
+      console.log("generator removed")
+      return {} as { projectId?: string; saved?: boolean }
+    },
+  }
 
   // Reset state when _r param changes (triggered by "New Analysis" button)
   useEffect(() => {
@@ -195,35 +196,6 @@ export default function BusinessIntelligencePage() {
       }
     }
 
-    // Generation is triggered exclusively by ExecutionBus → IntelligenceBridge → handleGenerateRef.
-    // Legacy consumeCopilotAutorun generation trigger removed.
-    consumeCopilotAutorun() // consume to clear sessionStorage; result intentionally ignored
-
-    // Primary path: consume pendingIntent written by copilot-panel (same as website/chatbot/automation)
-    const intent = consumePendingIntent("bi")
-    if (intent?.idea) {
-      marcusBiIdeaRef.current = intent.idea
-      setTimeout(() => setMarcusPopulate(intent.idea), 150)
-    }
-
-    // Marcus workspace signal: cross-navigation delivery (sessionStorage single-slot, legacy path)
-    const signal = consumeMarcusWorkspaceSignal()
-    if (signal?.target === "intelligence" && signal.type === "populate" && signal.payload) {
-      const idea = signal.payload
-      if (!marcusBiIdeaRef.current) marcusBiIdeaRef.current = idea
-      if (!intent?.idea) setTimeout(() => setMarcusPopulate(idea), 150)
-    }
-
-    // Workspace signal queue: drain ALL queued signals for this target (new reliable path)
-    const queued = dequeueWorkspaceSignals("intelligence")
-    for (const qs of queued) {
-      if (qs.type === "populate" && qs.payload) {
-        marcusBiIdeaRef.current = qs.payload
-        setTimeout(() => setMarcusPopulate(qs.payload!), 150)
-      }
-      // "generate" type signals removed — generation is triggered exclusively by ExecutionBus
-    }
-
     // Load subscription for usage enforcement
     fetch("/api/subscriptions/me", { credentials: "include" })
       .then(r => r.json())
@@ -242,20 +214,6 @@ export default function BusinessIntelligencePage() {
   // Phase 5: bridge completion callback — matches chatbot reference pattern.
   // Set by triggerGenerate(), fired explicitly at the success path in handleGenerate().
   const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
-
-  // Marcus signal subscription (live — for when page is already mounted)
-  useEffect(() => {
-    return subscribeWorkspaceSignal((signal) => {
-      if (signal.target !== "intelligence") return
-
-      if (signal.type === "populate" && signal.payload) {
-        const idea = signal.payload
-        marcusBiIdeaRef.current = idea
-        setTimeout(() => setMarcusPopulate(idea), 50)
-      }
-      // "generate" type signals removed — generation is triggered exclusively by ExecutionBus
-    }, "intelligence")
-  }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep latestResultsRef in sync for bridge-based save
   useEffect(() => { latestResultsRef.current = results }, [results])
@@ -292,10 +250,8 @@ export default function BusinessIntelligencePage() {
       },
       getCurrentIdea: () => marcusBiIdeaRef.current,
     })
-    const ctrlRegId = registerController("intelligence", intelligenceController)
     return () => {
       unregisterBridge(regId)
-      unregisterController("intelligence", ctrlRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -464,21 +420,7 @@ export default function BusinessIntelligencePage() {
         })
       }
       setSaveStatus("saving")
-      const biResult = await ensureProject({
-        type: "business_intelligence",
-        idea,
-        outputField: "output",
-        output: finalData as unknown as Record<string, unknown>,
-        title,
-      }).catch(() => ({ projectId: "", created: false, saved: false }))
-      if (traceId) {
-        tracer.logStage(traceId, 11, "Persistence", {
-          functionName: "handleGenerate",
-          success: !!biResult.saved,
-          reason: biResult.saved ? undefined : "ensureProject did not report saved=true",
-          data: { projectId: biResult.projectId, created: biResult.created },
-        })
-      }
+      const biResult = await completeGeneration(finalData as unknown as Record<string, unknown>, idea)
       if (biResult.projectId) {
         setActiveProjectId(biResult.projectId)
         // Promote draft → active now that generation is complete (ensureProject patches output
@@ -504,14 +446,6 @@ export default function BusinessIntelligencePage() {
             aiAdoptionOpportunity: finalData.metrics.aiAdoptionOpportunity,
           },
         }).catch(() => {})
-      }
-      emit({ type: "bi.generated", data: { saved: biResult.saved } })
-      if (traceId) {
-        tracer.logStage(traceId, 12, "Completion event", {
-          functionName: "handleGenerate",
-          success: true,
-          data: { event: "bi.generated" },
-        })
       }
       traceOutcome = { success: true }
       // Phase 5: signal bridge that generation is fully complete —

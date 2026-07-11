@@ -55,7 +55,7 @@ export function OnboardingChecklist() {
         id: "website",
         label: "Generate a website",
         description: "Turn your blueprint into a live, editable website.",
-        href: "/website-generator",
+        href: "/website-studio/new",
         done: hasWebsite,
       },
       {

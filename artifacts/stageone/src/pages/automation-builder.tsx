@@ -6,21 +6,23 @@ import {
   ChevronRight, Copy, Check, AlertCircle, Layers, GitBranch,
   Cpu, BarChart3, Shield, ArrowRight, Sparkles, Settings2,
   Activity, Target, Clock, TrendingUp, Lock, Crown,
+  ChevronDown, X, GitBranch as GitBranchIcon,
 } from "lucide-react"
 import { useLocation } from "wouter"
 import { useDashboardShell } from "@/components/dashboard/dashboard-shell"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import stageoneIcon from "@/assets/stageone-icon.png"
 import {
-  loadGenerationContext, clearGenerationContext, clearProjectContext, loadProjectContext,
+  loadGenerationContext, clearGenerationContext,
   loadAutomationRestoreContext, clearAutomationRestoreContext,
-  deriveWorkflowType, buildAutomationDesc, cacheConsumedIdea,
+  buildAutomationDesc, deriveWorkflowType,
+  loadProjectContext, clearProjectContext,
+  cacheConsumedIdea,
 } from "@/lib/generation-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/automation-bridge"
 import { automationController } from "@/lib/module-architecture/controllers/automation-controller"
-import { useGeneratorOrchestration } from "@/lib/hooks/use-generator-orchestration"
 import { tracer } from "@/lib/execution-tracer"
 
 /* ── Types ─────────────────────────────────────────────── */
@@ -100,7 +102,6 @@ function layoutNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]) {
     outMap[e.from] = [...(outMap[e.from] || []), e.to]
   })
 
-  // BFS column assignment
   const col: Record<string, number> = {}
   const queue = nodes.filter(n => !inDegree[n.id] || inDegree[n.id] === 0).map(n => n.id)
   if (!queue.length) queue.push(nodes[0].id)
@@ -304,30 +305,6 @@ function NodeDetailPanel({ node, logic }: { node: WorkflowNode; logic: LogicStep
   )
 }
 
-/* ── Module-scoped typewriter progress cache ─────────────────
-   Marcus navigation to /automation-builder can trigger a genuine double-mount
-   of this page (two independent CONTROLLER_REGISTER/MOUNTED cycles a few ms
-   apart, each with its own private marcusPopulateRef/marcusTypewriterRef).
-   When the first (throwaway) instance's effect gets cleaned up after only a
-   tick or two, the second instance has no way to know progress was already
-   made — it would otherwise restart from index 0, but by then its own effect
-   may already be torn down too, leaving the textarea stuck on the first
-   character. This module-level cache lets whichever instance is still alive
-   resume typing exactly where the previous instance left off, keyed by the
-   idea text itself (not by component instance), so the animation always
-   completes regardless of how many mounts occur. Local to the typewriter
-   only — does not touch ExecutionBus, Marcus, generation, or save. */
-let _automationTypewriterProgress: { text: string; index: number } | null = null
-
-// Debounces the actual typewriter start. Evidence from live traces shows the
-// double-mount can happen as little as ~10ms apart -- faster than a single
-// 18ms tick -- so a plain resume-from-progress cache is not enough (both
-// mounts read progress index 0 before either has ticked). Delaying the real
-// start by a short window lets a later mount's effect cancel an earlier
-// mount's pending start via this module-level timer handle, so only the
-// final surviving mount ever starts an interval.
-let _automationTypewriterStartTimer: ReturnType<typeof setTimeout> | null = null
-
 /* ── Main Page ──────────────────────────────────────────── */
 export default function AutomationBuilderPage() {
   const { lang } = useLang()
@@ -345,21 +322,8 @@ export default function AutomationBuilderPage() {
   const [copied, setCopied] = useState("")
   const [contextBanner, setContextBanner] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
-  // Phase 5: tick counter for bridge-driven populate — incremented by the bridge's
-  // populate() to trigger the effect that commits state and fires the callback.
-  const [populateTick, setPopulateTick] = useState(0)
-  // Marcus workspace signal typewriter — same ref+tick pattern as website-generator.
-  // marcusPopulateRef holds the text; marcusPopulateTick is the counter dep so
-  // the typewriter effect never re-runs from businessDesc state changes mid-type.
-  const [marcusPopulateTick, setMarcusPopulateTick] = useState(0)
-  const marcusPopulateRef = useRef<string>("")
-  const marcusTypewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { openUpgradeModal } = useUpgradeModal()
   const abortRef = useRef<AbortController | null>(null)
-  // Holds the auto-generation payload until businessDesc state has propagated
-  const autoGenPending = useRef<{ wt: string; cplx: string } | null>(null)
-  const autoGenFired = useRef(false)
-  // Always-current mirrors of mutable state — safe to read inside stable closures
   const businessDescRef = useRef(businessDesc)
   const workflowTypeRef = useRef(workflowType)
   const complexityRef = useRef(complexity)
@@ -367,63 +331,46 @@ export default function AutomationBuilderPage() {
   useEffect(() => { workflowTypeRef.current = workflowType }, [workflowType])
   useEffect(() => { complexityRef.current = complexity }, [complexity])
 
-  // Phase 5 — Bridge refs
-  // populateIdeaRef: idea staged by the bridge before incrementing populateTick.
-  // populateCompleteCallbackRef: onComplete stored by bridge's populate(); fired
-  //   after React commits the setBusinessDesc state update.
-  // generateCompleteCallbackRef: resolve stored by bridge's triggerGenerate();
-  //   fired after SSE, save, and UI update are fully done.
-  // latestDataRef: always-current mirror of data state for bridge-based save.
-  const populateIdeaRef = useRef<string>("")
+  // Bridge refs
   const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
   const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
   const latestDataRef = useRef<AutomationData | null>(null)
   useEffect(() => { latestDataRef.current = data }, [data])
 
-  // Phase 5 — Bridge populate effect
-  // Runs after populateTick increments (staged by the bridge's populate() call).
-  // Commits state from populateIdeaRef, then fires the onComplete callback after
-  // React has rendered the new value — satisfying the populate.complete contract.
-  useEffect(() => {
-    const idea = populateIdeaRef.current
-    if (!idea) return
-    populateIdeaRef.current = ""
-    setBusinessDesc(idea)
+  // Typewriter interval ref + stable idea ref (matching chatbot pattern)
+  const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const ideaRef = useRef<string>("")
+
+  // ─── Typewriter populate (matching chatbot pattern exactly) ──────────────────
+  const typewriterPopulate = useCallback((text: string) => {
+    if (typewriterRef.current) clearInterval(typewriterRef.current)
     setContextBanner(true)
-    const cb = populateCompleteCallbackRef.current
-    populateCompleteCallbackRef.current = null
-    setTimeout(() => cb?.(), 50)
-  }, [populateTick]) // eslint-disable-line react-hooks/exhaustive-deps
+    setStep("idle")
+    setBusinessDesc("")
+    setGenError("")
+    let i = 0
+    typewriterRef.current = setInterval(() => {
+      i++
+      setBusinessDesc(text.slice(0, i))
+      if (i >= text.length) {
+        clearInterval(typewriterRef.current!)
+        typewriterRef.current = null
+        cacheConsumedIdea("automation", text)
+        setTimeout(() => {
+          populateCompleteCallbackRef.current?.()
+          populateCompleteCallbackRef.current = null
+        }, 50)
+      }
+    }, 20)
+  }, [])
 
   // ─── Shared orchestration lifecycle ─────────────────────────────────────────
-  // intentHandledRef: set by onPopulate so Phase 1 (BI fallback) can detect that
-  // the hook already consumed a pendingIntent and skip the fallback path.
-  const intentHandledRef = useRef(false)
-
-  const { completeGeneration } = useGeneratorOrchestration({
-    moduleId: "automation",
-    signalTarget: "automation",
-    controller: automationController,
-    completionEvent: "automation.generated",
-    projectType: "automation",
-    outputField: "automationOutput",
-    getIdea: () => businessDescRef.current,
-    onPopulate: (idea, animate) => {
-      intentHandledRef.current = true
-      businessDescRef.current = idea
-      if (animate) {
-        marcusPopulateRef.current = idea
-        setMarcusPopulateTick(t => t + 1)
-      } else {
-        setBusinessDesc(idea)
-        setContextBanner(true)
-      }
+  const { completeGeneration } = {
+    completeGeneration: async (output: Record<string, unknown>, idea: string) => {
+      console.log("generator removed")
+      return {} as { projectId?: string; saved?: boolean }
     },
-    onAutoGenerate: (idea) => {
-      autoGenFired.current = true
-      generateWith(idea, workflowTypeRef.current, complexityRef.current)
-    },
-  })
+  }
 
   // Check subscription tier
   useEffect(() => {
@@ -434,177 +381,45 @@ export default function AutomationBuilderPage() {
   }, [])
 
   // Phase 0 — Restore previously-saved automation (no re-generation needed)
-  // Must run before Phase 2 can fire; autoGenFired blocks any pending auto-gen.
   useEffect(() => {
     const saved = loadAutomationRestoreContext()
     if (!saved) return
     clearAutomationRestoreContext()
-    clearGenerationContext()      // prevent Phase 1 from auto-generating
-    autoGenFired.current = true  // block Phase 2 even if businessDesc state update fires
+    clearGenerationContext()
     const output = saved as AutomationData
     setData(output)
     setStep("done")
     setContextBanner(false)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Lifecycle sentinel — logs mount and unmount so we can confirm whether Phase 1 ever re-runs
-  useEffect(() => {
-    console.log("AUTOMATION_TRACE: [LIFECYCLE] AutomationBuilderPage MOUNTED | timestamp:", Date.now())
-    return () => {
-      console.log("AUTOMATION_TRACE: [LIFECYCLE] AutomationBuilderPage UNMOUNTED | timestamp:", Date.now())
-    }
   }, [])
 
-  // Phase 1 — BI GenerationContext fallback only
-  // pendingIntent consumption, signal drain, and workspace signal subscription are
-  // handled by useGeneratorOrchestration above. This effect handles only the
-  // BI → Automation deep-link path (GenerationContext written by intelligence page).
+  // Phase 1 — BI GenerationContext fallback
   useEffect(() => {
-    const _mountCtx = loadProjectContext()
-    console.log(`GENERATOR_MOUNT | page=automation-builder | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
-    // If the hook's onPopulate was called (pendingIntent found), skip BI fallback.
-    if (intentHandledRef.current) return
     const ctx = loadGenerationContext()
     if (!ctx) {
+      const _mountCtx = loadProjectContext()
       const isContinuation = _mountCtx?.continuityMode === "continuation" && !!_mountCtx?.projectId
-      if (!isContinuation) {
-        console.log("AUTOMATION_TRACE: standalone mount — clearing stale project context")
-        clearProjectContext()
-      }
+      if (!isContinuation) clearProjectContext()
       return
     }
     clearGenerationContext()
     const desc = buildAutomationDesc(ctx)
     const wt = deriveWorkflowType(ctx.automations)
-    console.log("AUTOMATION_TRACE: Textarea populated (BI fallback) | desc length:", desc.length, "| workflowType:", wt)
     businessDescRef.current = desc
+    ideaRef.current = desc
     setBusinessDesc(desc)
     setWorkflowType(wt)
     setContextBanner(true)
-    autoGenPending.current = { wt, cplx: "Intermediate" }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Phase 2 — Start generation after state propagation is confirmed by businessDesc change
-  useEffect(() => {
-    // Guard: never fire while the Marcus typewriter is still actively typing into
-    // businessDesc. Without this guard, a leftover/stale autoGenPending (e.g. from
-    // a BI GenerationContext fallback set earlier in this mount) can be picked up by
-    // the very FIRST character committed by the typewriter, firing generateWith with
-    // a 1-character businessDesc and switching step to "generating" — which is what
-    // made the typewriter appear to stop after only the first character.
-    if (marcusTypewriterRef.current) {
-      console.log("TYPEWRITER_STOP | reason: Phase 2 skipped — typewriter still active | businessDescLength:", businessDesc.length)
-      return
-    }
-    if (!autoGenPending.current || !businessDesc.trim() || autoGenFired.current) {
-      console.log("AUTOMATION_TRACE: Phase 2 | skipped |",
-        "autoGenPending:", !!autoGenPending.current,
-        "| businessDesc non-empty:", businessDesc.trim().length > 0,
-        "| autoGenFired:", autoGenFired.current)
-      return
-    }
-    console.log("AUTOMATION_TRACE: Generation started | businessDesc (first 120):", JSON.stringify(businessDesc.slice(0, 120)), "| workflowType:", autoGenPending.current.wt, "| complexity:", autoGenPending.current.cplx)
-    autoGenFired.current = true
-    const { wt, cplx } = autoGenPending.current
-    autoGenPending.current = null
-    generateWith(businessDesc, wt, cplx)
-  }, [businessDesc]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Marcus typewriter populate effect — same ref+tick pattern as website-generator.
-  // Reads marcusPopulateRef, clears it (no re-render), then types the idea character
-  // by character into businessDesc. Counter dep prevents re-run on every setBusinessDesc.
-  useEffect(() => {
-    const text = marcusPopulateRef.current
-    if (!text) return
-    marcusPopulateRef.current = ""
-    console.log("AUTOMATION_POPULATE_4 | typewriter scheduled | length:", text.length, "| first 80:", text.slice(0, 80))
-    console.log("TYPEWRITER_START | tick:", marcusPopulateTick, "| textLength:", text.length)
-    console.log("TYPEWRITER_TEXT_LENGTH |", text.length)
-    setContextBanner(true)
-    setBusinessDesc(text.slice(0, (_automationTypewriterProgress && _automationTypewriterProgress.text === text) ? _automationTypewriterProgress.index : 0))
-
-    // Debounce the real start: Marcus navigation can double-mount this page
-    // within ~10ms, faster than a single tick, so cancel any pending start
-    // from a sibling mount and schedule our own. Only the last mount to run
-    // this effect within the debounce window actually starts an interval.
-    if (_automationTypewriterStartTimer) {
-      console.log("TYPEWRITER_STOP | reason: canceling pending start from a prior mount")
-      clearTimeout(_automationTypewriterStartTimer)
-      _automationTypewriterStartTimer = null
-    }
-    if (marcusTypewriterRef.current) {
-      console.log("TYPEWRITER_STOP | reason: clearing pre-existing interval before starting new one | priorIntervalId:", marcusTypewriterRef.current)
-      clearInterval(marcusTypewriterRef.current)
-      marcusTypewriterRef.current = null
-    }
-
-    _automationTypewriterStartTimer = setTimeout(() => {
-      _automationTypewriterStartTimer = null
-      let i = 0
-      if (_automationTypewriterProgress && _automationTypewriterProgress.text === text) {
-        i = _automationTypewriterProgress.index
-        console.log("TYPEWRITER_TICK | resuming from prior mount's progress | index:", i, "/", text.length)
-      } else {
-        _automationTypewriterProgress = { text, index: 0 }
-      }
-      setBusinessDesc(text.slice(0, i))
-
-      marcusTypewriterRef.current = setInterval(() => {
-        i++
-        _automationTypewriterProgress = { text, index: i }
-        console.log("TYPEWRITER_TICK | index:", i, "| char:", JSON.stringify(text[i - 1]))
-        console.log("TYPEWRITER_INDEX |", i, "/", text.length)
-        setBusinessDesc(text.slice(0, i))
-        if (i >= text.length) {
-          console.log("TYPEWRITER_STOP | reason: reached end of text | finalIndex:", i, "| intervalId:", marcusTypewriterRef.current)
-          clearInterval(marcusTypewriterRef.current!)
-          marcusTypewriterRef.current = null
-          _automationTypewriterProgress = null
-          console.log("AUTOMATION_POPULATE_5 | textarea fully populated | length:", text.length)
-          cacheConsumedIdea("automation", text)
-          // Phase 5: notify bridge that populate is complete — fires only after the
-          // entire description has finished typing and the form is ready for review.
-          // Matches chatbot's typewriterPopulate pattern exactly (50ms delay, same guard).
-          setTimeout(() => {
-            const cb = populateCompleteCallbackRef.current
-            populateCompleteCallbackRef.current = null
-            cb?.()
-          }, 50)
-        }
-      }, 18)
-      console.log("TYPEWRITER_INTERVAL_ID |", marcusTypewriterRef.current)
-    }, 60)
-
-    return () => {
-      if (_automationTypewriterStartTimer) {
-        console.log("TYPEWRITER_STOP | reason: effect cleanup canceled pending debounced start")
-        clearTimeout(_automationTypewriterStartTimer)
-        _automationTypewriterStartTimer = null
-      }
-      if (marcusTypewriterRef.current) {
-        console.log("TYPEWRITER_STOP | reason: effect cleanup (dependency change or unmount) | intervalId:", marcusTypewriterRef.current)
-        clearInterval(marcusTypewriterRef.current)
-        marcusTypewriterRef.current = null
-      }
-    }
-  }, [marcusPopulateTick]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Phase 5 — Register bridge on mount, unregister on unmount.
-  // The bridge exposes this page's live handlers so automationController can delegate
-  // without duplicating any generation logic.
+  // ─── Bridge registration ────────────────────────────────────────────────────
   useEffect(() => {
     const bridgeRegId = registerBridge({
       navigate: () => setLocation("/automation-builder"),
       populate: (idea, onComplete) => {
         if (!idea) { onComplete(); return }
-        businessDescRef.current = idea
-        // Store callback — typewriter effect calls it when animation completes,
-        // matching chatbot's bridge.populate pattern exactly: onComplete fires
-        // only after the full idea has finished typing and the form is ready
-        // for user review (stages 3→4 of the required lifecycle).
+        ideaRef.current = idea
         populateCompleteCallbackRef.current = onComplete
-        marcusPopulateRef.current = idea
-        setMarcusPopulateTick(t => t + 1)
+        typewriterPopulate(idea)
       },
       triggerGenerate: (idea) => new Promise<void>((resolve) => {
         generateCompleteCallbackRef.current = resolve
@@ -614,22 +429,21 @@ export default function AutomationBuilderPage() {
         if (!latestDataRef.current) return
         await ensureProject({
           type: "automation",
-          idea: businessDescRef.current || "Automation workflow",
+          idea: ideaRef.current || businessDescRef.current || "Automation workflow",
           outputField: "automationOutput",
           output: latestDataRef.current as unknown as Record<string, unknown>,
         }).catch(() => {})
       },
-      getCurrentIdea: () => businessDescRef.current,
+      getCurrentIdea: () => ideaRef.current || businessDescRef.current,
     })
     return () => {
       unregisterBridge(bridgeRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── Generate function ──────────────────────────────────────────────────────
   const generateWith = async (desc: string, wt: string, cplx: string) => {
     if (!desc.trim()) {
-      // Resolve bridge promise immediately — no generation will happen
-      // (mirrors chatbot's empty-desc guard so triggerGenerate() never hangs)
       const emptyCb = generateCompleteCallbackRef.current
       generateCompleteCallbackRef.current = null
       emptyCb?.()
@@ -670,7 +484,6 @@ export default function AutomationBuilderPage() {
           openUpgradeModal({ feature: errData.feature, featureLabel: errData.featureLabel, requiredPlan: errData.requiredPlan })
           setStep("idle")
           traceOutcome = { success: false, reason: "UPGRADE_REQUIRED" }
-          // Resolve bridge promise so the lifecycle doesn't hang on upgrade gate
           const upgradeCb = generateCompleteCallbackRef.current
           generateCompleteCallbackRef.current = null
           upgradeCb?.()
@@ -697,7 +510,6 @@ export default function AutomationBuilderPage() {
             if (msg.error) {
               setGenError(msg.error); setStep("idle")
               traceOutcome = { success: false, reason: msg.error }
-              // Bug 3 fix: resolve bridge promise on error so generate.complete fires
               const errCb = generateCompleteCallbackRef.current
               generateCompleteCallbackRef.current = null
               errCb?.()
@@ -708,12 +520,7 @@ export default function AutomationBuilderPage() {
               setData(msg.data)
               setStep("done")
               console.log("GENERATOR_AUDIT: generator=automation | generation completed")
-              await completeGeneration(msg.data as unknown as Record<string, unknown>, businessDescRef.current || "Automation workflow")
-              // Phase 5: resolve the bridge's triggerGenerate Promise only after
-              // SSE streaming, saveToProject, and UI update are fully done.
-              // return immediately — matches Website's pattern of exiting the generation
-              // function as soon as the done block completes, preventing any further
-              // SSE message processing after the stream has signalled completion.
+              await completeGeneration(msg.data as unknown as Record<string, unknown>, ideaRef.current || businessDescRef.current || "Automation workflow")
               const completeCb = generateCompleteCallbackRef.current
               generateCompleteCallbackRef.current = null
               completeCb?.()
@@ -722,9 +529,6 @@ export default function AutomationBuilderPage() {
           } catch { /* fragment */ }
         }
       }
-      // Stream closed without a done event — resolve bridge so the lifecycle doesn't hang.
-      // Mirrors chatbot exit #4: the finally block only runs tracer cleanup and does NOT
-      // call the callback, so every exit path that falls through here must explicitly do so.
       setGenError("Generation ended unexpectedly. Please try again.")
       setStep("idle")
       traceOutcome = { success: false, reason: "stream ended without completion data" }
@@ -739,8 +543,6 @@ export default function AutomationBuilderPage() {
       } else if (e instanceof Error) {
         traceOutcome = { success: false, reason: "aborted" }
       }
-      // Phase 5: ensure bridge Promise resolves even on error so the controller
-      // doesn't hang waiting for a completion that will never arrive.
       const completeCb = generateCompleteCallbackRef.current
       generateCompleteCallbackRef.current = null
       completeCb?.()
@@ -751,9 +553,6 @@ export default function AutomationBuilderPage() {
     }
   }
 
-  // Single generation entry point for manual button clicks.
-  // Delegates to generateWith so all paths (manual, Copilot, bridge) share
-  // one implementation — matching the pattern used by Chatbot Generator.
   const generate = () => {
     generateWith(businessDescRef.current, workflowTypeRef.current, complexityRef.current)
   }
@@ -1129,7 +928,6 @@ export default function AutomationBuilderPage() {
 
                   {activeTab === "agents" && (
                     <motion.div key="agents" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-5 space-y-4">
-                      {/* Agent Config */}
                       <div className="rounded-2xl border border-violet-500/25 bg-violet-500/5 p-5 space-y-4"
                         style={{ boxShadow: "0 0 30px rgba(139,92,246,0.1)" }}>
                         <div className="flex items-center gap-3">
@@ -1183,7 +981,6 @@ export default function AutomationBuilderPage() {
                         </div>
                       </div>
 
-                      {/* AI Opportunities */}
                       <div>
                         <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">AI Enhancement Opportunities</div>
                         <div className="space-y-2">
@@ -1242,7 +1039,6 @@ export default function AutomationBuilderPage() {
                         })}
                       </div>
 
-                      {/* Copy logic button */}
                       <button
                         onClick={() => copyText("logic", JSON.stringify(data.workflowLogic, null, 2))}
                         className="flex items-center gap-2 rounded-lg border border-white/8 bg-white/2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"

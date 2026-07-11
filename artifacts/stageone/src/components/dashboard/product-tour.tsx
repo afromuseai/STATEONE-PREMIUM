@@ -26,8 +26,8 @@ const STEPS: TourStep[] = [
     placement: "right",
   },
   {
-    target: "[data-tour='nav-website-generator']",
-    title: "Website Generator",
+    target: "[data-tour='nav-website-studio']",
+    title: "Website Studio",
     description: "Turn your business blueprint into a launch-ready website. STAGEONE builds it for you with React code, brand colors, and real content you can edit and export.",
     placement: "right",
   },

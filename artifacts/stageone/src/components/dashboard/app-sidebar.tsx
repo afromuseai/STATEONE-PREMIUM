@@ -54,8 +54,7 @@ function SidebarContent({
       label: d.sections.generate,
       items: [
         { href: "/business-intelligence", icon: BarChart3, label: d.nav.businessIntelligence },
-        { href: "/website-generator", icon: Globe, label: d.nav.websiteGenerator },
-        { href: "/website-studio", icon: Code2, label: "Website Studio" },
+        { href: "/website-studio", icon: Globe, label: "Website Studio" },
         { href: "/chatbot-generator", icon: Bot, label: d.nav.aiChatbot },
         { href: "/automation-builder", icon: Workflow, label: d.nav.automationBuilder },
       ],
@@ -196,7 +195,7 @@ function SidebarContent({
                 const active = isActive(href)
                 const TOUR_MAP: Record<string, string> = {
                   "/business-intelligence": "nav-business-intelligence",
-                  "/website-generator": "nav-website-generator",
+                  "/website-studio": "nav-website-studio",
                   "/chatbot-generator": "nav-chatbot-generator",
                   "/automation-builder": "nav-automation-builder",
                   "/orchestrator": "nav-orchestrator",

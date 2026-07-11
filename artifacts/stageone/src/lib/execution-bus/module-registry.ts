@@ -10,7 +10,6 @@
 
 import { getController } from '@/lib/module-architecture/registry';
 import { getBridge as getIntelligenceBridge } from '@/lib/module-architecture/intelligence-bridge';
-import { getBridge as getWebsiteBridge } from '@/lib/module-architecture/website-bridge';
 import { getBridge as getChatbotBridge } from '@/lib/module-architecture/chatbot-bridge';
 import { getBridge as getAutomationBridge } from '@/lib/module-architecture/automation-bridge';
 import { getBridge as getOrchestratorBridge } from '@/lib/module-architecture/orchestrator-bridge';
@@ -23,7 +22,7 @@ import type { ExecutionModuleId, ExecutionPayload } from './types';
  */
 export const MODULE_ROUTES: Record<ExecutionModuleId, string> = {
   intelligence: '/business-intelligence',
-  website:      '/website-generator',
+  website:      '/website-studio/new',
   chatbot:      '/chatbot-generator',
   automation:   '/automation-builder',
   orchestrator: '/orchestrator',
@@ -37,7 +36,7 @@ export const MODULE_ROUTES: Record<ExecutionModuleId, string> = {
  */
 const BRIDGE_GETTERS: Record<ExecutionModuleId, () => unknown | null> = {
   intelligence: getIntelligenceBridge,
-  website:      getWebsiteBridge,
+  website:      () => null, /* website-bridge removed — StudioShell handles chat */
   chatbot:      getChatbotBridge,
   automation:   getAutomationBridge,
   orchestrator: getOrchestratorBridge,

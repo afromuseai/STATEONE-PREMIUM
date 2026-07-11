@@ -84,7 +84,7 @@ const ANY_TAG_RE = () =>
   /\{\{(?:ACTION:[^|]+\|[^|]+\|[^}]+|NAVIGATE:[^|}]+(?:\|[^}]*)?|EXECUTE:[^|]+\|[^|]+(?:\|[^}]*)?|WORKSPACE:[^|]+\|\[[\s\S]*?\]|WORKSPACE:[^|}\n]+?(?:\|(?!\[)[^}]*)?|WORKSPACE\|[^|}\n]+?(?:\|[^}]*)?)\}\}/g;
 
 const ACTION_ROUTES: Record<string, string> = {
-  generate_website: "/website-generator",
+  generate_website: "/website-studio/new",
   generate_intelligence: "/business-intelligence",
   open_agents: "/agents",
   open_automation: "/automation-builder",
@@ -124,7 +124,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/webhooks": "Webhooks",
   "/automation-builder": "Automation Builder",
   "/chatbot-generator": "Chatbot Generator",
-  "/website-generator": "Website Generator",
+  "/website-studio/new": "Website Studio",
   "/deployments": "Deployments",
   "/memory": "AI Memory",
   "/settings": "Settings",
@@ -1133,14 +1133,14 @@ export function CopilotPanel() {
           // If the page is mounted the signal delivers live; if not (race: page mounting
           // but subscribeWorkspaceSignal effect hasn't registered yet), the signal is
           // queued and drained by the effect when it runs. This mirrors automation_idea.
-          console.log("WEBSITE_POPULATE_2 | emitWorkspaceSignal called | onPage:", window.location.pathname === "/website-generator");
+          console.log("WEBSITE_POPULATE_2 | emitWorkspaceSignal called | onPage:", window.location.pathname === "/website-studio/new");
           emitWorkspaceSignal({ target: "website", type: "populate", payload: idea });
-          if (window.location.pathname !== "/website-generator") {
+          if (window.location.pathname !== "/website-studio/new") {
             console.log("WEBSITE_FLOW:B navigation triggered (generic idea command) | pending intent written first");
-            console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: website | from:", location, "| to: /website-generator | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
-            navigate("/website-generator");
+            console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: idea | activeModule: website | from:", location, "| to: /website-studio/new | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
+            navigate("/website-studio/new");
           } else {
-            console.log("WEBSITE_FLOW:B already on /website-generator — signal emitted unconditionally (via generic idea command)");
+            console.log("WEBSITE_FLOW:B already on /website-studio/new — signal emitted unconditionally (via generic idea command)");
           }
         } else if (activeModule === "automation") {
           // Same logic as the "automation_idea" command handler below.
@@ -1297,9 +1297,9 @@ export function CopilotPanel() {
         // with idea="" because website_idea hadn't processed yet.
         activeWorkspaceModuleRef.current = "website";
         console.log("WEBSITE_FLOW:B navigation triggered (website command) | NOT writing pending intent");
-        if (location !== "/website-generator") {
-          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: website | from:", location, "| to: /website-generator | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
-          navigate("/website-generator");
+        if (location !== "/website-studio/new") {
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: website | from:", location, "| to: /website-studio/new | activeWorkspaceModuleRef:", activeWorkspaceModuleRef.current, "| stack:", new Error("NAV_TRACE").stack);
+          navigate("/website-studio/new");
         }
       } else if (command === "website_idea") {
         const idea = payload.trim();
@@ -1316,18 +1316,18 @@ export function CopilotPanel() {
           }
         }
         setPendingIntent({ type: "website", idea });
-        if (location === "/website-generator") {
+        if (location === "/website-studio/new") {
           // Page is already mounted — the mount effect won't re-run, so the pending
           // intent would sit in sessionStorage forever and the textarea stays empty.
           // Drive the typewriter directly via the workspace signal subscriber instead.
-          console.log("WEBSITE_FLOW:B already on /website-generator — emitting workspace signal to populate textarea");
+          console.log("WEBSITE_FLOW:B already on /website-studio/new — emitting workspace signal to populate textarea");
           emitWorkspaceSignal({ target: "website", type: "populate", payload: idea });
         } else {
           // WEBSITE_FLOW:B — navigate only AFTER idea is in sessionStorage
           // Fresh mount: the mount effect will consume pendingIntent and start typewriter.
           console.log("WEBSITE_FLOW:B navigation triggered (website_idea command) | pending intent written first");
-          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: website_idea | from:", location, "| to: /website-generator | stack:", new Error("NAV_TRACE").stack);
-          navigate("/website-generator");
+          console.log("NAV_TRACE | source: handleWorkspaceCmdAction | command: website_idea | from:", location, "| to: /website-studio/new | stack:", new Error("NAV_TRACE").stack);
+          navigate("/website-studio/new");
         }
       } else if (command === "generate_website") {
         console.log("[ExecutionBus] generate_website → bus.execute({ module: website, action: generate })");

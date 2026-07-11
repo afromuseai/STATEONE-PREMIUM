@@ -81,9 +81,16 @@ let lineCounter = 0
 interface Props {
   project:  V2Project
   children: React.ReactNode
+  /**
+   * When false, the provider mounts (so the IDE shell can render the live
+   * session) but the heavy boot → install → dev pipeline is deferred. This is
+   * used while Marcus is still streaming files, so we never boot npm install
+   * against a half-written project. Flip to true once generation completes.
+   */
+  enabled?: boolean
 }
 
-export function WebContainerProvider({ project, children }: Props) {
+export function WebContainerProvider({ project, children, enabled = true }: Props) {
   // Restore last-known URL immediately so the preview iframe is never blank
   // on a remount (e.g. HMR, StrictMode double-invoke).
   const [status,        setStatus]       = useState<RuntimeStatus>(
@@ -124,6 +131,22 @@ export function WebContainerProvider({ project, children }: Props) {
     // when a write fails. Previously errors were swallowed silently.
     await wc.fs.writeFile(normalized, content)
     syncedFilesRef.current.set(path, content)
+  }, [status])
+
+  // ── writeFileForReview — returns diff for user approval before applying ────
+  const writeFileForReview = useCallback(async (path: string, content: string) => {
+    const wc = wcSingleton
+    if (!wc || status !== "ready") throw new Error("WebContainer not ready")
+    const normalized = path.startsWith("/") ? path : `/${path}`
+    // Read old content for diff
+    let oldContent = ""
+    try {
+      oldContent = await wc.fs.readFile(normalized, "utf-8")
+    } catch {
+      oldContent = "" // File doesn't exist yet
+    }
+    // Return diff without writing — caller decides whether to apply
+    return { oldContent, newContent: content, path }
   }, [status])
 
   // ── readFile — Phase O O2: read a file from WC FS ──────────────────────────
@@ -199,6 +222,12 @@ export function WebContainerProvider({ project, children }: Props) {
   // ── Boot effect ─────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false
+
+    // Deferred boot: don't start the heavy pipeline until `enabled` flips true
+    // (i.e. the project is fully generated). This keeps the provider mounted so
+    // the IDE shell can render Marcus's live work without booting against a
+    // partial file tree.
+    if (!enabled) return
 
     async function run() {
       // ── Fast-path: pipeline already finished (remount / HMR) ──────────────
@@ -364,7 +393,7 @@ export function WebContainerProvider({ project, children }: Props) {
       cancelled = true
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // intentionally stable — only run once per mount, module flags guard reuse
+  }, [enabled]) // re-run when enabled flips; module flags guard against re-boot
 
   // ── N5: Sync Marcus edits → WC FS on project.files change ──────────────────
   useEffect(() => {
@@ -385,8 +414,8 @@ export function WebContainerProvider({ project, children }: Props) {
 
   // ── Context value ───────────────────────────────────────────────────────────
   const value = useMemo<WCContextValue>(
-    () => ({ status, wcUrl, terminalLines, nodeVersion, depCount, writeFile, readFile, listDir, runCommand, clearTerminal }),
-    [status, wcUrl, terminalLines, nodeVersion, depCount, writeFile, readFile, listDir, runCommand, clearTerminal],
+    () => ({ status, wcUrl, terminalLines, nodeVersion, depCount, writeFile, writeFileForReview, readFile, listDir, runCommand, clearTerminal }),
+    [status, wcUrl, terminalLines, nodeVersion, depCount, writeFile, writeFileForReview, readFile, listDir, runCommand, clearTerminal],
   )
 
   return (

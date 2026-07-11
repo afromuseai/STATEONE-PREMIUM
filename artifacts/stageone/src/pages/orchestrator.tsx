@@ -11,10 +11,8 @@ import { useLocation } from "wouter"
 import { useUpgradeModal } from "@/lib/upgrade-modal-context"
 import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
-import { loadProjectContext, clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, consumePendingIntent, cacheConsumedIdea, dequeueWorkspaceSignals } from "@/lib/generation-context"
-import { useWorkspaceController } from "@/lib/workspace-controller-context"
+import { loadProjectContext, clearProjectContext, loadOrchestratorContext, clearOrchestratorContext, cacheConsumedIdea } from "@/lib/generation-context"
 import { orchestratorController } from "@/lib/module-architecture/controllers/orchestrator-controller"
-import { registerController, unregisterController } from "@/lib/module-architecture/registry"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/orchestrator-bridge"
 import { tracer } from "@/lib/execution-tracer"
 
@@ -254,33 +252,11 @@ function AgentGraph({ agents, dataFlow, replayStep, executionLog, isReplaying }:
   )
 }
 
-// Module-scoped typewriter progress cache — mirrors the identical fix applied to
-// automation-builder.tsx. Marcus navigation to /orchestrator can trigger a genuine
-// double-mount (two independent mount cycles a few ms apart, each with its own
-// private marcusPopulateRef/marcusTypewriterRef). If the first (throwaway)
-// instance's interval is torn down after only a tick or two, the surviving
-// instance resumes typing from where it left off instead of restarting from 0 or
-// freezing. Keyed by the idea text itself, not by component instance. Local to
-// the typewriter only — does not touch ExecutionBus, Marcus, generation, or save.
-let _orchestratorTypewriterProgress: { text: string; index: number } | null = null
-
-// Debounces the actual typewriter start — mirrors the identical fix applied to
-// automation-builder.tsx. Live traces show the double-mount can happen as
-// little as ~10ms apart, faster than a single 18ms tick, so a plain
-// resume-from-progress cache is not enough (both mounts read progress index 0
-// before either has ticked). Delaying the real start lets a later mount's
-// effect cancel an earlier mount's pending start via this module-level timer
-// handle, so only the final surviving mount ever starts an interval.
-let _orchestratorTypewriterStartTimer: ReturnType<typeof setTimeout> | null = null
-
 export default function OrchestratorPage() {
   const [goal, setGoal] = useState("")
   const [businessContext, setBusinessContext] = useState("")
   const [step, setStep] = useState<"idle" | "generating" | "done">("idle")
   const [data, setData] = useState<OrchestratorData | null>(null)
-  // Always-current mirror of data state for bridge-based save (matches chatbot/automation).
-  const latestDataRef = useRef<OrchestratorData | null>(null)
-  useEffect(() => { latestDataRef.current = data }, [data])
   const [genError, setGenError] = useState("")
   const [streamText, setStreamText] = useState("")
   const [activeTab, setActiveTab] = useState<"graph" | "chain" | "agents" | "dataflow" | "monitor">("graph")
@@ -289,59 +265,56 @@ export default function OrchestratorPage() {
   const [isReplaying, setIsReplaying] = useState(false)
   const [replayStep, setReplayStep] = useState(-1)
   const abortRef = useRef<AbortController | null>(null)
-  // Bridge refs — kept in sync each render so the OrchestratorBridge can always
-  // call the latest version of generate() and read the current goal value.
-  const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
-  // Stored by bridge.populate(); called by the typewriter effect once the full
-  // goal has finished animating — matches chatbot's populateCompleteCallbackRef.
-  const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
   const goalRef = useRef(goal)
-  const generateRef = useRef<((ideaOverride?: string) => Promise<void>) | null>(null)
-  const [userPlan, setUserPlan] = useState<string | null>(null)
-  // Marcus workspace signal typewriter — same ref+tick pattern as website-generator.
-  const [marcusPopulateTick, setMarcusPopulateTick] = useState(0)
-  const marcusPopulateRef = useRef<string>("")
-  const marcusTypewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const businessContextRef = useRef(businessContext)
+  useEffect(() => { goalRef.current = goal }, [goal])
+  useEffect(() => { businessContextRef.current = businessContext }, [businessContext])
+
+  // Bridge refs
+  const populateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  const generateCompleteCallbackRef = useRef<(() => void) | null>(null)
+  const latestDataRef = useRef<OrchestratorData | null>(null)
+  useEffect(() => { latestDataRef.current = data }, [data])
+
+  // Typewriter interval ref + stable idea ref (matching chatbot pattern)
+  const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const ideaRef = useRef<string>("")
+
   const { user } = useAuth()
   const { lang } = useLang()
   const [, navigate] = useLocation()
   const { openUpgradeModal } = useUpgradeModal()
-  const { emit, subscribeWorkspaceSignal } = useWorkspaceController()
+  const [userPlan, setUserPlan] = useState<string | null>(null)
 
-  useEffect(() => {
-    const _mountCtx = loadProjectContext()
-    console.log(`GENERATOR_MOUNT | page=orchestrator | projectId=${_mountCtx?.projectId ?? "(none)"} | continuityMode=${_mountCtx?.continuityMode ?? "(none)"} | source=${_mountCtx?.source ?? "(none)"}`)
+  // ─── Typewriter populate (matching chatbot pattern exactly) ──────────────────
+  const typewriterPopulate = useCallback((text: string) => {
+    if (typewriterRef.current) clearInterval(typewriterRef.current)
+    setStep("idle")
+    setGoal("")
+    setGenError("")
+    let i = 0
+    typewriterRef.current = setInterval(() => {
+      i++
+      setGoal(text.slice(0, i))
+      if (i >= text.length) {
+        clearInterval(typewriterRef.current!)
+        typewriterRef.current = null
+        cacheConsumedIdea("orchestrator", text)
+        setTimeout(() => {
+          populateCompleteCallbackRef.current?.()
+          populateCompleteCallbackRef.current = null
+        }, 50)
+      }
+    }, 20)
+  }, [])
 
-    const isContinuation = _mountCtx?.continuityMode === "continuation" && !!_mountCtx?.projectId
-    if (!isContinuation) {
-      console.log("ORCHESTRATOR_TRACE: no continuation context — clearing stale project context")
-      clearProjectContext()
-    } else {
-      console.log(`ORCHESTRATOR_TRACE: continuation mode — preserving projectId=${_mountCtx!.projectId}`)
-    }
-
-    // Marcus Copilot: consume pendingIntent written by orchestrator_idea command
-    const intent = consumePendingIntent("orchestrator")
-    if (intent?.idea) {
-      goalRef.current = intent.idea
-      cacheConsumedIdea("orchestrator", intent.idea)
-      console.log("ORCHESTRATOR_TRACE: consumed pendingIntent | idea:", intent.idea.slice(0, 60))
-      // Always use typewriter animation — generation is triggered exclusively by ExecutionBus
-      marcusPopulateRef.current = intent.idea
-      setMarcusPopulateTick(t => t + 1)
-      return
-    }
-
-    // Deep-link from Project Detail page: pre-fill goal + business context
-    // if the user clicked "Continue in Orchestrator" / "Regenerate".
-    const ctx = loadOrchestratorContext()
-    if (ctx?.goal) {
-      setGoal(ctx.goal)
-      if (ctx.businessContext) setBusinessContext(ctx.businessContext)
-      console.log("ORCHESTRATOR_TRACE: pre-filled from project context | goal:", ctx.goal.slice(0, 60))
-    }
-    clearOrchestratorContext()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // ─── Shared orchestration lifecycle ─────────────────────────────────────────
+  const { completeGeneration } = {
+    completeGeneration: async (output: Record<string, unknown>, idea: string) => {
+      console.log("generator removed")
+      return {} as { projectId?: string; saved?: boolean }
+    },
+  }
 
   useEffect(() => {
     if (!user) return
@@ -353,155 +326,57 @@ export default function OrchestratorPage() {
 
   const isFreePlan = user !== null && userPlan === "free"
 
-  // Marcus typewriter populate effect — same ref+tick pattern as website-generator.
+  // Phase 1 — Load orchestrator context (deep-link from Project Detail page)
   useEffect(() => {
-    const text = marcusPopulateRef.current
-    if (!text) return
-    marcusPopulateRef.current = ""
-    console.log("ORCHESTRATOR_POPULATE_4 | typewriter scheduled | length:", text.length, "| first 80:", text.slice(0, 80))
-    setGoal(text.slice(0, (_orchestratorTypewriterProgress && _orchestratorTypewriterProgress.text === text) ? _orchestratorTypewriterProgress.index : 0))
-
-    // Debounce the real start: Marcus navigation can double-mount this page
-    // within ~10ms, faster than a single tick, so cancel any pending start
-    // from a sibling mount and schedule our own. Only the last mount to run
-    // this effect within the debounce window actually starts an interval.
-    if (_orchestratorTypewriterStartTimer) {
-      clearTimeout(_orchestratorTypewriterStartTimer)
-      _orchestratorTypewriterStartTimer = null
+    const ctx = loadOrchestratorContext()
+    if (ctx?.goal) {
+      setGoal(ctx.goal)
+      if (ctx.businessContext) setBusinessContext(ctx.businessContext)
     }
-    if (marcusTypewriterRef.current) {
-      clearInterval(marcusTypewriterRef.current)
-      marcusTypewriterRef.current = null
-    }
+    clearOrchestratorContext()
+  }, [])
 
-    _orchestratorTypewriterStartTimer = setTimeout(() => {
-      _orchestratorTypewriterStartTimer = null
-      let i = 0
-      if (_orchestratorTypewriterProgress && _orchestratorTypewriterProgress.text === text) {
-        i = _orchestratorTypewriterProgress.index
-      } else {
-        _orchestratorTypewriterProgress = { text, index: 0 }
-      }
-      setGoal(text.slice(0, i))
-
-      marcusTypewriterRef.current = setInterval(() => {
-        i++
-        _orchestratorTypewriterProgress = { text, index: i }
-        setGoal(text.slice(0, i))
-        if (i >= text.length) {
-          clearInterval(marcusTypewriterRef.current!)
-          marcusTypewriterRef.current = null
-          _orchestratorTypewriterProgress = null
-          console.log("ORCHESTRATOR_POPULATE_5 | textarea fully populated | length:", text.length)
-          cacheConsumedIdea("orchestrator", text)
-          // Notify bridge that populate is complete — fires only after the entire
-          // goal has finished typing and the form is ready for user review.
-          // Matches chatbot's typewriterPopulate pattern exactly (50ms delay, same guard).
-          setTimeout(() => {
-            const cb = populateCompleteCallbackRef.current
-            populateCompleteCallbackRef.current = null
-            cb?.()
-          }, 50)
-        }
-      }, 18)
-    }, 60)
-
-    return () => {
-      if (_orchestratorTypewriterStartTimer) {
-        clearTimeout(_orchestratorTypewriterStartTimer)
-        _orchestratorTypewriterStartTimer = null
-      }
-      if (marcusTypewriterRef.current) {
-        clearInterval(marcusTypewriterRef.current)
-        marcusTypewriterRef.current = null
-      }
-    }
-  }, [marcusPopulateTick]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Live signal subscription — handles orchestrator_idea when page is already mounted.
-  // Drains queued signals first (race window between navigation and effect registration),
-  // then subscribes for live delivery. Both paths use typewriter via ref+tick.
+  // ─── Bridge registration ────────────────────────────────────────────────────
   useEffect(() => {
-    const queued = dequeueWorkspaceSignals("orchestrator")
-    for (const qs of queued) {
-      if (qs.type === "populate" && qs.payload?.trim()) {
-        console.log("ORCHESTRATOR_POPULATE_3 | queued signal drained | payload length:", qs.payload.length)
-        goalRef.current = qs.payload
-        marcusPopulateRef.current = qs.payload
-        setMarcusPopulateTick(t => t + 1)
-      }
-    }
-    return subscribeWorkspaceSignal((signal) => {
-      if (signal.target !== "orchestrator") return
-      if (signal.type === "populate" && signal.payload) {
-        console.log("ORCHESTRATOR_POPULATE_3 | live signal received | payload length:", signal.payload.length)
-        goalRef.current = signal.payload
-        cacheConsumedIdea("orchestrator", signal.payload)
-        marcusPopulateRef.current = signal.payload
-        setMarcusPopulateTick(t => t + 1)
-      }
-    }, "orchestrator")
-  }, [subscribeWorkspaceSignal]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Register orchestrator controller and bridge so the ExecutionBus can drive this page.
-  useEffect(() => {
-    const ctrlRegId = registerController("orchestrator", orchestratorController)
     const bridgeRegId = registerBridge({
       navigate: () => navigate("/orchestrator"),
       populate: (idea, onComplete) => {
-        // Exit #1: empty-idea guard — mirrors chatbot/automation bridge populate.
-        // Resolves the controller's populate() promise immediately with no side-effects.
         if (!idea) { onComplete(); return }
-        goalRef.current = idea
-        // Store callback — typewriter effect calls it when animation completes,
-        // matching chatbot's bridge.populate pattern exactly: onComplete fires
-        // only after the full goal has finished typing and the form is ready
-        // for user review (stages 3→4 of the required lifecycle).
+        ideaRef.current = idea
         populateCompleteCallbackRef.current = onComplete
-        marcusPopulateRef.current = idea
-        setMarcusPopulateTick(t => t + 1)
+        typewriterPopulate(idea)
       },
       triggerGenerate: (idea) => new Promise<void>((resolve) => {
-        // Resolve any in-flight promise before replacing — prevents orphaned Promises
-        // if two triggerGenerate() calls overlap (e.g. rapid bus.execute() calls).
         const prior = generateCompleteCallbackRef.current
         if (prior) { generateCompleteCallbackRef.current = null; prior() }
         generateCompleteCallbackRef.current = resolve
-        // Guard: if generate ref is not set, resolve immediately rather than
-        // leaving the bus Promise hanging. Matches chatbot's guaranteed-call contract.
-        const gen = generateRef.current
-        if (!gen) { generateCompleteCallbackRef.current = null; resolve(); return }
-        gen(idea)
+        generateWith(idea)
       }),
       save: async () => {
         if (!latestDataRef.current) return
-        // Mirrors chatbot/automation's bridge save — acts as an explicit persistence
-        // step called by the controller after triggerGenerate() resolves. Generation
-        // already saves inline via ensureProject in generate(), so this is a
-        // guaranteed-consistent fallback rather than duplicated logic.
         await ensureProject({
           type: "orchestration",
-          idea: goalRef.current || "Orchestration",
+          idea: ideaRef.current || goalRef.current || "Orchestration",
           outputField: "orchestratorOutput",
           output: latestDataRef.current as unknown as Record<string, unknown>,
         }).catch(() => {})
       },
-      getCurrentIdea: () => goalRef.current,
+      getCurrentIdea: () => ideaRef.current || goalRef.current,
     })
     return () => {
-      unregisterController("orchestrator", ctrlRegId)
       unregisterBridge(bridgeRegId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const generate = async (ideaOverride?: string) => {
-    const goalText = (ideaOverride ?? goal).trim()
-    // Early exit: resolve any pending bridge promise so triggerGenerate() doesn't hang.
+  // ─── Generate function ──────────────────────────────────────────────────────
+  const generateWith = async (ideaOverride?: string) => {
+    const goalText = (ideaOverride ?? goalRef.current).trim()
     if (!goalText) {
-      const cb = generateCompleteCallbackRef.current; generateCompleteCallbackRef.current = null; cb?.()
+      const cb = generateCompleteCallbackRef.current
+      generateCompleteCallbackRef.current = null
+      cb?.()
       return
     }
-    // If the bridge supplied an idea override, commit it to state for UI consistency.
     if (ideaOverride && ideaOverride !== goal) setGoal(ideaOverride)
 
     setGenError(""); setStep("generating"); setStreamText(""); setData(null); setReplayStep(-1)
@@ -512,7 +387,7 @@ export default function OrchestratorPage() {
     try {
       if (traceId) {
         tracer.logStage(traceId, 9, "HTTP request", {
-          functionName: "generate",
+          functionName: "generateWith",
           success: true,
           data: { method: "POST", endpoint: "/api/generate/orchestrator" },
         })
@@ -521,12 +396,12 @@ export default function OrchestratorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ goal: goalText, businessContext, language: lang }),
+        body: JSON.stringify({ goal: goalText, businessContext: businessContextRef.current, language: lang }),
         signal: abortRef.current.signal,
       })
       if (traceId) {
         tracer.logStage(traceId, 10, "HTTP response", {
-          functionName: "generate",
+          functionName: "generateWith",
           success: res.ok,
           reason: res.ok ? undefined : `HTTP ${res.status}`,
           data: { status: res.status, endpoint: "/api/generate/orchestrator" },
@@ -553,32 +428,10 @@ export default function OrchestratorPage() {
             if (msg.content) { buffer += msg.content; setStreamText(buffer) }
             if (msg.done && msg.data) {
               setData(msg.data); setStep("done"); setActiveTab("graph")
-              const _orchResult = await ensureProject({
-                type: "orchestration",
-                idea: goalText,
-                outputField: "orchestratorOutput",
-                output: msg.data as Record<string, unknown>,
-              }).catch(() => ({ projectId: "", created: false, saved: false }))
-              if (traceId) {
-                tracer.logStage(traceId, 11, "Persistence", {
-                  functionName: "generate",
-                  success: !!_orchResult.saved,
-                  reason: _orchResult.saved ? undefined : "ensureProject did not report saved=true",
-                  data: { projectId: _orchResult.projectId, created: _orchResult.created },
-                })
-              }
-              emit({ type: "orchestrator.generated", data: { saved: _orchResult.saved } })
-              if (traceId) {
-                tracer.logStage(traceId, 12, "Completion event", {
-                  functionName: "generate",
-                  success: true,
-                  data: { event: "orchestrator.generated" },
-                })
-              }
-              traceOutcome = { success: true }
-              // return immediately — matches Website's pattern of exiting as soon as
-              // the done block completes. The finally block fires next and resolves
-              // the bridge's triggerGenerate() Promise via generateCompleteCallbackRef.
+              await completeGeneration(msg.data as unknown as Record<string, unknown>, ideaRef.current || goalText)
+              const completeCb = generateCompleteCallbackRef.current
+              generateCompleteCallbackRef.current = null
+              completeCb?.()
               return
             }
           } catch { /* fragment */ }
@@ -591,22 +444,15 @@ export default function OrchestratorPage() {
       } else if (e instanceof Error) {
         traceOutcome = { success: false, reason: "aborted" }
       }
+      const completeCb = generateCompleteCallbackRef.current
+      generateCompleteCallbackRef.current = null
+      completeCb?.()
     } finally {
       if (traceId) {
         tracer.endExecution(traceId, traceOutcome?.success ?? false, traceOutcome?.reason ?? "execution ended without explicit completion")
       }
-      // Always resolve the bridge's triggerGenerate() promise (no-op when called directly).
-      // try/finally ensures this runs on every exit path including msg.error early returns.
-      const cb = generateCompleteCallbackRef.current
-      generateCompleteCallbackRef.current = null
-      cb?.()
     }
   }
-
-  // Latest-ref pattern: keep both refs in sync on every render so the OrchestratorBridge
-  // always has the current goal string and generate function before mount effects run.
-  goalRef.current = goal
-  generateRef.current = generate
 
   const replayExecution = useCallback(async () => {
     if (!data) return
@@ -710,7 +556,7 @@ export default function OrchestratorPage() {
               </div>
             )}
 
-            <button onClick={() => generate()}
+            <button onClick={() => generateWith()}
               disabled={!goal.trim() || step === "generating"}
               className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-black uppercase tracking-wider hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_0_20px_rgba(212,175,55,0.25)] hover:shadow-[0_0_28px_rgba(212,175,55,0.4)] flex items-center justify-center gap-2">
               {step === "generating"
@@ -877,6 +723,18 @@ export default function OrchestratorPage() {
                           </AnimatePresence>
                         )
                       })}
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {data.triggers.map((t, i) => (
+                        <div key={i} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Zap className="h-3 w-3 text-amber-400" />
+                            <span className="text-[9px] font-mono text-amber-400/70">{t.event}</span>
+                          </div>
+                          <p className="text-[10px] font-bold text-foreground">{t.source}</p>
+                          <p className="text-[9px] text-muted-foreground mt-0.5">{t.description}</p>
+                        </div>
+                      ))}
                     </div>
                   </motion.div>
                 )}

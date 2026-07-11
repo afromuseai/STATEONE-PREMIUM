@@ -40,7 +40,6 @@ export type { LifecycleHandler } from './lifecycle';
 
 // ── Placeholder controllers ───────────────────────────────────────────────────
 export { intelligenceController } from './controllers/intelligence-controller';
-export { websiteController } from './controllers/website-controller';
 export { chatbotController } from './controllers/chatbot-controller';
 export { automationController } from './controllers/automation-controller';
 export { orchestratorController } from './controllers/orchestrator-controller';

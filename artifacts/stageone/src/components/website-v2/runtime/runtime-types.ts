@@ -45,6 +45,11 @@ export interface WCContextValue {
    */
   writeFile:    (path: string, content: string) => Promise<void>
   /**
+   * Write a file for diff review — returns the diff instead of applying directly.
+   * Used by the agent for user approval before applying changes.
+   */
+  writeFileForReview: (path: string, content: string) => Promise<{ oldContent: string; newContent: string; path: string }>
+  /**
    * Read a file from the WebContainer filesystem. (Phase O — O2)
    */
   readFile:     (path: string) => Promise<string>

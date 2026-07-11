@@ -3,9 +3,10 @@
 //
 // Stateless LLM caller. The frontend drives the multi-turn agentic loop:
 //   1. Frontend sends projectMemory + conversation + (optional) tool results
-//   2. Backend returns streaming LLM response with <tool_call> XML tags
-//   3. Frontend parses tags, executes tools against WebContainer, loops back
-//   4. Loop ends when LLM emits <tool_call>{"name":"done",...}</tool_call>
+//   2. Backend returns streaming LLM response with TOOL_CALL XML tags
+//   3. Backend parses tool calls server-side, emits typed SSE events
+//   4. Frontend executes tools against WebContainer, loops back
+//   5. Loop ends when LLM emits TOOL_CALL{"name":"done",...}
 //
 // Features implemented:
 //   O1 — project context injected via projectMemory
@@ -17,7 +18,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { MODELS } from "../lib/models";
-import { streamNvidia, forwardStream } from "../lib/nvidia";
+import { streamNvidia } from "../lib/nvidia";
 import { z } from "zod";
 
 const router = Router();
@@ -81,7 +82,7 @@ I will:
 
 Continue?
 
-Do NOT emit any <tool_call> tags in plan mode. Just the plan text and "Continue?".`
+Do NOT emit any TOOL_CALL tags in plan mode. Just the plan text and "Continue?".`
     : `## Mode: EXECUTE
 Execute the plan now. Use tool calls to make all the changes.
 Narrate briefly what you are doing between tool calls.
@@ -97,29 +98,75 @@ ${modeBlock}
 ## Tool Call Format (EXECUTE mode only)
 Emit ONE tool call per line using this exact XML format:
 
-<tool_call>{"name": "read_file",    "params": {"path": "src/app/page.tsx"}}</tool_call>
-<tool_call>{"name": "write_file",   "params": {"path": "src/components/Hero.tsx", "content": "// FULL FILE CONTENT — never truncate"}}</tool_call>
-<tool_call>{"name": "list_dir",     "params": {"path": "src/components"}}</tool_call>
-<tool_call>{"name": "search_code",  "params": {"query": "className", "path": "src"}}</tool_call>
-<tool_call>{"name": "run_command",  "params": {"cmd": "npm", "args": ["run", "build"]}}</tool_call>
-<tool_call>{"name": "done",         "params": {"summary": "Brief description of all changes made"}}</tool_call>
+TOOL_CALL{"name": "read_file",    "params": {"path": "src/app/page.tsx"}}
+TOOL_CALL{"name": "write_file",   "params": {"path": "src/components/Hero.tsx", "content": "// FULL FILE CONTENT — never truncate"}}
+TOOL_CALL{"name": "write_files",  "params": {"files": [{"path": "src/components/Hero.tsx", "content": "// file 1"}, {"path": "src/components/Footer.tsx", "content": "// file 2"}]}}
+TOOL_CALL{"name": "list_dir",     "params": {"path": "src/components"}}
+TOOL_CALL{"name": "search_code",  "params": {"query": "className", "path": "src"}}
+TOOL_CALL{"name": "run_command",  "params": {"cmd": "npm", "args": ["run", "build"]}}
+TOOL_CALL{"name": "background_task", "params": {"cmd": "npm", "args": ["test", "--watch"], "webhook": "/api/agent/task-progress"}}
+TOOL_CALL{"name": "list_background_tasks", "params": {}}
+TOOL_CALL{"name": "git_status", "params": {}}
+TOOL_CALL{"name": "git_diff", "params": {}}
+TOOL_CALL{"name": "git_commit", "params": {"message": "feat: add new feature"}}
+TOOL_CALL{"name": "git_add", "params": {"files": ["src/components/Button.tsx"]}}
+TOOL_CALL{"name": "git_branch", "params": {"name": "feature/new-ui", "create": true}}
+TOOL_CALL{"name": "git_push", "params": {"remote": "origin", "branch": "feature/new-ui"}}
+TOOL_CALL{"name": "git_log", "params": {"limit": 10}}
+TOOL_CALL{"name": "checkpoint",   "params": {"label": "before-refactor"}}
+TOOL_CALL{"name": "rollback",     "params": {"label": "before-refactor"}}
+TOOL_CALL{"name": "list_checkpoints", "params": {}}
+TOOL_CALL{"name": "done",         "params": {"summary": "Brief description of all changes made"}}
 
 ## Engineering Rules
 1. ALWAYS read files before modifying them — never guess the current content
 2. Write COMPLETE file content — never use "..." or placeholder comments
 3. Match the project's existing TypeScript patterns, imports, and code style
-4. After writing files, run the build: <tool_call>{"name":"run_command","params":{"cmd":"npm","args":["run","build"]}}</tool_call>
+4. After writing files, run the build: TOOL_CALL{"name":"run_command","params":{"cmd":"npm","args":["run","build"]}}
 5. If build fails: read the failing file → identify the error → fix it → rebuild
 6. Maximum 14 tool calls before calling "done"
-7. Always end with the "done" tool`;
+7. Always end with the "done" tool
+8. Use "write_files" (plural) for multi-file edits — single call, multiple files
+9. Create a checkpoint before major changes with TOOL_CALL{"name":"checkpoint","params":{"label":"descriptive-name"}}
+10. Rollback to a checkpoint with TOOL_CALL{"name":"rollback","params":{"label":"checkpoint-name"}}
+11. For long-running tasks (build, test, dev server), use "background_task" — it returns immediately with a task ID and streams progress via webhook
+12. List checkpoints with "list_checkpoints"
+13. Git operations: "git_status", "git_diff", "git_add", "git_commit", "git_branch", "git_push", "git_log"
+14. List background tasks with "list_background_tasks"
+
+// ─── Tool call parser (server-side) ────────────────────────────────────────────
+const TOOL_CALL_RE = /TOOL_CALL(\{[\s\S]*?\})/g;
+
+interface ParsedToolCall {
+  name: string;
+  params: Record<string, unknown>;
+  raw: string;
+}
+
+function parseToolCalls(text: string): ParsedToolCall[] {
+  const calls: ParsedToolCall[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = TOOL_CALL_RE.exec(text)) !== null) {
+    try {
+      const parsed = JSON.parse(match[1].trim()) as { name?: string; params?: Record<string, unknown> };
+      if (parsed.name) {
+        calls.push({ name: parsed.name, params: parsed.params ?? {}, raw: match[0] });
+      }
+    } catch {
+      // malformed — skip
+    }
+  }
+  return calls;
+}
+
+function stripToolCalls(text: string): string {
+  return text.replace(TOOL_CALL_RE, "").trim();
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 router.post("/copilot/agent", requireAuth, async (req, res) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const anyReq = req as any;
-  const userId: string = (anyReq.user?.id ?? anyReq.user?.userId ?? "") as string;
+  const userId = req.user!.userId;
 
   const parsed = AgentRequestSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -130,11 +177,15 @@ router.post("/copilot/agent", requireAuth, async (req, res) => {
   const { projectMemory, messages, mode } = parsed.data;
 
   // ── SSE setup ────────────────────────────────────────────────────────────────
-  res.setHeader("Content-Type",      "text/event-stream");
-  res.setHeader("Cache-Control",     "no-cache");
-  res.setHeader("Connection",        "keep-alive");
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
+
+  const writeEvent = (event: Record<string, unknown>) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  };
 
   try {
     const systemPrompt = buildSystemPrompt(projectMemory, mode);
@@ -153,18 +204,132 @@ router.post("/copilot/agent", requireAuth, async (req, res) => {
       _userId:      userId,
     });
 
-    await forwardStream(streamBody, res, MODELS.AGENT_PLANNING, {
-      feature:  "copilot_agent_o",
-      userId,
-    });
+    // Parse the NVIDIA stream and emit structured events
+    const decoder = new TextDecoder();
+    const reader = streamBody.getReader();
+    let carry = "";
+    let buffer = "";
+    let inThinking = false;
+    let toolCallBuffer = "";
+    let completedToolCalls = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = carry + decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+      carry = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.choices?.[0]?.delta;
+          const content = delta?.content ?? "";
+          const reasoning = delta?.reasoning_content;
+
+          // Handle thinking/reasoning phase
+          if (reasoning && !inThinking) {
+            inThinking = true;
+            writeEvent({ type: "thinking", content: reasoning });
+          } else if (content && inThinking) {
+            inThinking = false;
+            writeEvent({ type: "thinking_end" });
+          }
+
+          // Accumulate content for tool call parsing
+          if (content) {
+            buffer += content;
+            toolCallBuffer += content;
+
+            // Check for complete tool calls in the buffer
+            const calls = parseToolCalls(toolCallBuffer);
+            for (const call of calls) {
+              // Find the position of this tool call in buffer
+              const idx = toolCallBuffer.indexOf(call.raw);
+              if (idx !== -1) {
+                // Emit text before the tool call
+                const beforeText = toolCallBuffer.slice(0, idx).trim();
+                if (beforeText) {
+                  writeEvent({ type: "text", content: beforeText });
+                }
+
+                // Emit tool call event
+                completedToolCalls++;
+                const toolCallId = `tc-${Date.now()}-${completedToolCalls}`;
+                writeEvent({
+                  type: "tool_call",
+                  id: toolCallId,
+                  name: call.name,
+                  params: call.params,
+                  status: "running",
+                });
+
+                // If write_file, we'll emit a diff preview after frontend reads old content
+                // (frontend will read file first, then we can send diff)
+
+                // Remove processed portion from toolCallBuffer
+                toolCallBuffer = toolCallBuffer.slice(idx + call.raw.length);
+              }
+            }
+
+            // Emit any remaining text that's not part of tool calls
+            const textOnly = stripToolCalls(toolCallBuffer);
+            if (textOnly) {
+              writeEvent({ type: "text", content: textOnly });
+              toolCallBuffer = ""; // reset after emitting
+            }
+          }
+        } catch {
+          // Incomplete JSON fragment — skip
+        }
+      }
+    }
+
+    // Flush any remaining carry
+    if (carry.startsWith("data: ")) {
+      const data = carry.slice(6).trim();
+      if (data && data !== "[DONE]") {
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) {
+            buffer += content;
+            toolCallBuffer += content;
+            const calls = parseToolCalls(toolCallBuffer);
+            for (const call of calls) {
+              const idx = toolCallBuffer.indexOf(call.raw);
+              if (idx !== -1) {
+                const beforeText = toolCallBuffer.slice(0, idx).trim();
+                if (beforeText) writeEvent({ type: "text", content: beforeText });
+                completedToolCalls++;
+                const toolCallId = `tc-${Date.now()}-${completedToolCalls}`;
+                writeEvent({ type: "tool_call", id: toolCallId, name: call.name, params: call.params, status: "running" });
+                toolCallBuffer = toolCallBuffer.slice(idx + call.raw.length);
+              }
+            }
+            const textOnly = stripToolCalls(toolCallBuffer);
+            if (textOnly) {
+              writeEvent({ type: "text", content: textOnly });
+            }
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    writeEvent({ done: true });
+    res.end();
   } catch (err) {
     req.log?.error({ err }, "[Marcus:agent] Stream failed");
     const msg = err instanceof Error ? err.message : "Agent stream failed";
-    res.write(`data: ${JSON.stringify({ content: `\n\nError: ${msg}` })}\n\n`);
+    writeEvent({ type: "text", content: `\n\nError: ${msg}` });
+    writeEvent({ done: true });
+    res.end();
   }
-
-  res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-  res.end();
 });
 
 export default router;

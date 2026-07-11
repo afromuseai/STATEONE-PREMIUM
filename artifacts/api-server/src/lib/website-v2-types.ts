@@ -19,6 +19,44 @@ export interface BusinessContext {
   brandPositioning: string;
   conversionGoal:   string;
   existingBI?:      Record<string, unknown>;  // raw BI output from /api/generate
+  biIntelligenceContext?: {
+    businessSnapshot: string;
+    targetMarket: string;
+    evidence: {
+      facts: string[];
+      inferences: string[];
+      hypotheses: string[];
+      unknowns: string[];
+    };
+    confidence: {
+      overall: "HIGH" | "MEDIUM" | "LOW";
+      reason: string;
+    };
+    decisionPriorities: string[];
+    moduleContext: {
+      website: {
+        positioning: string;
+        conversionGoal: string;
+        recommendedPages: string[];
+        primaryCTA: string;
+      };
+      chatbot: {
+        primaryRole: string;
+        requiredCapabilities: string;
+        qualificationQuestions: string[];
+        escalationRules: string;
+      };
+      automation: {
+        highestValueWorkflow: string;
+        recommendedIntegrations: string[];
+        businessProcess: string;
+      };
+      execution: {
+        recommendedAgents: string[];
+        prioritySequence: string[];
+      };
+    };
+  };
 }
 
 // ─── WebsiteBlueprint ─────────────────────────────────────────────────────────

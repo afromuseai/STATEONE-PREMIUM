@@ -37,9 +37,23 @@ const router = Router();
 // ─── Extract BusinessContext from request body ────────────────────────────────
 // The idea is always required. All other fields are derived from BI output
 // or fall back to sensible defaults inferred from the idea.
+// ─── Extract BusinessContext from request body ────────────────────────────────
+// The idea is always required. All other fields are derived from BI output
+// or fall back to sensible defaults inferred from the idea.
 function extractBusinessContext(body: Record<string, unknown>): BusinessContext {
   const idea = String(body.idea ?? "").trim();
   const bi = (body.businessIntelligence ?? {}) as Record<string, unknown>;
+  const biContext = (body.biIntelligenceContext ?? {}) as Record<string, unknown>;
+
+  // Extract BI Intelligence Context if provided
+  const moduleContext = biContext.moduleContext as
+    | {
+        website?: { positioning?: string; conversionGoal?: string; recommendedPages?: string[]; primaryCTA?: string };
+        chatbot?: { primaryRole?: string; requiredCapabilities?: string; qualificationQuestions?: string[]; escalationRules?: string };
+        automation?: { highestValueWorkflow?: string; recommendedIntegrations?: string[]; businessProcess?: string };
+        execution?: { recommendedAgents?: string[]; prioritySequence?: string[] };
+      }
+    | undefined;
 
   return {
     idea,
@@ -50,7 +64,46 @@ function extractBusinessContext(body: Record<string, unknown>): BusinessContext 
     brandPositioning: String(bi.brandPositioning ?? bi.positioning ?? "leading solution in the space"),
     conversionGoal:   String(bi.conversionGoal   ?? bi.conversion  ?? "sign up / get started"),
     existingBI:       Object.keys(bi).length > 0 ? bi : undefined,
-  };
+    // BI Intelligence Context for downstream agents
+    biIntelligenceContext: moduleContext ? {
+      businessSnapshot: String(biContext.businessSnapshot ?? ""),
+      targetMarket: String(biContext.targetMarket ?? ""),
+      evidence: {
+        facts: (biContext.evidence as any)?.facts ?? [],
+        inferences: (biContext.evidence as any)?.inferences ?? [],
+        hypotheses: (biContext.evidence as any)?.hypotheses ?? [],
+        unknowns: (biContext.evidence as any)?.unknowns ?? [],
+      },
+      confidence: {
+        overall: (biContext.confidence as any)?.overall ?? "LOW",
+        reason: (biContext.confidence as any)?.reason ?? "Not provided",
+      },
+      decisionPriorities: (biContext.decisionPriorities as string[]) ?? [],
+      moduleContext: moduleContext ? {
+        website: {
+          positioning: moduleContext.website?.positioning ?? "",
+          conversionGoal: moduleContext.website?.conversionGoal ?? "",
+          recommendedPages: moduleContext.website?.recommendedPages ?? [],
+          primaryCTA: moduleContext.website?.primaryCTA ?? "",
+        },
+        chatbot: {
+          primaryRole: moduleContext.chatbot?.primaryRole ?? "",
+          requiredCapabilities: moduleContext.chatbot?.requiredCapabilities ?? "",
+          qualificationQuestions: moduleContext.chatbot?.qualificationQuestions ?? [],
+          escalationRules: moduleContext.chatbot?.escalationRules ?? "",
+        },
+        automation: {
+          highestValueWorkflow: moduleContext.automation?.highestValueWorkflow ?? "",
+          recommendedIntegrations: moduleContext.automation?.recommendedIntegrations ?? [],
+          businessProcess: moduleContext.automation?.businessProcess ?? "",
+        },
+        execution: {
+          recommendedAgents: moduleContext.execution?.recommendedAgents ?? [],
+          prioritySequence: moduleContext.execution?.prioritySequence ?? [],
+        },
+      } : undefined,
+    } : undefined,
+  }
 }
 
 // ─── SSE helper ───────────────────────────────────────────────────────────────

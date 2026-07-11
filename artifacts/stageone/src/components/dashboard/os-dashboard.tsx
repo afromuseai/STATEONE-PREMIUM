@@ -388,7 +388,7 @@ function EmptyState({ onNavigate }: { onNavigate: (path: string) => void }) {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => go("/website-generator")}
+          onClick={() => go("/website-studio/new")}
           className="flex items-center gap-4 glass-card rounded-2xl p-4 hover:border-border/60 transition-all text-left"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/15 shrink-0">
@@ -696,7 +696,7 @@ export function OSDashboard({ onNavigate }: OSDashboardProps) {
             <h3 className="text-sm font-bold text-foreground mb-3">Quick Actions</h3>
             <div className="space-y-2">
               {[
-                { label: "Generate Website", icon: Globe, href: "/website-generator", color: "text-blue-400" },
+                { label: "Generate Website", icon: Globe, href: "/website-studio/new", color: "text-blue-400" },
                 { label: "Browse AI Agents", icon: Bot, href: "/agents", color: "text-purple-400" },
                 { label: "Build Automation", icon: Zap, href: "/automation-builder", color: "text-primary" },
                 { label: "OS Command Center", icon: Layers, href: "/os", color: "text-orange-400" },

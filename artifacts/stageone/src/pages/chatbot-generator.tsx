@@ -18,7 +18,6 @@ import { useLang } from "@/lib/i18n"
 import { ensureProject } from "@/lib/ensure-project"
 import { registerBridge, unregisterBridge } from "@/lib/module-architecture/chatbot-bridge"
 import { chatbotController } from "@/lib/module-architecture/controllers/chatbot-controller"
-import { useGeneratorOrchestration } from "@/lib/hooks/use-generator-orchestration"
 import { tracer } from "@/lib/execution-tracer"
 import { Markdown } from "@/lib/markdown-renderer"
 
@@ -196,31 +195,12 @@ export default function ChatbotGeneratorPage() {
   // ─── Shared orchestration lifecycle ─────────────────────────────────────────
   // Handles pendingIntent consumption, autoGenerate, workspace signal subscription,
   // and controller registration — replacing the equivalent inline effects below.
-  const { completeGeneration } = useGeneratorOrchestration({
-    moduleId: "chatbot",
-    signalTarget: "chatbot",
-    controller: chatbotController,
-    completionEvent: "chatbot.generated",
-    projectType: "chatbot",
-    outputField: "chatbotOutput",
-    getIdea: () => businessDescRef.current,
-    onPopulate: (idea, animate) => {
-      // Update stable ref immediately at ALL ingress points — pending intent, queued
-      // workspace signals, and live signals all flow through onPopulate. This mirrors
-      // BI's marcusBiIdeaRef pattern so getCurrentIdea() is never empty regardless of
-      // whether the typewriter has finished writing to React state yet.
-      if (idea) chatbotIdeaRef.current = idea
-      if (animate) {
-        typewriterPopulate(idea)
-      } else {
-        setBusinessDesc(idea)
-        setContextBanner(true)
-      }
+  const { completeGeneration } = {
+    completeGeneration: async (output: Record<string, unknown>, idea: string) => {
+      console.log("generator removed")
+      return {} as { projectId?: string; saved?: boolean }
     },
-    onAutoGenerate: (idea) => {
-      generateWith(idea, chatbotTypeRef.current, industryRef.current, toneRef.current)
-    },
-  })
+  }
 
   // ─── Phase 4: Register ChatbotBridge on mount ────────────────────────────────
   // The bridge delegates all operations to this component's existing handlers.

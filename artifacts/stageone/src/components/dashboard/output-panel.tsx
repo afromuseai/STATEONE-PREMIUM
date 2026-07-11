@@ -51,6 +51,25 @@ export interface BusinessIntelligence {
     crm: string
     payments: string
   }
+  // New fields from BI upgrade
+  confidence: {
+    overall: "HIGH" | "MEDIUM" | "LOW"
+    reason: string
+  }
+  criticalUnknowns: string[]
+  decisionPriorities: string[]
+  moduleContext: {
+    website: { positioning: string; conversionGoal: string }
+    chatbot: { primaryRole: string; requiredCapabilities: string }
+    automation: { highestValueWorkflow: string; recommendedIntegrations: string[] }
+    execution: { recommendedAgents: string[]; prioritySequence: string[] }
+  }
+  evidence: {
+    facts: string[]
+    inferences: string[]
+    hypotheses: string[]
+    unknowns: string[]
+  }
 }
 
 interface OutputPanelProps {
@@ -739,6 +758,94 @@ function EmptyState() {
   )
 }
 
+// ─── New Display Components ────────────────────────────────────────────────────
+
+function QualityMetric({ label, value }: { label: string; value: number }) {
+  const color = value >= 70 ? "text-green-400" : value >= 40 ? "text-yellow-400" : "text-red-400";
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className={`text-3xl font-black ${color}`}>{value}</div>
+      <span className="text-[10px] font-semibold text-center text-muted-foreground/70 leading-tight">{label}</span>
+    </div>
+  )
+}
+
+function EvidenceTab({ label, items, color }: { label: string; items: string[]; color: "green" | "blue" | "yellow" | "red" }) {
+  const colorMap = {
+    green: "bg-green-500/10 text-green-400 border-green-500/20",
+    blue: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    yellow: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    red: "bg-red-500/10 text-red-400 border-red-500/20",
+  };
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${colorMap[color]}`}>{label}</span>
+        <span className="text-[10px] text-muted-foreground/50">{items.length} items</span>
+      </div>
+      <ul className="space-y-1 max-h-32 overflow-y-auto">
+        {items.length === 0 ? (
+          <li className="text-[10px] text-muted-foreground/50 italic">No {label.toLowerCase()} recorded</li>
+        ) : (
+          items.slice(0, 5).map((item, i) => (
+            <li key={i} className="text-xs text-muted-foreground/80 leading-relaxed">{item}</li>
+          ))
+        )}
+      </ul>
+    </div>
+  )
+}
+
+function ModulePreviewCard({ icon: Icon, title, positioning, conversionGoal, primaryRole, requiredCapabilities, highestValueWorkflow, recommendedIntegrations, recommendedAgents, prioritySequence }: {
+  icon: typeof Globe;
+  title: string;
+  positioning?: string;
+  conversionGoal?: string;
+  primaryRole?: string;
+  requiredCapabilities?: string;
+  highestValueWorkflow?: string;
+  recommendedIntegrations?: string[];
+  recommendedAgents?: string[];
+  prioritySequence?: string[];
+}) {
+  return (
+    <div className="rounded-lg border border-border/30 bg-secondary/20 p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded bg-primary/10">
+          <Icon className="h-3.5 w-3.5 text-primary" />
+        </div>
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</span>
+      </div>
+      <div className="space-y-1.5 text-[10px] text-muted-foreground">
+        {positioning && !positioning.startsWith("UNKNOWN") && (
+          <div><span className="font-medium text-foreground">Positioning:</span> {positioning}</div>
+        )}
+        {conversionGoal && !conversionGoal.startsWith("UNKNOWN") && (
+          <div><span className="font-medium text-foreground">CTA:</span> {conversionGoal}</div>
+        )}
+        {primaryRole && !primaryRole.startsWith("UNKNOWN") && (
+          <div><span className="font-medium text-foreground">Role:</span> {primaryRole}</div>
+        )}
+        {requiredCapabilities && !requiredCapabilities.startsWith("UNKNOWN") && (
+          <div><span className="font-medium text-foreground">Capabilities:</span> {requiredCapabilities}</div>
+        )}
+        {highestValueWorkflow && !highestValueWorkflow.startsWith("UNKNOWN") && (
+          <div><span className="font-medium text-foreground">Workflow:</span> {highestValueWorkflow}</div>
+        )}
+        {recommendedIntegrations && recommendedIntegrations.length > 0 && (
+          <div><span className="font-medium text-foreground">Integrations:</span> {recommendedIntegrations.join(", ")}</div>
+        )}
+        {recommendedAgents && recommendedAgents.length > 0 && (
+          <div><span className="font-medium text-foreground">Agents:</span> {recommendedAgents.join(", ")}</div>
+        )}
+        {prioritySequence && prioritySequence.length > 0 && (
+          <div><span className="font-medium text-foreground">Priority:</span> {prioritySequence.join(" → ")}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 export function OutputPanel({ data, partialData, isLoading, streamingText, generationStage, reasoningStages, detectedIndustry, onGenerateWebsite, onGenerateChatbot, onBuildAutomation, projectId, userPlan }: OutputPanelProps) {
   const { t } = useLang()
@@ -929,6 +1036,141 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
             </SectionCard>
             )}
           </div>
+
+          {/* Confidence Card */}
+          {data.confidence && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="mb-4">
+              <SectionCard icon={Brain} title={ot.sections.confidence || "Confidence Assessment"} index={9} fullWidth>
+                <div className="flex items-center gap-4">
+                  <div className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl ${
+                    data.confidence.overall === "HIGH" ? "bg-green-500/20 text-green-400" :
+                    data.confidence.overall === "MEDIUM" ? "bg-yellow-500/20 text-yellow-400" :
+                    "bg-red-500/20 text-red-400"
+                  }`}>
+                    <span className="text-3xl font-black">{data.confidence.overall}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">{ot.confidenceReason || "Reason"}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{data.confidence.reason}</p>
+                  </div>
+                </div>
+              </SectionCard>
+            </motion.div>
+          )}
+
+          {/* Quality Score */}
+          {data.qualityScore && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="mb-4">
+              <SectionCard icon={Target} title={ot.sections.qualityScore || "Quality Score"} index={10} fullWidth>
+                <div className="grid gap-4 sm:grid-cols-4">
+                  <QualityMetric label={ot.qualityOverall || "Overall"} value={data.qualityScore.overall} />
+                  <QualityMetric label={ot.qualityCompleteness || "Completeness"} value={data.qualityScore.completeness} />
+                  <QualityMetric label={ot.qualityEvidence || "Evidence"} value={data.qualityScore.evidenceStrength} />
+                  <QualityMetric label={ot.qualityActionability || "Actionability"} value={data.qualityScore.actionability} />
+                </div>
+              </SectionCard>
+            </motion.div>
+          )}
+
+          {/* Evidence Panel */}
+          {data.evidence && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="mb-4">
+              <SectionCard icon={FileText} title={ot.sections.evidence || "Evidence Layer"} index={11} fullWidth>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <EvidenceTab label={ot.evidenceFacts || "Facts"} items={data.evidence.facts} color="green" />
+                  <EvidenceTab label={ot.evidenceInferences || "Inferences"} items={data.evidence.inferences} color="blue" />
+                  <EvidenceTab label={ot.evidenceHypotheses || "Hypotheses"} items={data.evidence.hypotheses} color="yellow" />
+                  <EvidenceTab label={ot.evidenceUnknowns || "Unknowns"} items={data.evidence.unknowns} color="red" />
+                </div>
+              </SectionCard>
+            </motion.div>
+          )}
+
+          {/* Decision Priorities */}
+          {data.decisionPriorities && data.decisionPriorities.length > 0 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.75 }} className="mb-4">
+              <SectionCard icon={Target} title={ot.sections.decisionPriorities || "Decision Priorities"} index={12} fullWidth>
+                <ul className="space-y-2">
+                  {data.decisionPriorities.map((item, i) => (
+                    <motion.li key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.8 + i * 0.05 }}
+                      className="flex items-start gap-3 text-sm text-muted-foreground">
+                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">{i + 1}</span>
+                      <span>{item}</span>
+                    </motion.li>
+                  ))}
+                </ul>
+              </SectionCard>
+            </motion.div>
+          )}
+
+          {/* Module Intelligence Preview */}
+          {data.moduleContext && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="mb-4">
+              <SectionCard icon={Layers} title={ot.sections.moduleIntelligence || "Module Intelligence Preview"} index={13} fullWidth>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <ModulePreviewCard
+                    icon={Globe}
+                    title={ot.moduleWebsite || "Website Architect"}
+                    positioning={data.moduleContext.website.positioning}
+                    conversionGoal={data.moduleContext.website.conversionGoal}
+                  />
+                  <ModulePreviewCard
+                    icon={Bot}
+                    title={ot.moduleChatbot || "Chatbot Generator"}
+                    primaryRole={data.moduleContext.chatbot.primaryRole}
+                    requiredCapabilities={data.moduleContext.chatbot.requiredCapabilities}
+                  />
+                  <ModulePreviewCard
+                    icon={Workflow}
+                    title={ot.moduleAutomation || "Automation Builder"}
+                    highestValueWorkflow={data.moduleContext.automation.highestValueWorkflow}
+                    recommendedIntegrations={data.moduleContext.automation.recommendedIntegrations}
+                  />
+                  <ModulePreviewCard
+                    icon={Rocket}
+                    title={ot.moduleExecution || "Execution Engine"}
+                    recommendedAgents={data.moduleContext.execution.recommendedAgents}
+                    prioritySequence={data.moduleContext.execution.prioritySequence}
+                  />
+                </div>
+              </SectionCard>
+            </motion.div>
+          )}
+
+          {/* Validation Metadata */}
+          {data.validation && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85 }} className="mb-4">
+              <SectionCard icon={Shield} title={ot.sections.validation || "Validation Status"} index={14} fullWidth>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{ot.validationLevel || "Validation Level"}</span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      data.validation.validationLevel === "SCALE" ? "bg-green-500/20 text-green-400" :
+                      data.validation.validationLevel === "TRACTION" ? "bg-blue-500/20 text-blue-400" :
+                      data.validation.validationLevel === "MVP" ? "bg-purple-500/20 text-purple-400" :
+                      data.validation.validationLevel === "SIGNAL" ? "bg-yellow-500/20 text-yellow-400" :
+                      "bg-gray-500/20 text-gray-400"
+                    }`}>
+                      {data.validation.validationLevel}
+                    </span>
+                  </div>
+                  {data.validation.requiresHumanValidation.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">{ot.requiresHumanValidation || "Requires Human Validation"}</p>
+                      <ul className="space-y-1">
+                        {data.validation.requiresHumanValidation.map((item, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <span className="h-1.5 w-1.5 mt-2 rounded-full bg-primary/50 flex-shrink-0" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
+            </motion.div>
+          )}
 
           {/* Proactive Intelligence Panel */}
           <IntelligencePanel businessIntelligence={data} userPlan={userPlan} autoRun={userPlan !== "free"} />

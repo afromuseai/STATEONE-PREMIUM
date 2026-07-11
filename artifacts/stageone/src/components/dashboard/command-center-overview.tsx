@@ -128,7 +128,7 @@ export function CommandCenterOverview({
             transition={{ delay: 0.1 }}
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => go("/website-generator")}
+            onClick={() => go("/website-studio/new")}
             className="glass-card rounded-xl p-4 flex flex-col gap-3 border border-blue-500/20 bg-blue-500/5 hover:border-blue-500/40 hover:bg-blue-500/10 transition-all text-left"
           >
             <div className="flex items-center justify-between">

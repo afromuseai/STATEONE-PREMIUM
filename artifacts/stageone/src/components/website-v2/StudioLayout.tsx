@@ -5,7 +5,6 @@ import { useLocation } from "wouter"
 import { ProjectExplorer } from "./ProjectExplorer"
 import { CodeViewer } from "./CodeViewer"
 import { PreviewPanel } from "./PreviewPanel"
-import { EditorChatPanel } from "./EditorChatPanel"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 
 type ActivePanel = "code" | "preview"
@@ -116,12 +115,7 @@ export function StudioLayout({ project, onRefresh }: StudioLayoutProps) {
             <PreviewPanel preview={project.preview} projectName={project.projectName} />
           </div>
 
-          {/* AI Edit Panel anchored at bottom */}
-          <EditorChatPanel
-            projectId={project.id}
-            files={project.files}
-            onEditComplete={onRefresh}
-          />
+          {/* AI Edit Panel anchored at bottom — now handled by StudioShell */}
         </div>
       </div>
     </motion.div>

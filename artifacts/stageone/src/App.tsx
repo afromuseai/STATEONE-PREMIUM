@@ -52,8 +52,6 @@ import AboutMarcusPage from "@/pages/about-marcus";
 import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import WebsiteStudioPage from "@/pages/website-studio";
-import WebsiteStudioWorkspacePage from "@/pages/website-studio-workspace";
-import WebsiteStudioCreatePage from "@/pages/website-studio-create";
 import WebContainerTestPage from "@/pages/webcontainer-test";
 import NotFound from "@/pages/not-found";
 
@@ -77,6 +75,13 @@ function ExecutionBusNavigatorSetup() {
 }
 
 const PUBLIC_PREFIXES = ["/login", "/signup", "/pricing", "/showcase", "/about-marcus", "/forgot-password", "/reset-password", "/public-project"]
+
+/** Redirects to preserve old /website-generator bookmarks */
+function RedirectTo({ to }: { to: string }) {
+  const [, navigate] = useLocation()
+  useEffect(() => { navigate(to, { replace: true }) }, [])
+  return null
+}
 
 function isDashboardRoute(location: string): boolean {
   if (location === "/") return false
@@ -137,7 +142,7 @@ function Router() {
         <ProtectedRoute><SettingsPage /></ProtectedRoute>
       </Route>
       <Route path="/website-generator">
-        <ProtectedRoute><WebsiteStudioCreatePage /></ProtectedRoute>
+        <RedirectTo to="/website-studio/new" />
       </Route>
       <Route path="/chatbot-generator">
         <ProtectedRoute><ChatbotGeneratorPage /></ProtectedRoute>
@@ -197,11 +202,11 @@ function Router() {
         <ProtectedRoute><WebsiteStudioPage /></ProtectedRoute>
       </Route>
       <Route path="/website-studio/new">
-        <ProtectedRoute><WebsiteStudioCreatePage /></ProtectedRoute>
+        <ProtectedRoute><WebsiteStudioPage /></ProtectedRoute>
       </Route>
       <Route path="/website-studio/:id">
         {(params) => (
-          <ProtectedRoute><WebsiteStudioWorkspacePage id={params.id} /></ProtectedRoute>
+          <ProtectedRoute><WebsiteStudioPage /></ProtectedRoute>
         )}
       </Route>
       <Route path="/about-marcus" component={AboutMarcusPage} />

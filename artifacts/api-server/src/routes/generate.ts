@@ -8,8 +8,569 @@ import { getLanguageInstruction } from "../lib/language";
 import { onBusinessIntelligenceComplete } from "../lib/business-graph";
 import { logEventFireForget } from "../lib/log-event";
 import { trackUsageFireForget } from "../lib/usage";
+import { getBiMemoryContext, storeBiMemory } from "@workspace/db";
 
 const router = Router();
+
+// ─── BI Schema Validation & Repair ────────────────────────────────────────────
+// Validates and repairs BI JSON output to ensure all required fields exist
+// with safe defaults. Never hallucinates business data.
+
+interface BIConfidence {
+  overall: "HIGH" | "MEDIUM" | "LOW";
+  reason: string;
+}
+
+interface BIModuleContext {
+  website: { positioning: string; conversionGoal: string };
+  chatbot: { primaryRole: string; requiredCapabilities: string };
+  automation: { highestValueWorkflow: string; recommendedIntegrations: string[] };
+  execution: { recommendedAgents: string[]; prioritySequence: string[] };
+}
+
+interface BIEvidence {
+  facts: string[];
+  inferences: string[];
+  hypotheses: string[];
+  unknowns: string[];
+}
+
+interface BIQualityScore {
+  overall: number;
+  completeness: number;
+  evidenceStrength: number;
+  actionability: number;
+}
+
+interface BIValidationMeta {
+  validatedAt: string;
+  validationLevel: "IDEA" | "SIGNAL" | "MVP" | "TRACTION" | "SCALE";
+  requiresHumanValidation: string[];
+}
+
+interface BIValidatedOutput {
+  industry: string;
+  metrics: {
+    marketDifficulty: number;
+    automationPotential: number;
+    revenueScalability: number;
+    operationalComplexity: number;
+    aiAdoptionOpportunity: number;
+  };
+  businessSnapshot: string;
+  targetMarket: string;
+  strategicInsights: {
+    growthBottleneck: string;
+    fastestChannel: string;
+    highestLeverageAutomation: string;
+    operationalRisk: string;
+  };
+  competitiveAdvantage: {
+    differentiation: string;
+    defensibility: string;
+    scalabilityEdge: string;
+  };
+  growthPlan: string[];
+  websitePages: string[];
+  chatbotRole: string;
+  automations: string[];
+  recommendedStack: {
+    frontend: string[];
+    backend: string[];
+    automation: string[];
+    crm: string;
+    payments: string;
+  };
+  confidence: BIConfidence;
+  criticalUnknowns: string[];
+  decisionPriorities: string[];
+  moduleContext: BIModuleContext;
+  evidence: BIEvidence;
+  qualityScore: BIQualityScore;
+  validation: BIValidationMeta;
+}
+
+const REQUIRED_INDUSTRIES = [
+  "SaaS", "E-commerce", "Healthcare", "Cybersecurity", "Education",
+  "Marketplace", "Agency", "Fintech", "Creator Economy"
+] as const;
+
+// Helper to clamp numbers to range
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+function validateAndRepairBI(raw: unknown, userIdea: string): BIValidatedOutput {
+  const data = raw as Record<string, unknown>;
+
+  // Helper to safely get nested values - handles 0 and empty string as valid
+  const get = <T>(obj: Record<string, unknown>, path: string, fallback: T): T => {
+    const keys = path.split(".");
+    let current: unknown = obj;
+    for (const key of keys) {
+      if (current && typeof current === "object" && key in current) {
+        current = (current as Record<string, unknown>)[key];
+      } else {
+        return fallback;
+      }
+    }
+    // If value is null/undefined, use fallback; otherwise use the value (including 0, "")
+    return (current === null || current === undefined) ? fallback : (current as T);
+  };
+
+  // Helper to clamp numeric values
+  const clamp = (val: number, min: number, max: number): number => Math.max(min, Math.min(max, val));
+
+  // Validate industry
+  const industry = get(data, "industry", "SaaS");
+  const validIndustry = REQUIRED_INDUSTRIES.includes(industry as typeof REQUIRED_INDUSTRIES[number])
+    ? industry
+    : "SaaS";
+
+  // Validate metrics with safe bounds - use explicit null/undefined check
+  const rawMarketDifficulty = get(data, "metrics.marketDifficulty", 5);
+  const rawAutomationPotential = get(data, "metrics.automationPotential", 50);
+  const rawRevenueScalability = get(data, "metrics.revenueScalability", 5);
+  const rawOperationalComplexity = get(data, "metrics.operationalComplexity", 5);
+  const rawAiAdoptionOpportunity = get(data, "metrics.aiAdoptionOpportunity", 50);
+
+  const metrics = {
+    marketDifficulty: clamp(Number(rawMarketDifficulty), 1, 10),
+    automationPotential: clamp(Number(rawAutomationPotential), 1, 100),
+    revenueScalability: clamp(Number(rawRevenueScalability), 1, 10),
+    operationalComplexity: clamp(Number(rawOperationalComplexity), 1, 10),
+    aiAdoptionOpportunity: clamp(Number(rawAiAdoptionOpportunity), 1, 100),
+  };
+
+  // Validate string fields with UNKNOWN fallbacks
+  const businessSnapshot = get(data, "businessSnapshot", "UNKNOWN — insufficient information to generate business snapshot");
+  const targetMarket = get(data, "targetMarket", "UNKNOWN — target market not specified");
+
+  // Validate strategicInsights
+  const strategicInsights = {
+    growthBottleneck: get(data, "strategicInsights.growthBottleneck", "UNKNOWN — growth bottleneck not identified"),
+    fastestChannel: get(data, "strategicInsights.fastestChannel", "UNKNOWN — fastest channel not identified"),
+    highestLeverageAutomation: get(data, "strategicInsights.highestLeverageAutomation", "UNKNOWN — automation opportunity not identified"),
+    operationalRisk: get(data, "strategicInsights.operationalRisk", "UNKNOWN — operational risk not identified"),
+  };
+
+  // Validate competitiveAdvantage
+  const competitiveAdvantage = {
+    differentiation: get(data, "competitiveAdvantage.differentiation", "UNKNOWN — differentiation not specified"),
+    defensibility: get(data, "competitiveAdvantage.defensibility", "UNKNOWN — defensibility not specified"),
+    scalabilityEdge: get(data, "competitiveAdvantage.scalabilityEdge", "UNKNOWN — scalability edge not specified"),
+  };
+
+  // Validate growthPlan
+  const growthPlan = Array.isArray(data.growthPlan)
+    ? data.growthPlan.filter((x): x is string => typeof x === "string" && x.length > 0)
+    : ["UNKNOWN — growth plan not generated"];
+
+  // Validate websitePages
+  const websitePages = Array.isArray(data.websitePages)
+    ? data.websitePages.filter((x): x is string => typeof x === "string" && x.length > 0)
+    : ["UNKNOWN — website pages not generated"];
+
+  // Validate chatbotRole
+  const chatbotRole = get(data, "chatbotRole", "UNKNOWN — chatbot role not specified");
+
+  // Validate automations
+  const automations = Array.isArray(data.automations)
+    ? data.automations.filter((x): x is string => typeof x === "string" && x.length > 0)
+    : ["UNKNOWN — automations not generated"];
+
+  // Validate recommendedStack
+  const recommendedStack = {
+    frontend: Array.isArray(get(data, "recommendedStack.frontend", [])) ? get(data, "recommendedStack.frontend", []) : ["React", "Tailwind CSS", "Vercel"],
+    backend: Array.isArray(get(data, "recommendedStack.backend", [])) ? get(data, "recommendedStack.backend", []) : ["Node.js", "PostgreSQL"],
+    automation: Array.isArray(get(data, "recommendedStack.automation", [])) ? get(data, "recommendedStack.automation", []) : ["Zapier", "HubSpot"],
+    crm: get(data, "recommendedStack.crm", "HubSpot"),
+    payments: get(data, "recommendedStack.payments", "Stripe"),
+  };
+
+  // Validate confidence
+  const confidenceRaw = get(data, "confidence", { overall: "LOW", reason: "Model did not provide confidence assessment" }) as Record<string, unknown>;
+  const confidence: BIConfidence = {
+    overall: (confidenceRaw.overall === "HIGH" || confidenceRaw.overall === "MEDIUM" || confidenceRaw.overall === "LOW")
+      ? confidenceRaw.overall
+      : "LOW",
+    reason: typeof confidenceRaw.reason === "string" && confidenceRaw.reason.length > 0
+      ? confidenceRaw.reason
+      : "Model did not provide confidence assessment",
+  };
+
+  // Validate criticalUnknowns
+  const criticalUnknowns = Array.isArray(data.criticalUnknowns)
+    ? data.criticalUnknowns.filter((x): x is string => typeof x === "string" && x.length > 0)
+    : ["UNKNOWN — critical unknowns not identified"];
+
+  // Validate decisionPriorities
+  const decisionPriorities = Array.isArray(data.decisionPriorities)
+    ? data.decisionPriorities.filter((x): x is string => typeof x === "string" && x.length > 0)
+    : ["UNKNOWN — decision priorities not identified"];
+
+  // Validate moduleContext
+  const moduleContextRaw = get(data, "moduleContext", {}) as Record<string, unknown>;
+  const moduleContext: BIModuleContext = {
+    website: {
+      positioning: get(moduleContextRaw, "website.positioning", "UNKNOWN — positioning not specified"),
+      conversionGoal: get(moduleContextRaw, "website.conversionGoal", "UNKNOWN — conversion goal not specified"),
+    },
+    chatbot: {
+      primaryRole: get(moduleContextRaw, "chatbot.primaryRole", "UNKNOWN — primary role not specified"),
+      requiredCapabilities: get(moduleContextRaw, "chatbot.requiredCapabilities", "UNKNOWN — capabilities not specified"),
+    },
+    automation: {
+      highestValueWorkflow: get(moduleContextRaw, "automation.highestValueWorkflow", "UNKNOWN — workflow not specified"),
+      recommendedIntegrations: Array.isArray(get(moduleContextRaw, "automation.recommendedIntegrations", []))
+        ? get(moduleContextRaw, "automation.recommendedIntegrations", [])
+        : [],
+    },
+    execution: {
+      recommendedAgents: Array.isArray(get(moduleContextRaw, "execution.recommendedAgents", []))
+        ? get(moduleContextRaw, "execution.recommendedAgents", [])
+        : [],
+      prioritySequence: Array.isArray(get(moduleContextRaw, "execution.prioritySequence", []))
+        ? get(moduleContextRaw, "execution.prioritySequence", [])
+        : [],
+    },
+  };
+
+  // Validate evidence
+  const evidenceRaw = get(data, "evidence", {}) as Record<string, unknown>;
+  const evidence: BIEvidence = {
+    facts: Array.isArray(evidenceRaw.facts) ? evidenceRaw.facts.filter((x): x is string => typeof x === "string") : [],
+    inferences: Array.isArray(evidenceRaw.inferences) ? evidenceRaw.inferences.filter((x): x is string => typeof x === "string") : [],
+    hypotheses: Array.isArray(evidenceRaw.hypotheses) ? evidenceRaw.hypotheses.filter((x): x is string => typeof x === "string") : [],
+    unknowns: Array.isArray(evidenceRaw.unknowns) ? evidenceRaw.unknowns.filter((x): x is string => typeof x === "string") : [],
+  };
+
+  // If evidence is empty, populate unknowns from criticalUnknowns
+  if (evidence.facts.length === 0 && evidence.inferences.length === 0 && evidence.hypotheses.length === 0 && evidence.unknowns.length === 0) {
+    evidence.unknowns = [...criticalUnknowns];
+  }
+
+  return {
+    industry: validIndustry,
+    metrics,
+    businessSnapshot,
+    targetMarket,
+    strategicInsights,
+    competitiveAdvantage,
+    growthPlan,
+    websitePages,
+    chatbotRole,
+    automations,
+    recommendedStack,
+    confidence,
+    criticalUnknowns,
+    decisionPriorities,
+    moduleContext,
+    evidence,
+  };
+}
+
+// ─── False Intelligence Detection ──────────────────────────────────────────────
+// Scans output for hallucinated claims and converts them to hypotheses
+
+function detectFalseIntelligence(output: BIValidatedOutput, userIdea: string): BIValidatedOutput {
+  const suspiciousPatterns = [
+    // Specific numbers without evidence
+    { pattern: /\$\d+[KM]?\s*(ARR|MRR|revenue)/i, field: "businessSnapshot", type: "revenue" },
+    { pattern: /\d+%\s*(conversion|churn|retention|growth)/i, field: "metrics", type: "metric" },
+    { pattern: /\d+\s*(customers?|users?|clinics?|companies?)/i, field: "targetMarket", type: "customer_count" },
+    // Named competitors without evidence
+    { pattern: /(Salesforce|HubSpot|Stripe|Shopify|Atlassian|Microsoft|Google|Amazon|Oracle|SAP)\s+(is|has|uses|offers)/i, field: "competitiveAdvantage", type: "competitor_claim" },
+    // Specific tool claims
+    { pattern: /(Clay|Apollo|Outreach|Segment|PostHog|Retool|Zapier|Make|n8n)\s+(integration|automates|connects)/i, field: "automations", type: "tool_claim" },
+  ];
+
+  const hypotheses: string[] = [];
+  const unknowns: string[] = [];
+
+  // Check businessSnapshot for revenue claims
+  suspiciousPatterns.forEach(({ pattern, field, type }) => {
+    const value = JSON.stringify(output[field as keyof BIValidatedOutput]);
+    if (pattern.test(value)) {
+      hypotheses.push(`Hypothesis: ${field} contains unverified ${type} claim — requires validation`);
+      unknowns.push(`Validation needed: ${field} ${type} claim`);
+    }
+  });
+
+  // Merge into evidence
+  output.evidence.hypotheses = [...new Set([...output.evidence.hypotheses, ...hypotheses])];
+  output.evidence.unknowns = [...new Set([...output.evidence.unknowns, ...unknowns])];
+
+  // If confidence is HIGH but we found suspicious patterns, downgrade
+  if (output.confidence.overall === "HIGH" && (hypotheses.length > 0 || unknowns.length > 0)) {
+    output.confidence.overall = "MEDIUM";
+    output.confidence.reason = "Downgraded due to unverified claims detected";
+  }
+
+  return output;
+}
+
+// ─── Confidence Calculation ────────────────────────────────────────────────────
+// Computes confidence based on input richness and output completeness
+
+function calculateConfidence(userIdea: string, output: BIValidatedOutput): BIConfidence {
+  let score = 0;
+  const reasons: string[] = [];
+
+  // Input richness
+  const ideaWords = userIdea.trim().split(/\s+/).length;
+  if (ideaWords > 50) { score += 30; reasons.push("detailed input"); }
+  else if (ideaWords > 20) { score += 20; reasons.push("moderate input"); }
+  else if (ideaWords > 10) { score += 10; reasons.push("basic input"); }
+  else { reasons.push("minimal input"); }
+
+  // Industry clarity
+  if (output.industry !== "SaaS" || userIdea.toLowerCase().includes("saas")) {
+    score += 15; reasons.push("clear industry");
+  }
+
+  // Output completeness
+  const unknownCount = [
+    output.businessSnapshot,
+    output.targetMarket,
+    output.strategicInsights.growthBottleneck,
+    output.strategicInsights.fastestChannel,
+    output.strategicInsights.highestLeverageAutomation,
+    output.strategicInsights.operationalRisk,
+  ].filter(v => v.startsWith("UNKNOWN")).length;
+
+  if (unknownCount === 0) { score += 25; reasons.push("complete output"); }
+  else if (unknownCount <= 2) { score += 15; reasons.push("mostly complete"); }
+  else { reasons.push(`${unknownCount} unknown fields`); }
+
+  // Evidence presence
+  if (output.evidence.facts.length > 0) { score += 10; reasons.push("has facts"); }
+  if (output.evidence.inferences.length > 0) { score += 5; reasons.push("has inferences"); }
+
+  // Determine overall
+  let overall: "HIGH" | "MEDIUM" | "LOW";
+  if (score >= 70) overall = "HIGH";
+  else if (score >= 40) overall = "MEDIUM";
+  else overall = "LOW";
+
+  return {
+    overall,
+    reason: reasons.length > 0 ? reasons.join("; ") : "Insufficient information for assessment",
+  };
+}
+
+// ─── BI Quality Score ──────────────────────────────────────────────────────────
+// Computes quality metrics for the BI output
+
+function calculateQualityScore(output: BIValidatedOutput, userIdea: string): BIQualityScore {
+  // Completeness: all schema fields present, moduleContext filled, growthPlan populated
+  let completeness = 0;
+  const totalFields = 20;
+  let presentFields = 0;
+
+  // Check core fields
+  const coreFields = [
+    output.industry,
+    output.businessSnapshot,
+    output.targetMarket,
+    output.strategicInsights.growthBottleneck,
+    output.strategicInsights.fastestChannel,
+    output.strategicInsights.highestLeverageAutomation,
+    output.strategicInsights.operationalRisk,
+    output.competitiveAdvantage.differentiation,
+    output.competitiveAdvantage.defensibility,
+    output.competitiveAdvantage.scalabilityEdge,
+  ];
+  presentFields += coreFields.filter(v => !v.startsWith("UNKNOWN")).length;
+
+  // Check growthPlan
+  if (output.growthPlan.length >= 3) presentFields += 2;
+  else if (output.growthPlan.length > 0) presentFields += 1;
+
+  // Check moduleContext
+  const mc = output.moduleContext;
+  if (!mc.website.positioning.startsWith("UNKNOWN")) presentFields++;
+  if (!mc.website.conversionGoal.startsWith("UNKNOWN")) presentFields++;
+  if (!mc.chatbot.primaryRole.startsWith("UNKNOWN")) presentFields++;
+  if (!mc.chatbot.requiredCapabilities.startsWith("UNKNOWN")) presentFields++;
+  if (!mc.automation.highestValueWorkflow.startsWith("UNKNOWN")) presentFields++;
+  if (mc.automation.recommendedIntegrations.length > 0) presentFields++;
+  if (mc.execution.recommendedAgents.length > 0) presentFields++;
+  if (mc.execution.prioritySequence.length > 0) presentFields++;
+
+  // Check metrics
+  presentFields += 5; // metrics always present
+
+  completeness = Math.round((presentFields / totalFields) * 100);
+
+  // Evidence Strength: facts present, few assumptions
+  let evidenceStrength = 0;
+  const totalEvidence = output.evidence.facts.length + output.evidence.inferences.length + output.evidence.hypotheses.length + output.evidence.unknowns.length;
+  if (totalEvidence > 0) {
+    const factRatio = output.evidence.facts.length / totalEvidence;
+    const hypothesisRatio = output.evidence.hypotheses.length / totalEvidence;
+    if (factRatio >= 0.5) evidenceStrength = 100;
+    else if (factRatio >= 0.3) evidenceStrength = 70;
+    else if (hypothesisRatio >= 0.5) evidenceStrength = 30;
+    else evidenceStrength = 50;
+  } else {
+    evidenceStrength = 20;
+  }
+
+  // Actionability: named tools, measurable actions, timeframes
+  let actionability = 0;
+  let actionScore = 0;
+  // Growth plan with timeframes
+  const hasTimeframes = output.growthPlan.some(p => /Phase \d|\(0-|\(3-|\(6-|\(12-|\(18-/.test(p));
+  if (hasTimeframes) actionScore += 30;
+  // Named tools in automations
+  const namedTools = output.automations.filter(a => /(Zapier|HubSpot|Salesforce|Stripe|Slack|Notion|Airtable|Make|n8n|Clay|Apollo|Outreach|Segment|PostHog|Retool)/i.test(a)).length;
+  if (namedTools >= 2) actionScore += 30;
+  else if (namedTools >= 1) actionScore += 15;
+  // Measurable targets in growth plan
+  const measurableTargets = output.growthPlan.filter(p => /\d+%|\$\d+|\d+x|\d+ (customers?|users?|clinics?)/i.test(p)).length;
+  if (measurableTargets >= 2) actionScore += 25;
+  else if (measurableTargets >= 1) actionScore += 15;
+  // Module context specificity
+  if (!output.moduleContext.automation.highestValueWorkflow.startsWith("UNKNOWN")) actionScore += 15;
+  if (!output.moduleContext.website.conversionGoal.startsWith("UNKNOWN")) actionScore += 10;
+
+  actionability = Math.min(100, actionScore);
+
+  // Overall quality score (weighted average)
+  const overall = Math.round(completeness * 0.4 + evidenceStrength * 0.3 + actionability * 0.3);
+
+  return {
+    overall,
+    completeness,
+    evidenceStrength,
+    actionability,
+  };
+}
+
+// ─── Validation Metadata ───────────────────────────────────────────────────────
+// Adds validation level and human validation requirements
+
+function addValidationMetadata(output: BIValidatedOutput, userIdea: string): BIValidatedOutput {
+  // Determine validation level based on evidence
+  let validationLevel: "IDEA" | "SIGNAL" | "MVP" | "TRACTION" | "SCALE" = "IDEA";
+
+  const fullText = JSON.stringify(output).toLowerCase();
+  const hasCustomerConversations = /conversation|interview|survey|feedback|beta|pilot|early access/i.test(fullText);
+  const hasMvp = /mvp|minimum viable|prototype|demo|test version/i.test(fullText);
+  const hasPayingUsers = /paying|revenue|subscription|mrr|arr|customer.*pay/i.test(fullText);
+  const hasScale = /scale|growth|expansion|series [abc]|funding round/i.test(fullText);
+
+  if (hasScale && hasPayingUsers) validationLevel = "SCALE";
+  else if (hasPayingUsers) validationLevel = "TRACTION";
+  else if (hasMvp) validationLevel = "MVP";
+  else if (hasCustomerConversations) validationLevel = "SIGNAL";
+  else validationLevel = "IDEA";
+
+  // Determine what requires human validation
+  const requiresHumanValidation: string[] = [];
+
+  if (output.evidence.hypotheses.length > 0) {
+    requiresHumanValidation.push("Verify all hypotheses with market research");
+  }
+  if (output.criticalUnknowns.some(u => !u.startsWith("UNKNOWN"))) {
+    requiresHumanValidation.push("Resolve critical unknowns before execution");
+  }
+  if (output.moduleContext.website.positioning.startsWith("UNKNOWN")) {
+    requiresHumanValidation.push("Define website positioning and conversion goal");
+  }
+  if (output.moduleContext.automation.highestValueWorkflow.startsWith("UNKNOWN")) {
+    requiresHumanValidation.push("Identify highest-value automation workflow");
+  }
+  if (output.moduleContext.execution.recommendedAgents.length === 0) {
+    requiresHumanValidation.push("Define required execution agents");
+  }
+  if (validationLevel === "IDEA") {
+    requiresHumanValidation.push("Conduct customer discovery to move beyond IDEA stage");
+  }
+
+  output.validation = {
+    validatedAt: new Date().toISOString(),
+    validationLevel,
+    requiresHumanValidation,
+  };
+
+  return output;
+}
+
+// ─── Repair BI Output ──────────────────────────────────────────────────────────
+// Second-pass repair for missing important fields
+
+async function repairBIOutput(missingFields: string[], originalOutput: BIValidatedOutput, userIdea: string): Promise<Partial<BIValidatedOutput>> {
+  if (missingFields.length === 0) return {};
+
+  const repairPrompt = `You are repairing an incomplete business intelligence report.
+
+Do not rewrite existing information.
+
+Only fill missing fields.
+
+Return ONLY JSON.
+
+Missing fields:
+${missingFields.join(", ")}
+
+Existing report:
+${JSON.stringify(originalOutput, null, 2)}`;
+
+  try {
+    const streamBody = await streamNvidia({
+      model: MODELS.BUSINESS_INTELLIGENCE,
+      messages: [
+        { role: "system", content: "You are a precise JSON repair agent. Output only the missing fields as valid JSON." },
+        { role: "user", content: repairPrompt },
+      ],
+      temperature: 0.3,
+      maxTokens: 2000,
+      nvextParams: { thinking: { enabled: false } },
+    });
+
+    const decoder = new TextDecoder();
+    const reader = streamBody.getReader();
+    let contentBuffer = "";
+    let lineCarryover = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = lineCarryover + decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+      lineCarryover = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) contentBuffer += content;
+        } catch { /* ignore */ }
+      }
+    }
+
+    if (lineCarryover.startsWith("data: ")) {
+      const data = lineCarryover.slice(6).trim();
+      if (data && data !== "[DONE]") {
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) contentBuffer += content;
+        } catch { /* ignore */ }
+      }
+    }
+
+    const repaired = extractJson(contentBuffer) as Record<string, unknown>;
+    return repaired as Partial<BIValidatedOutput>;
+  } catch (err) {
+    console.error("[BI Repair] Failed:", err);
+    return {};
+  }
+}
 
 // ─── Industry-Specific Reasoning Stages ──────────────────────────────────────
 const INDUSTRY_REASONING: Record<string, string[]> = {
@@ -194,6 +755,53 @@ INTELLIGENCE STANDARDS:
 - Competitive analysis must name real incumbent competitors
 - Apply cross-system reasoning: how does the business model affect the website structure? How do automations reduce operational risk?
 
+EVIDENCE DISCIPLINE:
+You must separate every claim into one of four categories:
+- FACT: directly known from user input or provided context
+- INFERENCE: reasonable interpretation based on available evidence
+- HYPOTHESIS: assumption requiring validation
+- UNKNOWN: information unavailable
+
+Never present assumptions as facts. Label uncertain claims explicitly.
+
+CONFIDENCE LAYER:
+Every strategic recommendation must internally evaluate confidence. Include in output:
+"confidence": {
+  "overall": "HIGH|MEDIUM|LOW",
+  "reason": "explain why"
+}
+
+ANTI-HALLUCINATION RULES:
+- Never invent customer data
+- Never claim a company uses a strategy without evidence
+- Never fabricate market statistics
+- Never create fake competitor advantages
+When uncertain, state uncertainty explicitly.
+
+OPERATIONAL INTELLIGENCE:
+BI output must help downstream STAGEONE modules. The analysis must consider:
+
+Website Architect:
+- required pages
+- conversion flow
+- CTA strategy
+- positioning
+
+Chatbot Generator:
+- customer questions
+- qualification flow
+- support requirements
+
+Automation Builder:
+- repetitive workflows
+- integrations
+- operational bottlenecks
+
+Execution Engine:
+- required agents
+- processes
+- deployment opportunities
+
 Return ONLY valid JSON matching this exact schema:
 {
   "industry": "SaaS|E-commerce|Healthcare|Cybersecurity|Education|Marketplace|Agency|Fintech|Creator Economy",
@@ -244,6 +852,40 @@ Return ONLY valid JSON matching this exact schema:
     "automation": ["Named tool 1", "Named tool 2", "Named tool 3"],
     "crm": "Named CRM with specific reason",
     "payments": "Named payment platform with specific reason"
+  },
+  "confidence": {
+    "overall": "HIGH|MEDIUM|LOW",
+    "reason": "explain why"
+  },
+  "criticalUnknowns": [
+    "unknown business assumptions requiring validation"
+  ],
+  "decisionPriorities": [
+    "highest leverage business decisions"
+  ],
+  "moduleContext": {
+    "website": {
+      "positioning": "",
+      "conversionGoal": ""
+    },
+    "chatbot": {
+      "primaryRole": "",
+      "requiredCapabilities": ""
+    },
+    "automation": {
+      "highestValueWorkflow": "",
+      "recommendedIntegrations": []
+    },
+    "execution": {
+      "recommendedAgents": [],
+      "prioritySequence": []
+    }
+  },
+  "evidence": {
+    "facts": [],
+    "inferences": [],
+    "hypotheses": [],
+    "unknowns": []
   }
 }
 
@@ -252,7 +894,11 @@ HARD RULES:
 - growthPlan must include timeframes and specific numeric targets
 - automations must name the exact tool and quantify the benefit
 - competitiveAdvantage must reference real named competitors
-- NO filler phrases, NO motivational language, NO vague adjectives`;
+- NO filler phrases, NO motivational language, NO vague adjectives
+- confidence.overall must be exactly HIGH, MEDIUM, or LOW
+- criticalUnknowns and decisionPriorities must be arrays of strings
+- moduleContext must contain all four sub-objects with string/array values
+- evidence must contain all four arrays (facts, inferences, hypotheses, unknowns)`;
 
 // ─── Free Tier System Prompt (shorter, simpler output) ─────────────────────────
 const freeSystemPrompt = `You are STAGEONE, an AI business analysis assistant. Analyze the business idea and return a concise structured overview.
@@ -301,7 +947,14 @@ Return ONLY valid JSON matching this exact schema (keep text fields brief — 1 
     "automation": ["Zapier", "HubSpot"],
     "crm": "HubSpot",
     "payments": "Stripe"
-  }
+  },
+  "confidence": {
+    "overall": "HIGH|MEDIUM|LOW",
+    "reason": "explain why"
+  },
+  "criticalUnknowns": [
+    "unknown business assumptions requiring validation"
+  ]
 }`;
 
 router.post("/generate", requireAuth, async (req, res) => {
@@ -359,8 +1012,42 @@ router.post("/generate", requireAuth, async (req, res) => {
     } else {
       // Fetch cross-system context (memories + recent projects) for paid tiers
       const crossSystemContext = await buildCrossSystemContext(userId);
-      res.write(`data: ${JSON.stringify({ reasoning: "Loading intelligence memory & cross-system context...", phase: "memory" })}\n\n`);
-      systemPrompt = baseSystemPrompt + crossSystemContext + langInstruction;
+      
+      // Fetch BI memory context (historical patterns + learnings)
+      const biMemoryContext = await getBiMemoryContext({ userId });
+      res.write(`data: ${JSON.stringify({ reasoning: "Loading intelligence memory, cross-system context & historical patterns...", phase: "memory" })}\n\n`);
+      
+      // Build BI memory context string for prompt injection
+      let biMemoryPrompt = "";
+      if (biMemoryContext.patterns.length > 0) {
+        biMemoryPrompt = `\n\nHISTORICAL INTELLIGENCE PATTERNS (from ${biMemoryContext.totalAnalyses} prior analyses):\n`;
+        
+        for (const pattern of biMemoryContext.patterns.slice(0, 3)) {
+          biMemoryPrompt += `\n--- ${pattern.industry} (${pattern.count} analyses, avg quality: ${pattern.avgQualityScore}%) ---\n`;
+          if (pattern.commonBottlenecks.length > 0) {
+            biMemoryPrompt += `Common bottlenecks: ${pattern.commonBottlenecks.join(", ")}\n`;
+          }
+          if (pattern.commonChannels.length > 0) {
+            biMemoryPrompt += `Effective channels: ${pattern.commonChannels.join(", ")}\n`;
+          }
+          if (pattern.commonAutomations.length > 0) {
+            biMemoryPrompt += `High-leverage automations: ${pattern.commonAutomations.join(", ")}\n`;
+          }
+          if (pattern.commonRisks.length > 0) {
+            biMemoryPrompt += `Recurring risks: ${pattern.commonRisks.join(", ")}\n`;
+          }
+        }
+        biMemoryPrompt += `\nUse these patterns as historical evidence. Never treat as facts for the current idea.\n`;
+      }
+      
+      if (biMemoryContext.similarProjects.length > 0) {
+        biMemoryPrompt += `\nRECENT HIGH-QUALITY ANALYSES:\n`;
+        for (const memory of biMemoryContext.similarProjects.slice(0, 2)) {
+          biMemoryPrompt += `- ${memory.industry}: ${memory.businessModel?.slice(0, 100)}... (quality: ${memory.qualityScore}%)\n`;
+        }
+      }
+      
+      systemPrompt = baseSystemPrompt + crossSystemContext + biMemoryPrompt + langInstruction;
     }
 
     let streamBody: ReadableStream<Uint8Array>;
@@ -444,9 +1131,39 @@ router.post("/generate", requireAuth, async (req, res) => {
       }
 
       try {
-        const finalData = extractJson(contentBuffer) as Record<string, unknown>;
+        const rawData = extractJson(contentBuffer) as Record<string, unknown>;
 
-        res.write(`data: ${JSON.stringify({ done: true, data: finalData })}\n\n`);
+        // Validate and repair the output
+        let validatedData = validateAndRepairBI(rawData, idea);
+
+        // Detect false intelligence (hallucinations)
+        validatedData = detectFalseIntelligence(validatedData, idea);
+
+        // Recalculate confidence based on actual output quality
+        validatedData.confidence = calculateConfidence(idea, validatedData);
+
+        // Calculate quality score
+        validatedData.qualityScore = calculateQualityScore(validatedData, idea);
+
+        // Add validation metadata
+        validatedData = addValidationMetadata(validatedData, idea);
+
+        // Repair pass for missing important fields
+        const importantFields = ["moduleContext", "decisionPriorities", "evidence", "criticalUnknowns"];
+        const missingImportant = importantFields.filter(f => {
+          const val = validatedData[f as keyof typeof validatedData];
+          if (Array.isArray(val)) return val.length === 0 || val.every(v => v.startsWith("UNKNOWN"));
+          if (typeof val === "object" && val !== null) return Object.values(val).every(v => typeof v === "string" && v.startsWith("UNKNOWN"));
+          return false;
+        });
+
+        if (missingImportant.length > 0) {
+          // Run repair prompt
+          const repaired = await repairBIOutput(missingImportant, validatedData, idea);
+          validatedData = { ...validatedData, ...repaired };
+        }
+
+        res.write(`data: ${JSON.stringify({ done: true, data: validatedData })}\n\n`);
 
         logEventFireForget({ userId, projectId: projectId as string | undefined, type: "bi_generated", data: { industry: detectedIndustry }, req });
         trackUsageFireForget(userId, "biGenerations");
@@ -456,8 +1173,16 @@ router.post("/generate", requireAuth, async (req, res) => {
           projectId as string | undefined,
           userId,
           idea,
-          finalData as Record<string, unknown>,
+          validatedData as Record<string, unknown>,
         ).catch(() => {});
+
+        // Store BI learnings for future generations (fire-and-forget)
+        storeBiMemory({
+          userId,
+          projectId: projectId as string | undefined,
+          biOutput: validatedData,
+          idea,
+        }).catch(() => {});
       } catch (parseErr) {
         req.log.error({ parseErr, contentBuffer: contentBuffer.slice(0, 200) }, "Final JSON parse failed");
         res.write(`data: ${JSON.stringify({ error: "Failed to parse AI response — please try again" })}\n\n`);
@@ -479,6 +1204,26 @@ router.post("/generate", requireAuth, async (req, res) => {
       res.write(`data: ${JSON.stringify({ error: "Internal server error" })}\n\n`);
       res.end();
     }
+  }
+});
+
+router.post("/generate/feedback", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const { projectId, insightId, feedback, notes } = req.body;
+    const userId = req.user!.userId;
+
+    if (!projectId || !insightId || !feedback) {
+      res.status(400).json({ error: "projectId, insightId, and feedback are required" });
+      return;
+    }
+
+    const { storeBiFeedback } = await import("../../lib/db/src/bi-memory");
+    await storeBiFeedback(userId, projectId, insightId, feedback, notes);
+
+    res.json({ success: true });
+  } catch (error) {
+    req.log.error({ error }, "Feedback storage failed");
+    res.status(500).json({ error: "Failed to store feedback" });
   }
 });
 

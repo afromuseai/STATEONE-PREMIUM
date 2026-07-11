@@ -14,6 +14,7 @@ const NOOP_CTX: WCContextValue = {
   nodeVersion:   null,
   depCount:      0,
   writeFile:     async () => {},
+  writeFileForReview: async () => { throw new Error("WebContainer not ready") },
   readFile:      async () => { throw new Error("WebContainer not ready") },
   listDir:       async () => { throw new Error("WebContainer not ready") },
   runCommand:    async () => { throw new Error("WebContainer not ready") },

@@ -22,7 +22,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
 
   const QUICK_LINKS = [
     { label: d.nav.businessIntelligence, href: "/business-intelligence", hint: "Generate AI analysis" },
-    { label: d.nav.websiteGenerator, href: "/website-generator", hint: "Build your website" },
+    { label: "Website Studio", href: "/website-studio/new", hint: "Build your website" },
     { label: "AI Agent Store", href: "/agents", hint: "Browse 12 agents" },
     { label: d.nav.automationBuilder, href: "/automation-builder", hint: "Create workflows" },
     { label: "OS Command Center", href: "/os", hint: "Full system view" },
