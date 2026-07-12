@@ -1,21 +1,18 @@
-// ─── Website Studio Create — Marcus Session Runtime ────────────────────────────
-// Marcus session flow:
-//   1. Input screen (idea + business context)
-//   2. Streaming screen (Marcus writes files into Monaco in real time)
-//   3. Workspace (same session, same Marcus — no redirect, no second agent)
+// ─── Website Studio Create — Replit-style live workspace ─────────────────────
+// Flow:
+//   1. Input screen — clean chat-style prompt
+//   2. Workspace — opens immediately on submit; Marcus streams live into the
+//      AgentConversation side panel while files populate the editor in real time.
+//   There is no separate "generating" screen. The workspace IS the generation UI.
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  Globe, Sparkles, ArrowLeft, ChevronRight, Loader2,
-  ArrowRight, Wand2, Building2, Users, Target, Tag,
+  Globe, Sparkles, ArrowLeft, ChevronRight,
+  ArrowUp, Plus, Building2, Users, Tag, Wand2,
 } from "lucide-react"
-import { StreamGenerationScreen } from "@/components/website-v2/StreamGenerationScreen"
 import { WebContainerProviderNew } from "@/components/website-v2/runtime/WebContainerProviderNew"
 import { StudioShell }            from "@/components/website-v2/ide/StudioShell"
-// Website Studio has its own standalone generation pipeline.
-// Copilot (Marcus) only navigates and populates the form — he does NOT
-// own the generation pipeline. No bridge, controller, or ExecutionBus needed.
 import {
   MarcusSessionProvider,
   useMarcusSessionContext,
@@ -23,7 +20,45 @@ import {
 } from "@/lib/marcus-session/context"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 
-type Step = "input" | "generating" | "workspace"
+// ─── Orbit animation (same token as EditorChatPanel) ─────────────────────────
+const ORBIT_STYLE = `
+@keyframes ws-orbit-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.ws-orbit-wrapper {
+  position: relative;
+}
+.ws-orbit-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 13px;
+  background: conic-gradient(
+    from var(--orbit-angle, 0deg),
+    transparent 0%,
+    transparent 30%,
+    #D4A72C 50%,
+    #ffffff 65%,
+    transparent 80%,
+    transparent 100%
+  );
+  animation: ws-orbit-spin 2.4s linear infinite;
+  z-index: 0;
+}
+.ws-orbit-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: 12px;
+  background: #202020;
+  z-index: 1;
+}
+.ws-orbit-inner {
+  position: relative;
+  z-index: 2;
+}
+`
 
 // ─── Quick-select options ──────────────────────────────────────────────────────
 const INDUSTRY_OPTIONS = [
@@ -36,22 +71,14 @@ const AUDIENCE_OPTIONS = [
 ]
 
 interface FormState {
-  idea:             string
-  companyName:      string
-  industry:         string
-  targetAudience:   string
-  businessGoal:     string
-  brandPositioning: string
-  conversionGoal:   string
+  idea:           string
+  companyName:    string
+  industry:       string
+  targetAudience: string
 }
-const EMPTY_FORM: FormState = {
-  idea: "", companyName: "", industry: "", targetAudience: "",
-  businessGoal: "", brandPositioning: "", conversionGoal: "",
-}
+const EMPTY_FORM: FormState = { idea: "", companyName: "", industry: "", targetAudience: "" }
 
 // ─── Build a V2Project from in-memory session files ───────────────────────────
-// This lets the workspace boot from the session's live file map without a
-// DB round-trip. The session projectId IS the real DB id (created server-side).
 function sessionToProject(
   projectId: string,
   projectName: string,
@@ -80,10 +107,12 @@ function WebsiteStudioCreateInner() {
   const { state: session } = useMarcusSessionContext()
   const { start, cancel }  = useMarcusSessionStream()
 
-  const [step,         setStep]         = useState<Step>("input")
-  const [form,         setForm]         = useState<FormState>(EMPTY_FORM)
+  // Only two steps: input → workspace (no separate "generating" screen)
+  const [inWorkspace, setInWorkspace] = useState(false)
+  const [form, setForm]               = useState<FormState>(EMPTY_FORM)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [formError,    setFormError]    = useState<string | null>(null)
+  const [formError, setFormError]     = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const ideaRef = useRef<HTMLTextAreaElement>(null)
 
   // Keep a stable mirror of form.idea for closures that must not capture stale state
@@ -92,288 +121,320 @@ function WebsiteStudioCreateInner() {
 
   useEffect(() => { ideaRef.current?.focus() }, [])
 
-  // ─── Transition: generation complete → workspace (no redirect) ────────────
+  // Auto-resize textarea
   useEffect(() => {
-    if (session.status === "editing" && session.projectId && step === "generating") {
-      setStep("workspace")
-      // Silently update the URL so a refresh or sharing lands in the workspace
+    const el = ideaRef.current
+    if (!el) return
+    el.style.height = "auto"
+    const next = Math.min(el.scrollHeight, 240)
+    el.style.height = `${Math.max(next, 56)}px`
+  }, [form.idea])
+
+  // Update URL once the project is persisted server-side
+  useEffect(() => {
+    if (session.projectId && inWorkspace) {
       window.history.replaceState(null, "", `/website-studio/${session.projectId}`)
     }
-    if (session.status === "failed" && session.error && step === "generating") {
+  }, [session.projectId, inWorkspace])
+
+  // If generation fails, return to input
+  useEffect(() => {
+    if (session.status === "failed" && session.error && inWorkspace && !session.projectId) {
       setFormError(session.error)
-      setStep("input")
+      setInWorkspace(false)
+      setIsSubmitting(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.status, session.projectId, session.error])
+  }, [session.status, session.error, inWorkspace, session.projectId])
 
-  // Website Studio uses its own standalone generation pipeline.
-  // Copilot (Marcus) only navigates and populates the form.
-  // No bridge, controller, or ExecutionBus registration needed.
-
-  // ─── Generate ─────────────────────────────────────────────────────────────
+  // ─── Submit ──────────────────────────────────────────────────────────────
   const handleGenerate = useCallback(async (ideaOverride?: string) => {
     const idea = (ideaOverride ?? form.idea).trim()
     if (!idea) {
-      setFormError("Please describe your business idea.")
+      setFormError("Please describe what you want to build.")
       ideaRef.current?.focus()
       return
     }
     setFormError(null)
-    setStep("generating")
+    setIsSubmitting(true)
+
+    // Open workspace immediately — streaming will appear in the side panel
+    setInWorkspace(true)
 
     const bi: Record<string, unknown> = {}
-    if (form.companyName)      bi.companyName      = form.companyName
-    if (form.industry)         bi.industry         = form.industry
-    if (form.targetAudience)   bi.targetAudience   = form.targetAudience
-    if (form.businessGoal)     bi.businessGoal     = form.businessGoal
-    if (form.brandPositioning) bi.brandPositioning = form.brandPositioning
-    if (form.conversionGoal)   bi.conversionGoal   = form.conversionGoal
+    if (form.companyName)    bi.companyName    = form.companyName
+    if (form.industry)       bi.industry       = form.industry
+    if (form.targetAudience) bi.targetAudience = form.targetAudience
 
     await start(idea, Object.keys(bi).length > 0 ? bi : undefined)
+    setIsSubmitting(false)
   }, [form, start])
 
   const handleCancel = useCallback(() => {
     cancel()
-    setStep("input")
+    setInWorkspace(false)
+    setIsSubmitting(false)
   }, [cancel])
 
-  const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm(prev => ({ ...prev, [key]: e.target.value }))
+  const set = (key: keyof FormState) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm(prev => ({ ...prev, [key]: e.target.value }))
 
-  // ─── Workspace: Marcus stays active, no redirect ───────────────────────────
-  if (step === "workspace" && session.projectId) {
+  // ─── Workspace — opens instantly, Marcus streams into AgentConversation ───
+  if (inWorkspace) {
+    // Brief moment before the server assigns a projectId
+    if (!session.projectId) {
+      return (
+        <div className="flex h-full w-full flex-col items-center justify-center bg-[#0e0e0e]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/[0.08]">
+              <Globe className="h-5 w-5 text-amber-400" />
+              <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-50" />
+                <span className="relative inline-flex h-3.5 w-3.5 rounded-full bg-amber-400" />
+              </span>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-white/70">Starting workspace…</p>
+              <p className="mt-1 text-xs text-white/30">Marcus is spinning up your project</p>
+            </div>
+            <button
+              onClick={handleCancel}
+              className="text-xs text-white/25 underline underline-offset-2 hover:text-white/50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    // Workspace is live — pass the session so AgentConversation shows streaming
     const project = sessionToProject(
       session.projectId,
       form.idea.slice(0, 60),
       session.files,
     )
-    return (
-     <div className="flex flex-1 min-w-0 h-full overflow-hidden">
-        <WebContainerProviderNew>
-          <StudioShell project={project} onRefresh={() => {}} />
-        </WebContainerProviderNew>
-    </div>
-    )
-  }
 
-  // ─── Generating: Marcus streams files into Monaco ─────────────────────────
-  if (step === "generating") {
     return (
-      <div className="flex h-full flex-col overflow-hidden">
-        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-5 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/[0.08]">
-              <Globe className="h-3.5 w-3.5 text-amber-400" />
-            </div>
-            <div>
-              <h1 className="text-sm font-semibold text-white/80">Website Studio</h1>
-              <p className="text-[10px] text-white/30">Marcus is generating your website…</p>
-            </div>
-          </div>
-        </div>
-        <div className="min-h-0 flex-1">
-          <StreamGenerationScreen state={session} onCancel={handleCancel} />
-        </div>
+      <div className="flex flex-1 min-w-0 h-full overflow-hidden">
+        <WebContainerProviderNew>
+          <StudioShell
+            project={project}
+            onRefresh={() => {}}
+            session={session.status === "generating" ? session : null}
+          />
+        </WebContainerProviderNew>
       </div>
     )
   }
 
-  // ─── Input form ────────────────────────────────────────────────────────────
+  // ─── Input screen — Replit-style single prompt ────────────────────────────
+  const isWorking = isSubmitting || session.status === "generating"
+
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.22 }}
-        className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] px-6 py-4"
-      >
-        <button
-          onClick={() => window.history.back()}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-white/30 transition-colors hover:border-white/20 hover:text-white/60"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-        </button>
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/[0.08]">
-          <Globe className="h-4 w-4 text-amber-400" />
-        </div>
-        <div>
-          <h1 className="text-base font-bold text-white/90">New Website</h1>
-          <p className="text-xs text-white/30">Describe your business — Marcus will build it</p>
-        </div>
-      </motion.div>
+    <>
+      <style>{ORBIT_STYLE}</style>
+      <div className="flex h-full flex-col overflow-y-auto bg-[#0e0e0e]">
 
-      <div className="flex flex-1 flex-col items-center py-10 px-6">
+        {/* Top nav */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28 }}
-          className="w-full max-w-2xl space-y-6"
+          transition={{ duration: 0.2 }}
+          className="flex shrink-0 items-center gap-3 border-b border-white/[0.05] px-6 py-4"
         >
-          {/* Main idea */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/40">
-              <Wand2 className="h-3 w-3" />
-              Business Idea
-              <span className="text-amber-400">*</span>
-            </label>
-            <textarea
-              ref={ideaRef}
-              value={form.idea}
-              onChange={set("idea")}
-              placeholder="Describe your business in detail. What does it do? Who is it for? What problem does it solve? The more specific you are, the better Marcus can craft your website…"
-              rows={5}
-              className="w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white/80 placeholder-white/20 outline-none transition-colors focus:border-amber-400/30 focus:bg-white/[0.05]"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void handleGenerate()
-              }}
-            />
-            <p className="text-[10px] text-white/20">Press ⌘↵ to generate</p>
-          </div>
-
-          {/* Company name */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/40">
-              <Building2 className="h-3 w-3" />
-              Company Name
-            </label>
-            <input
-              type="text"
-              value={form.companyName}
-              onChange={set("companyName")}
-              placeholder="e.g. Acme Corp, FlowAI, Stripe…"
-              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white/80 placeholder-white/20 outline-none transition-colors focus:border-amber-400/30 focus:bg-white/[0.05]"
-            />
-          </div>
-
-          {/* Industry */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/40">
-              <Tag className="h-3 w-3" />
-              Industry
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {INDUSTRY_OPTIONS.map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => setForm(prev => ({ ...prev, industry: prev.industry === opt ? "" : opt }))}
-                  className={`rounded-lg border px-3 py-1.5 text-xs transition-all ${
-                    form.industry === opt
-                      ? "border-amber-400/40 bg-amber-400/10 text-amber-400"
-                      : "border-white/[0.08] bg-white/[0.02] text-white/40 hover:border-white/[0.15] hover:text-white/60"
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-            {form.industry === "Other" && (
-              <input
-                type="text"
-                placeholder="Describe your industry…"
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white/80 placeholder-white/20 outline-none transition-colors focus:border-amber-400/30"
-              />
-            )}
-          </div>
-
-          {/* Target audience */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/40">
-              <Users className="h-3 w-3" />
-              Target Audience
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {AUDIENCE_OPTIONS.map(opt => (
-                <button
-                  key={opt}
-                  onClick={() => setForm(prev => ({ ...prev, targetAudience: prev.targetAudience === opt ? "" : opt }))}
-                  className={`rounded-lg border px-3 py-1.5 text-xs transition-all ${
-                    form.targetAudience === opt
-                      ? "border-purple-400/40 bg-purple-400/10 text-purple-400"
-                      : "border-white/[0.08] bg-white/[0.02] text-white/40 hover:border-white/[0.15] hover:text-white/60"
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Advanced toggle */}
           <button
-            onClick={() => setShowAdvanced(v => !v)}
-            className="flex items-center gap-1.5 text-xs text-white/25 transition-colors hover:text-white/50"
+            onClick={() => window.history.back()}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] text-white/25 transition-colors hover:border-white/[0.15] hover:text-white/55"
           >
-            <ChevronRight className={`h-3 w-3 transition-transform ${showAdvanced ? "rotate-90" : ""}`} />
-            Advanced options (goal, positioning, conversion)
+            <ArrowLeft className="h-3.5 w-3.5" />
           </button>
-
-          <AnimatePresence>
-            {showAdvanced && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden space-y-4"
-              >
-                {[
-                  { key: "businessGoal"     as const, label: "Business Goal",      icon: <Target className="h-3 w-3" />,   placeholder: "e.g. grow ARR to $1M, acquire 10k users…" },
-                  { key: "brandPositioning" as const, label: "Brand Positioning",  icon: <Sparkles className="h-3 w-3" />, placeholder: "e.g. the affordable Salesforce alternative…" },
-                  { key: "conversionGoal"   as const, label: "Conversion Goal",    icon: <ArrowRight className="h-3 w-3" />, placeholder: "e.g. sign up for free trial, book a demo…" },
-                ].map(({ key, label, icon, placeholder }) => (
-                  <div key={key} className="space-y-2">
-                    <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/30">
-                      {icon}
-                      {label}
-                    </label>
-                    <input
-                      type="text"
-                      value={form[key]}
-                      onChange={set(key)}
-                      placeholder={placeholder}
-                      className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white/80 placeholder-white/20 outline-none transition-colors focus:border-amber-400/30 focus:bg-white/[0.05]"
-                    />
-                  </div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Error */}
-          {formError && (
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-400/80">
-              {formError}
-            </motion.p>
-          )}
-
-          {/* Generate */}
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              onClick={() => void handleGenerate()}
-              disabled={!form.idea.trim()}
-              className="flex items-center gap-2 rounded-xl bg-amber-400 px-6 py-2.5 text-sm font-bold text-black transition-all hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Sparkles className="h-4 w-4" />
-              Generate Website
-            </button>
-            <span className="text-xs text-white/20">Marcus will write the full Next.js codebase</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/[0.08]">
+            <Globe className="h-4 w-4 text-amber-400" />
           </div>
-
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <p className="text-xs leading-relaxed text-white/30">
-              <span className="font-semibold text-white/50">How it works:</span>{" "}
-              Marcus reads your brief, thinks through the design, then streams each file into the
-              code editor token by token. When done, your workspace opens instantly — no redirect,
-              same Marcus, same session.
-            </p>
+          <div>
+            <h1 className="text-sm font-bold text-white/85">Website Studio</h1>
+            <p className="text-[11px] text-white/30">Describe your idea — Marcus builds it live</p>
           </div>
         </motion.div>
+
+        {/* Hero prompt area */}
+        <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+            className="w-full max-w-2xl space-y-6"
+          >
+            {/* Branding mark */}
+            <div className="flex flex-col items-center gap-3 pb-2">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-400/15 bg-amber-400/[0.06]">
+                <Sparkles className="h-6 w-6 text-amber-400/80" />
+              </div>
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-white/90">What do you want to build?</h2>
+                <p className="mt-1.5 text-sm text-white/35">
+                  Describe your idea and Marcus will write the entire codebase — live, in your workspace.
+                </p>
+              </div>
+            </div>
+
+            {/* Main input with orbit when submitting */}
+            <div className={isWorking ? "ws-orbit-wrapper" : ""}>
+              <div className={`${isWorking ? "ws-orbit-inner" : ""} rounded-[13px] border border-white/[0.08] bg-[#202020] px-4 py-3.5`}>
+                <textarea
+                  ref={ideaRef}
+                  value={form.idea}
+                  onChange={set("idea")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault()
+                      void handleGenerate()
+                    }
+                  }}
+                  placeholder={isWorking ? "Marcus is building your website…" : "Describe what you want to build…"}
+                  disabled={isWorking}
+                  rows={1}
+                  style={{ minHeight: "56px", maxHeight: "240px" }}
+                  className="w-full resize-none bg-transparent text-[14px] leading-relaxed text-white/85 placeholder-white/20 outline-none disabled:cursor-not-allowed overflow-y-auto"
+                />
+
+                {/* Bottom row inside box */}
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-[11px] text-white/20">Shift + Enter for new line</span>
+
+                  <button
+                    onClick={() => void handleGenerate()}
+                    disabled={!form.idea.trim() || isWorking}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg transition-all disabled:cursor-not-allowed disabled:opacity-25"
+                    style={form.idea.trim() && !isWorking
+                      ? { backgroundColor: "#D4A72C" }
+                      : { backgroundColor: "rgba(255,255,255,0.06)" }}
+                    title="Build website (Enter)"
+                  >
+                    <ArrowUp
+                      className="h-4 w-4"
+                      style={{ color: form.idea.trim() && !isWorking ? "#000" : "rgba(255,255,255,0.4)" }}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Error */}
+            <AnimatePresence>
+              {formError && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-sm text-red-400/80"
+                >
+                  {formError}
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            {/* Optional context */}
+            <div className="space-y-4">
+              <button
+                onClick={() => setShowAdvanced(v => !v)}
+                className="flex items-center gap-1.5 text-[11px] text-white/22 transition-colors hover:text-white/45"
+              >
+                <Plus className={`h-3 w-3 transition-transform ${showAdvanced ? "rotate-45" : ""}`} />
+                Add context (company, industry, audience)
+              </button>
+
+              <AnimatePresence>
+                {showAdvanced && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden space-y-5"
+                  >
+                    {/* Company name */}
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+                        <Building2 className="h-2.5 w-2.5" />
+                        Company Name
+                      </label>
+                      <input
+                        type="text"
+                        value={form.companyName}
+                        onChange={set("companyName")}
+                        placeholder="e.g. Acme Corp, FlowAI…"
+                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white/80 placeholder-white/20 outline-none transition-colors focus:border-amber-400/25 focus:bg-white/[0.05]"
+                      />
+                    </div>
+
+                    {/* Industry */}
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+                        <Tag className="h-2.5 w-2.5" />
+                        Industry
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {INDUSTRY_OPTIONS.map(opt => (
+                          <button
+                            key={opt}
+                            onClick={() => setForm(prev => ({ ...prev, industry: prev.industry === opt ? "" : opt }))}
+                            className={`rounded-lg border px-3 py-1.5 text-xs transition-all ${
+                              form.industry === opt
+                                ? "border-amber-400/40 bg-amber-400/10 text-amber-400"
+                                : "border-white/[0.08] bg-white/[0.02] text-white/35 hover:border-white/[0.14] hover:text-white/55"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Target audience */}
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/30">
+                        <Users className="h-2.5 w-2.5" />
+                        Target Audience
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {AUDIENCE_OPTIONS.map(opt => (
+                          <button
+                            key={opt}
+                            onClick={() => setForm(prev => ({ ...prev, targetAudience: prev.targetAudience === opt ? "" : opt }))}
+                            className={`rounded-lg border px-3 py-1.5 text-xs transition-all ${
+                              form.targetAudience === opt
+                                ? "border-purple-400/40 bg-purple-400/10 text-purple-400"
+                                : "border-white/[0.08] bg-white/[0.02] text-white/35 hover:border-white/[0.14] hover:text-white/55"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <ChevronRight className="h-0 w-0 opacity-0" />{/* keep import alive */}
+                    <Wand2 className="h-0 w-0 opacity-0" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* How it works footnote */}
+            <p className="text-center text-[11px] leading-relaxed text-white/18">
+              The workspace opens the moment you submit. Marcus plans, thinks, and writes every file
+              live — you watch it happen in real time.
+            </p>
+          </motion.div>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
-// ─── Outer export — wraps the inner component in the session runtime ───────────
+// ─── Outer export ─────────────────────────────────────────────────────────────
 export default function WebsiteStudioCreatePage() {
   return (
     <MarcusSessionProvider>
