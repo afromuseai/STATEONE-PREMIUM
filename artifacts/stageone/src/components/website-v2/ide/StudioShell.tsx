@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { TopCommandBar }       from "./TopCommandBar"
 import { ActivityBar }         from "./ActivityBar"
 import { AgentConversation }   from "./AgentConversation"
+import { GenerationTimeline, DEFAULT_TIMELINE_STEPS, type BuildSummary } from "./GenerationTimeline"
 import { FileExplorerDrawer }  from "./FileExplorerDrawer"
 import { EditorWorkspace }     from "./EditorWorkspace"
 import { TerminalDrawer }      from "./TerminalDrawer"
@@ -83,6 +84,15 @@ export function StudioShell({ project, onRefresh, session, previewGenerating }: 
       setSideView("marcus")
     }
   }, [session?.status])
+
+  // ── Generation timeline — Website Studio's own pipeline, independent of
+  // Marcus. No live events are wired in yet, so it renders a mock initial
+  // state (all steps pending, 0% progress) scoped to this project.
+  const timelineBuildSummary: BuildSummary = useMemo(() => ({
+    projectName: project.projectName,
+    progress:    0,
+    currentTask: "Waiting for instructions",
+  }), [project.projectName])
 
   // ── Terminal drawer (⌃`) ─────────────────────────────────────────────────────
   const [terminalDrawerOpen, setTerminalDrawerOpen] = useState(false)
@@ -363,7 +373,7 @@ const handleRun = async () => {
                 key="side-panel"
                 initial={{ width: 0, opacity: 0 }}
                 animate={{
-                  width: sideView === "marcus" ? 340
+                  width: sideView === "marcus" ? 320
                        : sideView === "collaboration" ? 280
                        : 240,
                   opacity: 1,
@@ -373,14 +383,27 @@ const handleRun = async () => {
                 className="flex flex-shrink-0 flex-col overflow-hidden border-r border-[rgba(255,255,255,0.08)] bg-[#202020]"
               >
                 {sideView === "marcus" && (
-                  <AgentConversation
-                    project={project}
-                    onEditComplete={handleEditComplete}
-                    onFileOpen={openFile}
-                    persistFile={persistFile}
-                    editorContext={editorContext}
-                    generationSession={session}
-                  />
+                  <div className="flex h-full min-h-0 flex-col">
+                    {/* Top: Website Studio's own generation timeline — no Marcus */}
+                    <div className="shrink-0 overflow-hidden border-b border-[rgba(255,255,255,0.08)]" style={{ maxHeight: "46%" }}>
+                      <GenerationTimeline
+                        steps={DEFAULT_TIMELINE_STEPS}
+                        buildSummary={timelineBuildSummary}
+                        className="h-full"
+                      />
+                    </div>
+                    {/* Bottom: existing chat panel — unchanged behavior */}
+                    <div className="min-h-0 flex-1">
+                      <AgentConversation
+                        project={project}
+                        onEditComplete={handleEditComplete}
+                        onFileOpen={openFile}
+                        persistFile={persistFile}
+                        editorContext={editorContext}
+                        generationSession={session}
+                      />
+                    </div>
+                  </div>
                 )}
                 {sideView === "explorer" && (
                   <FileExplorerDrawer
