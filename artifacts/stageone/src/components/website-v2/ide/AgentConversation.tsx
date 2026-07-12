@@ -56,6 +56,10 @@ import type { MarcusSessionState, ConversationEntry } from "@/lib/marcus-session
 // Self-hides when there's nothing on the bus; safe to render unconditionally.
 import { GenerationActivity } from "../generation/GenerationActivity"
 import { useGenerationEvents } from "../generation/use-generation-events"
+// Builder conversation — senior-engineer-style explanations derived (read-only)
+// from the same generation event bus GenerationActivity renders progress from.
+// See builder-conversation/types.ts for the division of responsibility.
+import { deriveBuilderConversation, BuilderConversationMessages } from "../generation/builder-conversation"
 
 // ─── Convert a live-generation ConversationEntry into the shared TimelineEntry
 // shape so the initial build streams through the exact same markdown,
@@ -462,6 +466,12 @@ export function AgentConversation({
   // GenerationActivity itself renders nothing when there are no events.
   const { events: generationBusEvents } = useGenerationEvents()
   const hasGenerationActivity = generationBusEvents.length > 0
+  // Derived read-only from the same events GenerationActivity renders progress
+  // from — see builder-conversation/derive.ts. Never mutates or re-emits.
+  const builderConversation = useMemo(
+    () => deriveBuilderConversation(generationBusEvents),
+    [generationBusEvents],
+  )
 
   // ── Initialize AgentRuntime ────────────────────────────────────────────────
   useEffect(() => {
@@ -712,6 +722,9 @@ export function AgentConversation({
             <div className="pl-9">
               <p className="mb-1.5 text-[12px] leading-relaxed text-[#ECECEC]/55">I'm building your website.</p>
               <GenerationActivity />
+              {/* Conversation's own surface: why each step is happening, not what
+                  phase/percent it's at — that stays GenerationActivity's job. */}
+              <BuilderConversationMessages messages={builderConversation} />
             </div>
           )}
 

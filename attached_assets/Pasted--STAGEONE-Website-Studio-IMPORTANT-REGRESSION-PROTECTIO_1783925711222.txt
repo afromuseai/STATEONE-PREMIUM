@@ -1,0 +1,113 @@
+# STAGEONE Website Studio
+
+IMPORTANT REGRESSION PROTECTION
+
+Before making any changes, preserve the existing composer textarea generation animation.
+
+The gold + off-white orbit border around the textarea is intentional and must remain exactly as it is.
+
+DO NOT:
+- remove it
+- redesign it
+- change its CSS
+- change its animation
+- change its colors
+- change its behavior
+- replace the implementation
+
+Treat the textarea orbit animation as a protected component.
+
+Any redesign of the chat panel must happen around it, not through it.
+
+
+Phase 10.1 — AgentConversation UX Redesign
+
+Goal:
+
+Redesign only the AgentConversation interface.
+
+Do not modify:
+
+- generation engine
+- event bus
+- generation adapter
+- backend
+- runtime
+- preview
+- editor
+- deployment
+- AI logic
+
+Focus only on presentation.
+
+Requirements:
+
+1. Convert the conversation into one continuous vertical feed.
+
+2. Remove heavy card styling.
+
+3. Separate sections using subtle dividers.
+
+4. Improve hierarchy for:
+
+- Explanation
+- Decision
+- Warning
+- Progress Summary
+
+5. Keep GenerationActivity inline.
+
+6. Modernize the composer:
+
+- auto-growing textarea
+- Enter sends
+- Shift+Enter creates new line
+- attachment (+) button
+- drag-and-drop support
+- disable send while generation is active
+- replace send with Stop Generation during generation
+
+7. Add a subtle animated border around the composer while generation is active.
+
+Animation requirements:
+
+- soft white + muted gold gradient
+- slow orbit around the border
+- elegant and minimal
+- no glow effects
+- no neon
+
+8. Use the neutral workspace theme:
+
+Background:
+#202020
+
+Panels:
+#232323
+
+Borders:
+#303030
+
+Primary text:
+#ECECEC
+
+Secondary text:
+#A0A0A0
+
+Only use color for status.
+
+9. Keep accessibility in mind:
+
+- keyboard navigation
+- focus states
+- readable contrast
+
+10. Do not redesign any other component.
+
+After implementation provide:
+
+- files changed
+- UX improvements
+- screenshots (if available)
+- typecheck
+- runtime verification
