@@ -52,6 +52,10 @@ import { ToolCallCard } from "./ToolCallCard"
 import { ThinkingBlock } from "./ThinkingBlock"
 import { useOptionalMarcusSession } from "@/lib/marcus-session/context"
 import type { MarcusSessionState, ConversationEntry } from "@/lib/marcus-session/types"
+// Website Studio's own generation activity — independent event bus, not Marcus.
+// Self-hides when there's nothing on the bus; safe to render unconditionally.
+import { GenerationActivity } from "../generation/GenerationActivity"
+import { useGenerationEvents } from "../generation/use-generation-events"
 
 // ─── Convert a live-generation ConversationEntry into the shared TimelineEntry
 // shape so the initial build streams through the exact same markdown,
@@ -453,6 +457,12 @@ export function AgentConversation({
   // Marcus session context
   const sessionDispatch = useOptionalMarcusSession()?.dispatch ?? null
 
+  // Website Studio's own generation activity bus — independent of Marcus.
+  // Used only to decide whether to render the inline activity block at all;
+  // GenerationActivity itself renders nothing when there are no events.
+  const { events: generationBusEvents } = useGenerationEvents()
+  const hasGenerationActivity = generationBusEvents.length > 0
+
   // ── Initialize AgentRuntime ────────────────────────────────────────────────
   useEffect(() => {
     runtimeRef.current = new AgentRuntime({
@@ -693,6 +703,16 @@ export function AgentConversation({
                 Ask Marcus to build, edit, or explain anything in your project.
               </p>
             </motion.div>
+          )}
+
+          {/* Website Studio generation activity — inline AI message block, fed by
+              the generation event bus (independent of Marcus). Only rendered once
+              an event has arrived, so it never appears during normal editing chat. */}
+          {hasGenerationActivity && (
+            <div className="pl-9">
+              <p className="mb-1.5 text-[12px] leading-relaxed text-[#ECECEC]/55">I'm building your website.</p>
+              <GenerationActivity />
+            </div>
           )}
 
           {/* Timeline entries — narration renders plainly; work (tool calls, file
