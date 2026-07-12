@@ -60,7 +60,7 @@ docs/             # Roadmap and design docs
 
 ## Setup status
 
-Re-verified after re-import (July 12, 2026): dependencies reinstalled via pnpm, database schema pushed with drizzle-kit, and all three workflows (frontend, API server, mockup sandbox) confirmed healthy via screenshot. Secrets `SESSION_SECRET`, `JWT_SECRET`, `NVIDIA_API_KEY` are set (`JWT_SECRET` and `NVIDIA_API_KEY` were re-added since re-imports don't carry secrets over).
+Re-verified after re-import (July 12, 2026): `pnpm install` run at the repo root, database schema pushed with `drizzle-kit push`, and all three workflows (frontend on 5000, API server on 8000, mockup sandbox on 8080) confirmed healthy via screenshot/logs. Secrets `SESSION_SECRET`, `JWT_SECRET`, `NVIDIA_API_KEY` are set (`JWT_SECRET` and `NVIDIA_API_KEY` had to be re-added since re-imports don't carry secrets over).
 
 ## User preferences
 
