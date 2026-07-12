@@ -13,7 +13,7 @@ import { useMemo, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Brain, Ruler, Palette, Image as ImageIcon, Atom, ShieldCheck,
-  Check, AlertCircle, ChevronDown, FileCode,
+  Check, AlertCircle, ChevronDown, FileCode, Cpu,
 } from "lucide-react"
 
 import { useGenerationEvents } from "./use-generation-events"
@@ -37,9 +37,10 @@ const STEP_META: Partial<Record<GenerationEventType, StepMeta>> = {
 }
 
 interface CompletedStep {
-  key:     string
-  title:   string
-  summary: string
+  key:      string
+  title:    string
+  summary:  string
+  details?: GenerationEventDetails
 }
 
 interface ActiveStep {
@@ -77,7 +78,7 @@ function computeActivityState(events: GenerationEvent[]): ActivityState {
 
     if (event.type === "GENERATION_COMPLETED") {
       if (active) {
-        completed = [...completed, { key: `${active.type}-${i}`, title: active.title, summary: active.description }]
+        completed = [...completed, { key: `${active.type}-${i}`, title: active.title, summary: active.description, details: active.details }]
       }
       active = null
       error = null
@@ -90,7 +91,7 @@ function computeActivityState(events: GenerationEvent[]): ActivityState {
 
     // The previously active step is implicitly finished once a new one starts.
     if (active) {
-      completed = [...completed, { key: `${active.type}-${i}`, title: active.title, summary: active.description }]
+      completed = [...completed, { key: `${active.type}-${i}`, title: active.title, summary: active.description, details: active.details }]
     }
 
     error = null
@@ -109,9 +110,30 @@ function computeActivityState(events: GenerationEvent[]): ActivityState {
   return { completed, active, error, done }
 }
 
-// ─── Expandable details (decision / reason / files) ────────────────────────────
+/** Every file path mentioned across the whole run, deduped — used only to build
+ *  the human-readable completion summary. Doesn't touch the event shape. */
+function collectCompletionSummary(events: GenerationEvent[]): { pages: number; components: number; assets: number } {
+  const files = new Set<string>()
+  events.forEach(event => event.details?.files?.forEach(f => files.add(f)))
 
-function ActiveStepDetails({ details }: { details: GenerationEventDetails }) {
+  let pages = 0, components = 0, assets = 0
+  files.forEach(path => {
+    const lower = path.toLowerCase()
+    if (/\.(png|jpe?g|svg|webp|gif|ico)$/.test(lower) || lower.includes("/assets/") || lower.startsWith("assets/")) {
+      assets++
+    } else if (lower.includes("/pages/") || lower.startsWith("pages/") || /page\.(t|j)sx?$/.test(lower)) {
+      pages++
+    } else if (lower.includes("/components/") || lower.startsWith("components/")) {
+      components++
+    }
+  })
+  return { pages, components, assets }
+}
+
+// ─── Expandable details (decision / reason / files) — shared by completed and
+// active steps so either can be expanded to see the "why" behind it. ──────────
+
+function StepDetails({ details }: { details: GenerationEventDetails }) {
   const [expanded, setExpanded] = useState(false)
   const hasContent = !!(details.decision || details.reason || (details.files?.length ?? 0) > 0)
   if (!hasContent) return null
@@ -168,6 +190,7 @@ function ActiveStepDetails({ details }: { details: GenerationEventDetails }) {
 export function GenerationActivity({ className }: { className?: string }) {
   const { events } = useGenerationEvents()
   const state = useMemo(() => computeActivityState(events), [events])
+  const summary = useMemo(() => collectCompletionSummary(events), [events])
 
   // Hidden: no generation running and no events at all.
   if (events.length === 0) return null
@@ -182,72 +205,101 @@ export function GenerationActivity({ className }: { className?: string }) {
       transition={{ duration: 0.2 }}
       className={`rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#202020] px-3.5 py-3 ${className ?? ""}`}
     >
-      {/* Completed steps — compact, no expansion, just a running log */}
-      {completed.length > 0 && (
-        <div className="mb-2 space-y-1">
-          {completed.map(step => (
-            <div key={step.key} className="flex items-start gap-1.5">
-              <Check className="mt-0.5 h-3 w-3 shrink-0 text-emerald-400/80" />
-              <p className="text-[11px] leading-snug text-[#A0A0A0]">
-                <span className="text-emerald-300/80">{step.title} complete</span>
-                {step.summary && <span className="block text-[#A0A0A0]/70">{step.summary}</span>}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Header — reads as an engineer's status feed, not a progress bar widget */}
+      <div className="mb-2 flex items-center gap-1.5">
+        <Cpu className="h-3 w-3 text-[#A0A0A0]/60" />
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A0A0A0]/60">Build Activity</p>
+      </div>
 
-      {/* Current active step — the only step shown "in progress" at a time */}
-      {active && Icon && (
-        <div className="flex gap-2.5">
-          <div
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
-              active.errored
-                ? "border-red-400/25 bg-red-400/10 text-red-400/80"
-                : "border-[#ECECEC]/25 bg-[#ECECEC]/[0.08] text-[#ECECEC]"
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <p className="text-[12.5px] font-medium text-[#ECECEC]">{active.title}</p>
-              {active.errored ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-400/80">
-                  <AlertCircle className="h-3 w-3" /> Error
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#ECECEC]/60">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ECECEC]/40" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#ECECEC]/80" />
-                  </span>
-                  Working
-                </span>
-              )}
-            </div>
-            <p className="mt-0.5 text-[11px] leading-snug text-[#A0A0A0]">{active.description}</p>
-
-            {typeof active.progress === "number" && (
-              <div className="mt-1.5 flex items-center gap-2">
-                <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#A0A0A0]/15">
-                  <motion.div
-                    className="h-full rounded-full bg-[#ECECEC]/70"
-                    initial={false}
-                    animate={{ width: `${Math.max(0, Math.min(100, Math.round(active.progress)))}%` }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                  />
+      {/* Completed steps — compact log lines, each independently expandable */}
+      <AnimatePresence initial={false}>
+        {completed.length > 0 && (
+          <div className="mb-2 space-y-1.5">
+            {completed.map(step => (
+              <motion.div
+                key={step.key}
+                initial={{ opacity: 0, y: 3 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                <div className="flex items-start gap-1.5">
+                  <Check className="mt-0.5 h-3 w-3 shrink-0 text-emerald-400/80" />
+                  <p className="text-[11px] leading-snug text-[#A0A0A0]">
+                    <span className="text-emerald-300/80">{step.title}</span>
+                    {step.summary && <span className="block text-[#A0A0A0]/70">{step.summary}</span>}
+                  </p>
                 </div>
-                <span className="text-[10px] tabular-nums text-[#A0A0A0]">
-                  {Math.max(0, Math.min(100, Math.round(active.progress)))}%
-                </span>
-              </div>
-            )}
-
-            {active.details && <ActiveStepDetails details={active.details} />}
+                {step.details && (
+                  <div className="pl-[18px]">
+                    <StepDetails details={step.details} />
+                  </div>
+                )}
+              </motion.div>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
+
+      {/* Current active step — the focal point; everything else is history */}
+      <AnimatePresence mode="wait" initial={false}>
+        {active && Icon && (
+          <motion.div
+            key={active.type}
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="flex gap-2.5"
+          >
+            <div
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
+                active.errored
+                  ? "border-red-400/25 bg-red-400/10 text-red-400/80"
+                  : "border-[#ECECEC]/25 bg-[#ECECEC]/[0.08] text-[#ECECEC]"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[12.5px] font-medium text-[#ECECEC]">{active.title}</p>
+                {active.errored ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-400/80">
+                    <AlertCircle className="h-3 w-3" /> Error
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#ECECEC]/60">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ECECEC]/40" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#ECECEC]/80" />
+                    </span>
+                    Working
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[11px] leading-snug text-[#A0A0A0]">{active.description}</p>
+
+              {typeof active.progress === "number" && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#A0A0A0]/15">
+                    <motion.div
+                      className="h-full rounded-full bg-[#ECECEC]/70"
+                      initial={false}
+                      animate={{ width: `${Math.max(0, Math.min(100, Math.round(active.progress)))}%` }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                    />
+                  </div>
+                  <span className="text-[10px] tabular-nums text-[#A0A0A0]">
+                    {Math.max(0, Math.min(100, Math.round(active.progress)))}%
+                  </span>
+                </div>
+              )}
+
+              {active.details && <StepDetails details={active.details} />}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Generic failure banner — shown when there's no longer an active step to attach it to */}
       {error && !active && (
@@ -256,11 +308,25 @@ export function GenerationActivity({ className }: { className?: string }) {
         </div>
       )}
 
-      {/* Completion banner */}
+      {/* Completion state — final summary line, reads like a build report */}
       {done && !active && !error && (
-        <div className="flex items-center gap-1.5 text-[11px] text-emerald-300/80">
-          <Check className="h-3.5 w-3.5" /> Website generation complete
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+        >
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-300/80">
+            <Check className="h-3.5 w-3.5" /> Website completed
+          </div>
+          {(summary.pages > 0 || summary.components > 0 || summary.assets > 0) && (
+            <div className="mt-1 space-y-0.5 pl-5 text-[11px] text-[#A0A0A0]">
+              {summary.pages > 0 && <p>{summary.pages} page{summary.pages === 1 ? "" : "s"} created</p>}
+              {summary.components > 0 && <p>{summary.components} component{summary.components === 1 ? "" : "s"} created</p>}
+              {summary.assets > 0 && <p>{summary.assets} asset{summary.assets === 1 ? "" : "s"} generated</p>}
+            </div>
+          )}
+          <p className="mt-1.5 pl-5 text-[11px] text-[#ECECEC]/70">Preview ready</p>
+        </motion.div>
       )}
     </motion.div>
   )
