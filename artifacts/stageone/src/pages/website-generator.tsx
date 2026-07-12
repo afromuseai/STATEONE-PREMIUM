@@ -14,9 +14,9 @@ import { ensureProject } from "@/lib/ensure-project"
 import { useWorkspaceController } from "@/lib/workspace-controller-context"
 import JSZip from "jszip"
 import { useLocation } from "wouter"
-import { registerBridge, unregisterBridge } from "@/lib/module-architecture/website-bridge"
-import { websiteController } from "@/lib/module-architecture/controllers/website-controller"
-import { registerController, unregisterController } from "@/lib/module-architecture/registry"
+// Website Studio has its own standalone generation pipeline.
+// Copilot (Marcus) only navigates and populates the form — he does NOT
+// own the generation pipeline. No bridge, controller, or ExecutionBus needed.
 import { tracer } from "@/lib/execution-tracer"
 import { MarcusAgentStream } from "@/components/website-v2/MarcusAgentStream"
 
@@ -222,52 +222,6 @@ export default function WebsiteGeneratorPage() {
 
   // Keep latestDataRef in sync for bridge-based save
   useEffect(() => { latestDataRef.current = data }, [data])
-
-  // Phase 3 architecture: register the WebsiteBridge and controller on mount
-  useEffect(() => {
-    const _bridgeRegId = registerBridge({
-      navigate: () => setLocation("/website-generator"),
-      populate: (idea, onComplete) => {
-        console.log('[PROBE] WEBSITE_BRIDGE_POPULATE | idea:', JSON.stringify(idea?.slice(0, 60)), '| empty?', !idea)
-        if (!idea) { onComplete(); return }
-        // Write to the stable synchronous ref FIRST — mirrors the pending-intent and
-        // workspace-signal paths which already do this.  The controller calls
-        // getCurrentIdea() immediately after registration, before the typewriter effect
-        // runs, so ideaRef (state-derived) would still be stale without this.
-        marcusWebsiteIdeaRef.current = idea
-        ideaRef.current = idea
-        populateCompleteCallbackRef.current = onComplete
-        marcusPopulateRef.current = idea
-        setMarcusPopulateTick(t => t + 1)
-      },
-      triggerGenerate: (idea) => new Promise<void>((resolve) => {
-        generateCompleteCallbackRef.current = resolve
-        generateWithIdeaRef.current?.(idea)
-      }),
-      save: async () => {
-        if (!latestDataRef.current) return
-        await ensureProject({
-          type: "website",
-          // ideaRef.current leads: it is now set synchronously on EVERY ingress path
-          // (including bridge.populate above) AND tracks user textarea edits via the
-          // useEffect mirror.  marcusWebsiteIdeaRef is belt-and-suspenders only.
-          idea: ideaRef.current || marcusWebsiteIdeaRef.current,
-          outputField: "websiteOutput",
-          output: latestDataRef.current as unknown as Record<string, unknown>,
-        }).catch(() => {})
-      },
-      // ideaRef.current is now synchronously updated at every ingress point (bridge
-      // populate writes it directly before the typewriter tick) AND stays current as
-      // the user types.  marcusWebsiteIdeaRef is a fallback for any edge-case window
-      // where ideaRef hasn't been written yet.
-      getCurrentIdea: () => ideaRef.current || marcusWebsiteIdeaRef.current,
-    })
-    const _controllerRegId = registerController("website", websiteController)
-    return () => {
-      unregisterBridge(_bridgeRegId)
-      unregisterController("website", _controllerRegId)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Mount: consume durable intent queue (primary) or legacy signal (fallback) ─
   useEffect(() => {

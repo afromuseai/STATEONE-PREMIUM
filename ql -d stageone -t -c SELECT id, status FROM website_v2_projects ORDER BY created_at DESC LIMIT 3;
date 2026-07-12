@@ -1,0 +1,9 @@
+                  id                  |    project_name    | status |          created_at           
+--------------------------------------+--------------------+--------+-------------------------------
+ a5b214f4-1ed7-4308-a925-445dc6fc6819 | FlowCRM — SaaS     | ready  | 2026-07-11 10:50:44.397401+00
+ 7faf0684-e38b-427f-aa91-c95c95feabd4 | CRM Flow — SaaS    | ready  | 2026-07-11 10:02:28.655544+00
+ e8bfa7e2-c108-4c56-a251-06d8014eb7a4 | FlowTask AI — SaaS | ready  | 2026-07-11 09:49:16.832611+00
+ 07374c43-54a6-4e08-8f85-4fe880398842 | The Company — SaaS | ready  | 2026-07-11 09:47:38.155314+00
+ 730f47ed-57cc-4549-97c5-9fda2fdfe91d | The Company — SaaS | ready  | 2026-07-11 09:39:02.928715+00
+(5 rows)
+

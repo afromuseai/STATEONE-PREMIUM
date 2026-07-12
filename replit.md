@@ -60,7 +60,7 @@ docs/             # Roadmap and design docs
 
 ## Setup status
 
-Imported project fully configured and verified running (July 2026): dependencies installed via pnpm, database schema pushed with drizzle-kit, and all three workflows (frontend, API server, mockup sandbox) confirmed healthy. Secrets `SESSION_SECRET`, `JWT_SECRET`, `NVIDIA_API_KEY` are set.
+Re-verified after re-import (July 11, 2026): dependencies installed via pnpm, database schema pushed with drizzle-kit, and all three workflows (frontend, API server, mockup sandbox) confirmed healthy. Secrets `SESSION_SECRET`, `JWT_SECRET`, `NVIDIA_API_KEY` are set. Fixed a missing closing backtick in `artifacts/api-server/src/routes/copilot-agent.ts` that broke the API server build, and made the API server's `dev` script tolerate a missing `.env.local` (it previously always overwrote `NVIDIA_API_KEY` with an empty value when that file didn't exist).
 
 ## User preferences
 

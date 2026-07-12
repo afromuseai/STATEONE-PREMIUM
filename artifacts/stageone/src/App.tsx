@@ -53,6 +53,7 @@ import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import WebsiteStudioPage from "@/pages/website-studio";
 import WebContainerTestPage from "@/pages/webcontainer-test";
+import { MarcusSessionProvider } from "@/lib/marcus-session/context";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -235,7 +236,9 @@ export default function App() {
                             <ImpersonationBanner />
                             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                               <ExecutionBusNavigatorSetup />
-                              <AnimatedRoutes />
+                              <MarcusSessionProvider>
+                                <AnimatedRoutes />
+                              </MarcusSessionProvider>
                               <CopilotPanel />
                               <ProductTour />
                             </WouterRouter>

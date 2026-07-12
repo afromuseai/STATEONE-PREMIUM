@@ -1,13 +1,69 @@
-import { useContext } from "react"
-import { WCReactContext } from "./WCContext"
-import type { WCContextValue } from "./runtime-types"
+"use client"
+
+import { useState } from "react"
 
 /**
- * Consume the WebContainer runtime context.
+ * useWebContainer — No-op replacement hook.
  *
- * Must be used inside a <WebContainerProvider>.
- * Returns a stable no-op context if the provider is absent (graceful fallback).
+ * WebContainer is no longer used. File operations are handled by the
+ * api-server and database. This hook returns mock implementations that
+ * satisfy the existing interface so consuming components (StudioShell,
+ * AgentConversation) continue to work without changes.
  */
-export function useWebContainer(): WCContextValue {
-  return useContext(WCReactContext)
+
+export function useWebContainer() {
+  const [terminalLines] = useState<any[]>([])
+
+  return {
+    status: "ready",
+
+    wcUrl: null,
+
+    terminalLines,
+
+    nodeVersion: null,
+
+    depCount: 0,
+
+    writeFile: async (_path: string, _content: string) => {
+      // No-op: files are persisted server-side
+    },
+
+    writeFileForReview: async (
+      path: string,
+      content: string
+    ) => {
+      return {
+        oldContent: "",
+        newContent: content,
+        path,
+      }
+    },
+
+    readFile: async (_path: string) => {
+      return ""
+    },
+
+    listDir: async (_path: string) => {
+      return []
+    },
+
+    runCommand: async (
+      _cmd: string,
+      _args: string[]
+    ) => {
+      return {
+        output: "",
+        exitCode: 0,
+      }
+    },
+
+    clearTerminal: () => {
+      // No-op
+    },
+
+    wc: null,
+    container: null,
+    isReady: true,
+  }
 }

@@ -4,8 +4,77 @@ import { Copy, Check, FileCode2, Save, Wand2, ChevronDown, Sparkles } from "luci
 import type { V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import * as monaco from "monaco-editor"
 
-// Use locally-installed monaco-editor instead of CDN to avoid COOP/COEP issues
+// ─── Monaco Worker Configuration ─────────────────────────────────────────────
+// Use locally-installed monaco-editor instead of CDN to avoid COOP/COEP issues.
+// Workers are loaded via Vite's new URL() pattern so they bypass dependency
+// pre-bundling and are served from node_modules as-is.
+self.MonacoEnvironment = {
+  getWorker(_workerId: string, label: string) {
+    const base = "/node_modules/monaco-editor/esm/vs"
+    const workers: Record<string, string> = {
+      json:        `${base}/language/json/json.worker.js`,
+      css:         `${base}/language/css/css.worker.js`,
+      scss:        `${base}/language/css/css.worker.js`,
+      less:        `${base}/language/css/css.worker.js`,
+      html:        `${base}/language/html/html.worker.js`,
+      handlebars:  `${base}/language/html/html.worker.js`,
+      razor:       `${base}/language/html/html.worker.js`,
+      typescript:  `${base}/language/typescript/ts.worker.js`,
+      javascript:  `${base}/language/typescript/ts.worker.js`,
+    }
+    const url = workers[label] ?? `${base}/editor/editor.worker.js`
+    return new Worker(new URL(url, self.location.origin), { type: "module" })
+  },
+}
+
 loader.config({ monaco })
+
+// ─── TypeScript compiler defaults (mirrors user-project tsconfig.json) ────────
+monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+  target:                         monaco.languages.typescript.ScriptTarget.ES2020,
+  module:                         monaco.languages.typescript.ModuleKind.ESNext,
+  moduleResolution:               monaco.languages.typescript.ModuleResolutionKind.Bundler,
+  jsx:                            monaco.languages.typescript.JsxEmit.Preserve,
+  strict:                         true,
+  esModuleInterop:                true,
+  allowJs:                        true,
+  skipLibCheck:                   true,
+  noEmit:                         true,
+  resolveJsonModule:              true,
+  isolatedModules:                true,
+  lib:                            ["dom", "dom.iterable", "esnext"],
+  allowNonTsExtensions:           true,
+  typeRoots:                      [],
+})
+
+// Provide a minimal React type declaration so TSX files don't error on JSX
+// namespaces.  A full react/types/react is too large to inline; this shim is
+// enough to suppress "Cannot find namespace 'JSX'" / "JSX element implicitly
+// has type 'any'" errors.
+monaco.languages.typescript.typescriptDefaults.setExtraLibs([
+  {
+    content: [
+      'declare namespace JSX {',
+      '  interface IntrinsicElements {',
+      '    [elem: string]: any',
+      '  }',
+      '}',
+      'declare module "framer-motion" {',
+      '  export const motion: any;',
+      '  export const AnimatePresence: any;',
+      '  export function motion(name: string): any;',
+      '  export default motion;',
+      '}',
+      'declare module "next/font/google" {',
+      '  export function Inter(opts: { subsets?: string[] }): { className: string };',
+      '}',
+      'declare module "next/link" {',
+      '  const Link: any;',
+      '  export default Link;',
+      '}',
+    ].join("\n"),
+  },
+])
 
 // ─── STAGEONE dark theme ───────────────────────────────────────────────────────
 const defineStageOneTheme: BeforeMount = (m) => {

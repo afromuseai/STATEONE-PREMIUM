@@ -11,22 +11,17 @@ import {
   ArrowRight, Wand2, Building2, Users, Target, Tag,
 } from "lucide-react"
 import { StreamGenerationScreen } from "@/components/website-v2/StreamGenerationScreen"
-import { WebContainerProvider }   from "@/components/website-v2/runtime/WebContainerProvider"
+import { WebContainerProviderNew } from "@/components/website-v2/runtime/WebContainerProviderNew"
 import { StudioShell }            from "@/components/website-v2/ide/StudioShell"
-import { consumeCopilotAutorun, consumePendingIntent, dequeueWorkspaceSignals } from "@/lib/generation-context"
-import { registerBridge, unregisterBridge } from "@/lib/module-architecture/website-bridge"
-import { websiteController }      from "@/lib/module-architecture/controllers/website-controller"
-import { registerController, unregisterController } from "@/lib/module-architecture/registry"
+// Website Studio has its own standalone generation pipeline.
+// Copilot (Marcus) only navigates and populates the form — he does NOT
+// own the generation pipeline. No bridge, controller, or ExecutionBus needed.
 import {
   MarcusSessionProvider,
   useMarcusSessionContext,
   useMarcusSessionStream,
 } from "@/lib/marcus-session/context"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
-
-// ─── Module-level mount intent cache (see comment in original) ─────────────────
-let _websiteMountIntentCache: { idea: string; capturedAt: number } | null = null
-const MOUNT_CACHE_TTL_MS = 1500
 
 type Step = "input" | "generating" | "workspace"
 
@@ -95,13 +90,6 @@ function WebsiteStudioCreateInner() {
   const formIdeaRef = useRef<string>("")
   useEffect(() => { formIdeaRef.current = form.idea }, [form.idea])
 
-  // Settle a pending bridge triggerGenerate() promise on done/error/cancel
-  const generateCompleteRef = useRef<((ok: boolean) => void) | null>(null)
-  const settleGenerateComplete = useCallback((ok: boolean) => {
-    generateCompleteRef.current?.(ok)
-    generateCompleteRef.current = null
-  }, [])
-
   useEffect(() => { ideaRef.current?.focus() }, [])
 
   // ─── Transition: generation complete → workspace (no redirect) ────────────
@@ -110,66 +98,17 @@ function WebsiteStudioCreateInner() {
       setStep("workspace")
       // Silently update the URL so a refresh or sharing lands in the workspace
       window.history.replaceState(null, "", `/website-studio/${session.projectId}`)
-      settleGenerateComplete(true)
     }
     if (session.status === "failed" && session.error && step === "generating") {
       setFormError(session.error)
       setStep("input")
-      settleGenerateComplete(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.status, session.projectId, session.error])
 
-  // ─── Module-architecture bridge (Copilot → website generation) ───────────
-  useEffect(() => {
-    const bridgeRegId = registerBridge({
-      navigate:      () => {},  // no-op: we're already on this page
-      populate:      (populateIdea, onComplete) => {
-        if (!populateIdea) { onComplete(); return }
-        formIdeaRef.current = populateIdea
-        setForm(prev => ({ ...prev, idea: populateIdea }))
-        onComplete()
-      },
-      triggerGenerate: (idea) => new Promise<void>((resolve, reject) => {
-        generateCompleteRef.current = (ok) => (ok ? resolve() : reject(new Error("Website generation did not complete")))
-        void handleGenerateRef.current?.(idea)
-      }),
-      save:           async () => {},
-      getCurrentIdea: () => formIdeaRef.current,
-    })
-    const controllerRegId = registerController("website", websiteController)
-    return () => {
-      unregisterBridge(bridgeRegId)
-      unregisterController("website", controllerRegId)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Consume pending intents from Copilot navigation ─────────────────────
-  useEffect(() => {
-    consumeCopilotAutorun()
-
-    let ideaFromIntent: string | null = null
-    if (_websiteMountIntentCache && Date.now() - _websiteMountIntentCache.capturedAt < MOUNT_CACHE_TTL_MS) {
-      ideaFromIntent = _websiteMountIntentCache.idea
-      _websiteMountIntentCache = null
-    } else {
-      _websiteMountIntentCache = null
-      const intent = consumePendingIntent("website")
-      if (intent?.idea) {
-        _websiteMountIntentCache = { idea: intent.idea, capturedAt: Date.now() }
-        ideaFromIntent = intent.idea
-      }
-    }
-
-    const queued = dequeueWorkspaceSignals("website")
-    const populateSignal = queued.find(s => s.type === "populate" && s.payload)
-    const idea = ideaFromIntent || populateSignal?.payload || null
-
-    if (idea) {
-      formIdeaRef.current = idea
-      setForm(prev => ({ ...prev, idea }))
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Website Studio uses its own standalone generation pipeline.
+  // Copilot (Marcus) only navigates and populates the form.
+  // No bridge, controller, or ExecutionBus registration needed.
 
   // ─── Generate ─────────────────────────────────────────────────────────────
   const handleGenerate = useCallback(async (ideaOverride?: string) => {
@@ -177,7 +116,6 @@ function WebsiteStudioCreateInner() {
     if (!idea) {
       setFormError("Please describe your business idea.")
       ideaRef.current?.focus()
-      settleGenerateComplete(false)
       return
     }
     setFormError(null)
@@ -192,16 +130,12 @@ function WebsiteStudioCreateInner() {
     if (form.conversionGoal)   bi.conversionGoal   = form.conversionGoal
 
     await start(idea, Object.keys(bi).length > 0 ? bi : undefined)
-  }, [form, start, settleGenerateComplete])
-
-  const handleGenerateRef = useRef(handleGenerate)
-  useEffect(() => { handleGenerateRef.current = handleGenerate }, [handleGenerate])
+  }, [form, start])
 
   const handleCancel = useCallback(() => {
     cancel()
     setStep("input")
-    settleGenerateComplete(false)
-  }, [cancel, settleGenerateComplete])
+  }, [cancel])
 
   const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [key]: e.target.value }))
@@ -214,11 +148,11 @@ function WebsiteStudioCreateInner() {
       session.files,
     )
     return (
-      <div className="flex flex-1 min-w-0 h-full overflow-hidden">
-        <WebContainerProvider project={project}>
+     <div className="flex flex-1 min-w-0 h-full overflow-hidden">
+        <WebContainerProviderNew>
           <StudioShell project={project} onRefresh={() => {}} />
-        </WebContainerProvider>
-      </div>
+        </WebContainerProviderNew>
+    </div>
     )
   }
 

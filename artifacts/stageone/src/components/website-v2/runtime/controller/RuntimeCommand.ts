@@ -1,0 +1,11 @@
+export enum RuntimeCommand {
+  BOOT = "BOOT",
+  MOUNT = "MOUNT",
+  INSTALL = "INSTALL",
+  START_DEV = "START_DEV",
+  STOP = "STOP",
+  RESTART = "RESTART",
+  WRITE_FILE = "WRITE_FILE",
+  READ_FILE = "READ_FILE",
+  RUN_COMMAND = "RUN_COMMAND",
+}

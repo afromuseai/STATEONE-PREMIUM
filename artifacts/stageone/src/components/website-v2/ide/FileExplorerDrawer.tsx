@@ -3,7 +3,7 @@ import {
   ChevronRight, Folder, FolderOpen, FileCode, FileJson,
   FileText, File, FilePlus, Search, MoreHorizontal, Eye,
 } from "lucide-react"
-import { useState, useMemo } from "react"
+import { useState, useMemo, memo } from "react"
 import type { V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 
 // ─── Tree builder ──────────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ function FileIconEl({ name }: { name: string }) {
 }
 
 // ─── Tree node ─────────────────────────────────────────────────────────────────
-function TreeNodeItem({
+const TreeNodeItem = memo(function TreeNodeItem({
   node, depth, activePath, onSelect, searchQuery,
 }: {
   node:        TreeNode
@@ -95,11 +95,16 @@ function TreeNodeItem({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <button
+        {/* Use a div with role=button to avoid nested <button> elements
+            (inner action buttons are valid children of a div) */}
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => onSelect(node.file!)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(node.file!) }}
           style={{ paddingLeft: indent + 8 }}
           className={`group flex w-full items-center gap-1.5 rounded py-[3px] pr-1 text-left
-            transition-colors duration-75
+            cursor-pointer transition-colors duration-75
             ${active
               ? "bg-amber-400/10 text-amber-300/85"
               : "text-white/42 hover:bg-white/[0.04] hover:text-white/70"
@@ -114,7 +119,7 @@ function TreeNodeItem({
           </span>
 
           {/* Hover actions */}
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {(hovered || active) && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -146,7 +151,7 @@ function TreeNodeItem({
               </motion.div>
             )}
           </AnimatePresence>
-        </button>
+        </div>
 
         {/* Active file left accent */}
         {active && (
@@ -179,11 +184,10 @@ function TreeNodeItem({
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.12, ease: "easeInOut" }}
-            className="overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1, ease: "easeInOut" }}
           >
             {node.children.map((child) => (
               <TreeNodeItem
@@ -200,7 +204,7 @@ function TreeNodeItem({
       </AnimatePresence>
     </div>
   )
-}
+})
 
 function HighlightMatch({ text, query }: { text: string; query: string }) {
   const idx = text.toLowerCase().indexOf(query.toLowerCase())

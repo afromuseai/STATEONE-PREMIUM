@@ -120,13 +120,16 @@ async function connectInternal(
       }
     }
 
-    // ── Stream ended without explicit completion ──────────────────────
-    if (capturedProjectId) {
-      dispatch({ type: "session.completed", projectId: capturedProjectId, fileCount: 0 })
-      return { projectId: capturedProjectId }
-    }
-
-    dispatch({ type: "session.failed", message: "Stream ended without completing" })
+    // ── Stream ended without an explicit "done"/"error" terminal event ─────────
+    // This means the connection was cut (proxy idle timeout, network drop, etc)
+    // before Marcus reported success or failure. The REPORT phase (DB save)
+    // happens right before "done" is sent, so an early cutoff means files were
+    // very likely NOT persisted — treat this as a failure, never as success,
+    // regardless of how many per-file "completed" tool events already streamed.
+    dispatch({
+      type: "session.failed",
+      message: "Connection to Marcus was interrupted before generation finished — your files were not saved. Please try again.",
+    })
     return { projectId: null }
   } catch (err) {
     if ((err as Error).name === "AbortError") return { projectId: null }

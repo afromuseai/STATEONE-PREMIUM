@@ -1330,21 +1330,13 @@ export function CopilotPanel() {
           navigate("/website-studio/new");
         }
       } else if (command === "generate_website") {
-        console.log("[ExecutionBus] generate_website → bus.execute({ module: website, action: generate })");
-        // Peek at the pending intent (non-destructive) to include the idea in the
-        // execution payload.  The bus threads it all the way to controller.generate()
-        // so the controller can fall back to context.businessIdea when ideaRef is
-        // empty after an AnimatePresence remount.
-        const pending = peekPendingIntent();
-        const websiteIdea = pending?.type === 'website' ? (pending.idea ?? '') : '';
-        const traceId = tracer.startExecution("website");
-        tracer.logStage(traceId, 1, "Intent parsed", { functionName: "handleWorkspaceCmdAction", success: true, data: { command: "generate_website" } });
-        import("@/lib/execution-bus").then(({ bus }) => {
-          tracer.logStage(traceId, 2, "Command dispatched", { functionName: "handleWorkspaceCmdAction", success: true, data: { module: "website", action: "generate" } });
-          bus.execute({ module: "website", action: "generate", payload: { idea: websiteIdea, _traceId: traceId } }).catch((err) => {
-            console.warn("[ExecutionBus] generate_website failed:", err);
-          });
-        });
+        // Marcus (copilot) does NOT own the generation pipeline.
+        // Generation goes through Website Studio's standalone Generate button.
+        // Marcus only navigates to the page; the user presses Generate.
+        console.log("[Marcus] generate_website → navigating to /website-studio/new (user presses Generate)");
+        if (location !== "/website-studio/new") {
+          navigate("/website-studio/new");
+        }
       } else if (command === "automation") {
         activeWorkspaceModuleRef.current = "automation";
         console.log(
@@ -1648,21 +1640,9 @@ export function CopilotPanel() {
       const idea = crossSystem.lastBusinessIdea ?? undefined;
       console.log("[MARCUS_WORKSPACE_PAYLOAD] action:", action.id, "| payload:", JSON.stringify(idea));
       setCopilotAutorun({ action: action.id, idea, timestamp: Date.now() });
-      // generate_website / generate_intelligence ACTION path: route through ExecutionBus.
-      // The bus calls the registered module controller's generate() which drives the
-      // actual generation pipeline — no legacy markPendingIntentAutoGenerate or
-      // emitWorkspaceSignal needed for these two paths.
-      if (action.id === "generate_website") {
-        console.log("[ExecutionBus] executeAction generate_website → bus.execute({ module: website, action: generate })");
-        const traceIdWeb = tracer.startExecution("website");
-        tracer.logStage(traceIdWeb, 1, "Intent parsed", { functionName: "executeAction", success: true, data: { actionId: action.id } });
-        import("@/lib/execution-bus").then(({ bus }) => {
-          tracer.logStage(traceIdWeb, 2, "Command dispatched", { functionName: "executeAction", success: true, data: { module: "website", action: "generate" } });
-          bus.execute({ module: "website", action: "generate", payload: { idea, _traceId: traceIdWeb } }).catch((err) => {
-            console.warn("[ExecutionBus] executeAction generate_website failed:", err);
-          });
-        });
-      }
+      // Website generation is standalone — Marcus does NOT own the pipeline.
+      // He navigates to the page and the user presses the standalone Generate button.
+      // Other modules (intelligence) may still route through ExecutionBus.
       if (action.id === "generate_intelligence") {
         console.log("[ExecutionBus] executeAction generate_intelligence → bus.execute({ module: intelligence, action: generate })");
         const traceIdIntel = tracer.startExecution("intelligence");

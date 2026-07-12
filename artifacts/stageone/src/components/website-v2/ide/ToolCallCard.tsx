@@ -57,7 +57,7 @@ export function ToolCallCard({
   onModify,
 }: ToolCallCardProps) {
   const [copied, setCopied] = useState(false)
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
 
   const label = TOOL_LABELS[call.name] || call.name
   const color = TOOL_COLORS[call.name] || "#9ca3af"
@@ -76,19 +76,49 @@ export function ToolCallCard({
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.15 }}
-      className="relative overflow-hidden rounded-lg border border-white/[0.06] bg-[#0f0f0f] p-3"
+      animate={{
+        opacity: 1,
+        y: 0,
+        borderColor: status === "running"
+          ? [color + "20", color + "50", color + "20"]
+          : "rgba(255, 255, 255, 0.06)",
+      }}
+      transition={status === "running"
+        ? { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+        : { duration: 0.3 }}
+      className="relative overflow-hidden rounded-lg border bg-[#0f0f0f] p-3"
+      style={{ borderColor: status === "running" ? color + "30" : "rgba(255,255,255,0.06)" }}
     >
+      {/* Shimmer line during execution */}
+      {status === "running" && (
+        <motion.div
+          className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px]"
+          style={{ background: `linear-gradient(90deg, transparent 0%, ${color} 50%, transparent 100%)` }}
+          animate={{ x: ["-100%", "100%"] }}
+          transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
         <div className="flex h-6 w-6 items-center justify-center rounded" style={{ background: `${color}1a` }}>
           {status === "running" ? (
-            <Loader2 className="h-3 w-3 animate-spin" style={{ color }} />
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            >
+              <Loader2 className="h-3 w-3" style={{ color }} />
+            </motion.div>
           ) : status === "error" ? (
             <AlertCircle className="h-3 w-3" style={{ color }} />
           ) : (
-            <CheckCircle className="h-3 w-3" style={{ color }} />
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 15 }}
+            >
+              <CheckCircle className="h-3 w-3" style={{ color }} />
+            </motion.div>
           )}
         </div>
         <span className="font-mono text-[11px] font-medium text-white/70">{label}</span>

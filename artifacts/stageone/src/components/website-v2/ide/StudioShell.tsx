@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { TopCommandBar }       from "./TopCommandBar"
 import { ActivityBar }         from "./ActivityBar"
@@ -17,6 +17,7 @@ import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import type { MarcusSessionState } from "@/lib/marcus-session/types"
 import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu, Check, X, Loader2, Brain, Zap, Search, FileText, Terminal as TerminalIcon } from "lucide-react"
 import type { ConversationEntry } from "@/lib/marcus-session/types"
+import { useRuntime } from "@/components/website-v2/runtime/react/useRuntime"
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 /** The four first-class workspace modes. Terminal is a full-pane mode, not a drawer. */
@@ -367,7 +368,23 @@ export function StudioShell({ project, onRefresh, session }: StudioShellProps) {
     }
   }, [terminalLines])
 
-  // Update file tree (condensed)
+  // ── Derived (stable references via useMemo) ─────────────────────────────────
+  // Compare files by path+content so a new API response does not produce a new
+  // reference unless the file actually changed.
+  const filesKey = useMemo(
+    () => project.files.map(f => `${f.path}:${f.content}`).join("||"),
+    [project.files],
+  )
+  const filesRef = useRef(project.files)
+  // Keep ref in sync with key only — avoids materialising a new array on every render
+  useEffect(() => {
+    filesRef.current = project.files
+  }, [filesKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stableFiles: V2ProjectFile[] = filesRef.current
+
+  // Update file tree (condensed) — driven by stableFiles so we don't rebuild on
+  // every API poll that returns structurally identical data.
   useEffect(() => {
     const buildTree = (files: V2ProjectFile[]): string => {
       const dirs = new Set<string>()
@@ -380,16 +397,16 @@ export function StudioShell({ project, onRefresh, session }: StudioShellProps) {
       const allPaths = [...dirs, ...files.map(f => f.path)].sort()
       return allPaths.map(p => (dirs.has(p) ? `${p}/` : p)).join("\n")
     }
-    setEditorContext(prev => ({ ...prev, fileTree: buildTree(project.files) }))
-  }, [project.files])
+    setEditorContext(prev => ({ ...prev, fileTree: buildTree(stableFiles) }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filesKey])
 
-  // ── Derived ──────────────────────────────────────────────────────────────────
-  const activeFile =
-    activeTabId === "preview" || activeTabId === "terminal"
-      ? null
-      : (project.files.find((f) => f.path === activeTabId) ?? null)
+  const activeFile = useMemo(() => {
+    if (activeTabId === "preview" || activeTabId === "terminal") return null
+    return stableFiles.find((f) => f.path === activeTabId) ?? null
+  }, [activeTabId, stableFiles])
 
-  // Update editor context when active file/tab changes
+  // Update editor context when active file/tab changes (stable reference check)
   useEffect(() => {
     if (activeFile) {
       setEditorContext(prev => ({
@@ -464,6 +481,54 @@ export function StudioShell({ project, onRefresh, session }: StudioShellProps) {
   const statusLabel  = STATUS_LABELS[wcStatus] ?? wcStatus
   const statusColors = STATUS_COLORS[wcStatus] ?? STATUS_COLORS.idle
 
+  const runtime = useRuntime()
+
+  const buildRuntimeTree = (files: V2ProjectFile[]): any => {
+  const tree: any = {}
+
+  files.forEach((file) => {
+    const parts = file.path.split("/")
+    let current = tree
+
+    parts.forEach((part, index) => {
+      const isLast = index === parts.length - 1
+
+      if (isLast) {
+        current[part] = {
+          file: {
+            contents: file.content,
+          },
+        }
+      } else {
+        if (!current[part]) {
+          current[part] = {
+            directory: {},
+          }
+        }
+
+        current = current[part].directory!
+      }
+    })
+  })
+
+  return tree
+}
+
+const handleRun = async () => {
+  try {
+    console.log('StudioShell.handleRun invoked', project?.id)
+    console.log('StudioShell.runtime', runtime)
+    console.log('StudioShell.runtime.start', typeof runtime.start)
+    try { console.log('StudioShell.runtime.start.source', runtime.start.toString?.()) } catch(e) { console.log('source-read-error', e) }
+    const tree = buildRuntimeTree(stableFiles)
+
+    await runtime.start(tree, project.id)
+
+  } catch (error) {
+    console.error("Runtime start failed:", error)
+  }
+}
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -477,6 +542,7 @@ export function StudioShell({ project, onRefresh, session }: StudioShellProps) {
         project={project}
         workspaceMode={workspaceMode}
         onModeChange={handleModeChange}
+        onRun={handleRun}
         terminalDrawerOpen={terminalDrawerOpen}
         onToggleTerminalDrawer={() => setTerminalDrawerOpen((v) => !v)}
         activeFile={activeFile}
@@ -523,7 +589,7 @@ export function StudioShell({ project, onRefresh, session }: StudioShellProps) {
                 {sideView === "explorer" && (
                   <FileExplorerDrawer
                     open={true}
-                    files={project.files}
+                    files={stableFiles}
                     activeFilePath={activeTabId === "preview" || activeTabId === "terminal" ? null : activeTabId}
                     onSelectFile={openFile}
                     onClose={() => setSideView(null)}
@@ -558,7 +624,7 @@ export function StudioShell({ project, onRefresh, session }: StudioShellProps) {
         {/* ── Terminal overlay drawer (⌃`) — slides up from status bar ──── */}
         <AnimatePresence>
           {terminalDrawerOpen && (
-            <TerminalDrawer onClose={() => setTerminalDrawerOpen(false)} />
+            <TerminalDrawer onClose={() => setTerminalDrawerOpen(false)} terminalLines={terminalLines} />
           )}
         </AnimatePresence>
 

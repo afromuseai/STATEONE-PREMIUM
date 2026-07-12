@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   FileCode, CheckCircle2, Loader2, AlertCircle,
   Sparkles, Terminal, X, FileEdit, FolderOpen,
-  Search, Brain, Zap, ShieldCheck, Flag,
+  Search, Brain, Zap, ShieldCheck, Flag, ChevronRight,
 } from "lucide-react"
 import Editor from "@monaco-editor/react"
 import type { MarcusSessionState } from "@/lib/marcus-session/types"
@@ -289,6 +289,7 @@ export function StreamGenerationScreen({ state, onCancel }: StreamGenerationScre
   const statusLabel = deriveStatusLabel(status, activeFilePath)
 
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [toolsExpanded, setToolsExpanded] = useState(false)
   const toolListRef = useRef<HTMLDivElement>(null)
 
   // Auto-select the active file when it changes
@@ -421,18 +422,30 @@ export function StreamGenerationScreen({ state, onCancel }: StreamGenerationScre
           )}
         </AnimatePresence>
 
-        {/* Tool events — shown during and after EXECUTE / FIX */}
+        {/* Tool events — collapsed by default, matches Replit's "N actions" row */}
         {recentToolEvents.length > 0 && (
-          <div className="flex min-h-0 shrink-0 flex-col border-b border-white/[0.06]" style={{ maxHeight: "180px" }}>
-            <div className="flex items-center gap-2 px-4 py-1.5 border-b border-white/[0.04] shrink-0">
-              <Terminal className="h-3 w-3 text-white/20" />
-              <span className="text-[9px] uppercase tracking-wider text-white/20">Tool Calls</span>
-            </div>
-            <div ref={toolListRef} className="overflow-y-auto flex-1">
-              {recentToolEvents.map(event => (
-                <ToolEventDisplayRow key={event.id} event={event} />
-              ))}
-            </div>
+          <div className="flex min-h-0 shrink-0 flex-col border-b border-white/[0.06]">
+            <button
+              onClick={() => setToolsExpanded(v => !v)}
+              className="flex w-full items-center gap-2 px-4 py-1.5 transition-colors hover:bg-white/[0.02]"
+            >
+              {recentToolEvents[recentToolEvents.length - 1]?.status === "start" ? (
+                <Loader2 className="h-3 w-3 animate-spin text-amber-400/70" />
+              ) : (
+                <Terminal className="h-3 w-3 text-white/20" />
+              )}
+              <span className="text-[9px] uppercase tracking-wider text-white/20">
+                {recentToolEvents.length} action{recentToolEvents.length === 1 ? "" : "s"}
+              </span>
+              <ChevronRight className={`ml-auto h-3 w-3 text-white/20 transition-transform ${toolsExpanded ? "rotate-90" : ""}`} />
+            </button>
+            {toolsExpanded && (
+              <div ref={toolListRef} className="overflow-y-auto" style={{ maxHeight: "180px" }}>
+                {recentToolEvents.map(event => (
+                  <ToolEventDisplayRow key={event.id} event={event} />
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -132,7 +132,8 @@ TOOL_CALL{"name": "done",         "params": {"summary": "Brief description of al
 11. For long-running tasks (build, test, dev server), use "background_task" — it returns immediately with a task ID and streams progress via webhook
 12. List checkpoints with "list_checkpoints"
 13. Git operations: "git_status", "git_diff", "git_add", "git_commit", "git_branch", "git_push", "git_log"
-14. List background tasks with "list_background_tasks"
+14. List background tasks with "list_background_tasks"`;
+}
 
 // ─── Tool call parser (server-side) ────────────────────────────────────────────
 const TOOL_CALL_RE = /TOOL_CALL(\{[\s\S]*?\})/g;
@@ -321,13 +322,13 @@ router.post("/copilot/agent", requireAuth, async (req, res) => {
       }
     }
 
-    writeEvent({ done: true });
+    writeEvent({ type: "done" });
     res.end();
   } catch (err) {
     req.log?.error({ err }, "[Marcus:agent] Stream failed");
     const msg = err instanceof Error ? err.message : "Agent stream failed";
     writeEvent({ type: "text", content: `\n\nError: ${msg}` });
-    writeEvent({ done: true });
+    writeEvent({ type: "done" });
     res.end();
   }
 });

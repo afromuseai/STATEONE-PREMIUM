@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "export NODE_ENV=development && export NVIDIA_API_KEY=$(grep '^NVIDIA_API_KEY=' ../../.env.local | cut -d= -f2-) && pnpm run build && pnpm run start",
+    "dev": "export NODE_ENV=development && [ -f ../../.env.local ] && set -a && . ../../.env.local && set +a; pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"

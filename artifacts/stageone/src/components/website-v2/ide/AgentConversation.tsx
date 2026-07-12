@@ -8,6 +8,7 @@ import {
   FolderOpen, Brain, Zap, ChevronRight, Check, X, Copy, ChevronUp, ChevronDown,
 } from "lucide-react"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
+import type { TimelineEntry as TimelineEntryType } from "./AgentRuntime"
 import { useWebContainer } from "@/components/website-v2/runtime/useWebContainer"
 import type { FileDiff } from "./DiffReviewPanel"
 import { AgentRuntime, type ProjectMemory, type AgentMessage, type TimelineEntry, type AgentStreamEvent, stripToolCalls } from "./AgentRuntime"
@@ -29,37 +30,248 @@ function InlineBold({ text }: { text: string }) {
   )
 }
 
+function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const [copied, setCopied] = useState(false)
+  const onCopy = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+  return (
+    <div className="my-1.5 overflow-hidden rounded-lg border border-white/[0.07] bg-black/40">
+      <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-2.5 py-1">
+        <span className="font-mono text-[9.5px] font-medium uppercase tracking-wide text-white/30">{lang || "code"}</span>
+        <button
+          onClick={onCopy}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9.5px] text-white/25 transition-colors hover:bg-white/[0.06] hover:text-white/60"
+        >
+          {copied ? <Check className="h-2.5 w-2.5 text-emerald-400" /> : <Copy className="h-2.5 w-2.5" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-2.5 text-[11.5px] leading-relaxed text-emerald-100/80">
+        <code className="font-mono">{code}</code>
+      </pre>
+    </div>
+  )
+}
+
 function MarkdownText({ text }: { text: string }) {
-  const lines = text.split("\n")
+  // Split on fenced code blocks first so ``` content is never mangled by line-based rules
+  const segments = text.split(/(```[\s\S]*?```)/g)
+
   return (
     <div className="space-y-0.5">
-      {lines.map((line, i) => {
-        if (!line.trim()) return <div key={i} className="h-1" />
-        if (line.startsWith("### "))
-          return <p key={i} className="text-[10px] font-black uppercase tracking-widest text-amber-400/70 mt-2 mb-0.5">{line.slice(4)}</p>
-        if (line.startsWith("## "))
-          return <p key={i} className="text-[11px] font-bold text-white/75 mt-1.5 mb-0.5">{line.slice(3)}</p>
-        if (line.startsWith("**") && line.endsWith("**") && line.length > 4)
-          return <p key={i} className="text-[12px] font-semibold text-white/75">{line.slice(2, -2)}</p>
-        if (line.startsWith("- ") || line.startsWith("• "))
-          return (
-            <div key={i} className="flex items-start gap-1.5 my-0.5">
-              <span className="mt-1.5 h-1 w-1 rounded-full bg-amber-400/50 shrink-0" />
-              <span className="text-[12px] leading-relaxed text-white/55"><InlineBold text={line.slice(2)} /></span>
-            </div>
-          )
-        if (/^\d+\./.test(line)) {
-          const num = line.match(/^(\d+)\./)?.[1]
-          const rest = line.replace(/^\d+\.\s*/, "")
-          return (
-            <div key={i} className="flex items-start gap-2 my-0.5">
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-400/10 text-[9px] font-bold text-amber-400 mt-0.5">{num}</span>
-              <span className="text-[12px] leading-relaxed text-white/55"><InlineBold text={rest} /></span>
-            </div>
-          )
+      {segments.map((segment, si) => {
+        const fence = segment.match(/^```(\w*)\n?([\s\S]*?)```$/)
+        if (fence) {
+          const [, lang, code] = fence
+          return <CodeBlock key={si} lang={lang} code={code.replace(/\n$/, "")} />
         }
-        return <p key={i} className="text-[12px] leading-relaxed text-white/55"><InlineBold text={line} /></p>
+
+        const lines = segment.split("\n")
+        return lines.map((line, i) => {
+          const key = `${si}-${i}`
+          if (!line.trim()) return <div key={key} className="h-1" />
+          if (line.startsWith("### "))
+            return <p key={key} className="text-[10px] font-black uppercase tracking-widest text-amber-400/70 mt-2 mb-0.5">{line.slice(4)}</p>
+          if (line.startsWith("## "))
+            return <p key={key} className="text-[11px] font-bold text-white/75 mt-1.5 mb-0.5">{line.slice(3)}</p>
+          if (line.startsWith("**") && line.endsWith("**") && line.length > 4)
+            return <p key={key} className="text-[12px] font-semibold text-white/75">{line.slice(2, -2)}</p>
+          if (line.startsWith("- ") || line.startsWith("• "))
+            return (
+              <div key={key} className="flex items-start gap-1.5 my-0.5">
+                <span className="mt-1.5 h-1 w-1 rounded-full bg-amber-400/50 shrink-0" />
+                <span className="text-[12px] leading-relaxed text-white/55"><InlineBold text={line.slice(2)} /></span>
+              </div>
+            )
+          if (/^\d+\./.test(line)) {
+            const num = line.match(/^(\d+)\./)?.[1]
+            const rest = line.replace(/^\d+\.\s*/, "")
+            return (
+              <div key={key} className="flex items-start gap-2 my-0.5">
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-400/10 text-[9px] font-bold text-amber-400 mt-0.5">{num}</span>
+                <span className="text-[12px] leading-relaxed text-white/55"><InlineBold text={rest} /></span>
+              </div>
+            )
+          }
+          // Inline code spans `like this`
+          if (line.includes("`")) {
+            const parts = line.split(/(`[^`]+`)/)
+            return (
+              <p key={key} className="text-[12px] leading-relaxed text-white/55">
+                {parts.map((p, pi) =>
+                  p.startsWith("`") && p.endsWith("`") && p.length > 1
+                    ? <code key={pi} className="rounded bg-white/[0.08] px-1 py-0.5 font-mono text-[11px] text-amber-200/90">{p.slice(1, -1)}</code>
+                    : <InlineBold key={pi} text={p} />
+                )}
+              </p>
+            )
+          }
+          return <p key={key} className="text-[12px] leading-relaxed text-white/55"><InlineBold text={line} /></p>
+        })
       })}
+    </div>
+  )
+}
+
+// ─── Timeline grouping — collapse work entries behind one row ─────────────────
+// Narration (user/agent chat text) stays inline and plain. Everything else
+// (thinking, tool calls, file edits, scans, plans) gets bundled into a single
+// collapsible "N actions" row, matching Replit's own agent chat: only the
+// short narration is visible by default, detailed steps sit behind a toggle.
+type TimelineGroup =
+  | { kind: "narration"; entry: TimelineEntryType }
+  | { kind: "group"; entries: TimelineEntryType[]; id: string }
+
+function groupTimeline(timeline: TimelineEntryType[]): TimelineGroup[] {
+  const groups: TimelineGroup[] = []
+  let buffer: TimelineEntryType[] = []
+  const flush = () => {
+    if (buffer.length) {
+      groups.push({ kind: "group", entries: buffer, id: buffer[0].id })
+      buffer = []
+    }
+  }
+  for (const entry of timeline) {
+    if (entry.kind === "user-msg" || entry.kind === "agent-msg") {
+      flush()
+      groups.push({ kind: "narration", entry })
+    } else {
+      buffer.push(entry)
+    }
+  }
+  flush()
+  return groups
+}
+
+function groupLabel(entries: TimelineEntryType[]): string {
+  const scan = entries.find((e) => e.kind === "scan")
+  if (scan && scan.kind === "scan") {
+    if (scan.status === "running") return "Scanning project…"
+    if (scan.status === "error") return "Scan failed"
+  }
+  if (entries.some((e) => e.kind === "plan")) return "Drafted a plan"
+  const fileChanges = entries.filter((e) => e.kind === "file-change").length
+  if (fileChanges > 0) return "Edited files"
+  const toolCalls = entries.filter((e) => e.kind === "tool-call")
+  if (toolCalls.length > 0) {
+    const names = new Set(toolCalls.map((e) => (e.kind === "tool-call" ? e.name : "")))
+    if (names.size === 1) {
+      const label = TOOL_GROUP_LABELS[[...names][0]] || "Ran a tool"
+      return label
+    }
+    return "Worked through a few steps"
+  }
+  return "Working"
+}
+
+const TOOL_GROUP_LABELS: Record<string, string> = {
+  read_file: "Read some files",
+  write_file: "Wrote to files",
+  list_dir: "Explored the project",
+  search_code: "Searched the codebase",
+  run_command: "Ran a command",
+}
+
+function ActionGroup({
+  entries,
+  project,
+  onFileOpen,
+}: {
+  entries: TimelineEntryType[]
+  project: V2Project
+  onFileOpen: (file: V2ProjectFile) => void
+}) {
+  const hasRunning = entries.some(
+    (e) => (e.kind === "tool-call" || e.kind === "scan") && e.status === "running"
+  )
+  const hasError = entries.some(
+    (e) => (e.kind === "tool-call" || e.kind === "scan") && e.status === "error"
+  )
+  const [expanded, setExpanded] = useState(hasRunning)
+
+  useEffect(() => {
+    if (hasRunning) setExpanded(true)
+  }, [hasRunning])
+
+  const count = entries.filter((e) => e.kind === "tool-call" || e.kind === "file-change").length || entries.length
+  const label = groupLabel(entries)
+
+  return (
+    <div className="my-0.5 pl-9">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-white/[0.03]"
+      >
+        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
+          {hasRunning ? (
+            <Loader2 className="h-2.5 w-2.5 animate-spin text-amber-400/80" />
+          ) : hasError ? (
+            <AlertCircle className="h-2.5 w-2.5 text-red-400/80" />
+          ) : (
+            <CheckCircle className="h-2.5 w-2.5 text-white/25" />
+          )}
+        </span>
+        <span className="text-[12px] text-white/40">{label}</span>
+        <span className="ml-auto flex items-center gap-1 text-[10px] font-mono text-white/20">
+          {count} action{count === 1 ? "" : "s"}
+          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="ml-1.5 mt-1 mb-1.5 space-y-1.5 border-l border-white/[0.06] pl-3">
+              {entries.map((entry) => (
+                <TimelineEntryRenderer key={entry.id} entry={entry} project={project} onFileOpen={onFileOpen} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function CollapsibleDetail({ label, text, accent = "indigo" }: { label: string; text: string; accent?: "indigo" | "amber" }) {
+  const [expanded, setExpanded] = useState(false)
+  const color = accent === "amber" ? "#fbbf24" : "#818cf8"
+  return (
+    <div className="pl-9">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-white/[0.03]"
+      >
+        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full" style={{ background: `${color}1a` }}>
+          <FileCode className="h-2.5 w-2.5" style={{ color }} />
+        </span>
+        <span className="text-[12px] text-white/40">{label}</span>
+        <span className="ml-auto text-white/20">
+          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="ml-1.5 mt-1 mb-1.5 border-l border-white/[0.06] pl-3">
+              <MarkdownText text={text} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -103,6 +315,7 @@ export function AgentConversation({
   const [pendingPlan, setPendingPlan] = useState<string | null>(null)
   const [conversation, setConversation] = useState<AgentMessage[]>([])
   const [isRunning, setIsRunning] = useState(false)
+  const [showPlanDetails, setShowPlanDetails] = useState(false)
   
   // Streaming state - use a single message being built
   const [streamingMessage, setStreamingMessage] = useState<{
@@ -111,6 +324,9 @@ export function AgentConversation({
     toolCalls: Array<{ id: string; name: string; params: Record<string, unknown>; status: "running" | "done" | "error"; result?: string }>
     diffs: Array<{ id: string; path: string; oldContent: string; newContent: string }>
   } | null>(null)
+  
+  // Track if streaming is done (for cursor cleanup)
+  const isStreamingRef = useRef(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
@@ -137,6 +353,7 @@ export function AgentConversation({
       onTimelineChange: setTimeline,
       onPhaseChange: setPhase,
       onStreamTextChange: (text) => {
+        isStreamingRef.current = !!text
         setStreamingMessage(prev => prev ? { ...prev, text } : { text, thinking: "", toolCalls: [], diffs: [] })
       },
       onEvent: (event) => {
@@ -164,6 +381,10 @@ export function AgentConversation({
                 ...base,
                 toolCalls: base.toolCalls.map(tc => tc.id === event.id ? { ...tc, status: event.ok ? "done" : "error", result: event.result } : tc)
               }
+            case "done":
+              // Streaming complete — keep final state for display
+              isStreamingRef.current = false
+              return base
             default:
               return base
           }
@@ -211,12 +432,14 @@ export function AgentConversation({
   }, [input, isRunning, editorContext])
 
   const confirmPlan = useCallback(async () => {
+    setShowPlanDetails(false)
     if (runtimeRef.current) {
       await runtimeRef.current.confirmPlan()
     }
   }, [])
 
   const rejectPlan = useCallback(() => {
+    setShowPlanDetails(false)
     if (runtimeRef.current) {
       runtimeRef.current.rejectPlan()
     }
@@ -313,7 +536,7 @@ export function AgentConversation({
 
       {/* Conversation area */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={bottomRef}>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
           {/* Empty state */}
           {showEmptyState && (
@@ -333,16 +556,27 @@ export function AgentConversation({
             </motion.div>
           )}
 
-          {/* Timeline entries */}
+          {/* Timeline entries — narration renders plainly; work (tool calls, file
+              changes, plans, scans) is grouped into a single collapsible row so
+              the chat reads as brief narration rather than a stack of cards. */}
           <AnimatePresence initial={false}>
-            {timeline.map((entry) => (
-              <TimelineEntryRenderer
-                key={entry.id}
-                entry={entry}
-                project={project}
-                onFileOpen={onFileOpen}
-              />
-            ))}
+            {groupTimeline(timeline).map((g) =>
+              g.kind === "narration" ? (
+                <TimelineEntryRenderer
+                  key={g.entry.id}
+                  entry={g.entry}
+                  project={project}
+                  onFileOpen={onFileOpen}
+                />
+              ) : (
+                <ActionGroup
+                  key={g.id}
+                  entries={g.entries}
+                  project={project}
+                  onFileOpen={onFileOpen}
+                />
+              )
+            )}
           </AnimatePresence>
 
           {/* Streaming message (assistant response being built) */}
@@ -363,16 +597,35 @@ export function AgentConversation({
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                className="mb-3 rounded-lg border border-indigo-400/30 bg-indigo-400/5 p-3"
+                className="mb-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5"
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex h-5 w-5 items-center justify-center rounded" style={{ background: "#6366f11a" }}>
+                <button
+                  onClick={() => setShowPlanDetails((v) => !v)}
+                  className="flex w-full items-center gap-2 text-left"
+                >
+                  <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded" style={{ background: "#6366f11a" }}>
                     <FileCode className="h-2.5 w-2.5 text-indigo-400/80" />
                   </div>
-                  <span className="text-[11px] font-semibold text-indigo-400/80">Plan Ready — Confirm to Execute</span>
-                </div>
-                <MarkdownText text={stripToolCalls(pendingPlan)} />
-                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-[12px] font-medium text-white/55">Plan ready — review before running</span>
+                  <span className="ml-auto flex-shrink-0 text-white/25">
+                    {showPlanDetails ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  </span>
+                </button>
+                <AnimatePresence initial={false}>
+                  {showPlanDetails && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-2 pl-7">
+                        <MarkdownText text={stripToolCalls(pendingPlan)} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <div className="mt-2.5 flex items-center gap-2 pl-7">
                   <button
                     onClick={confirmPlan}
                     className="flex items-center gap-1.5 rounded-md bg-indigo-500/20 px-3 py-1.5 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/30 transition-colors"
@@ -439,17 +692,43 @@ interface StreamingMessage {
   diffs: Array<{ id: string; path: string; oldContent: string; newContent: string }>
 }
 
+// Blinking cursor dot
+function TypingCursor() {
+  return (
+    <motion.span
+      className="inline-flex h-[1.1em] w-[2px] translate-y-[1px] rounded-full bg-amber-400/80"
+      animate={{ opacity: [1, 0.15, 1] }}
+      transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
+    />
+  )
+}
+
 function StreamingMessage({ message }: { message: StreamingMessage }) {
-  const [expandedThinking, setExpandedThinking] = useState(true)
+  const hasRunningTool = message.toolCalls.some(tc => tc.status === "running")
+  const hasContent = !!message.text || !!message.thinking || message.toolCalls.length > 0 || message.diffs.length > 0
+  const isStreamingText = !!message.text && (hasRunningTool || !!message.thinking)
+
+  // Don't render if there's nothing to show
+  if (!hasContent) return null
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 6, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
       className="flex items-start gap-3"
     >
-      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
-        <Cpu className="h-3 w-3 text-amber-400/90" />
+      {/* Agent avatar with pulse ring when active */}
+      <div className="relative flex-shrink-0">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
+          <Cpu className="h-3 w-3 text-amber-400/90" />
+        </div>
+        {/* Pulse ring while streaming */}
+        <motion.div
+          className="absolute inset-0 rounded-full ring-2 ring-amber-400/0"
+          animate={{ ring: isStreamingText ? ["0px", "3px", "0px"] : "0px" }}
+          style={{ boxShadow: isStreamingText ? "0 0 6px rgba(251, 191, 36, 0.3)" : "none" }}
+        />
       </div>
       <div className="flex-1 min-w-0 space-y-3">
         {/* Thinking block */}
@@ -457,10 +736,23 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
           <ThinkingBlock text={message.thinking} isStreaming={!message.text} />
         )}
 
-        {/* Streaming text */}
+        {/* Streaming text with typing cursor */}
         {message.text && (
           <div className="prose prose-invert max-w-none">
             <MarkdownText text={message.text} />
+            {isStreamingText && <TypingCursor />}
+          </div>
+        )}
+
+        {/* Initial thinking indicator when no text yet but tool calls are running */}
+        {!message.text && hasRunningTool && (
+          <div className="flex items-center gap-2 text-[12px] text-white/35">
+            <span className="flex gap-0.5">
+              <motion.span className="h-1.5 w-1.5 rounded-full bg-amber-400/60" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
+              <motion.span className="h-1.5 w-1.5 rounded-full bg-amber-400/60" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.15 }} />
+              <motion.span className="h-1.5 w-1.5 rounded-full bg-amber-400/60" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.3 }} />
+            </span>
+            <span>Processing</span>
           </div>
         )}
 
@@ -476,7 +768,13 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
 
         {/* Diff previews */}
         {message.diffs.map((diff) => (
-          <div key={diff.id} className="rounded-lg border border-white/[0.06] bg-[#0f0f0f] p-3">
+          <motion.div
+            key={diff.id}
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-lg border border-white/[0.06] bg-[#0f0f0f] p-3"
+          >
             <div className="flex items-center gap-2 mb-2">
               <FileCode className="h-3.5 w-3.5 text-white/25" />
               <span className="truncate font-mono text-[11px] text-white/50">{diff.path}</span>
@@ -488,12 +786,16 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
             <div className="rounded bg-black/30 p-2 text-[9px] font-mono overflow-x-auto max-h-48">
               <pre>{diff.oldContent ? generateDiff(diff.oldContent, diff.newContent) : diff.newContent}</pre>
             </div>
-          </div>
+          </motion.div>
         ))}
 
         {/* Continue/Cancel controls during execution */}
-        {message.toolCalls.some(tc => tc.status === "running") && (
-          <div className="flex items-center gap-2 pt-2 border-t border-white/[0.05]">
+        {hasRunningTool && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center gap-2 pt-2 border-t border-white/[0.05]"
+          >
             <span className="text-[11px] text-white/30">Executing tools…</span>
             <div className="flex-1 h-1 bg-white/[0.05] rounded overflow-hidden">
               <motion.div
@@ -502,7 +804,7 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
               />
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
     </motion.div>
@@ -578,17 +880,7 @@ function TimelineEntryRenderer({
   }
 
   if (entry.kind === "plan") {
-    return (
-      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-indigo-400/30 bg-indigo-400/5 p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="flex h-5 w-5 items-center justify-center rounded" style={{ background: "#6366f11a" }}>
-            <FileCode className="h-2.5 w-2.5 text-indigo-400/80" />
-          </div>
-          <span className="text-[11px] font-semibold text-indigo-400/80">Plan</span>
-        </div>
-        <MarkdownText text={entry.text} />
-      </motion.div>
-    )
+    return <CollapsibleDetail label="Plan" text={entry.text} />
   }
 
   if (entry.kind === "tool-call") {

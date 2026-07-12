@@ -4,7 +4,7 @@
 
 import {
   createContext, useContext, useReducer, useCallback,
-  useRef, type ReactNode, type Dispatch,
+  useRef, useEffect, type ReactNode, type Dispatch,
 } from "react"
 import type { MarcusSessionState, MarcusSessionEvent } from "./types"
 import { INITIAL_SESSION_STATE } from "./types"
@@ -18,9 +18,47 @@ interface MarcusSessionContextValue {
 
 const MarcusSessionContext = createContext<MarcusSessionContextValue | null>(null)
 
+// ─── Cross-page persistence ────────────────────────────────────────────────────
+// Website Studio's create/generating/workspace views each mount their own
+// <MarcusSessionProvider>, so a plain useReducer loses the whole conversation
+// and file timeline the instant the user navigates between those pages (the
+// chat "disappearing" bug). Mirror state to sessionStorage so a fresh provider
+// picks up where the last one left off, for the lifetime of the browser tab.
+const STORAGE_KEY = "marcus:session:v1"
+
+function loadPersistedState(): MarcusSessionState {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    if (!raw) return INITIAL_SESSION_STATE
+    const parsed = JSON.parse(raw) as MarcusSessionState
+    // Never resume mid-stream — a hard reload/remount can't re-attach to a
+    // live SSE connection, so treat an in-flight or failed generation as stale
+    // and discard it entirely instead of showing an unrecoverable error.
+    if (parsed.status === "generating" || parsed.status === "failed") {
+      sessionStorage.removeItem(STORAGE_KEY)
+      return INITIAL_SESSION_STATE
+    }
+    return parsed
+  } catch {
+    return INITIAL_SESSION_STATE
+  }
+}
+
 // ─── Provider ──────────────────────────────────────────────────────────────────
 export function MarcusSessionProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(marcusSessionReducer, INITIAL_SESSION_STATE)
+  const [state, dispatch] = useReducer(marcusSessionReducer, undefined, loadPersistedState)
+
+  useEffect(() => {
+    if (state.status === "idle" && state.conversation.length === 0) {
+      sessionStorage.removeItem(STORAGE_KEY)
+      return
+    }
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    } catch {
+      // sessionStorage full or unavailable — persistence is best-effort only
+    }
+  }, [state])
 
   return (
     <MarcusSessionContext.Provider value={{ state, dispatch }}>
@@ -52,22 +90,39 @@ export function useMarcusSessionStream() {
   const { dispatch } = useMarcusSessionContext()
   const handleRef = useRef<MarcusTransportHandle | null>(null)
 
+  // Re-entrancy guard: prevents start() from firing a second POST to the
+  // server while another is still starting up (rapid clicks, keyboard + button
+  // race, etc.). Without this guard each call sends a POST that may create a
+  // new project on the server before the abort signal can cancel it.
+  const startingRef = useRef(false)
+
   const start = useCallback(async (
     idea: string,
     businessIntelligence?: Record<string, unknown>,
   ): Promise<string | null> => {
-    handleRef.current?.cancel()
+    // Re-entrancy guard — don't send a second POST while one is already
+    // starting. The abort in handleRef.current?.cancel() cannot retroactively
+    // undo a project the server already created.
+    if (startingRef.current) return null
+    startingRef.current = true
 
-    const handle = MarcusTransport.connect({
-      endpoint: "/api/generate/website-v2/stream",
-      body: { idea, businessIntelligence },
-      dispatch,
-    })
+    try {
+      // Cancel any prior in-flight connection.
+      handleRef.current?.cancel()
 
-    handleRef.current = handle
+      const handle = MarcusTransport.connect({
+        endpoint: "/api/generate/website-v2/stream",
+        body: { idea, businessIntelligence },
+        dispatch,
+      })
 
-    const result = await handle.result
-    return result.projectId
+      handleRef.current = handle
+
+      const result = await handle.result
+      return result.projectId
+    } finally {
+      startingRef.current = false
+    }
   }, [dispatch])
 
   const cancel = useCallback(() => {

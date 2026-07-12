@@ -451,10 +451,21 @@ export async function runMarcusStreamAgent(
   userId: string,
   res: Response,
   taskBus?: MarcusTaskBus,
+  signal?: AbortSignal,
 ): Promise<void> {
   let projectId: string | undefined;
   let fileContents = new Map<string, string>();
   let allFiles: ProjectFile[] = [];
+
+  // The client can disconnect at any point (navigated away, retried, closed the
+  // tab) — but without this check the LLM calls and DB write below keep running
+  // to completion regardless, burning tokens/compute and creating a project the
+  // user never sees. Bail out before every expensive step once that happens.
+  const bailIfAborted = (): boolean => {
+    if (!signal?.aborted) return false;
+    logger.info({ projectId, userId }, "[MARCUS_STREAM] Client disconnected — aborting pipeline, skipping DB save");
+    return true;
+  };
 
   taskBus?.emit("pipeline", "start", "running", { userId }, "pipeline");
 
@@ -512,6 +523,7 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
       _feature:    "website-v2-stream",
       _userId:     userId,
       _projectId:  projectId,
+      signal,
     });
 
     const execResult = await parseXmlStream({
@@ -531,6 +543,8 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
     }, "execute");
 
     logger.info({ projectId, fileCount: allFiles.length }, "[MARCUS_STREAM] EXECUTE phase complete");
+
+    if (bailIfAborted()) return;
 
     // ── OBSERVE phase ──────────────────────────────────────────────────────────
     sseWrite(res, { phase: "loop-phase", loopPhase: "OBSERVE", message: "Inspecting generated files…" });

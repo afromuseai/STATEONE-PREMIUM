@@ -8,10 +8,10 @@ import { logger } from "../lib/logger";
 
 // ─── Tier limits ──────────────────────────────────────────────────────────────
 const TIER_LIMITS: Record<string, { minute: number; hour: number; day: number }> = {
-  free:       { minute: 10,  hour: 50,   day: 200   },
-  pro:        { minute: 30,  hour: 200,  day: 1000  },
-  startup:    { minute: 100, hour: 1000, day: 5000  },
-  enterprise: { minute: 500, hour: 5000, day: 50000 },
+  free:       { minute: 60,  hour: 500,   day: 2000   },
+  pro:        { minute: 120, hour: 1000,  day: 5000   },
+  startup:    { minute: 300, hour: 3000,  day: 15000  },
+  enterprise: { minute: 600, hour: 6000,  day: 50000  },
   admin:      { minute: 9999, hour: 99999, day: 999999 },
 };
 
@@ -79,7 +79,9 @@ export function rateLimit(options?: {
     // Admins bypass rate limits
     if (skipAdmin && isAdmin) { next(); return; }
 
-    // Determine tier (default free; real plan lookup would require async)
+    // Tier: admin if admin, free otherwise. The real plan lookup lives in
+    // subscriptions.ts; callers that need per-plan limits should ensure
+    // requireAuth + requirePlan run before this middleware.
     const tier = options?.tierOverride ?? (isAdmin ? "admin" : "free");
     const limits = TIER_LIMITS[tier] ?? TIER_LIMITS.free;
 
@@ -140,8 +142,8 @@ export function globalRateLimit() {
 
     const perMin = windowCount(timestamps, MS_MINUTE);
 
-    // Hard IP limit: 300/min (anti-DDoS baseline)
-    if (perMin > 300) {
+    // Hard IP limit: 600/min (anti-DDoS baseline)
+    if (perMin > 600) {
       res.status(429).json({ error: "Too many requests from this IP. Try again later.", retryAfter: 60 });
       return;
     }

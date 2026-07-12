@@ -1,27 +1,14 @@
 import { motion } from "framer-motion"
 import { useState, useRef, useEffect } from "react"
 import { X, ChevronDown, Circle } from "lucide-react"
+import type { TerminalLine } from "@/components/website-v2/runtime/runtime-types"
 
-interface LogLine {
-  id:   number
-  type: "info" | "success" | "error" | "warn" | "cmd" | "dim"
-  text: string
+interface TerminalDrawerProps {
+  onClose: () => void
+  terminalLines: TerminalLine[]
 }
 
-const PLACEHOLDER_LOGS: LogLine[] = [
-  { id: 1,  type: "dim",     text: "─── WebContainer runtime ──────────────────────" },
-  { id: 2,  type: "cmd",     text: "$ pnpm install" },
-  { id: 3,  type: "info",    text: "  Packages: +532" },
-  { id: 4,  type: "success", text: "  ✓ Done in 3.2s" },
-  { id: 5,  type: "cmd",     text: "$ pnpm run dev" },
-  { id: 6,  type: "info",    text: "  ▲ Next.js 14.2.3" },
-  { id: 7,  type: "info",    text: "  - Local:   http://localhost:3000" },
-  { id: 8,  type: "info",    text: "  - Network: http://192.168.1.1:3000" },
-  { id: 9,  type: "success", text: "  ✓ Ready in 842ms" },
-  { id: 10, type: "dim",     text: "" },
-]
-
-const LOG_COLORS: Record<LogLine["type"], string> = {
+const LOG_COLORS: Record<TerminalLine["type"], string> = {
   info:    "text-white/45",
   success: "text-emerald-400/90",
   error:   "text-red-400",
@@ -30,13 +17,9 @@ const LOG_COLORS: Record<LogLine["type"], string> = {
   dim:     "text-white/20",
 }
 
-interface TerminalDrawerProps {
-  onClose: () => void
-}
-
-export function TerminalDrawer({ onClose }: TerminalDrawerProps) {
+export function TerminalDrawer({ onClose, terminalLines }: TerminalDrawerProps) {
   const [input, setInput]         = useState("")
-  const [history, setHistory]     = useState<LogLine[]>([])
+  const [history, setHistory]     = useState<TerminalLine[]>([])
   const [historyIdx, setHistoryIdx] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -46,15 +29,15 @@ export function TerminalDrawer({ onClose }: TerminalDrawerProps) {
     inputRef.current?.focus()
   }, [])
 
-  const allLogs = [...PLACEHOLDER_LOGS, ...history]
+  const allLogs = [...terminalLines, ...history]
 
   const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && input.trim()) {
       const cmd = input.trim()
       setHistory((prev) => [
         ...prev,
-        { id: Date.now(), type: "cmd", text: `$ ${cmd}` },
-        { id: Date.now() + 1, type: "info", text: "  (WebContainer not connected yet)" },
+        { id: Date.now(), type: "cmd", text: `$ ${cmd}`, time: "" },
+        { id: Date.now() + 1, type: "info", text: "  (WebContainer not connected yet)", time: "" },
       ])
       setInput("")
       setHistoryIdx(-1)

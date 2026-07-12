@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Globe, Plus, RefreshCw, AlertCircle, Loader, ArrowLeft, ChevronRight, FileCode, Terminal, GitBranch, Sparkles, Building2, Tag, Users, Target, ArrowRight } from "lucide-react"
+import { consumePendingIntent, dequeueWorkspaceSignals } from "@/lib/generation-context"
 import { useLocation, useParams } from "wouter"
 import { ProjectCard } from "@/components/website-v2/ProjectCard"
 import { useWebsiteV2Projects } from "@/hooks/useWebsiteV2Projects"
 import { StudioShell } from "@/components/website-v2/ide/StudioShell"
-import { WebContainerProvider } from "@/components/website-v2/runtime/WebContainerProvider"
+import { WebContainerProviderNew } from "@/components/website-v2/runtime/WebContainerProviderNew";
 import { useWebsiteV2Project } from "@/hooks/useWebsiteV2Project"
-import { MarcusSessionProvider, useMarcusSessionContext, useMarcusSessionStream } from "@/lib/marcus-session/context"
+import { useMarcusSessionContext, useMarcusSessionStream } from "@/lib/marcus-session/context"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 
 type Step = "form" | "workspace"
@@ -66,7 +67,15 @@ function WebsiteStudioInner() {
   const { projects, loading: projectsLoading, error: projectsError, refresh: refreshProjects } = useWebsiteV2Projects()
   const { project, loading: projectLoading, error: projectError, refresh: refreshProject } = useWebsiteV2Project(projectId || "")
   const { start, cancel } = useMarcusSessionStream()
-  const { state: session } = useMarcusSessionContext()
+  const { state: session, dispatch } = useMarcusSessionContext()
+
+  // Discard a stale session left over from a different project the moment we
+  // land on a URL it doesn't belong to, so it can't resurface again later.
+  useEffect(() => {
+    if (params.id && session.projectId && params.id !== session.projectId && session.status !== "generating") {
+      dispatch({ type: "session.reset" })
+    }
+  }, [params.id, session.projectId, session.status, dispatch])
 
   const [step, setStep] = useState<Step>("form")
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -80,6 +89,21 @@ function WebsiteStudioInner() {
 
   useEffect(() => { ideaRef.current?.focus() }, [step])
   useEffect(() => { formIdeaRef.current = form.idea }, [form.idea])
+
+  // ── Consume pending intent from Copilot navigation ────────────────────────
+  // When Marcus navigates here with a website idea, consume the pending intent
+  // and populate the form with a typewriter animation. This is the ONLY copilot
+  // coupling — navigation + populate. Generation is always via standalone button.
+  useEffect(() => {
+    const intent = consumePendingIntent("website")
+    const queued = dequeueWorkspaceSignals("website")
+    const populateSignal = queued.find(s => s.type === "populate" && s.payload)
+    const idea = intent?.idea || populateSignal?.payload || ""
+
+    if (idea) {
+      typewriterPopulate(idea)
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Typewriter populate
   const typewriterPopulate = useCallback((text: string) => {
@@ -124,16 +148,23 @@ function WebsiteStudioInner() {
     void start(idea, Object.keys(bi).length > 0 ? bi : undefined)
   }, [form, start])
 
-  // Once the backend creates the project, sync the URL to /website-studio/:id
-  // (replaceState so Back doesn't land on a half-built workspace).
+  // Once the backend creates the project, sync the address bar to
+  // /website-studio/:id (so refresh/share/Back land on the right project).
+  //
+  // This must NOT go through wouter's navigate(): AnimatedRoutes keys its
+  // AnimatePresence transition on the full location string, so any router
+  // navigation — even a "replace" — unmounts and remounts this entire page
+  // (and the MarcusSessionProvider with it), killing the live SSE stream
+  // mid-generation. A raw History API call updates the visible URL without
+  // notifying the router, so no remount happens while Marcus is still working.
   useEffect(() => {
     if (step !== "workspace" || !session.projectId) return
     const segs = window.location.pathname.split("/")
     const currentId = segs[segs.length - 1]
     if (currentId !== session.projectId) {
-      navigate(`/website-studio/${session.projectId}`, { replace: true })
+      window.history.replaceState(null, "", `/website-studio/${session.projectId}`)
     }
-  }, [session.projectId, step, navigate])
+  }, [session.projectId, step])
 
   // Refresh the project list once a generation finishes.
   useEffect(() => {
@@ -161,6 +192,21 @@ function WebsiteStudioInner() {
   const view = step === "workspace" || params.id
     ? "workspace"
     : "form"
+
+  // ── Workspace state (computed unconditionally to keep hooks in order) ─────
+  const sessionMatchesRoute = !params.id || params.id === session.projectId
+  const liveId = sessionMatchesRoute
+    ? session.projectId ?? (session.status === "generating" ? session.sessionId : null)
+    : null
+  const liveProject = useMemo(() => {
+    if (!liveId) return null as unknown as V2Project
+    return sessionToProject(
+      liveId,
+      form.idea.trim().slice(0, 60) || "Your Website",
+      session.files,
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveId, session.files, form.idea])
 
   // ── Homepage: detailed form (Replit-style embedded) ────────────────────────
   if (view === "form") {
@@ -381,17 +427,14 @@ function WebsiteStudioInner() {
     // streaming, so we render the full IDE shell immediately — no "generating"
     // screen. The WebContainer boot is deferred (enabled=false) while Marcus is
     // still writing files; it fires the moment generation completes.
-    const liveId =
-      session.projectId ??
-      (session.status === "generating" ? session.sessionId : null)
-
-    if (liveId) {
-      const liveProject = sessionToProject(
-        liveId,
-        form.idea.trim().slice(0, 60) || "Your Website",
-        session.files,
-      )
-
+    //
+    // Session state is persisted across page mounts (see marcus-session/context)
+    // so a chat/timeline survives navigation — but that means a *stale* session
+    // from a previous, unrelated project can still be sitting around when the
+    // user opens a different project by URL. Only trust the session as "live"
+    // when there's no specific project in the URL (a fresh generation redirect)
+    // or when the URL's project id matches the session's own project id.
+    if (liveId && liveProject) {
       // Generation failed — show the error and a way back.
       if (session.status === "failed") {
         return (
@@ -421,9 +464,9 @@ function WebsiteStudioInner() {
       return (
         <div className="flex flex-1 min-w-0 h-full overflow-hidden">
           {/* Boot immediately (Replit/v0 style) so dev server is ready when Marcus finishes */}
-          <WebContainerProvider project={liveProject}>
+          <WebContainerProviderNew project={liveProject} enabled={true}>
             {shell}
-          </WebContainerProvider>
+          </WebContainerProviderNew>
         </div>
       )
     }
@@ -432,9 +475,9 @@ function WebsiteStudioInner() {
     if (project) {
       return (
         <div className="flex flex-1 min-w-0 h-full overflow-hidden">
-          <WebContainerProvider project={project}>
+          <WebContainerProviderNew project={project} enabled={true}>
             <StudioShell project={project} onRefresh={refreshProject} session={null} />
-          </WebContainerProvider>
+          </WebContainerProviderNew>
         </div>
       )
     }
@@ -453,9 +496,5 @@ function WebsiteStudioInner() {
   }
 
 export default function WebsiteStudioPage() {
-  return (
-    <MarcusSessionProvider>
-      <WebsiteStudioInner />
-    </MarcusSessionProvider>
-  )
+  return <WebsiteStudioInner />
 }

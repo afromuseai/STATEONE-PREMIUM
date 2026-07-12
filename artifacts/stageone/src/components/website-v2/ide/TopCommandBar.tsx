@@ -35,8 +35,12 @@ interface TopCommandBarProps {
   onCodeReview:          () => void
   /** P5 — Open deployment pipeline modal */
   onDeploy:              () => void
+  onRun:                 () => void
   /** P1 — Open command palette */
   onOpenPalette:         () => void
+
+  
+  
 }
 
 export function TopCommandBar({
@@ -48,6 +52,7 @@ export function TopCommandBar({
   onCodeReview,
   onDeploy,
   onOpenPalette,
+  onRun,
 }: TopCommandBarProps) {
   const [, navigate] = useLocation()
   const status       = STATUS_CFG[project.status] ?? STATUS_CFG.planning
@@ -144,8 +149,9 @@ export function TopCommandBar({
         </button>
 
         <button
-          title="Run project"
-          aria-label="Run project"
+            onClick={onRun}
+            title="Run project"
+            aria-label="Run project"
           className="flex items-center gap-1 rounded-md border border-white/[0.06] bg-white/[0.025] px-2 py-1 text-[11px] text-white/45 transition-all hover:border-white/12 hover:bg-white/[0.05] hover:text-white/80"
         >
           <Play className="h-3 w-3" />

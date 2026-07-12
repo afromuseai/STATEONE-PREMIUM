@@ -2,9 +2,9 @@ import { motion } from "framer-motion"
 import { ArrowLeft, AlertCircle, Loader } from "lucide-react"
 import { useLocation } from "wouter"
 import { StudioShell }           from "@/components/website-v2/ide/StudioShell"
-import { WebContainerProvider }  from "@/components/website-v2/runtime/WebContainerProvider"
+import { WebContainerProviderNew }  from "@/components/website-v2/runtime/WebContainerProviderNew"
 import { useWebsiteV2Project }   from "@/hooks/useWebsiteV2Project"
-import { MarcusSessionProvider } from "@/lib/marcus-session/context"
+// Session provider is at App level — no local wrapper needed.
 
 interface WebsiteStudioWorkspacePageProps {
   id: string
@@ -47,12 +47,10 @@ export default function WebsiteStudioWorkspacePage({ id }: WebsiteStudioWorkspac
   }
 
   return (
-    <MarcusSessionProvider>
-      <div className="flex flex-1 min-w-0 h-full overflow-hidden">
-        <WebContainerProvider project={project}>
-          <StudioShell project={project} onRefresh={refresh} />
-        </WebContainerProvider>
-      </div>
-    </MarcusSessionProvider>
+    <div className="flex flex-1 min-w-0 h-full overflow-hidden">
+      <WebContainerProviderNew project={project}>
+        <StudioShell project={project} onRefresh={refresh} />
+      </WebContainerProviderNew>
+    </div>
   )
 }

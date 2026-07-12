@@ -1,0 +1,111 @@
+Before you start building I want to show you my spec and also the vision I am looking for so that you you know what to do best.
+
+ WEBSITE ARCHITECTURE REBUILD Plan (Phased)Phase 1: Streaming Tool Call Transparency 
+Goal: Make every tool call visible in the conversation stream
+
+
+Create ToolCallStream component - Renders tool invocations as they happen:
+// Shows: 🔧 read_file(src/app/page.tsx) → streaming result
+//        🔧 write_file(src/components/Header.tsx) → diff preview → confirm
+//        🔧 run_command(npm install) → live terminal output
+
+
+Modify AgentPanel SSE handler - Parse tool calls from stream, emit events:
+// Current: buffers full response, then parses
+// New: yield { type: 'tool_call', name, params, status: 'running' }
+//      yield { type: 'tool_result', name, result, ok }
+//      yield { type: 'text', content }
+
+
+Add ToolCallCard UI - Collapsible cards showing:
+
+
+Tool name + icon + params (syntax highlighted)
+Live status spinner → success/error badge
+Expandable result/output
+File paths as clickable links (open in editor)
+Phase 2: Diff-Driven Editing with Approval 
+Goal: Show diffs before applying, like Cursor/Windsurf
+
+
+Enhance DiffReviewPanel (already exists P3) - Make it the default for ALL writes:
+
+
+Side-by-side diff with syntax highlighting
+Inline accept/reject per hunk
+"Apply All" / "Reject All" buttons
+Show file path prominently
+Modify writeFile in WebContainerProvider - Return diff instead of direct write:
+// Current: await wc.fs.writeFile(path, content)
+// New: return { oldContent, newContent, diff } for review
+
+
+Add PendingChanges indicator - Top bar shows count of unapplied diffs
+
+
+Phase 3: Conversational Streaming UX 
+Goal: Natural chat experience with thinking visible
+
+
+Create AgentConversation component - Message list with:
+
+
+User messages (right-aligned)
+Assistant thinking blocks (collapsible "💭 Thinking...")
+Tool call cards (inline in message flow)
+Final response text
+Error/retry affordances
+Streaming markdown renderer - Progressive rendering with:
+
+
+Code blocks with file path headers
+Live terminal output blocks
+Diff blocks with accept/reject
+Add "Continue" / "Cancel" controls - During long operations
+
+
+Phase 4: Context & Memory Integration
+Goal: Agent sees full context automatically
+
+
+Auto-attach context - On each user message, include:
+
+
+Current open file + selection
+Recent terminal output (last 50 lines)
+Project file tree (condensed)
+Previous tool results (summarized)
+Enhance ProjectMemory - Persist across sessions:
+
+
+User preferences (framework, styling, patterns)
+Common commands run
+Rejected/accepted patterns
+Add @mention support - Type @file to reference files, @terminal for output
+
+
+Phase 5: Advanced Agent Capabilities 
+Goal: Parity with Cursor/Windsurf/Claude Code
+
+
+Multi-file edits - Single tool call with multiple write_file ops
+Parallel tool execution - Run independent reads/searches concurrently
+Background tasks - Long-running (build, test) with progress webhook
+Checkpoint/rollback - Git-like snapshots before major changes
+Custom tool registry - User-defined scripts as tools
+
+
+Streaming Protocol Design (SSE)
+// Server sends:
+{ type: 'thinking', content: 'User wants a header component...' }
+{ type: 'tool_call', id: 'tc-1', name: 'read_file', params: { path: 'src/app/page.tsx' }, status: 'running' }
+{ type: 'tool_result', id: 'tc-1', name: 'read_file', result: '...', ok: true }
+{ type: 'tool_call', id: 'tc-2', name: 'write_file', params: { path: 'src/components/Header.tsx', content: '...' }, status: 'running' }
+{ type: 'tool_diff', id: 'tc-2', oldContent: '', newContent: '...', path: 'src/components/Header.tsx' }
+{ type: 'tool_result', id: 'tc-2', name: 'write_file', result: 'Created', ok: true }
+{ type: 'text', content: 'Created Header.tsx with responsive nav...' }
+
+
+fully replace with AgentConversation? (Recommend: replace, but keep DiffReviewPanel)
+Persistence? - Store conversation + tool history in DB per project? (Yes, for context across sessions)
+Use Monaco's built-in diff editor for DiffReviewPanel instead of custom?
