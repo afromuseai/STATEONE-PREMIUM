@@ -510,11 +510,21 @@ export function AgentConversation({
   }, [])
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       void submit()
     }
   }
+
+  // Auto-resize textarea
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = "auto"
+    const next = Math.min(el.scrollHeight, 160)
+    el.style.height = `${Math.max(next, 20)}px`
+  }, [input])
 
   // ── Status label ────────────────────────────────────────────────────────────
   const statusLabel = (() => {
@@ -648,43 +658,50 @@ export function AgentConversation({
           <div ref={bottomRef} />
         </div>
 
-        {/* Input area */}
-        <div className="flex flex-shrink-0 flex-col border-t border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] p-3">
-          {/* Text input */}
-          <div className="flex items-end gap-2">
+        {/* Input area — VS Code / Replit IDE style */}
+        <div className="flex-shrink-0 border-t border-[rgba(255,255,255,0.06)] bg-[#1A1A1A]">
+          {/* Composer box */}
+          <div className="relative px-3 pt-2.5 pb-1">
             <textarea
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKey}
-              placeholder={isRunning ? "Working…" : "Ask Marcus to build, edit, or explain…"}
-              disabled={isRunning}
+              placeholder={isGenerating ? "Marcus is building your website…" : isRunning ? "Working…" : "Ask Marcus to build, edit, or explain…"}
+              disabled={isRunning || isGenerating}
               rows={1}
-              className="flex-1 min-h-[40px] max-h-32 resize-none rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#202020] px-3 py-2 text-sm text-[#ECECEC] placeholder:text-[#ECECEC]/20 focus:border-[rgba(255,255,255,0.08)] focus:outline-none focus:ring-1 focus:ring-[rgba(255,255,255,0.08)] transition-colors"
-              style={{ lineHeight: "1.5" }}
+              style={{ minHeight: "20px", maxHeight: "160px", lineHeight: "1.6" }}
+              className="w-full resize-none bg-transparent pr-8 text-[13px] text-[#ECECEC] placeholder:text-[#ECECEC]/22 focus:outline-none disabled:cursor-not-allowed overflow-y-auto"
             />
+            {/* Send button — anchored bottom-right of textarea */}
             <button
               onClick={submit}
-              disabled={!input.trim() || isRunning}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#252525] text-[#ECECEC] transition-all hover:bg-[#333333] disabled:opacity-30 disabled:cursor-not-allowed"
-              aria-label="Send"
+              disabled={!input.trim() || isRunning || isGenerating}
+              className="absolute bottom-1.5 right-3 flex h-6 w-6 items-center justify-center rounded transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white/[0.07]"
+              aria-label="Send (Enter)"
             >
               {isRunning ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#ECECEC]/50" />
               ) : (
-                <Send className="h-4 w-4" />
+                <Send className="h-3.5 w-3.5 text-[#ECECEC]/40" />
               )}
             </button>
           </div>
 
-          {/* Cancel button when running */}
-          {isRunning && (
-            <button
-              onClick={cancel}
-              className="mt-2 w-full rounded-md bg-[#252525] px-3 py-1.5 text-sm text-[#ECECEC]/35 hover:bg-[#252525] transition-colors"
-            >
-              Cancel
-            </button>
-          )}
+          {/* Footer row */}
+          <div className="flex items-center justify-between px-3 pb-2">
+            <span className="text-[10px] text-[#ECECEC]/18">
+              {isRunning || isGenerating ? "" : "↵ to send  ·  ⇧↵ new line"}
+            </span>
+            {isRunning && !isGenerating && (
+              <button
+                onClick={cancel}
+                className="text-[10px] text-[#ECECEC]/30 underline underline-offset-2 hover:text-[#ECECEC]/60 transition-colors"
+              >
+                Stop
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
