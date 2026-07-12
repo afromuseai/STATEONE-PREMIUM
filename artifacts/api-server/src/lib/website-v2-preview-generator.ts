@@ -28,7 +28,9 @@ const PRIORITY_PATTERNS   = [
 ];
 
 // ─── System prompt ────────────────────────────────────────────────────────────
-const PREVIEW_SYSTEM_PROMPT = `You are a frontend rendering engineer.
+const PREVIEW_SYSTEM_PROMPT = `You are a senior frontend engineer producing a pixel-quality, production-grade
+HTML preview of a real website — this is what the client sees first, so sloppy
+spacing or layout is not acceptable.
 
 You receive a Next.js project file set.
 
@@ -45,7 +47,16 @@ The HTML must:
 - Include responsive behavior and animations (CSS transitions, keyframes)
 - Be fully self-contained — no external imports, no CDN links
 - Use real business content from the BusinessContext (company name, industry, taglines)
-- Never use placeholder text (Lorem ipsum, "Your Company", "Coming soon")`;
+- Never use placeholder text (Lorem ipsum, "Your Company", "Coming soon")
+
+LAYOUT & SPACING RULES (violating these produces a broken, "raw HTML" look — avoid it):
+- Always start the stylesheet with a reset: \`*{box-sizing:border-box;margin:0;padding:0}\` plus sensible defaults for img/svg (display:block, max-width:100%).
+- Every section is a full-width block with its own vertical padding (e.g. 80-120px desktop, 48-64px mobile); content inside sits in a centered container with a fixed max-width (1200-1280px) and consistent horizontal padding (24-32px) — never let text or elements touch the viewport edge.
+- Use a real spacing scale (e.g. multiples of 4/8px) consistently for gaps, margins, and padding — no arbitrary one-off values that create uneven rhythm between elements.
+- Decorative elements (gradient blobs, background shapes, glows) MUST live inside a parent with \`position:relative; overflow:hidden\` and be sized/positioned so they never spill outside their section or cut across unrelated content — they are background texture, not foreground elements crossing the layout diagonally over text or buttons.
+- Any \`position:absolute\` or \`position:fixed\` element must have an explicit, intentional placement verified against its container's bounds — never leave one floating disconnected from the content it belongs to.
+- Headings, body copy, and buttons need deliberate line-height (1.1-1.3 for headings, 1.5-1.7 for body) and spacing between them (never stacked with zero gap, never overlapping).
+- Verify nothing overlaps: stack unrelated elements vertically with clear gaps rather than absolute-positioning them on top of each other unless it's an intentional, correctly z-indexed composition.`;
 
 // ─── Build user prompt ────────────────────────────────────────────────────────
 function buildPreviewPrompt(
@@ -146,7 +157,7 @@ export async function runPreviewGenerator(
   const stream = await streamNvidia({
     model:       PREVIEW_MODEL,
     temperature: 0.25,
-    maxTokens:   8000,
+    maxTokens:   16000,
     messages: [
       { role: "system", content: PREVIEW_SYSTEM_PROMPT },
       { role: "user",   content: buildPreviewPrompt(context, blueprint, files) },

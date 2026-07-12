@@ -42,7 +42,7 @@ const AgentRequestSchema = z.object({
     role:    z.enum(["user", "assistant"]),
     content: z.string(),
   })).min(1),
-  mode: z.enum(["plan", "execute"]).default("plan"),
+  mode: z.enum(["plan", "execute"]).default("execute"),
 });
 
 // ─── System prompt builder ─────────────────────────────────────────────────────

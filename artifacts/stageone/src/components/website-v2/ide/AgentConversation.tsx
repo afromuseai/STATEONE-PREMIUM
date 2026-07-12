@@ -1,11 +1,11 @@
 // ─── AgentConversation — Streaming conversation UI (replaces AgentPanel) ───────
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Send, Loader2, CheckCircle, AlertCircle, RefreshCw,
-  FileCode, FileEdit, Play, Cpu, User, Search, Terminal,
-  FolderOpen, Brain, Zap, ChevronRight, Check, X, Copy, ChevronUp, ChevronDown,
+  FileCode, FileEdit, Cpu, User, Search, Terminal,
+  FolderOpen, Brain, Zap, ChevronRight, Check, Copy, ChevronUp, ChevronDown, FileText,
 } from "lucide-react"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import type { TimelineEntry as TimelineEntryType } from "./AgentRuntime"
@@ -15,6 +15,44 @@ import { AgentRuntime, type ProjectMemory, type AgentMessage, type TimelineEntry
 import { ToolCallCard } from "./ToolCallCard"
 import { ThinkingBlock } from "./ThinkingBlock"
 import { useOptionalMarcusSession } from "@/lib/marcus-session/context"
+import type { MarcusSessionState, ConversationEntry } from "@/lib/marcus-session/types"
+
+// ─── Convert a live-generation ConversationEntry into the shared TimelineEntry
+// shape so the initial build streams through the exact same markdown,
+// grouping, and card components as the post-generation editing chat — one
+// visual surface for Marcus everywhere in Website Studio, never two.
+function toTimelineEntry(entry: ConversationEntry): TimelineEntry {
+  const time = new Date(entry.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  switch (entry.kind) {
+    case "thinking":
+      return { kind: "thinking", text: entry.text, id: entry.id, time }
+    case "user":
+      return { kind: "user-msg", text: entry.text, id: entry.id, time }
+    case "agent":
+      return { kind: "agent-msg", text: entry.text, id: entry.id, time }
+    case "tool":
+      return {
+        kind: "tool-call", name: entry.tool, params: entry.path ? { path: entry.path } : {},
+        status: entry.status === "failed" ? "error" : entry.status,
+        result: entry.detail, id: entry.id, time,
+      }
+    case "plan":
+      return { kind: "plan", text: entry.text, id: entry.id, time }
+    case "scan":
+      return {
+        kind: "scan", status: entry.status === "failed" ? "error" : entry.status,
+        summary: entry.summary, id: entry.id, time,
+      }
+    case "validation":
+      return { kind: "validation", success: entry.success, errors: entry.errors, fixed: entry.fixed, id: entry.id, time }
+    case "file-change":
+      return {
+        kind: "file-change",
+        change: { path: entry.path, operation: entry.operation },
+        id: entry.id, time,
+      }
+  }
+}
 
 // ─── Markdown renderer (safe, no dangerouslySetInnerHTML) ─────────────────────
 function InlineBold({ text }: { text: string }) {
@@ -320,6 +358,12 @@ interface AgentConversationProps {
     terminalOutput: string
     fileTree: string
   }
+  /** Optional live generation session. While its status is "generating", this
+   *  component renders the streaming build activity (no input box — it's a
+   *  fire-and-forget run) instead of the interactive editing chat. Once the
+   *  session moves past "generating" (or is absent), the normal chat takes
+   *  over automatically. There is only ever one panel, never two. */
+  generationSession?: MarcusSessionState | null
 }
 
 export function AgentConversation({
@@ -331,7 +375,13 @@ export function AgentConversation({
   externalInput,
   onExternalInputConsumed,
   editorContext,
+  generationSession,
 }: AgentConversationProps) {
+  const isGenerating = generationSession?.status === "generating"
+  const generationTimeline = useMemo(
+    () => (generationSession?.conversation ?? []).map(toTimelineEntry),
+    [generationSession?.conversation],
+  )
   const { status: wcStatus, readFile, listDir, runCommand, writeFile, writeFileForReview: wcWriteFileForReview } = useWebContainer()
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -340,10 +390,8 @@ export function AgentConversation({
   const [phase, setPhase] = useState<string | null>(null)
   const [projectMemory, setProjectMemory] = useState<ProjectMemory | null>(null)
   const [scanStatus, setScanStatus] = useState<"idle" | "scanning" | "done" | "error">("idle")
-  const [pendingPlan, setPendingPlan] = useState<string | null>(null)
   const [conversation, setConversation] = useState<AgentMessage[]>([])
   const [isRunning, setIsRunning] = useState(false)
-  const [showPlanDetails, setShowPlanDetails] = useState(false)
   
   // Streaming state - use a single message being built
   const [streamingMessage, setStreamingMessage] = useState<{
@@ -418,7 +466,6 @@ export function AgentConversation({
           }
         })
       },
-      onPendingPlanChange: setPendingPlan,
       onProjectMemoryChange: setProjectMemory,
       onScanStatusChange: setScanStatus,
       onConversationChange: setConversation,
@@ -452,26 +499,11 @@ export function AgentConversation({
     const text = input.trim()
     if (!text || isRunning) return
     setInput("")
-    setPendingPlan(null)
 
     if (runtimeRef.current) {
       await runtimeRef.current.submit(text, editorContext)
     }
   }, [input, isRunning, editorContext])
-
-  const confirmPlan = useCallback(async () => {
-    setShowPlanDetails(false)
-    if (runtimeRef.current) {
-      await runtimeRef.current.confirmPlan()
-    }
-  }, [])
-
-  const rejectPlan = useCallback(() => {
-    setShowPlanDetails(false)
-    if (runtimeRef.current) {
-      runtimeRef.current.rejectPlan()
-    }
-  }, [])
 
   const cancel = useCallback(() => {
     if (runtimeRef.current) {
@@ -488,29 +520,31 @@ export function AgentConversation({
 
   // ── Status label ────────────────────────────────────────────────────────────
   const statusLabel = (() => {
+    if (isGenerating) return generationSession?.currentPhase ? (generationSession.phaseMessage || generationSession.currentPhase) : "Building your website…"
     if (wcStatus !== "ready") return `WC ${wcStatus}…`
     if (scanStatus === "scanning") return "Scanning project…"
-    if (phase === "planning") return "Planning…"
     if (phase?.startsWith("executing")) return `Executing (iter ${phase.split("-")[1]})…`
     if (isRunning) return "Working…"
-    if (pendingPlan) return "Awaiting confirmation"
     return "Ready"
   })()
 
   const statusColor = (() => {
+    if (isGenerating) return "text-amber-400/80"
     if (wcStatus !== "ready") return "text-amber-400/80"
     if (isRunning) return "text-amber-400/80"
-    if (pendingPlan) return "text-indigo-400/80"
     return "text-emerald-400/60"
   })()
 
   const dotColor = (() => {
-    if (isRunning || wcStatus !== "ready") return "bg-amber-400"
-    if (pendingPlan) return "bg-indigo-400"
+    if (isGenerating || isRunning || wcStatus !== "ready") return "bg-amber-400"
     return "bg-emerald-400"
   })()
 
-  const showEmptyState = timeline.length === 0 && !isRunning && !streamingMessage
+  // Which timeline/streaming content is on screen right now — the live build
+  // stream while generating, otherwise the interactive editing chat.
+  const displayTimeline = isGenerating ? generationTimeline : timeline
+  const displayStreamingText = isGenerating ? generationSession?.streamingText : undefined
+  const showEmptyState = displayTimeline.length === 0 && !isRunning && !streamingMessage && !displayStreamingText
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -618,66 +652,13 @@ export function AgentConversation({
 
         {/* Input area */}
         <div className="flex flex-shrink-0 flex-col border-t border-white/[0.05] bg-[#0a0a0a] p-3">
-          {/* Pending plan confirmation */}
-          <AnimatePresence>
-            {pendingPlan && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="mb-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5"
-              >
-                <button
-                  onClick={() => setShowPlanDetails((v) => !v)}
-                  className="flex w-full items-center gap-2 text-left"
-                >
-                  <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded" style={{ background: "#6366f11a" }}>
-                    <FileCode className="h-2.5 w-2.5 text-indigo-400/80" />
-                  </div>
-                  <span className="text-[12px] font-medium text-white/55">Plan ready — review before running</span>
-                  <span className="ml-auto flex-shrink-0 text-white/25">
-                    {showPlanDetails ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                  </span>
-                </button>
-                <AnimatePresence initial={false}>
-                  {showPlanDetails && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="mt-2 pl-7">
-                        <MarkdownText text={stripToolCalls(pendingPlan)} />
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                <div className="mt-2.5 flex items-center gap-2 pl-7">
-                  <button
-                    onClick={confirmPlan}
-                    className="flex items-center gap-1.5 rounded-md bg-indigo-500/20 px-3 py-1.5 text-sm font-semibold text-indigo-300 hover:bg-indigo-500/30 transition-colors"
-                  >
-                    <Play className="h-3.5 w-3.5" /> Continue
-                  </button>
-                  <button
-                    onClick={rejectPlan}
-                    className="flex items-center gap-1.5 rounded-md bg-white/[0.04] px-3 py-1.5 text-sm text-white/35 hover:bg-white/[0.08] transition-colors"
-                  >
-                    <X className="h-3.5 w-3.5" /> Cancel
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* Text input */}
           <div className="flex items-end gap-2">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKey}
-              placeholder={isRunning ? "Working…" : pendingPlan ? "Confirm or cancel the plan above" : "Ask Marcus to build, edit, or explain…"}
+              placeholder={isRunning ? "Working…" : "Ask Marcus to build, edit, or explain…"}
               disabled={isRunning}
               rows={1}
               className="flex-1 min-h-[40px] max-h-32 resize-none rounded-lg border border-white/[0.08] bg-black/30 px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-colors"

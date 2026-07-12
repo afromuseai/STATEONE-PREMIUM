@@ -157,7 +157,7 @@ export interface AgentStreamEvent {
 }
 
 export async function streamAgent(
-  payload: { projectMemory?: ProjectMemory; messages: AgentMessage[]; mode: "plan" | "execute" },
+  payload: { projectMemory?: ProjectMemory; messages: AgentMessage[]; mode: "execute" },
   signal: AbortSignal,
   onEvent: (event: AgentStreamEvent) => void,
 ): Promise<string> {
@@ -255,7 +255,6 @@ export class AgentRuntime {
   private conversation: AgentMessage[] = []
   private timeline: TimelineEntry[] = []
   private phase: string | null = null
-  private pendingPlan: string | null = null
   private streamText = ""
   private abortRef: AbortController | null = null
   private isRunning = false
@@ -272,7 +271,6 @@ export class AgentRuntime {
   private onPhaseChange: (phase: string | null) => void
   private onStreamTextChange: (text: string) => void
   private onEvent: (event: AgentStreamEvent) => void
-  private onPendingPlanChange: (plan: string | null) => void
   private onProjectMemoryChange: (memory: ProjectMemory | null) => void
   private onScanStatusChange: (status: "idle" | "scanning" | "done" | "error") => void
   private onConversationChange: (messages: AgentMessage[]) => void
@@ -297,7 +295,6 @@ export class AgentRuntime {
     onPhaseChange: (phase: string | null) => void
     onStreamTextChange: (text: string) => void
     onEvent: (event: AgentStreamEvent) => void
-    onPendingPlanChange: (plan: string | null) => void
     onProjectMemoryChange: (memory: ProjectMemory | null) => void
     onScanStatusChange: (status: "idle" | "scanning" | "done" | "error") => void
     onConversationChange: (messages: AgentMessage[]) => void
@@ -319,7 +316,6 @@ export class AgentRuntime {
     this.onPhaseChange = params.onPhaseChange
     this.onStreamTextChange = params.onStreamTextChange
     this.onEvent = params.onEvent
-    this.onPendingPlanChange = params.onPendingPlanChange
     this.onProjectMemoryChange = params.onProjectMemoryChange
     this.onScanStatusChange = params.onScanStatusChange
     this.onConversationChange = params.onConversationChange
@@ -913,7 +909,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
   }
 
   // ── Main agent loop ─────────────────────────────────────────────────────────
-  async runAgentLoop(initialConversation: AgentMessage[], mode: "plan" | "execute") {
+  async runAgentLoop(initialConversation: AgentMessage[], mode: "execute" = "execute") {
     if (this.abortRef) this.abortRef.abort()
     const ctrl = new AbortController()
     this.abortRef = ctrl
@@ -926,7 +922,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
     for (let i = 0; i < MAX_LOOP_ITERATIONS; i++) {
       this.streamText = ""
       this.onStreamTextChange("")
-      this.phase = mode === "plan" ? "planning" : `executing-${i + 1}`
+      this.phase = `executing-${i + 1}`
       this.onPhaseChange(this.phase)
 
       // Collect tool calls from streaming events
@@ -994,24 +990,6 @@ Tell me what to change and I'll plan it first, then execute it.`,
 
       this.streamText = ""
       this.onStreamTextChange("")
-
-      // O3: Plan mode — show plan and wait for user confirmation
-      if (mode === "plan") {
-        const displayText = stripToolCalls(fullText)
-        this.addEntry({ kind: "plan", text: displayText, id: "", time: "" })
-        this.pendingPlan = fullText
-        this.onPendingPlanChange(fullText)
-        this.conversation = [
-          ...conv,
-          { role: "assistant", content: fullText },
-        ]
-        this.onConversationChange(this.conversation)
-        this.phase = null
-        this.onPhaseChange(null)
-        this.isRunning = false
-        this.onIsRunningChange(false)
-        return
-      }
 
       // Execute mode: use collected tool calls from streaming
       const toolCalls = collectedToolCalls
@@ -1118,30 +1096,6 @@ Tell me what to change and I'll plan it first, then execute it.`,
     this.onIsRunningChange(false)
   }
 
-  // ── O3: Handle plan confirmation ────────────────────────────────────────────
-  async confirmPlan() {
-    if (!this.pendingPlan) return
-    this.pendingPlan = null
-    this.onPendingPlanChange(null)
-
-    const confirmConv: AgentMessage[] = [
-      ...this.conversation,
-      { role: "user", content: "Continue." },
-    ]
-    this.conversation = confirmConv
-    this.onConversationChange(this.conversation)
-
-    await this.runAgentLoop(confirmConv, "execute")
-  }
-
-  rejectPlan() {
-    this.pendingPlan = null
-    this.onPendingPlanChange(null)
-    this.phase = null
-    this.onPhaseChange(null)
-    this.addEntry({ kind: "agent-msg", text: "Plan cancelled. What would you like to do instead?", id: "", time: "" })
-  }
-
   // ── Submit handler ──────────────────────────────────────────────────────────
   async submit(input: string, editorContext?: {
     activeFilePath: string | null
@@ -1215,7 +1169,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
     this.conversation = newConv
     this.onConversationChange(newConv)
 
-    await this.runAgentLoop(newConv, "plan")
+    await this.runAgentLoop(newConv, "execute")
   }
 
   cancel() {
@@ -1230,7 +1184,6 @@ Tell me what to change and I'll plan it first, then execute it.`,
   getTimeline() { return this.timeline }
   getPhase() { return this.phase }
   getStreamText() { return this.streamText }
-  getPendingPlan() { return this.pendingPlan }
   getProjectMemory() { return this.projectMemory }
   getScanStatus() { return this.scanStatus }
   getConversation() { return this.conversation }
