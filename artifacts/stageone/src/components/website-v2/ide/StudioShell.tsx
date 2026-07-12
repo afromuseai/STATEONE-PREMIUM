@@ -22,6 +22,11 @@ import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import type { MarcusSessionState } from "@/lib/marcus-session/types"
 import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu } from "lucide-react"
 import { useRuntime } from "@/components/website-v2/runtime/react/useRuntime"
+// Bridges the existing Marcus generation stream onto the new generation event
+// bus, so `GenerationActivity` (rendered inside AgentConversation) reflects
+// real builds. The adapter itself has no Marcus imports — this is the one
+// place that extracts a plain snapshot from `session` and feeds it in.
+import { useWebsiteGenerationAdapter } from "@/lib/website-generation/generation-adapter"
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 /** The four first-class workspace modes. Terminal is a full-pane mode, not a drawer. */
@@ -86,6 +91,18 @@ export function StudioShell({ project, onRefresh, session, previewGenerating }: 
       setSideView("marcus")
     }
   }, [session?.status])
+
+  // Feed the live Marcus session into the generation event bus so the new
+  // inline `GenerationActivity` (inside AgentConversation) reflects the real
+  // build instead of only reacting to the dev test helper. Safe to call with
+  // session === null — the adapter treats that as an idle snapshot.
+  useWebsiteGenerationAdapter({
+    status:       session?.status ?? "idle",
+    phase:        session?.currentPhase ?? null,
+    phaseMessage: session?.phaseMessage ?? null,
+    error:        session?.error ?? null,
+    files:        session ? Object.keys(session.files) : undefined,
+  })
 
 
   // ── Terminal drawer (⌃`) ─────────────────────────────────────────────────────
