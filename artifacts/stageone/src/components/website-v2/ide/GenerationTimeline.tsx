@@ -6,12 +6,22 @@
 // and it renders a calm, collaborative build log — not a wall of console
 // output.
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Brain, Ruler, Palette, Image as ImageIcon, Atom, ShieldCheck,
   Check, AlertCircle, ChevronDown, FileCode,
 } from "lucide-react"
+
+// Website Studio's own generation event bus — independent of Marcus. Aliased
+// to avoid colliding with this file's pre-existing `GenerationEvent` /
+// `GenerationEventType` (the internal step-reducer contract below).
+import { useGenerationEvents } from "../generation/use-generation-events"
+import { generationBus } from "../generation/generation-event-bus"
+import type {
+  GenerationEvent as BusGenerationEvent,
+  GenerationEventType as BusGenerationEventType,
+} from "../generation/generation-events"
 
 // ─── Event-driven interface ────────────────────────────────────────────────────
 // The generation pipeline (Website Studio only — not Marcus) can dispatch
@@ -41,6 +51,8 @@ export interface TimelineStep {
   description: string
   status:      StepStatus
   detail?:     TimelineStepDetail
+  /** 0–100, only meaningful while `status === "active"`. */
+  progress?:   number
 }
 
 export interface BuildSummary {
@@ -173,6 +185,93 @@ export function applyGenerationEvent(
   }
 }
 
+/**
+ * Adapter — maps a bus `GenerationEvent` (see `../generation/generation-events`)
+ * onto the internal `GenerationTimelineState`. This is the frontend-event
+ * counterpart to `applyGenerationEvent` above; kept separate because the two
+ * event shapes differ (flat `message`/`details`/`progress` vs. the
+ * STEP_DETAIL/BUILD_SUMMARY internal contract).
+ */
+export function applyBusGenerationEvent(
+  state: GenerationTimelineState,
+  event: BusGenerationEvent,
+): GenerationTimelineState {
+  // ── Terminal failure — freeze the in-flight step as errored ────────────────
+  if (event.type === "GENERATION_ERROR") {
+    const activeId = state.steps.find(s => s.status === "active")?.id
+    return {
+      ...state,
+      error: event.message ?? "Generation failed",
+      steps: state.steps.map(step =>
+        step.id === activeId
+          ? { ...step, status: "error" as StepStatus, description: event.message ?? step.description }
+          : step
+      ),
+      buildSummary: state.buildSummary && {
+        ...state.buildSummary,
+        currentTask: event.message ?? state.buildSummary.currentTask,
+      },
+    }
+  }
+
+  // ── Completion — mark every step done ───────────────────────────────────────
+  if (event.type === "GENERATION_COMPLETED") {
+    return {
+      ...state,
+      error: null,
+      steps: state.steps.map(step => ({ ...step, status: "completed" as StepStatus, progress: undefined })),
+      buildSummary: state.buildSummary && {
+        ...state.buildSummary,
+        progress: 100,
+        currentTask: event.message ?? "Completed",
+      },
+    }
+  }
+
+  // ── Phase-advance events ────────────────────────────────────────────────────
+  const targetId = EVENT_TO_STEP[event.type]
+  if (!targetId) return state
+
+  const targetIdx = STEP_ORDER.indexOf(targetId)
+
+  const nextSteps = state.steps.map(step => {
+    const stepIdx = STEP_ORDER.indexOf(step.id)
+
+    if (stepIdx < targetIdx) {
+      return step.status === "error" ? step : { ...step, status: "completed" as StepStatus }
+    }
+
+    if (stepIdx === targetIdx) {
+      return {
+        ...step,
+        status:      "active" as StepStatus,
+        description: event.message ?? step.description,
+        progress:    event.progress,
+        detail: event.details
+          ? {
+              decision:     event.details.decision,
+              reason:       event.details.reason,
+              filesCreated: event.details.files,
+            }
+          : step.detail,
+      }
+    }
+
+    return step.status === "pending" ? step : { ...step, status: "pending" as StepStatus, progress: undefined }
+  })
+
+  return {
+    ...state,
+    error: null,
+    steps: nextSteps,
+    buildSummary: {
+      projectName: state.buildSummary?.projectName ?? "",
+      progress:    event.progress ?? state.buildSummary?.progress ?? 0,
+      currentTask: event.message  ?? state.buildSummary?.currentTask ?? "",
+    },
+  }
+}
+
 /** Convenience hook for consumers who want local state instead of wiring their own reducer. */
 export function useGenerationTimeline() {
   const [state, setState] = useState<GenerationTimelineState>(INITIAL_TIMELINE_STATE)
@@ -282,6 +381,11 @@ function TimelineRow({
           <div className="min-w-0">
             <p className="text-[13px] font-medium text-[#ECECEC]">{step.title}</p>
             <p className="mt-0.5 text-[11px] leading-snug text-[#A0A0A0]">{step.description}</p>
+            {step.status === "active" && typeof step.progress === "number" && (
+              <p className="mt-1 text-[10px] font-medium tabular-nums text-[#ECECEC]/60">
+                Progress: {Math.max(0, Math.min(100, Math.round(step.progress)))}%
+              </p>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
             <StatusGlyph status={step.status} />
@@ -384,7 +488,48 @@ export function GenerationTimeline({ steps, buildSummary, className }: Generatio
 
   const toggle = (id: TimelineStepId) => setExpandedId(prev => (prev === id ? null : id))
 
-  const orderedSteps = useMemo(() => steps, [steps])
+  // ── Live wiring: combine the steps/summary handed in by the parent (acting
+  // as the initial seed — e.g. DEFAULT_TIMELINE_STEPS + a mock summary) with
+  // events arriving on Website Studio's generation event bus. Nothing emits
+  // onto the bus yet from the real pipeline — this only listens.
+  const { latestEvent } = useGenerationEvents()
+  const seededRef = useRef(false)
+
+  const [liveState, setLiveState] = useState<GenerationTimelineState>({
+    steps:        steps,
+    buildSummary: buildSummary ?? null,
+    error:        null,
+  })
+
+  // Re-seed from props until the first live event arrives (e.g. parent swaps
+  // in a different project's initial steps/summary before generation starts).
+  useEffect(() => {
+    if (seededRef.current) return
+    setLiveState({ steps, buildSummary: buildSummary ?? null, error: null })
+  }, [steps, buildSummary])
+
+  useEffect(() => {
+    if (!latestEvent) return
+    seededRef.current = true
+    setLiveState(prev => applyBusGenerationEvent(prev, latestEvent))
+  }, [latestEvent])
+
+  // ── Temporary dev helper — lets us fire test events from the browser
+  // console, e.g. window.__generationTest({ type: "PLANNING_STARTED", ... }).
+  // Nothing production-facing depends on this; safe to remove later.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    (window as any).__generationTest = (
+      event: Partial<BusGenerationEvent> & { type: BusGenerationEventType },
+    ) => {
+      generationBus.emit({ timestamp: Date.now(), ...event })
+    }
+    return () => {
+      delete (window as any).__generationTest
+    }
+  }, [])
+
+  const orderedSteps = useMemo(() => liveState.steps, [liveState.steps])
 
   return (
     <div
@@ -403,7 +548,7 @@ export function GenerationTimeline({ steps, buildSummary, className }: Generatio
         ))}
       </div>
 
-      {buildSummary && <BuildSummaryCard summary={buildSummary} />}
+      {liveState.buildSummary && <BuildSummaryCard summary={liveState.buildSummary} />}
     </div>
   )
 }
