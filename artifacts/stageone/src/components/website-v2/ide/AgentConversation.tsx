@@ -10,7 +10,6 @@ import {
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import type { TimelineEntry as TimelineEntryType } from "./AgentRuntime"
 import { useWebContainer } from "@/components/website-v2/runtime/useWebContainer"
-import type { FileDiff } from "./DiffReviewPanel"
 import { AgentRuntime, type ProjectMemory, type AgentMessage, type TimelineEntry, type AgentStreamEvent, stripToolCalls } from "./AgentRuntime"
 import { ToolCallCard } from "./ToolCallCard"
 import { ThinkingBlock } from "./ThinkingBlock"
@@ -347,8 +346,10 @@ interface AgentConversationProps {
   project: V2Project
   onEditComplete: () => void
   onFileOpen: (file: V2ProjectFile) => void
-  onFileDiff?: (diff: FileDiff) => void
-  writeFileForReview?: (path: string, content: string) => Promise<{ oldContent: string; newContent: string; path: string }>
+  /** Persists a single file's content immediately — no separate confirmation
+   *  step. Marcus applies every change as it happens, the same way Replit's
+   *  own agent does. */
+  persistFile: (path: string, content: string) => Promise<void>
   externalInput?: string | null
   onExternalInputConsumed?: () => void
   editorContext?: {
@@ -370,8 +371,7 @@ export function AgentConversation({
   project,
   onEditComplete,
   onFileOpen,
-  onFileDiff,
-  writeFileForReview,
+  persistFile,
   externalInput,
   onExternalInputConsumed,
   editorContext,
@@ -382,7 +382,7 @@ export function AgentConversation({
     () => (generationSession?.conversation ?? []).map(toTimelineEntry),
     [generationSession?.conversation],
   )
-  const { status: wcStatus, readFile, listDir, runCommand, writeFile, writeFileForReview: wcWriteFileForReview } = useWebContainer()
+  const { status: wcStatus, readFile, listDir, runCommand } = useWebContainer()
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [input, setInput] = useState("")
@@ -417,12 +417,10 @@ export function AgentConversation({
       project,
       onEditComplete,
       onFileOpen,
-      onFileDiff,
       externalInput,
       onExternalInputConsumed,
       readFile,
-      writeFile,
-      writeFileForReview: wcWriteFileForReview,
+      writeFile: persistFile,
       listDir,
       runCommand,
       wcStatus,
@@ -471,7 +469,7 @@ export function AgentConversation({
       onConversationChange: setConversation,
       onIsRunningChange: setIsRunning,
     })
-  }, [project, onEditComplete, onFileOpen, onFileDiff, externalInput, onExternalInputConsumed, readFile, writeFile, wcWriteFileForReview, listDir, runCommand, wcStatus])
+  }, [project, onEditComplete, onFileOpen, persistFile, externalInput, onExternalInputConsumed, readFile, listDir, runCommand, wcStatus])
 
   // P2 — accept external prompt from inline AI commands
   useEffect(() => {

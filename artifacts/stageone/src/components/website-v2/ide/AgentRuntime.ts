@@ -2,7 +2,6 @@
 // Handles: tool execution, streaming, conversation management, project memory
 
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
-import type { FileDiff } from "./DiffReviewPanel"
 import { useWebContainer } from "@/components/website-v2/runtime/useWebContainer"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -237,14 +236,13 @@ export class AgentRuntime {
   private project: V2Project
   private onEditComplete: () => void
   private onFileOpen: (file: V2ProjectFile) => void
-  private onFileDiff?: (diff: FileDiff) => void
   private externalInput?: string | null
   private onExternalInputConsumed?: () => void
 
-  // WebContainer tools
+  // Project tools — writeFile persists directly (applied immediately, no
+  // separate confirmation/review step, matching how Replit's own agent works)
   private readFile: (path: string) => Promise<string>
   private writeFile: (path: string, content: string) => Promise<void>
-  private writeFileForReview: (path: string, content: string) => Promise<{ oldContent: string; newContent: string; path: string }>
   private listDir: (path: string) => Promise<string[]>
   private runCommand: (cmd: string, args: string[]) => Promise<{ output: string; exitCode: number }>
   private wcStatus: string
@@ -280,13 +278,11 @@ export class AgentRuntime {
     project: V2Project
     onEditComplete: () => void
     onFileOpen: (file: V2ProjectFile) => void
-    onFileDiff?: (diff: FileDiff) => void
     externalInput?: string | null
     onExternalInputConsumed?: () => void
-    // WebContainer tools
+    // Project tools — writeFile persists directly and immediately
     readFile: (path: string) => Promise<string>
     writeFile: (path: string, content: string) => Promise<void>
-    writeFileForReview: (path: string, content: string) => Promise<{ oldContent: string; newContent: string; path: string }>
     listDir: (path: string) => Promise<string[]>
     runCommand: (cmd: string, args: string[]) => Promise<{ output: string; exitCode: number }>
     wcStatus: string
@@ -303,12 +299,10 @@ export class AgentRuntime {
     this.project = params.project
     this.onEditComplete = params.onEditComplete
     this.onFileOpen = params.onFileOpen
-    this.onFileDiff = params.onFileDiff
     this.externalInput = params.externalInput
     this.onExternalInputConsumed = params.onExternalInputConsumed
     this.readFile = params.readFile
     this.writeFile = params.writeFile
-    this.writeFileForReview = params.writeFileForReview
     this.listDir = params.listDir
     this.runCommand = params.runCommand
     this.wcStatus = params.wcStatus
@@ -562,35 +556,17 @@ Tell me what to change and I'll plan it first, then execute it.`,
       if (name === "write_file") {
         const path    = params.path    as string
         const content = params.content as string
-        // Return diff for review — caller decides whether to apply
-        const diff = await this.writeFileForReview(path, content)
-        if (this.onFileDiff) {
-          this.onFileDiff({
-            id:         `diff-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            path: diff.path,
-            oldContent: diff.oldContent,
-            newContent: diff.newContent,
-            isNew:      diff.oldContent === "",
-          })
-        }
-        return { name, params, result: `⏳ Diff ready for review: ${path}`, ok: true }
+        // Apply immediately — no separate confirmation/review step
+        await this.writeFile(path, content)
+        return { name, params, result: `✓ Wrote ${path}`, ok: true }
       }
 
       if (name === "write_files") {
         const files = params.files as Array<{ path: string; content: string }>
         const results: string[] = []
         for (const file of files) {
-          const diff = await this.writeFileForReview(file.path, file.content)
-          if (this.onFileDiff) {
-            this.onFileDiff({
-              id:         `diff-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              path: diff.path,
-              oldContent: diff.oldContent,
-              newContent: diff.newContent,
-              isNew:      diff.oldContent === "",
-            })
-          }
-          results.push(`⏳ Diff ready for review: ${file.path}`)
+          await this.writeFile(file.path, file.content)
+          results.push(`✓ Wrote ${file.path}`)
         }
         return { name, params, result: results.join("\n"), ok: true }
       }
@@ -1069,6 +1045,18 @@ Tell me what to change and I'll plan it first, then execute it.`,
             id: "",
             time: "",
           })
+        }
+
+        if (tc.name === "write_files") {
+          const files = (tc.params.files as Array<{ path: string }>) ?? []
+          for (const file of files) {
+            this.addEntry({
+              kind: "file-change",
+              change: { path: file.path, operation: "update" },
+              id: "",
+              time: "",
+            })
+          }
         }
 
         const resultStr = toolResult.result.length > 1500

@@ -158,6 +158,13 @@ export const api = {
         preview: string | null;
         createdAt: string; updatedAt: string;
       }>(`/website-v2/projects/${id}`),
+    // Persists file changes immediately (no separate confirmation step) —
+    // used by the Website Studio editing chat when Marcus applies edits.
+    updateFiles: (id: string, modifications: Array<{ path: string; operation: "update" | "create" | "delete"; content: string }>) =>
+      request<{ files: Array<{ path: string; operation: string; content: string; language?: string }> }>(`/website-v2/projects/${id}/files`, {
+        method: "PATCH",
+        body: JSON.stringify({ modifications }),
+      }),
     // Regenerates + persists the preview HTML for a project from its current
     // files. The route streams SSE phases (analyzing → rendering → preview →
     // saved); we only care about the final "preview" phase's HTML payload.

@@ -2,21 +2,19 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { TopCommandBar }       from "./TopCommandBar"
 import { ActivityBar }         from "./ActivityBar"
-import { AgentConversation, MarkdownText, groupTimeline, ActionGroup, TimelineEntryRenderer } from "./AgentConversation"
+import { AgentConversation }   from "./AgentConversation"
 import { FileExplorerDrawer }  from "./FileExplorerDrawer"
 import { EditorWorkspace }     from "./EditorWorkspace"
 import { TerminalDrawer }      from "./TerminalDrawer"
 import { CommandPalette }      from "./CommandPalette"   // P1
-import { AgentRuntime, type TimelineEntry } from "./AgentRuntime"  // P3
-import type { FileDiff } from "./DiffReviewPanel"
 import { CodeReviewPanel }     from "./CodeReviewPanel"  // P4
 import { DeploymentPipeline }  from "./DeploymentPipeline" // P5
 import { CollaborationPanel }  from "./CollaborationPanel" // P6
 import { useWebContainer }     from "@/components/website-v2/runtime/useWebContainer"
+import { api } from "@/lib/api"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import type { MarcusSessionState } from "@/lib/marcus-session/types"
-import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu, Check, X, Loader2, Brain, Zap, Search, FileText, Terminal as TerminalIcon } from "lucide-react"
-import type { ConversationEntry } from "@/lib/marcus-session/types"
+import { Terminal, GitBranch, Circle, FileCode, Code2, Cpu } from "lucide-react"
 import { useRuntime } from "@/components/website-v2/runtime/react/useRuntime"
 
 // ─── Public types ──────────────────────────────────────────────────────────────
@@ -40,145 +38,6 @@ interface StudioShellProps {
   session?:   MarcusSessionState | null
   /** True while the preview HTML is being (re)generated in the background. */
   previewGenerating?: boolean
-}
-
-// ─── Convert a session ConversationEntry into the shared TimelineEntry shape ───
-// so the live generation stream renders through the exact same markdown,
-// grouping, and card components as the post-generation editing chat — one
-// visual language for Marcus everywhere in Website Studio.
-function toTimelineEntry(entry: ConversationEntry): TimelineEntry {
-  const time = new Date(entry.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  switch (entry.kind) {
-    case "thinking":
-      return { kind: "thinking", text: entry.text, id: entry.id, time }
-    case "user":
-      return { kind: "user-msg", text: entry.text, id: entry.id, time }
-    case "agent":
-      return { kind: "agent-msg", text: entry.text, id: entry.id, time }
-    case "tool":
-      return {
-        kind: "tool-call", name: entry.tool, params: entry.path ? { path: entry.path } : {},
-        status: entry.status === "failed" ? "error" : entry.status,
-        result: entry.detail, id: entry.id, time,
-      }
-    case "plan":
-      return { kind: "plan", text: entry.text, id: entry.id, time }
-    case "scan":
-      return {
-        kind: "scan", status: entry.status === "failed" ? "error" : entry.status,
-        summary: entry.summary, id: entry.id, time,
-      }
-    case "validation":
-      return { kind: "validation", success: entry.success, errors: entry.errors, fixed: entry.fixed, id: entry.id, time }
-    case "file-change":
-      return {
-        kind: "file-change",
-        change: { path: entry.path, operation: entry.operation },
-        id: entry.id, time,
-      }
-  }
-}
-
-// ─── Marcus Generation Stream View (during generation) ─────────────────────────
-// Shares rendering (markdown, grouped/collapsible action rows, validation and
-// tool cards) with AgentConversation — the only intentional difference is that
-// generation has no input box, since it's a fire-and-forget run, not a chat.
-function GenerationStream({ session, project, onFileOpen }: { session: MarcusSessionState; project: V2Project; onFileOpen: (file: V2ProjectFile) => void }) {
-  const timeline = useMemo(() => (session.conversation ?? []).map(toTimelineEntry), [session.conversation])
-  const bottomRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [timeline, session.streamingText])
-
-  return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#0b0b0b]">
-      {/* Running glow — matches AgentConversation's active-state treatment */}
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[2px]">
-        <motion.div
-          className="absolute inset-0"
-          animate={{ opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          style={{ background: "linear-gradient(to bottom, transparent 0%, #f59e0b 30%, #fbbf24 50%, #f59e0b 70%, transparent 100%)", filter: "blur(4px)" }}
-        />
-      </div>
-
-      {/* Header */}
-      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-white/[0.05] px-4 py-3">
-        <div className="pointer-events-none absolute inset-0" style={{ background: "linear-gradient(135deg, #f59e0b06 0%, transparent 60%)" }} />
-        <div className="relative z-[1] flex-shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
-            <Cpu className="h-3.5 w-3.5 text-amber-400/90" />
-          </div>
-          <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0b0b0b] bg-amber-400">
-            <div className="absolute inset-0 animate-ping rounded-full bg-amber-400 opacity-60" />
-          </div>
-        </div>
-        <div className="relative z-[1] min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate font-semibold text-white/90">Marcus AI</span>
-            <span className="text-[10px] font-mono text-amber-400/80 truncate">
-              {session.currentPhase ? (session.phaseMessage || session.currentPhase) : "Building your website…"}
-            </span>
-          </div>
-        </div>
-        {session.activeFilePath && (
-          <span className="relative z-[1] flex flex-shrink-0 items-center gap-1 text-[10px] text-amber-400/80 px-2 py-0.5 rounded bg-amber-400/[0.06]">
-            <FileText className="h-2.5 w-2.5" />
-            {session.activeFilePath.split("/").pop()}
-          </span>
-        )}
-      </div>
-
-      {/* Conversation area — same markdown/grouping as the editing chat */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-        {timeline.length === 0 && !session.streamingText ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.05] bg-white/[0.02]">
-              <Zap className="h-7 w-7 text-white/12" />
-            </div>
-            <h2 className="text-base font-semibold text-white/60">Starting up…</h2>
-            <p className="mt-1.5 max-w-[260px] text-sm text-white/25 leading-relaxed">
-              Marcus is reading your brief and planning the site.
-            </p>
-          </div>
-        ) : (
-          <AnimatePresence initial={false}>
-            {groupTimeline(timeline).map((g) =>
-              g.kind === "narration" ? (
-                <TimelineEntryRenderer key={g.entry.id} entry={g.entry} project={project} onFileOpen={onFileOpen} />
-              ) : (
-                <ActionGroup key={g.id} entries={g.entries} project={project} onFileOpen={onFileOpen} />
-              )
-            )}
-          </AnimatePresence>
-        )}
-
-        {/* Live thinking stream — the portion of the current phase not yet
-            sealed into a timeline entry, rendered with the same markdown
-            treatment (no more raw monospace token dump). */}
-        {session.streamingText && (
-          <div className="flex items-start gap-3 pl-1">
-            <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
-              <Brain className="h-3 w-3 text-amber-400/90" />
-            </div>
-            <div className="flex-1 min-w-0 opacity-70">
-              <MarkdownText text={session.streamingText} />
-              <span className="inline-block h-3 w-1.5 translate-y-0.5 animate-pulse bg-amber-400/60" />
-            </div>
-          </div>
-        )}
-
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Status bar */}
-      <div className="flex shrink-0 items-center justify-between border-t border-white/[0.05] px-4 py-2 text-[10px] text-white/30">
-        <span>{session.fileCount || 0} file{session.fileCount === 1 ? "" : "s"} written</span>
-        {session.fixIteration > 0 && <span>Fix iteration {session.fixIteration}</span>}
-      </div>
-    </div>
-  )
 }
 
 // ─── Runtime status label helpers ─────────────────────────────────────────────
@@ -229,7 +88,6 @@ export function StudioShell({ project, onRefresh, session, previewGenerating }: 
   const [paletteOpen,    setPaletteOpen]    = useState(false)   // P1
   const [codeReviewOpen, setCodeReviewOpen] = useState(false)   // P4
   const [deployOpen,     setDeployOpen]     = useState(false)   // P5
-  const [pendingDiffs,   setPendingDiffs]   = useState<FileDiff[]>([])  // P3
   const [marcusInput,    setMarcusInput]    = useState<string | null>(null) // P2
 
   // ── WebContainer runtime ─────────────────────────────────────────────────────
@@ -239,9 +97,21 @@ export function StudioShell({ project, onRefresh, session, previewGenerating }: 
     terminalLines,
     nodeVersion,
     depCount,
-    writeFile:     wcWriteFile,
-    writeFileForReview: wcWriteFileForReview,
   } = useWebContainer()
+
+  // ── Direct persistence — every file change (from Marcus or manual editing)
+  // is written straight to the project, applied immediately with no separate
+  // confirmation/accept step. Preview is regenerated once Marcus finishes.
+  const persistFile = useCallback(async (path: string, content: string) => {
+    const existing  = project.files.find(f => f.path === path)
+    const operation = existing ? "update" as const : "create" as const
+    await api.websiteV2.updateFiles(project.id, [{ path, operation, content }])
+  }, [project.files, project.id])
+
+  const handleEditComplete = useCallback(async () => {
+    try { await api.websiteV2.regeneratePreview(project.id) } catch { /* preview regen is best-effort */ }
+    onRefresh()
+  }, [project.id, onRefresh])
 
   // ── P1: Ctrl+K global shortcut ───────────────────────────────────────────────
   useEffect(() => {
@@ -254,38 +124,6 @@ export function StudioShell({ project, onRefresh, session, previewGenerating }: 
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
   }, [])
-
-  // ── P3: Diff handling ─────────────────────────────────────────────────────────
-  const handleFileDiff = useCallback((diff: FileDiff) => {
-    setPendingDiffs(prev => [...prev, diff])
-  }, [])
-
-  const handleDiffAccept = useCallback(async (id: string) => {
-    const diff = pendingDiffs.find(d => d.id === id)
-    if (diff) {
-      try { await wcWriteFile(diff.path, diff.newContent) } catch { /* ignore */ }
-      // Record accepted pattern
-      AgentRuntime.recordDiffOutcome(true, diff.path, diff.oldContent ? "update" : "create")
-    }
-    setPendingDiffs(prev => prev.filter(d => d.id !== id))
-  }, [pendingDiffs, wcWriteFile])
-
-  const handleDiffReject = useCallback(async (id: string) => {
-    const diff = pendingDiffs.find(d => d.id === id)
-    if (diff) {
-      try { await wcWriteFile(diff.path, diff.oldContent) } catch { /* ignore */ }
-      // Record rejected pattern
-      AgentRuntime.recordDiffOutcome(false, diff.path, diff.oldContent ? "update" : "create")
-    }
-    setPendingDiffs(prev => prev.filter(d => d.id !== id))
-  }, [pendingDiffs, wcWriteFile])
-
-  const handleDiffModify = useCallback((diff: FileDiff) => {
-    // Open the file in the editor so user can hand-edit
-    const file = project.files.find(f => f.path === diff.path)
-    if (file) openFile(file)
-    setPendingDiffs(prev => prev.filter(d => d.id !== diff.id))
-  }, [pendingDiffs, project.files]) // openFile added below
 
   // ── P2: Route inline AI commands to Marcus ────────────────────────────────────
   const handleInlineCommand = useCallback((prompt: string) => {
@@ -530,18 +368,16 @@ const handleRun = async () => {
                 transition={{ type: "spring", stiffness: 420, damping: 40 }}
                 className="flex flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.06]"
               >
-                {sideView === "marcus" && session?.status === "generating" ? (
-                  <GenerationStream session={session} project={project} onFileOpen={openFile} />
-                ) : sideView === "marcus" ? (
+                {sideView === "marcus" && (
                   <AgentConversation
                     project={project}
-                    onEditComplete={onRefresh}
+                    onEditComplete={handleEditComplete}
                     onFileOpen={openFile}
-                    onFileDiff={handleFileDiff}
-                    writeFileForReview={wcWriteFileForReview}
+                    persistFile={persistFile}
                     editorContext={editorContext}
+                    generationSession={session}
                   />
-                ) : null}
+                )}
                 {sideView === "explorer" && (
                   <FileExplorerDrawer
                     open={true}
@@ -570,7 +406,7 @@ const handleRun = async () => {
             wcStatus={wcStatus}
             terminalLines={terminalLines}
             wcBooting={wcBooting}
-            onFileWrite={wcWriteFile}
+            onFileWrite={persistFile}
             onTabClick={handleTabClick}
             onTabClose={closeTab}
             onModeChange={handleModeChange}
@@ -642,28 +478,6 @@ const handleRun = async () => {
               <div className="flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 text-emerald-400/65">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_#34d399]" />
                 <span className="font-mono text-[10px]">live</span>
-              </div>
-            )}
-
-            {/* Pending changes indicator */}
-            {pendingDiffs.length > 0 && (
-              <div className="flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 text-amber-400/80">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                <span className="font-mono text-[10px]">{pendingDiffs.length} pending</span>
-                <button
-                  onClick={() => pendingDiffs.forEach(d => handleDiffAccept(d.id))}
-                  className="flex items-center gap-1 rounded-md bg-emerald-500/12 px-2 py-0.5 text-[9px] font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
-                  title="Accept all"
-                >
-                  <Check className="h-2.5 w-2.5" /> All
-                </button>
-                <button
-                  onClick={() => pendingDiffs.forEach(d => handleDiffReject(d.id))}
-                  className="flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-0.5 text-[9px] font-semibold text-red-300 hover:bg-red-500/18 transition-colors"
-                  title="Reject all"
-                >
-                  <X className="h-2.5 w-2.5" /> All
-                </button>
               </div>
             )}
 

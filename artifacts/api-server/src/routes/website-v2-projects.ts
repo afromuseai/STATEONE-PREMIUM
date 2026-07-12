@@ -7,13 +7,15 @@
 
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
-import { listProjects, getProject } from "../lib/website-v2-projects";
+import { listProjects, getProject, updateProjectFiles } from "../lib/website-v2-projects";
+import { logger } from "../lib/logger";
 import type {
   WebsiteProjectSummary,
   WebsiteProjectResponse,
   ProjectFile,
   WebsiteBlueprint,
   BusinessContext,
+  FileModification,
 } from "../lib/website-v2-types";
 
 const router = Router();
@@ -81,6 +83,57 @@ router.get(
     };
 
     res.json(response);
+  }
+);
+
+// ─── PATCH /api/website-v2/projects/:id/files ─────────────────────────────────
+// Persists a direct set of file modifications (used by the Website Studio
+// editing chat — Marcus applies changes immediately, no separate confirmation
+// step). Security: ownership verified via getProject before writing.
+router.patch(
+  "/website-v2/projects/:id/files",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const userId    = (req.user?.userId ?? "") as string;
+    const projectId = req.params.id as string;
+
+    if (!projectId) {
+      res.status(400).json({ error: "Missing project id" });
+      return;
+    }
+
+    const owned = await getProject(projectId, userId);
+    if (!owned) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+
+    const body = req.body as { modifications?: unknown };
+    const rawMods = Array.isArray(body.modifications) ? body.modifications : [];
+
+    const modifications: FileModification[] = rawMods
+      .filter((m): m is Record<string, unknown> => typeof m === "object" && m !== null)
+      .map((m): FileModification => ({
+        path:      String(m.path ?? ""),
+        operation: (m.operation === "create" || m.operation === "delete" ? m.operation : "update") as FileModification["operation"],
+        content:   typeof m.content === "string" ? m.content : "",
+        reason:    typeof m.reason === "string" ? m.reason : "Edited via Marcus",
+      }))
+      .filter((m) => m.path.length > 0);
+
+    if (modifications.length === 0) {
+      res.status(400).json({ error: "No valid file modifications provided" });
+      return;
+    }
+
+    const result = await updateProjectFiles(projectId, modifications);
+    if (!result.ok) {
+      logger.error({ projectId }, "[v2:files] Failed to persist file modifications");
+      res.status(500).json({ error: "Failed to save file changes" });
+      return;
+    }
+
+    res.json({ files: result.files });
   }
 );
 
