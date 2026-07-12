@@ -160,6 +160,13 @@ export async function runPreviewGenerator(
     model:       PREVIEW_MODEL,
     temperature: 0.25,
     maxTokens:   24000,
+    // Preview generation must be fast (it blocks the iframe update after every
+    // edit) and needs no strategic reasoning — just HTML transcription. The
+    // model's default MODEL_KWARGS enables extended thinking with a 16K
+    // reasoning budget, which made every preview call take 4+ minutes and
+    // still exhaust the token budget on reasoning before writing HTML. Disable
+    // thinking here so all tokens go straight to output.
+    chatTemplateKwargs: { enable_thinking: false },
     messages: [
       { role: "system", content: PREVIEW_SYSTEM_PROMPT },
       { role: "user",   content: buildPreviewPrompt(context, blueprint, files) },
