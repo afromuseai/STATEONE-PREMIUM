@@ -158,6 +158,45 @@ export const api = {
         preview: string | null;
         createdAt: string; updatedAt: string;
       }>(`/website-v2/projects/${id}`),
+    // Regenerates + persists the preview HTML for a project from its current
+    // files. The route streams SSE phases (analyzing → rendering → preview →
+    // saved); we only care about the final "preview" phase's HTML payload.
+    regeneratePreview: async (id: string): Promise<string | null> => {
+      const res = await fetch(`${BASE}/website-v2/projects/${id}/preview`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let preview: string | null = null;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() ?? "";
+        for (const chunk of chunks) {
+          const line = chunk.split("\n").find((l) => l.startsWith("data: "));
+          if (!line) continue;
+          const payload = JSON.parse(line.slice(6)) as {
+            phase: string;
+            data?: { preview?: string };
+            message?: string;
+          };
+          if (payload.phase === "preview" && payload.data?.preview) {
+            preview = payload.data.preview;
+          }
+          if (payload.phase === "error") {
+            throw new Error(payload.message ?? "Preview generation failed");
+          }
+        }
+      }
+      return preview;
+    },
   },
   admin: {
     getUsers: () => request<{ users: Array<UserInfo & { subscription: unknown }>, total: number }>("/admin/users"),

@@ -10,6 +10,7 @@ import { WebContainerProviderNew } from "@/components/website-v2/runtime/WebCont
 import { useWebsiteV2Project } from "@/hooks/useWebsiteV2Project"
 import { useMarcusSessionContext, useMarcusSessionStream } from "@/lib/marcus-session/context"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
+import { api } from "@/lib/api"
 
 type Step = "form" | "workspace"
 
@@ -40,6 +41,7 @@ function sessionToProject(
   projectId: string,
   projectName: string,
   files: Record<string, { language: string; content: string; complete: boolean }>,
+  preview: string | null = null,
 ): V2Project {
   const projectFiles: V2ProjectFile[] = Object.entries(files)
     .filter(([, f]) => f.complete)
@@ -53,7 +55,7 @@ function sessionToProject(
     blueprint: null,
     files: projectFiles,
     dependencies: [],
-    preview: null,
+    preview,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -76,6 +78,18 @@ function WebsiteStudioInner() {
       dispatch({ type: "session.reset" })
     }
   }, [params.id, session.projectId, session.status, dispatch])
+
+  const [livePreview, setLivePreview] = useState<string | null>(null)
+  const previewRequestedFor = useRef<string | null>(null)
+  // Drop any stale preview the moment the session no longer points at the
+  // project it belongs to (reset / switched projects), so a leftover preview
+  // from a previous project can't flash before the real one loads.
+  useEffect(() => {
+    if (previewRequestedFor.current && previewRequestedFor.current !== session.projectId) {
+      previewRequestedFor.current = null
+      setLivePreview(null)
+    }
+  }, [session.projectId])
 
   const [step, setStep] = useState<Step>("form")
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -173,6 +187,25 @@ function WebsiteStudioInner() {
     }
   }, [session.status, session.projectId, refreshProjects])
 
+  // ── Preview generation ──────────────────────────────────────────────────────
+  // The streaming generation flow (useMarcusStreamGeneration → /api/generate/
+  // website-v2/stream) only saves files — it never renders/persists preview
+  // HTML. Once the session finishes ("editing"), explicitly regenerate the
+  // preview from the saved files so the workspace doesn't show "No preview
+  // available" forever. Runs once per completed project id.
+  useEffect(() => {
+    if (session.status !== "editing" || !session.projectId) return
+    if (previewRequestedFor.current === session.projectId) return
+    previewRequestedFor.current = session.projectId
+    setLivePreview(null)
+    api.websiteV2
+      .regeneratePreview(session.projectId)
+      .then((preview) => setLivePreview(preview))
+      .catch((e: unknown) => {
+        console.error("[website-studio] Preview generation failed", e)
+      })
+  }, [session.status, session.projectId])
+
   const handleCancel = useCallback(() => {
     cancel()
     setStep("form")
@@ -204,9 +237,10 @@ function WebsiteStudioInner() {
       liveId,
       form.idea.trim().slice(0, 60) || "Your Website",
       session.files,
+      livePreview,
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveId, session.files, form.idea])
+  }, [liveId, session.files, form.idea, livePreview])
 
   // ── Homepage: detailed form (Replit-style embedded) ────────────────────────
   if (view === "form") {
