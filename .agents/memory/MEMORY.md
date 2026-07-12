@@ -15,3 +15,4 @@
 - [Automation/Orchestrator Marcus double-mount](automation-marcus-double-mount.md) — Marcus nav can double-mount the page; typewriter progress must be module-scoped/resumable, not just per-instance-deduped
 - [WebContainer runtime integration](wc-runtime-integration.md) — Phase N WC provider; singleton/boot-promise pattern; context split for Fast Refresh; CodeEditor debounce cleanup
 - [Phase O Agent Marcus](phase-o-agent.md) — autonomous coding agent loop in AgentPanel; WC tool system; plan→confirm→execute; O1-O5/O7 implemented
+- [Website Studio model choice](website-studio-model-choice.md) — WEBSITE_V2_CODE_GEN swapped to nemotron-3-ultra-550b-a55b; re-test "inaccessible" NIM models before trusting stale comments
