@@ -3,10 +3,51 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  ArrowUp, Plus, Loader2, CheckCircle, AlertCircle, RefreshCw,
+  ArrowUp, Plus, X, Loader2, CheckCircle, AlertCircle, RefreshCw,
   FileCode, FileEdit, Cpu, User, Search, Terminal,
-  FolderOpen, Brain, Zap, ChevronRight, Check, Copy, ChevronUp, ChevronDown, FileText,
+  FolderOpen, Brain, Zap, ChevronRight, Check, Copy, ChevronUp, ChevronDown,
+  FileText, ImageIcon, Layers,
 } from "lucide-react"
+
+// ─── Orbit animation (AI-processing border effect) ────────────────────────────
+const ORBIT_STYLE = `
+@keyframes ac-orbit-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.ac-orbit-wrapper {
+  position: relative;
+}
+.ac-orbit-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 17px;
+  background: conic-gradient(
+    from var(--ac-orbit-angle, 0deg),
+    transparent 0%,
+    transparent 30%,
+    #D4A72C 50%,
+    #ffffff 65%,
+    transparent 80%,
+    transparent 100%
+  );
+  animation: ac-orbit-spin 2.4s linear infinite;
+  z-index: 0;
+}
+.ac-orbit-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: 16px;
+  background: #202020;
+  z-index: 1;
+}
+.ac-orbit-inner {
+  position: relative;
+  z-index: 2;
+}
+`
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 import type { TimelineEntry as TimelineEntryType } from "./AgentRuntime"
 import { useWebContainer } from "@/components/website-v2/runtime/useWebContainer"
@@ -392,6 +433,9 @@ export function AgentConversation({
   const [scanStatus, setScanStatus] = useState<"idle" | "scanning" | "done" | "error">("idle")
   const [conversation, setConversation] = useState<AgentMessage[]>([])
   const [isRunning, setIsRunning] = useState(false)
+  // Attach state
+  const [attachedFiles, setAttachedFiles] = useState<Array<{ id: string; name: string; type: "image" | "file" }>>([])
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
   
   // Streaming state - use a single message being built
   const [streamingMessage, setStreamingMessage] = useState<{
@@ -404,9 +448,11 @@ export function AgentConversation({
   // Track if streaming is done (for cursor cleanup)
   const isStreamingRef = useRef(false)
 
-  const abortRef = useRef<AbortController | null>(null)
-  const bottomRef = useRef<HTMLDivElement | null>(null)
-  const runtimeRef = useRef<AgentRuntime | null>(null)
+  const abortRef      = useRef<AbortController | null>(null)
+  const bottomRef     = useRef<HTMLDivElement | null>(null)
+  const runtimeRef    = useRef<AgentRuntime | null>(null)
+  const fileInputRef  = useRef<HTMLInputElement | null>(null)
+  const attachMenuRef = useRef<HTMLDivElement | null>(null)
 
   // Marcus session context
   const sessionDispatch = useOptionalMarcusSession()?.dispatch ?? null
@@ -522,9 +568,34 @@ export function AgentConversation({
     const el = inputRef.current
     if (!el) return
     el.style.height = "auto"
-    const next = Math.min(el.scrollHeight, 160)
-    el.style.height = `${Math.max(next, 20)}px`
+    const next = Math.min(el.scrollHeight, 180)
+    el.style.height = `${Math.max(next, 48)}px`
   }, [input])
+
+  // Close attach menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+        setShowAttachMenu(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  // File input handler
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files
+    if (!picked) return
+    const newFiles = Array.from(picked).map(f => ({
+      id:   `${f.name}-${Date.now()}`,
+      name: f.name,
+      type: f.type.startsWith("image/") ? "image" as const : "file" as const,
+    }))
+    setAttachedFiles(prev => [...prev, ...newFiles])
+    setShowAttachMenu(false)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
 
   // ── Status label ────────────────────────────────────────────────────────────
   const statusLabel = (() => {
@@ -556,6 +627,8 @@ export function AgentConversation({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
+    <>
+    <style>{ORBIT_STYLE}</style>
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#1A1A1A]">
 
       {/* Running glow */}
@@ -658,85 +731,225 @@ export function AgentConversation({
           <div ref={bottomRef} />
         </div>
 
-        {/* Input area — rounded card style (Claude / Replit Agent) */}
-        <div className="flex-shrink-0 border-t border-[rgba(255,255,255,0.06)] bg-[#1A1A1A] p-3">
-          <div
-            className="flex flex-col rounded-2xl border bg-[#202020] transition-colors"
-            style={{ borderColor: "rgba(255,255,255,0.10)" }}
-          >
-            {/* Textarea */}
-            <div className="px-3.5 pt-3 pb-2">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKey}
-                placeholder={
-                  isGenerating
-                    ? "Marcus is building your website…"
-                    : isRunning
-                    ? "Working…"
-                    : "Ask Marcus to build, edit, or explain…"
-                }
-                disabled={isRunning || isGenerating}
-                rows={1}
-                style={{ minHeight: "24px", maxHeight: "160px", lineHeight: "1.6" }}
-                className="w-full resize-none bg-transparent text-[13px] text-[#ECECEC] placeholder:text-[#ECECEC]/25 focus:outline-none disabled:cursor-not-allowed overflow-y-auto"
-              />
-            </div>
+        {/* ── Input area ── full spec: orbit, chips, dropdown, 3-col footer ── */}
+        <div className="flex-shrink-0 border-t border-[rgba(255,255,255,0.06)] bg-[#1A1A1A] px-3 pt-3 pb-2.5">
 
-            {/* Bottom toolbar row */}
-            <div className="flex items-center justify-between px-2 pb-2">
-              {/* Left — attach / plus */}
-              <button
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-[#ECECEC]/30 transition-colors hover:bg-white/[0.06] hover:text-[#ECECEC]/60"
-                title="Attach file"
-                disabled={isRunning || isGenerating}
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileInput}
+          />
+
+          {/* File chips */}
+          <AnimatePresence>
+            {attachedFiles.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex flex-wrap gap-1.5 pb-2 overflow-hidden"
               >
-                <Plus className="h-4 w-4" />
-              </button>
-
-              {/* Right — stop or send */}
-              <div className="flex items-center gap-2">
-                {isRunning && !isGenerating && (
-                  <button
-                    onClick={cancel}
-                    className="text-[10px] text-[#ECECEC]/30 hover:text-[#ECECEC]/60 transition-colors"
+                {attachedFiles.map(f => (
+                  <div
+                    key={f.id}
+                    className="flex items-center gap-1 rounded-md border border-white/[0.1] bg-white/[0.05] px-2 py-1"
                   >
-                    Stop
+                    {f.type === "image"
+                      ? <ImageIcon className="h-3 w-3 text-white/40" />
+                      : <FileText  className="h-3 w-3 text-white/40" />}
+                    <span className="max-w-[100px] truncate text-[11px] text-white/60">{f.name}</span>
+                    <button
+                      onClick={() => setAttachedFiles(prev => prev.filter(x => x.id !== f.id))}
+                      className="ml-0.5 text-white/25 hover:text-white/60 transition-colors"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Composer card — orbit when running */}
+          <div className={isRunning && !isGenerating ? "ac-orbit-wrapper" : ""}>
+            <div
+              className={`${isRunning && !isGenerating ? "ac-orbit-inner" : ""} rounded-2xl border bg-[#202020]`}
+              style={{ borderColor: "rgba(255,255,255,0.08)" }}
+            >
+              {/* Textarea */}
+              <div className="px-3.5 pt-3 pb-2">
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKey}
+                  placeholder={
+                    isGenerating
+                      ? "AI is building your website…"
+                      : isRunning
+                      ? "Working…"
+                      : "Describe what you want to build…"
+                  }
+                  disabled={isRunning || isGenerating}
+                  rows={1}
+                  style={{ minHeight: "48px", maxHeight: "180px", lineHeight: "1.6" }}
+                  className="w-full resize-none bg-transparent text-[13px] text-white/80 placeholder:text-white/22 focus:outline-none disabled:cursor-not-allowed overflow-y-auto"
+                />
+              </div>
+
+              {/* Bottom toolbar: + left, send right */}
+              <div className="flex items-center justify-between px-2 pb-2">
+
+                {/* Left — attach dropdown */}
+                <div className="relative" ref={attachMenuRef}>
+                  <button
+                    onClick={() => setShowAttachMenu(v => !v)}
+                    disabled={isRunning || isGenerating}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-white/30 transition-colors hover:bg-white/[0.07] hover:text-white/60 disabled:opacity-30"
+                    title="Attach"
+                  >
+                    <Plus className="h-4 w-4" />
                   </button>
-                )}
-                <button
-                  onClick={submit}
-                  disabled={!input.trim() || isRunning || isGenerating}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-                  style={input.trim() && !isRunning && !isGenerating
-                    ? { backgroundColor: "#D4A72C" }
-                    : { backgroundColor: "rgba(255,255,255,0.07)" }}
-                  aria-label="Send (Enter)"
-                >
-                  {isRunning ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-[#ECECEC]/60" />
-                  ) : (
-                    <ArrowUp
-                      className="h-3.5 w-3.5"
-                      style={{ color: input.trim() && !isRunning && !isGenerating ? "#000" : "rgba(255,255,255,0.35)" }}
-                    />
+
+                  <AnimatePresence>
+                    {showAttachMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 4 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 4 }}
+                        transition={{ duration: 0.12 }}
+                        className="absolute bottom-full left-0 mb-2 w-44 rounded-xl border border-white/[0.1] bg-[#1a1a1a] shadow-2xl overflow-hidden z-50"
+                      >
+                        {[
+                          {
+                            label: "Upload image",
+                            icon: <ImageIcon className="h-3.5 w-3.5" />,
+                            action: () => {
+                              if (fileInputRef.current) {
+                                fileInputRef.current.accept = "image/*"
+                                fileInputRef.current.click()
+                              }
+                            },
+                          },
+                          {
+                            label: "Upload file",
+                            icon: <FileText className="h-3.5 w-3.5" />,
+                            action: () => {
+                              if (fileInputRef.current) {
+                                fileInputRef.current.accept = "*/*"
+                                fileInputRef.current.click()
+                              }
+                            },
+                          },
+                          {
+                            label: "Project assets",
+                            icon: <Layers className="h-3.5 w-3.5" />,
+                            action: () => setShowAttachMenu(false),
+                          },
+                        ].map(item => (
+                          <button
+                            key={item.label}
+                            onClick={item.action}
+                            className="flex w-full items-center gap-2.5 px-3 py-2 text-[12px] text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/80"
+                          >
+                            <span className="text-white/30">{item.icon}</span>
+                            {item.label}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Right — stop + send */}
+                <div className="flex items-center gap-2">
+                  {isRunning && !isGenerating && (
+                    <button
+                      onClick={cancel}
+                      className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                    >
+                      Stop
+                    </button>
                   )}
-                </button>
+                  <button
+                    onClick={() => void submit()}
+                    disabled={!input.trim() || isRunning || isGenerating}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                    style={
+                      input.trim() && !isRunning && !isGenerating
+                        ? { backgroundColor: "#D4A72C" }
+                        : { backgroundColor: "rgba(255,255,255,0.07)" }
+                    }
+                    aria-label="Send (Enter)"
+                  >
+                    {isRunning ? (
+                      <Loader2
+                        className="h-3.5 w-3.5 animate-spin"
+                        style={{ color: "rgba(255,255,255,0.5)" }}
+                      />
+                    ) : (
+                      <ArrowUp
+                        className="h-3.5 w-3.5"
+                        style={{
+                          color: input.trim() && !isRunning && !isGenerating
+                            ? "#000"
+                            : "rgba(255,255,255,0.35)",
+                        }}
+                      />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Keyboard hint below the card */}
-          {!isRunning && !isGenerating && (
-            <p className="mt-1.5 text-center text-[10px] text-[#ECECEC]/15">
-              ↵ send · ⇧↵ new line
-            </p>
-          )}
+          {/* Three-column footer */}
+          <div className="mt-2 flex items-center justify-between">
+            {/* Left — + Attach */}
+            <button
+              onClick={() => setShowAttachMenu(v => !v)}
+              disabled={isRunning || isGenerating}
+              className="flex items-center gap-1 text-[10px] text-white/22 transition-colors hover:text-white/50 disabled:opacity-30"
+            >
+              <Plus className="h-3 w-3" />
+              Attach
+            </button>
+
+            {/* Center — keyboard hint / generating indicator */}
+            {isGenerating ? (
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-[10px] text-amber-400/70">Generating…</span>
+              </div>
+            ) : isRunning ? (
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-white/40 animate-pulse" />
+                <span className="text-[10px] text-white/30">Working…</span>
+              </div>
+            ) : (
+              <span className="text-[10px] text-white/18">Shift + Enter for new line</span>
+            )}
+
+            {/* Right — AI status */}
+            <span
+              className={`text-[10px] font-medium ${
+                isGenerating
+                  ? "text-amber-400/70"
+                  : isRunning
+                  ? "text-white/40"
+                  : "text-emerald-400/60"
+              }`}
+            >
+              {isGenerating ? "Generating…" : isRunning ? "Working…" : "Ready"}
+            </span>
+          </div>
         </div>
       </div>
     </div>
+    </>
   )
 }
 
