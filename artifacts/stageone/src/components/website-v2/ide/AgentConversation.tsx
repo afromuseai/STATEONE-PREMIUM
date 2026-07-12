@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  Send, Loader2, CheckCircle, AlertCircle, RefreshCw,
+  ArrowUp, Plus, Loader2, CheckCircle, AlertCircle, RefreshCw,
   FileCode, FileEdit, Cpu, User, Search, Terminal,
   FolderOpen, Brain, Zap, ChevronRight, Check, Copy, ChevronUp, ChevronDown, FileText,
 } from "lucide-react"
@@ -658,50 +658,82 @@ export function AgentConversation({
           <div ref={bottomRef} />
         </div>
 
-        {/* Input area — VS Code / Replit IDE style */}
-        <div className="flex-shrink-0 border-t border-[rgba(255,255,255,0.06)] bg-[#1A1A1A]">
-          {/* Composer box */}
-          <div className="relative px-3 pt-2.5 pb-1">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder={isGenerating ? "Marcus is building your website…" : isRunning ? "Working…" : "Ask Marcus to build, edit, or explain…"}
-              disabled={isRunning || isGenerating}
-              rows={1}
-              style={{ minHeight: "20px", maxHeight: "160px", lineHeight: "1.6" }}
-              className="w-full resize-none bg-transparent pr-8 text-[13px] text-[#ECECEC] placeholder:text-[#ECECEC]/22 focus:outline-none disabled:cursor-not-allowed overflow-y-auto"
-            />
-            {/* Send button — anchored bottom-right of textarea */}
-            <button
-              onClick={submit}
-              disabled={!input.trim() || isRunning || isGenerating}
-              className="absolute bottom-1.5 right-3 flex h-6 w-6 items-center justify-center rounded transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:bg-white/[0.07]"
-              aria-label="Send (Enter)"
-            >
-              {isRunning ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#ECECEC]/50" />
-              ) : (
-                <Send className="h-3.5 w-3.5 text-[#ECECEC]/40" />
-              )}
-            </button>
+        {/* Input area — rounded card style (Claude / Replit Agent) */}
+        <div className="flex-shrink-0 border-t border-[rgba(255,255,255,0.06)] bg-[#1A1A1A] p-3">
+          <div
+            className="flex flex-col rounded-2xl border bg-[#202020] transition-colors"
+            style={{ borderColor: "rgba(255,255,255,0.10)" }}
+          >
+            {/* Textarea */}
+            <div className="px-3.5 pt-3 pb-2">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKey}
+                placeholder={
+                  isGenerating
+                    ? "Marcus is building your website…"
+                    : isRunning
+                    ? "Working…"
+                    : "Ask Marcus to build, edit, or explain…"
+                }
+                disabled={isRunning || isGenerating}
+                rows={1}
+                style={{ minHeight: "24px", maxHeight: "160px", lineHeight: "1.6" }}
+                className="w-full resize-none bg-transparent text-[13px] text-[#ECECEC] placeholder:text-[#ECECEC]/25 focus:outline-none disabled:cursor-not-allowed overflow-y-auto"
+              />
+            </div>
+
+            {/* Bottom toolbar row */}
+            <div className="flex items-center justify-between px-2 pb-2">
+              {/* Left — attach / plus */}
+              <button
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-[#ECECEC]/30 transition-colors hover:bg-white/[0.06] hover:text-[#ECECEC]/60"
+                title="Attach file"
+                disabled={isRunning || isGenerating}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+
+              {/* Right — stop or send */}
+              <div className="flex items-center gap-2">
+                {isRunning && !isGenerating && (
+                  <button
+                    onClick={cancel}
+                    className="text-[10px] text-[#ECECEC]/30 hover:text-[#ECECEC]/60 transition-colors"
+                  >
+                    Stop
+                  </button>
+                )}
+                <button
+                  onClick={submit}
+                  disabled={!input.trim() || isRunning || isGenerating}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                  style={input.trim() && !isRunning && !isGenerating
+                    ? { backgroundColor: "#D4A72C" }
+                    : { backgroundColor: "rgba(255,255,255,0.07)" }}
+                  aria-label="Send (Enter)"
+                >
+                  {isRunning ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-[#ECECEC]/60" />
+                  ) : (
+                    <ArrowUp
+                      className="h-3.5 w-3.5"
+                      style={{ color: input.trim() && !isRunning && !isGenerating ? "#000" : "rgba(255,255,255,0.35)" }}
+                    />
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Footer row */}
-          <div className="flex items-center justify-between px-3 pb-2">
-            <span className="text-[10px] text-[#ECECEC]/18">
-              {isRunning || isGenerating ? "" : "↵ to send  ·  ⇧↵ new line"}
-            </span>
-            {isRunning && !isGenerating && (
-              <button
-                onClick={cancel}
-                className="text-[10px] text-[#ECECEC]/30 underline underline-offset-2 hover:text-[#ECECEC]/60 transition-colors"
-              >
-                Stop
-              </button>
-            )}
-          </div>
+          {/* Keyboard hint below the card */}
+          {!isRunning && !isGenerating && (
+            <p className="mt-1.5 text-center text-[10px] text-[#ECECEC]/15">
+              ↵ send · ⇧↵ new line
+            </p>
+          )}
         </div>
       </div>
     </div>
