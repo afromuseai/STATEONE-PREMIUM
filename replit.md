@@ -60,7 +60,7 @@ docs/             # Roadmap and design docs
 
 ## Setup status
 
-Re-verified after re-import (July 12, 2026): dependencies reinstalled via pnpm, database schema pushed with drizzle-kit, and all three workflows (frontend, API server, mockup sandbox) confirmed healthy. Secrets `SESSION_SECRET`, `JWT_SECRET`, `NVIDIA_API_KEY` are set. Added a missing `@webcontainer/api` dependency to `artifacts/stageone/package.json` — it was imported by `src/pages/webcontainer-test.tsx` but never declared, which broke the frontend's Vite dev server on every re-import.
+Re-verified after re-import (July 12, 2026): dependencies reinstalled via pnpm, database schema pushed with drizzle-kit, and all three workflows (frontend, API server, mockup sandbox) confirmed healthy via screenshot. Secrets `SESSION_SECRET`, `JWT_SECRET`, `NVIDIA_API_KEY` are set (`JWT_SECRET` was regenerated as a fresh random value since re-imports don't carry secrets over).
 
 ## User preferences
 
