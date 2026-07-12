@@ -14,13 +14,14 @@ const ORBIT_STYLE = `
 @keyframes ac-orbit-spin {
   to { transform: rotate(360deg); }
 }
-/* Wrapper clips everything — nothing leaks outside the box */
+/* wrapper clips + padding creates the visible border ring */
 .ac-orbit-wrapper {
   position: relative;
   border-radius: 17px;
   overflow: hidden;
+  padding: 1.5px;
 }
-/* Pseudo fills way beyond the box; overflow:hidden on wrapper clips it */
+/* gradient fills beyond the box; clipped by overflow:hidden */
 .ac-orbit-wrapper::before {
   content: '';
   position: absolute;
@@ -37,18 +38,10 @@ const ORBIT_STYLE = `
   animation: ac-orbit-spin 2.4s linear infinite;
   z-index: 0;
 }
-/* Inner mask — leaves a 1.5px ring of gradient visible as the "border" */
-.ac-orbit-wrapper::after {
-  content: '';
-  position: absolute;
-  inset: 1.5px;
-  border-radius: 15.5px;
-  background: #202020;
-  z-index: 1;
-}
+/* inner card sits above the gradient; its bg masks the gradient in the center */
 .ac-orbit-inner {
   position: relative;
-  z-index: 2;
+  z-index: 1;
 }
 `
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
@@ -779,8 +772,10 @@ export function AgentConversation({
           {/* Composer card — orbit when running */}
           <div className={isRunning && !isGenerating ? "ac-orbit-wrapper" : ""}>
             <div
-              className={`${isRunning && !isGenerating ? "ac-orbit-inner" : ""} rounded-2xl border bg-[#202020]`}
-              style={{ borderColor: "rgba(255,255,255,0.08)" }}
+              className={`${isRunning && !isGenerating ? "ac-orbit-inner" : "rounded-2xl border"} bg-[#202020]`}
+              style={isRunning && !isGenerating
+                ? { borderRadius: "15.5px" }
+                : { borderColor: "rgba(255,255,255,0.08)" }}
             >
               {/* Textarea */}
               <div className="px-3.5 pt-3 pb-2">

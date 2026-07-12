@@ -29,6 +29,7 @@ const ORBIT_STYLE = `
   position: relative;
   border-radius: 13.5px;
   overflow: hidden;
+  padding: 1.5px;
 }
 .ws-orbit-wrapper::before {
   content: '';
@@ -46,17 +47,9 @@ const ORBIT_STYLE = `
   animation: ws-orbit-spin 2.4s linear infinite;
   z-index: 0;
 }
-.ws-orbit-wrapper::after {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border-radius: 12px;
-  background: #202020;
-  z-index: 1;
-}
 .ws-orbit-inner {
   position: relative;
-  z-index: 2;
+  z-index: 1;
 }
 `
 
@@ -281,7 +274,10 @@ function WebsiteStudioCreateInner() {
 
             {/* Main input with orbit when submitting */}
             <div className={isWorking ? "ws-orbit-wrapper" : ""}>
-              <div className={`${isWorking ? "ws-orbit-inner" : ""} rounded-[13px] border border-white/[0.08] bg-[#202020] px-4 py-3.5`}>
+              <div
+                className={`${isWorking ? "ws-orbit-inner" : "rounded-[13px] border border-white/[0.08]"} bg-[#202020] px-4 py-3.5`}
+                style={isWorking ? { borderRadius: "11.5px" } : {}}
+              >
                 <textarea
                   ref={ideaRef}
                   value={form.idea}

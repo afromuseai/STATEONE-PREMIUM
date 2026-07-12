@@ -16,6 +16,7 @@ const ORBIT_STYLE = `
   position: relative;
   border-radius: 10.5px;
   overflow: hidden;
+  padding: 1.5px;
 }
 .orbit-wrapper::before {
   content: '';
@@ -33,17 +34,9 @@ const ORBIT_STYLE = `
   animation: orbit-spin 2.4s linear infinite;
   z-index: 0;
 }
-.orbit-wrapper::after {
-  content: '';
-  position: absolute;
-  inset: 1.5px;
-  border-radius: 9px;
-  background: #202020;
-  z-index: 1;
-}
 .orbit-inner {
   position: relative;
-  z-index: 2;
+  z-index: 1;
 }
 `
 
@@ -450,7 +443,10 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
         <div className="px-3 pb-1">
           {/* Textarea with orbit border when running */}
           <div className={isRunning ? "orbit-wrapper" : ""}>
-            <div className={`${isRunning ? "orbit-inner" : ""} flex items-end gap-2 rounded-[9px] border border-white/[0.08] bg-[#202020] px-3 py-2.5`}>
+            <div
+              className={`${isRunning ? "orbit-inner" : "rounded-[9px] border border-white/[0.08]"} flex items-end gap-2 bg-[#202020] px-3 py-2.5`}
+              style={isRunning ? { borderRadius: "9px" } : {}}
+            >
 
               {/* Attach button */}
               <div className="relative flex-shrink-0" ref={attachMenuRef}>
