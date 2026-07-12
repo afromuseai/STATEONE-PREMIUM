@@ -80,6 +80,7 @@ function WebsiteStudioInner() {
   }, [params.id, session.projectId, session.status, dispatch])
 
   const [livePreview, setLivePreview] = useState<string | null>(null)
+  const [previewGenerating, setPreviewGenerating] = useState(false)
   const previewRequestedFor = useRef<string | null>(null)
   // Drop any stale preview the moment the session no longer points at the
   // project it belongs to (reset / switched projects), so a leftover preview
@@ -88,6 +89,7 @@ function WebsiteStudioInner() {
     if (previewRequestedFor.current && previewRequestedFor.current !== session.projectId) {
       previewRequestedFor.current = null
       setLivePreview(null)
+      setPreviewGenerating(false)
     }
   }, [session.projectId])
 
@@ -193,17 +195,24 @@ function WebsiteStudioInner() {
   // HTML. Once the session finishes ("editing"), explicitly regenerate the
   // preview from the saved files so the workspace doesn't show "No preview
   // available" forever. Runs once per completed project id.
+  //
+  // This call takes ~30-60s (it's its own LLM render pass on the backend), so
+  // `previewGenerating` is surfaced to PreviewWorkspace — without it, the
+  // panel silently shows "No preview yet" for a full minute, which reads as
+  // broken even though the regeneration is working correctly in the background.
   useEffect(() => {
     if (session.status !== "editing" || !session.projectId) return
     if (previewRequestedFor.current === session.projectId) return
     previewRequestedFor.current = session.projectId
     setLivePreview(null)
+    setPreviewGenerating(true)
     api.websiteV2
       .regeneratePreview(session.projectId)
       .then((preview) => setLivePreview(preview))
       .catch((e: unknown) => {
         console.error("[website-studio] Preview generation failed", e)
       })
+      .finally(() => setPreviewGenerating(false))
   }, [session.status, session.projectId])
 
   const handleCancel = useCallback(() => {
@@ -493,7 +502,7 @@ function WebsiteStudioInner() {
         )
       }
 
-      const shell = <StudioShell project={liveProject} onRefresh={() => {}} session={session} />
+      const shell = <StudioShell project={liveProject} onRefresh={() => {}} session={session} previewGenerating={previewGenerating} />
 
       return (
         <div className="flex flex-1 min-w-0 h-full overflow-hidden">

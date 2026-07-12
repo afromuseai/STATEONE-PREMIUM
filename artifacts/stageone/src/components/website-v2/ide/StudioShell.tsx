@@ -38,6 +38,8 @@ interface StudioShellProps {
   /** Optional Marcus session — when provided (during generation), the side panel
    *  shows the live streaming activity instead of the editing chat. */
   session?:   MarcusSessionState | null
+  /** True while the preview HTML is being (re)generated in the background. */
+  previewGenerating?: boolean
 }
 
 // ─── Marcus Generation Stream View (during generation) ─────────────────────────
@@ -246,7 +248,7 @@ const STATUS_COLORS: Record<string, { text: string; dot: string }> = {
   error:      { text: "text-red-400/60",     dot: "fill-red-400" },
 }
 
-export function StudioShell({ project, onRefresh, session }: StudioShellProps) {
+export function StudioShell({ project, onRefresh, session, previewGenerating }: StudioShellProps) {
   // ── Tab state ────────────────────────────────────────────────────────────────
   const [openTabs,    setOpenTabs]    = useState<OpenTab[]>([
     { id: "preview",  label: "Preview",  pinned: true },
