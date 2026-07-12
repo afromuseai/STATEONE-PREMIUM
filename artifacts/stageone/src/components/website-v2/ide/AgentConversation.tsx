@@ -12,19 +12,21 @@ import {
 // ─── Orbit animation (AI-processing border effect) ────────────────────────────
 const ORBIT_STYLE = `
 @keyframes ac-orbit-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
+/* Wrapper clips everything — nothing leaks outside the box */
 .ac-orbit-wrapper {
   position: relative;
+  border-radius: 17px;
+  overflow: hidden;
 }
+/* Pseudo fills way beyond the box; overflow:hidden on wrapper clips it */
 .ac-orbit-wrapper::before {
   content: '';
   position: absolute;
-  inset: -1px;
-  border-radius: 17px;
+  inset: -150%;
   background: conic-gradient(
-    from var(--ac-orbit-angle, 0deg),
+    from 0deg,
     transparent 0%,
     transparent 30%,
     #D4A72C 50%,
@@ -35,11 +37,12 @@ const ORBIT_STYLE = `
   animation: ac-orbit-spin 2.4s linear infinite;
   z-index: 0;
 }
+/* Inner mask — leaves a 1.5px ring of gradient visible as the "border" */
 .ac-orbit-wrapper::after {
   content: '';
   position: absolute;
-  inset: 1px;
-  border-radius: 16px;
+  inset: 1.5px;
+  border-radius: 15.5px;
   background: #202020;
   z-index: 1;
 }
@@ -562,12 +565,12 @@ export function AgentConversation({
     }
   }
 
-  // Auto-resize textarea
+  // Auto-resize textarea — use "1px" not "auto" to avoid a collapse frame
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   useEffect(() => {
     const el = inputRef.current
     if (!el) return
-    el.style.height = "auto"
+    el.style.height = "1px"
     const next = Math.min(el.scrollHeight, 180)
     el.style.height = `${Math.max(next, 48)}px`
   }, [input])

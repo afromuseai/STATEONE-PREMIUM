@@ -10,19 +10,19 @@ import type { V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 // ─── Orbit animation styles ───────────────────────────────────────────────────
 const ORBIT_STYLE = `
 @keyframes orbit-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 .orbit-wrapper {
   position: relative;
+  border-radius: 10.5px;
+  overflow: hidden;
 }
 .orbit-wrapper::before {
   content: '';
   position: absolute;
-  inset: -1px;
-  border-radius: 10px;
+  inset: -150%;
   background: conic-gradient(
-    from var(--orbit-angle, 0deg),
+    from 0deg,
     transparent 0%,
     transparent 30%,
     #D4A72C 50%,
@@ -36,7 +36,7 @@ const ORBIT_STYLE = `
 .orbit-wrapper::after {
   content: '';
   position: absolute;
-  inset: 1px;
+  inset: 1.5px;
   border-radius: 9px;
   background: #202020;
   z-index: 1;
@@ -136,11 +136,11 @@ export function EditorChatPanel({ projectId, files, onEditComplete }: EditorChat
   const isTerminalError   = phase === "error"
   const canSend          = instruction.trim().length > 0 && !isRunning
 
-  // ─── Auto-resize textarea ─────────────────────────────────────────────────
+  // ─── Auto-resize textarea — "1px" not "auto" avoids collapse flash ────────
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
-    el.style.height = "auto"
+    el.style.height = "1px"
     const next = Math.min(el.scrollHeight, 180)
     el.style.height = `${Math.max(next, 48)}px`
   }, [instruction])

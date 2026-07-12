@@ -23,19 +23,19 @@ import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
 // ─── Orbit animation (same token as EditorChatPanel) ─────────────────────────
 const ORBIT_STYLE = `
 @keyframes ws-orbit-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 .ws-orbit-wrapper {
   position: relative;
+  border-radius: 13.5px;
+  overflow: hidden;
 }
 .ws-orbit-wrapper::before {
   content: '';
   position: absolute;
-  inset: -1px;
-  border-radius: 13px;
+  inset: -150%;
   background: conic-gradient(
-    from var(--orbit-angle, 0deg),
+    from 0deg,
     transparent 0%,
     transparent 30%,
     #D4A72C 50%,
