@@ -57,7 +57,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   )
 }
 
-function MarkdownText({ text }: { text: string }) {
+export function MarkdownText({ text }: { text: string }) {
   // Split on fenced code blocks first so ``` content is never mangled by line-based rules
   const segments = text.split(/(```[\s\S]*?```)/g)
 
@@ -122,11 +122,11 @@ function MarkdownText({ text }: { text: string }) {
 // (thinking, tool calls, file edits, scans, plans) gets bundled into a single
 // collapsible "N actions" row, matching Replit's own agent chat: only the
 // short narration is visible by default, detailed steps sit behind a toggle.
-type TimelineGroup =
+export type TimelineGroup =
   | { kind: "narration"; entry: TimelineEntryType }
   | { kind: "group"; entries: TimelineEntryType[]; id: string }
 
-function groupTimeline(timeline: TimelineEntryType[]): TimelineGroup[] {
+export function groupTimeline(timeline: TimelineEntryType[]): TimelineGroup[] {
   const groups: TimelineGroup[] = []
   let buffer: TimelineEntryType[] = []
   const flush = () => {
@@ -154,6 +154,11 @@ function groupLabel(entries: TimelineEntryType[]): string {
     if (scan.status === "error") return "Scan failed"
   }
   if (entries.some((e) => e.kind === "plan")) return "Drafted a plan"
+  const validation = entries.find((e) => e.kind === "validation")
+  if (validation && validation.kind === "validation") {
+    if (!validation.success) return "Fixing validation issues"
+    if (validation.fixed) return "Fixed and validated"
+  }
   const fileChanges = entries.filter((e) => e.kind === "file-change").length
   if (fileChanges > 0) return "Edited files"
   const toolCalls = entries.filter((e) => e.kind === "tool-call")
@@ -176,7 +181,7 @@ const TOOL_GROUP_LABELS: Record<string, string> = {
   run_command: "Ran a command",
 }
 
-function ActionGroup({
+export function ActionGroup({
   entries,
   project,
   onFileOpen,
@@ -190,7 +195,7 @@ function ActionGroup({
   )
   const hasError = entries.some(
     (e) => (e.kind === "tool-call" || e.kind === "scan") && e.status === "error"
-  )
+  ) || entries.some((e) => e.kind === "validation" && !e.success)
   const [expanded, setExpanded] = useState(hasRunning)
 
   useEffect(() => {
@@ -273,6 +278,29 @@ function CollapsibleDetail({ label, text, accent = "indigo" }: { label: string; 
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+// ─── Validation entry card ──────────────────────────────────────────────────
+function ValidationCard({ entry }: { entry: Extract<TimelineEntryType, { kind: "validation" }> }) {
+  const isOk = entry.success
+  return (
+    <motion.div initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}
+      className={`flex items-start gap-2.5 rounded-lg border px-2.5 py-1.5 ${isOk ? "border-emerald-400/[0.12] bg-emerald-400/[0.03]" : "border-red-400/[0.12] bg-red-400/[0.03]"}`}
+    >
+      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded" style={{ background: isOk ? "#10b9811a" : "#ef44441a" }}>
+        {isOk ? <Check className="h-3 w-3 text-emerald-400" /> : <AlertCircle className="h-3 w-3 text-red-400" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <span className={`text-[11px] ${isOk ? "text-emerald-300/80" : "text-red-300/80"}`}>
+          {isOk ? "Structural validation passed" : `${entry.errors.length} validation issue${entry.errors.length === 1 ? "" : "s"} found`}
+        </span>
+        {isOk && entry.fixed && <p className="mt-0.5 text-[10px] text-white/28">Auto-fixed after review</p>}
+        {!isOk && entry.errors.slice(0, 3).map((e, i) => (
+          <p key={i} className="mt-0.5 truncate text-[10px] text-red-300/50">• {e}</p>
+        ))}
+      </div>
+    </motion.div>
   )
 }
 
@@ -834,7 +862,7 @@ function generateDiff(oldStr: string, newStr: string): string {
 }
 
 // ─── Timeline entry renderer ─────────────────────────────────────────────────
-function TimelineEntryRenderer({
+export function TimelineEntryRenderer({
   entry,
   project,
   onFileOpen,
@@ -938,6 +966,10 @@ function TimelineEntryRenderer({
         {done && <ChevronRight className="h-3 w-3 flex-shrink-0 text-white/15" />}
       </motion.div>
     )
+  }
+
+  if (entry.kind === "validation") {
+    return <ValidationCard entry={entry} />
   }
 
   return null

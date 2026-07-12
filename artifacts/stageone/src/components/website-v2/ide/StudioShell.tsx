@@ -2,12 +2,12 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { TopCommandBar }       from "./TopCommandBar"
 import { ActivityBar }         from "./ActivityBar"
-import { AgentConversation }   from "./AgentConversation"
+import { AgentConversation, MarkdownText, groupTimeline, ActionGroup, TimelineEntryRenderer } from "./AgentConversation"
 import { FileExplorerDrawer }  from "./FileExplorerDrawer"
 import { EditorWorkspace }     from "./EditorWorkspace"
 import { TerminalDrawer }      from "./TerminalDrawer"
 import { CommandPalette }      from "./CommandPalette"   // P1
-import { AgentRuntime } from "./AgentRuntime"  // P3
+import { AgentRuntime, type TimelineEntry } from "./AgentRuntime"  // P3
 import type { FileDiff } from "./DiffReviewPanel"
 import { CodeReviewPanel }     from "./CodeReviewPanel"  // P4
 import { DeploymentPipeline }  from "./DeploymentPipeline" // P5
@@ -42,189 +42,143 @@ interface StudioShellProps {
   previewGenerating?: boolean
 }
 
+// ─── Convert a session ConversationEntry into the shared TimelineEntry shape ───
+// so the live generation stream renders through the exact same markdown,
+// grouping, and card components as the post-generation editing chat — one
+// visual language for Marcus everywhere in Website Studio.
+function toTimelineEntry(entry: ConversationEntry): TimelineEntry {
+  const time = new Date(entry.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  switch (entry.kind) {
+    case "thinking":
+      return { kind: "thinking", text: entry.text, id: entry.id, time }
+    case "user":
+      return { kind: "user-msg", text: entry.text, id: entry.id, time }
+    case "agent":
+      return { kind: "agent-msg", text: entry.text, id: entry.id, time }
+    case "tool":
+      return {
+        kind: "tool-call", name: entry.tool, params: entry.path ? { path: entry.path } : {},
+        status: entry.status === "failed" ? "error" : entry.status,
+        result: entry.detail, id: entry.id, time,
+      }
+    case "plan":
+      return { kind: "plan", text: entry.text, id: entry.id, time }
+    case "scan":
+      return {
+        kind: "scan", status: entry.status === "failed" ? "error" : entry.status,
+        summary: entry.summary, id: entry.id, time,
+      }
+    case "validation":
+      return { kind: "validation", success: entry.success, errors: entry.errors, fixed: entry.fixed, id: entry.id, time }
+    case "file-change":
+      return {
+        kind: "file-change",
+        change: { path: entry.path, operation: entry.operation },
+        id: entry.id, time,
+      }
+  }
+}
+
 // ─── Marcus Generation Stream View (during generation) ─────────────────────────
-function GenerationStream({ session }: { session: MarcusSessionState }) {
-  const entries = session.conversation ?? []
+// Shares rendering (markdown, grouped/collapsible action rows, validation and
+// tool cards) with AgentConversation — the only intentional difference is that
+// generation has no input box, since it's a fire-and-forget run, not a chat.
+function GenerationStream({ session, project, onFileOpen }: { session: MarcusSessionState; project: V2Project; onFileOpen: (file: V2ProjectFile) => void }) {
+  const timeline = useMemo(() => (session.conversation ?? []).map(toTimelineEntry), [session.conversation])
+  const bottomRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [timeline, session.streamingText])
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-zinc-950/50">
-      {/* Header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2.5">
-        <div className="flex h-6 w-6 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/[0.08]">
-          <Zap className="h-3 w-3 text-amber-400" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-white/90 truncate">Marcus is building…</p>
-          <p className="text-[10px] text-white/30 truncate">
-            {session.currentPhase ? `${session.phaseMessage || session.currentPhase}` : "Thinking…"}
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {session.activeFilePath && (
-            <span className="flex items-center gap-1 text-[10px] text-amber-400/80 px-2 py-0.5 rounded bg-amber-400/[0.06]">
-              <FileText className="h-2.5 w-2.5" />
-              {session.activeFilePath.split("/").pop()}
-            </span>
-          )}
-          <div className="flex h-5 w-5 items-center justify-center">
-            <Loader2 className="h-4 w-4 text-amber-400 animate-spin" />
-          </div>
-        </div>
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#0b0b0b]">
+      {/* Running glow — matches AgentConversation's active-state treatment */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[2px]">
+        <motion.div
+          className="absolute inset-0"
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          style={{ background: "linear-gradient(to bottom, transparent 0%, #f59e0b 30%, #fbbf24 50%, #f59e0b 70%, transparent 100%)", filter: "blur(4px)" }}
+        />
       </div>
 
-      {/* Conversation stream */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
-        {entries.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-white/20">
-            <p className="text-xs">Marcus is starting up…</p>
+      {/* Header */}
+      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-white/[0.05] px-4 py-3">
+        <div className="pointer-events-none absolute inset-0" style={{ background: "linear-gradient(135deg, #f59e0b06 0%, transparent 60%)" }} />
+        <div className="relative z-[1] flex-shrink-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
+            <Cpu className="h-3.5 w-3.5 text-amber-400/90" />
           </div>
-        ) : (
-          <>
-            {entries.map((entry, i) => (
-              <StreamEntry key={`${entry.id}-${i}`} entry={entry} />
-            ))}
-            {/* Live thinking stream */}
-            {session.streamingText && (
-              <StreamEntry
-                entry={{
-                  kind: "thinking",
-                  text: session.streamingText!,
-                  id: "live-thinking",
-                  ts: Date.now(),
-                  phase: session.currentPhase ?? undefined
-                }}
-                isLive
-              />
-            )}
-          </>
+          <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0b0b0b] bg-amber-400">
+            <div className="absolute inset-0 animate-ping rounded-full bg-amber-400 opacity-60" />
+          </div>
+        </div>
+        <div className="relative z-[1] min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate font-semibold text-white/90">Marcus AI</span>
+            <span className="text-[10px] font-mono text-amber-400/80 truncate">
+              {session.currentPhase ? (session.phaseMessage || session.currentPhase) : "Building your website…"}
+            </span>
+          </div>
+        </div>
+        {session.activeFilePath && (
+          <span className="relative z-[1] flex flex-shrink-0 items-center gap-1 text-[10px] text-amber-400/80 px-2 py-0.5 rounded bg-amber-400/[0.06]">
+            <FileText className="h-2.5 w-2.5" />
+            {session.activeFilePath.split("/").pop()}
+          </span>
         )}
       </div>
 
+      {/* Conversation area — same markdown/grouping as the editing chat */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+        {timeline.length === 0 && !session.streamingText ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.05] bg-white/[0.02]">
+              <Zap className="h-7 w-7 text-white/12" />
+            </div>
+            <h2 className="text-base font-semibold text-white/60">Starting up…</h2>
+            <p className="mt-1.5 max-w-[260px] text-sm text-white/25 leading-relaxed">
+              Marcus is reading your brief and planning the site.
+            </p>
+          </div>
+        ) : (
+          <AnimatePresence initial={false}>
+            {groupTimeline(timeline).map((g) =>
+              g.kind === "narration" ? (
+                <TimelineEntryRenderer key={g.entry.id} entry={g.entry} project={project} onFileOpen={onFileOpen} />
+              ) : (
+                <ActionGroup key={g.id} entries={g.entries} project={project} onFileOpen={onFileOpen} />
+              )
+            )}
+          </AnimatePresence>
+        )}
+
+        {/* Live thinking stream — the portion of the current phase not yet
+            sealed into a timeline entry, rendered with the same markdown
+            treatment (no more raw monospace token dump). */}
+        {session.streamingText && (
+          <div className="flex items-start gap-3 pl-1">
+            <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
+              <Brain className="h-3 w-3 text-amber-400/90" />
+            </div>
+            <div className="flex-1 min-w-0 opacity-70">
+              <MarkdownText text={session.streamingText} />
+              <span className="inline-block h-3 w-1.5 translate-y-0.5 animate-pulse bg-amber-400/60" />
+            </div>
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
       {/* Status bar */}
-      <div className="flex shrink-0 items-center justify-between border-t border-white/[0.06] px-3 py-2 text-[10px] text-white/30">
-        <span>Files: {session.fileCount || 0}</span>
-        <span>Phase {session.fixIteration || 0}</span>
+      <div className="flex shrink-0 items-center justify-between border-t border-white/[0.05] px-4 py-2 text-[10px] text-white/30">
+        <span>{session.fileCount || 0} file{session.fileCount === 1 ? "" : "s"} written</span>
+        {session.fixIteration > 0 && <span>Fix iteration {session.fixIteration}</span>}
       </div>
     </div>
   )
-}
-
-// ─── Individual stream entry ───────────────────────────────────────────────────
-function StreamEntry({ entry, isLive }: { entry: ConversationEntry; isLive?: boolean }) {
-  const isThinking = entry.kind === "thinking"
-  const isTool = entry.kind === "tool"
-  const isAgent = entry.kind === "agent"
-  const isPlan = entry.kind === "plan"
-  const isScan = entry.kind === "scan"
-  const isValidation = entry.kind === "validation"
-  const isFileChange = entry.kind === "file-change"
-
-  if (isThinking) {
-    return (
-      <div className="flex items-start gap-2 text-[11px] text-white/40 animate-in fade-in slide-in-from-left-1 duration-200">
-        <Brain className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400/70" />
-        <div className="flex-1 min-w-0">
-          {entry.phase && (
-            <p className="text-[9px] font-medium text-amber-400/60 mb-0.5 uppercase tracking-wider">
-              {entry.phase}
-            </p>
-          )}
-          <p className="font-mono leading-relaxed">{entry.text}</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isTool) {
-    const statusColor = entry.status === "running" ? "text-amber-400" :
-                        entry.status === "done" ? "text-emerald-400" :
-                        "text-red-400"
-    const icon = entry.status === "running" ? <Loader2 className="h-3 w-3 animate-spin" /> :
-                 entry.status === "done" ? <Check className="h-3 w-3" /> :
-                 <X className="h-3 w-3" />
-    return (
-      <div className="flex items-start gap-2 text-[11px]">
-        <TerminalIcon className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${statusColor}`} />
-        <div className="flex-1 min-w-0">
-          <p className="flex items-center gap-1.5 font-mono">
-            <span className={statusColor}>{entry.tool}</span>
-            {entry.path && <span className="text-white/30">{entry.path}</span>}
-            {entry.detail && <span className="text-white/20">— {entry.detail}</span>}
-          </p>
-        </div>
-        <div className={statusColor}>{icon}</div>
-      </div>
-    )
-  }
-
-  if (isAgent) {
-    return (
-      <div className="flex items-start gap-2 text-[11px]">
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-400/[0.1] border border-emerald-400/20">
-          <Cpu className="h-3 w-3 text-emerald-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-mono text-white/70 leading-relaxed">{entry.text}</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isPlan) {
-    return (
-      <div className="flex items-start gap-2 text-[11px] border-l border-amber-400/30 pl-3">
-        <Search className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400/70" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[9px] font-medium text-amber-400/60 mb-0.5 uppercase tracking-wider">Plan</p>
-          <p className="font-mono text-white/50 leading-relaxed">{entry.text}</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isScan) {
-    return (
-      <div className="flex items-start gap-2 text-[11px] border-l border-emerald-400/30 pl-3">
-        <FileText className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-400/70" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[9px] font-medium text-emerald-400/60 mb-0.5 uppercase tracking-wider">
-            {entry.status === "running" ? "Scanning…" : entry.status === "done" ? "Scan complete" : "Scan failed"}
-          </p>
-          {entry.summary && <p className="font-mono text-white/50">{entry.summary}</p>}
-        </div>
-      </div>
-    )
-  }
-
-  if (isValidation) {
-    const isOk = entry.success
-    return (
-      <div className={`flex items-start gap-2 text-[11px] border-l pl-3 ${isOk ? "border-emerald-400/30" : "border-red-400/30"}`}>
-        {isOk ? <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-400" /> : <X className="h-3.5 w-3.5 shrink-0 mt-0.5 text-red-400" />}
-        <div className="flex-1 min-w-0">
-          <p className={`text-[9px] font-medium mb-0.5 uppercase tracking-wider ${isOk ? "text-emerald-400/60" : "text-red-400/60"}`}>
-            {isOk ? "Validation passed" : "Validation failed"}
-          </p>
-          {!isOk && entry.errors && entry.errors.map((e, i) => (
-            <p key={i} className="font-mono text-red-400/70 text-[10px]">• {e}</p>
-          ))}
-          {isOk && entry.fixed && <p className="font-mono text-emerald-400/70 text-[10px]">Auto-fixed</p>}
-        </div>
-      </div>
-    )
-  }
-
-  if (isFileChange) {
-    return (
-      <div className="flex items-center gap-2 text-[11px] text-white/50">
-        <FileCode className="h-3.5 w-3.5 shrink-0" />
-        <span className="font-mono">{entry.path}</span>
-        <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.05] capitalize">{entry.operation}</span>
-      </div>
-    )
-  }
-
-  return null
 }
 
 // ─── Runtime status label helpers ─────────────────────────────────────────────
@@ -577,7 +531,7 @@ const handleRun = async () => {
                 className="flex flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.06]"
               >
                 {sideView === "marcus" && session?.status === "generating" ? (
-                  <GenerationStream session={session} />
+                  <GenerationStream session={session} project={project} onFileOpen={openFile} />
                 ) : sideView === "marcus" ? (
                   <AgentConversation
                     project={project}

@@ -62,6 +62,7 @@ export type TimelineEntry =
   | { kind: "file-change"; change: FileChange; id: string; time: string }
   | { kind: "scan";        status: "running" | "done" | "error"; summary?: string; id: string; time: string }
   | { kind: "plan";        text: string; id: string; time: string }
+  | { kind: "validation";  success: boolean; errors: string[]; fixed: boolean; id: string; time: string }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MAX_LOOP_ITERATIONS = 8
