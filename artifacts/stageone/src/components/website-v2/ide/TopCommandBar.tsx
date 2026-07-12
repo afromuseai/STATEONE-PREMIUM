@@ -35,6 +35,10 @@ interface TopCommandBarProps {
   onDeploy:              () => void
   onRun:                 () => void
   onOpenPalette:         () => void
+  /** Width (px) of the activity bar + side panel below this bar, so the
+   *  centered mode strip can be centered over the preview/workspace area
+   *  rather than the full-width bar (which spans past the left rail). */
+  leftRailWidth?:        number
 }
 
 export function TopCommandBar({
@@ -45,6 +49,7 @@ export function TopCommandBar({
   onToggleTerminalDrawer,
   onDeploy,
   onRun,
+  leftRailWidth = 0,
 }: TopCommandBarProps) {
   const [, navigate] = useLocation()
   const status       = STATUS_CFG[project.status] ?? STATUS_CFG.planning
@@ -89,8 +94,12 @@ export function TopCommandBar({
         </div>
       </div>
 
-      {/* ── Center: Workspace mode strip (absolutely centered) ─────────────── */}
-      <div className="absolute left-1/2 -translate-x-1/2 flex items-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] p-[3px] gap-px">
+      {/* ── Center: Workspace mode strip — centered over the preview/workspace ──
+           area below (full bar width minus the left rail), not the whole bar. ── */}
+      <div
+        className="absolute -translate-x-1/2 flex items-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] p-[3px] gap-px transition-[left] duration-300 ease-out"
+        style={{ left: `calc(50% + ${leftRailWidth / 2}px)` }}
+      >
         {MODES.map(({ id, icon: Icon, label, shortcut }) => {
           const active = workspaceMode === id
           return (

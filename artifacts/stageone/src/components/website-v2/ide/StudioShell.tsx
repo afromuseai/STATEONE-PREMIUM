@@ -92,6 +92,16 @@ export function StudioShell({ project, onRefresh, session, previewGenerating }: 
     }
   }, [session?.status])
 
+  // Total width of the left rail (40px activity bar + current side panel), used
+  // so the top bar's centered mode strip can be centered over the actual
+  // preview/workspace area below it, not the full-width bar itself.
+  const sidePanelWidth =
+    sideView === "marcus"        ? 320
+    : sideView === "collaboration" ? 280
+    : sideView === "explorer"      ? 240
+    : 0
+  const leftRailWidth = 40 + sidePanelWidth
+
   // Feed the live Marcus session into the generation event bus so the new
   // inline `GenerationActivity` (inside AgentConversation) reflects the real
   // build instead of only reacting to the dev test helper. Safe to call with
@@ -368,6 +378,7 @@ const handleRun = async () => {
           onCodeReview={() => setCodeReviewOpen(true)}
           onDeploy={() => setDeployOpen(true)}
           onOpenPalette={() => setPaletteOpen(true)}
+          leftRailWidth={leftRailWidth}
         />
       </StudioHeader>
 
