@@ -31,22 +31,87 @@ import type { BusinessContext, ProjectFile, GeneratedProject, WebsiteBlueprint }
 import { createV2Project, saveBlueprint, saveGeneratedFiles, markProjectFailed } from "../website-v2-projects";
 import type { Response } from "express";
 import type { MarcusTaskBus } from "./marcus-task-bus";
+import {
+  buildUnderstandingNarration,
+  buildPlanningNarration,
+  extractDesignDecision,
+  buildFilePurpose,
+  buildObserveNarration,
+  buildFixNarration,
+  buildValidateNarration,
+  deriveConfidence,
+  buildCompletionNarration,
+} from "./marcus-narration";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type LoopPhase = "UNDERSTAND" | "PLAN" | "EXECUTE" | "OBSERVE" | "FIX" | "VALIDATE" | "REPORT";
 
+/** How sure we are in the completion report — derived from validation outcome,
+ *  never guessed. HIGH = validated clean on the first pass, MEDIUM = validated
+ *  clean after fixes, LOW = still has known issues after max fix attempts. */
+export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW";
+
+// Narrator fields below are all optional and additive: every existing consumer
+// that only reads `phase`/`loopPhase`/`message`/etc. keeps working unchanged.
+// They surface *only* information already available in-process (BusinessContext,
+// the model's own planning text, validation results, file paths) — never
+// fabricated. See marcus-narration.ts for how each is derived.
 export type StreamAgentSseEvent =
   | { phase: "agent-thinking"; token: string }
   | { phase: "file-start";     path: string; language: string }
   | { phase: "file-token";     path: string; token: string }
   | { phase: "file-done";      path: string; content: string }
   | { phase: "project-created"; projectId: string }
-  | { phase: "done";           projectId: string; data: GeneratedProject }
+  | {
+      phase: "done";
+      projectId: string;
+      data: GeneratedProject;
+      /** Narrative wrap-up, e.g. "Website completed. I created …" */
+      message?: string;
+      summary?: string;
+      decision?: string;
+      filesCreated?: string[];
+      confidence?: ConfidenceLevel;
+      timestamp?: number;
+    }
   | { phase: "error";          message: string }
-  | { phase: "loop-phase";     loopPhase: LoopPhase; message: string }
-  | { phase: "tool-call";      tool: string; status: "start" | "done" | "failed"; path?: string; detail?: string }
-  | { phase: "validation";     success: boolean; errors: string[]; fixed: boolean };
+  | {
+      phase: "loop-phase";
+      loopPhase: LoopPhase;
+      message: string;
+      /** Wrap-up narration, populated on REPORT/completion-adjacent emissions. */
+      summary?: string;
+      /** A concrete design/architecture choice extracted from the model's own
+       *  planning text — never invented when the model didn't state one. */
+      decision?: string;
+      reason?: string;
+      filesCreated?: string[];
+      confidence?: ConfidenceLevel;
+      timestamp?: number;
+    }
+  | {
+      phase: "tool-call";
+      tool: string;
+      status: "start" | "done" | "failed";
+      path?: string;
+      detail?: string;
+      /** Human narration of *why* this file/action matters, e.g. "Creating the
+       *  hero section that introduces {company} and drives visitors to {CTA}." */
+      message?: string;
+      timestamp?: number;
+    }
+  | {
+      phase: "validation";
+      success: boolean;
+      errors: string[];
+      fixed: boolean;
+      /** What was actually checked, e.g. "Checking responsiveness, component
+       *  structure, and build stability before presenting the website." */
+      message?: string;
+      summary?: string;
+      timestamp?: number;
+    };
 
 // ─── SSE writer ───────────────────────────────────────────────────────────────
 
@@ -227,6 +292,7 @@ interface ParseStreamOptions {
   res:        Response;
   stream:     ReadableStream<Uint8Array>;
   projectId:  string;
+  ctx:        BusinessContext;
   taskBus?:   MarcusTaskBus;
   loopPhase:  LoopPhase;
   /** If true, emit loop-phase:EXECUTE on first write_file encountered */
@@ -238,11 +304,14 @@ interface ParseStreamResult {
   fileContents:  Map<string, string>;
   files:         ProjectFile[];
   executePhaseEmitted: boolean;
+  /** Design decision extracted from the model's own planning text, if it
+   *  mentioned one — null when it didn't (never fabricated). */
+  designDecision: { decision: string; reason?: string } | null;
 }
 
 async function parseXmlStream(opts: ParseStreamOptions): Promise<ParseStreamResult> {
   const {
-    res, stream, projectId, taskBus, loopPhase,
+    res, stream, projectId, ctx, taskBus, loopPhase,
     emitExecutePhaseTransition,
     existingFiles = new Map<string, string>(),
   } = opts;
@@ -250,6 +319,27 @@ async function parseXmlStream(opts: ParseStreamOptions): Promise<ParseStreamResu
   const fileContents = new Map<string, string>(existingFiles);
   const files: ProjectFile[] = [];
   let executePhaseEmitted = false;
+  let designDecision: { decision: string; reason?: string } | null = null;
+  let designDecisionEmitted = false;
+
+  // Extracts a design decision from the model's own planning text and, the
+  // first time one is found, emits it as extra metadata on a PLAN loop-phase
+  // event — additive, never replaces the original PLAN message.
+  function captureDesignDecision(planningText: string) {
+    if (designDecisionEmitted) return;
+    const found = extractDesignDecision(planningText);
+    if (!found) return;
+    designDecision = found;
+    designDecisionEmitted = true;
+    sseWrite(res, {
+      phase: "loop-phase",
+      loopPhase: "PLAN",
+      message: buildPlanningNarration(),
+      decision: found.decision,
+      reason: found.reason,
+      timestamp: Date.now(),
+    });
+  }
 
   const decoder = new TextDecoder();
   const reader  = stream.getReader();
@@ -305,12 +395,13 @@ async function parseXmlStream(opts: ParseStreamOptions): Promise<ParseStreamResu
           if (sepIdx !== -1) {
             const before = buf.slice(0, sepIdx);
             if (before.trim()) sseWrite(res, { phase: "agent-thinking", token: before });
+            captureDesignDecision(before);
             buf = buf.slice(sepIdx + "---BEGIN FILES---".length);
             seenBeginFiles = true;
             // Transition to EXECUTE phase when first separator is seen
             if (emitExecutePhaseTransition && !executePhaseEmitted) {
               executePhaseEmitted = true;
-              sseWrite(res, { phase: "loop-phase", loopPhase: "EXECUTE", message: "Writing files…" });
+              sseWrite(res, { phase: "loop-phase", loopPhase: "EXECUTE", message: "Writing files…", timestamp: Date.now() });
               taskBus?.emit("pipeline", "start", "running", { phase: "EXECUTE", projectId }, "execute");
             }
           } else {
@@ -334,10 +425,15 @@ async function parseXmlStream(opts: ParseStreamOptions): Promise<ParseStreamResu
           buf   = buf.slice(openIdx);
           state = "in_open_tag";
 
+          // Design decisions can only come from the model's own planning text;
+          // this fallback path skips ---BEGIN FILES---, so capture whatever
+          // thinking text preceded the first <write_file> tag before it's gone.
+          captureDesignDecision(before);
+
           // Emit execute phase transition on first write_file if separator wasn't seen
           if (emitExecutePhaseTransition && !executePhaseEmitted) {
             executePhaseEmitted = true;
-            sseWrite(res, { phase: "loop-phase", loopPhase: "EXECUTE", message: "Writing files…" });
+            sseWrite(res, { phase: "loop-phase", loopPhase: "EXECUTE", message: "Writing files…", timestamp: Date.now() });
             taskBus?.emit("pipeline", "start", "running", { phase: "EXECUTE", projectId }, "execute");
           }
         } else {
@@ -371,7 +467,14 @@ async function parseXmlStream(opts: ParseStreamOptions): Promise<ParseStreamResu
         currentContent = "";
 
         // Emit tool-call start
-        sseWrite(res, { phase: "tool-call", tool: "write_file", status: "start", path: currentPath });
+        sseWrite(res, {
+          phase: "tool-call",
+          tool: "write_file",
+          status: "start",
+          path: currentPath,
+          message: buildFilePurpose(currentPath, ctx),
+          timestamp: Date.now(),
+        });
         taskBus?.emit("filesystem", "create_file", "running", { path: currentPath, projectId }, loopPhase);
 
         sseWrite(res, { phase: "file-start", path: currentPath, language: currentLang });
@@ -411,6 +514,7 @@ async function parseXmlStream(opts: ParseStreamOptions): Promise<ParseStreamResu
         sseWrite(res, {
           phase: "tool-call", tool: "write_file", status: "done",
           path: currentPath, detail: `${content.length} bytes`,
+          timestamp: Date.now(),
         });
         taskBus?.emit("filesystem", "create_file", "completed", {
           path: currentPath, projectId, bytes: content.length,
@@ -439,7 +543,7 @@ async function parseXmlStream(opts: ParseStreamOptions): Promise<ParseStreamResu
     files.push({ path: currentPath, operation: "create", content, language: currentLang });
   }
 
-  return { fileContents, files, executePhaseEmitted };
+  return { fileContents, files, executePhaseEmitted, designDecision };
 }
 
 // ─── Main autonomous agent runner ─────────────────────────────────────────────
@@ -485,10 +589,13 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
 
   try {
     // ── UNDERSTAND phase ──────────────────────────────────────────────────────
+    const understanding = buildUnderstandingNarration(ctx);
     sseWrite(res, {
       phase: "loop-phase",
       loopPhase: "UNDERSTAND",
-      message: `Analysing ${ctx.companyName} — ${ctx.industry}`,
+      message: understanding.message,
+      summary: understanding.summary,
+      timestamp: Date.now(),
     });
     taskBus?.emit("pipeline", "start", "running", { phase: "UNDERSTAND", userId, industry: ctx.industry }, "understand");
 
@@ -507,7 +614,7 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
     logger.info({ projectId, userId }, "[MARCUS_STREAM] Project created");
 
     // ── PLAN phase ────────────────────────────────────────────────────────────
-    sseWrite(res, { phase: "loop-phase", loopPhase: "PLAN", message: "Planning architecture and design…" });
+    sseWrite(res, { phase: "loop-phase", loopPhase: "PLAN", message: buildPlanningNarration(), timestamp: Date.now() });
     taskBus?.emit("llm", "codegen_start", "running", { model: MODELS.WEBSITE_V2_CODE_GEN, projectId, phase: "PLAN" }, "plan");
 
     // ── EXECUTE phase (streaming LLM call) ────────────────────────────────────
@@ -530,6 +637,7 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
       res,
       stream: generateStream,
       projectId,
+      ctx,
       taskBus,
       loopPhase: "EXECUTE",
       emitExecutePhaseTransition: true,
@@ -547,7 +655,7 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
     if (bailIfAborted()) return;
 
     // ── OBSERVE phase ──────────────────────────────────────────────────────────
-    sseWrite(res, { phase: "loop-phase", loopPhase: "OBSERVE", message: "Inspecting generated files…" });
+    sseWrite(res, { phase: "loop-phase", loopPhase: "OBSERVE", message: buildObserveNarration(), timestamp: Date.now() });
     taskBus?.emit("pipeline", "start", "running", { phase: "OBSERVE", projectId }, "observe");
 
     // tool-call: list_files
@@ -567,7 +675,11 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
       detail: validation.ok ? "No issues found" : `${validation.errors.length} issue(s): ${validation.errors[0]}`,
     });
 
-    sseWrite(res, { phase: "validation", success: validation.ok, errors: validation.errors, fixed: false });
+    sseWrite(res, {
+      phase: "validation", success: validation.ok, errors: validation.errors, fixed: false,
+      message: "Checking responsiveness, component structure, and build stability before presenting the website.",
+      timestamp: Date.now(),
+    });
 
     // ── FIX phase (iterative if issues found) ─────────────────────────────────
     let fixIteration = 0;
@@ -575,10 +687,13 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
       fixIteration++;
       const issues = validation.errors;
 
+      const fixNarration = buildFixNarration(issues, fixIteration);
       sseWrite(res, {
         phase: "loop-phase",
         loopPhase: "FIX",
-        message: `Fixing ${issues.length} issue(s) — iteration ${fixIteration}…`,
+        message: fixNarration.message,
+        summary: fixNarration.summary,
+        timestamp: Date.now(),
       });
       taskBus?.emit("llm", "edit_start", "running", {
         model: MODELS.WEBSITE_V2_CODE_GEN,
@@ -606,6 +721,7 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
         res,
         stream:    fixStream,
         projectId,
+        ctx,
         taskBus,
         loopPhase: "FIX",
         emitExecutePhaseTransition: false,
@@ -632,16 +748,24 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
 
       // Re-validate
       validation = validateFiles(fileContents);
-      sseWrite(res, { phase: "validation", success: validation.ok, errors: validation.errors, fixed: true });
+      sseWrite(res, {
+        phase: "validation", success: validation.ok, errors: validation.errors, fixed: true,
+        message: "Re-checking the fixed files for the same issues before continuing.",
+        timestamp: Date.now(),
+      });
 
       logger.info({ projectId, fixIteration, stillFailing: !validation.ok }, "[MARCUS_STREAM] FIX phase complete");
     }
 
     // ── VALIDATE phase ─────────────────────────────────────────────────────────
+    const validateNarration = buildValidateNarration(validation);
     sseWrite(res, {
       phase: "loop-phase",
       loopPhase: "VALIDATE",
-      message: validation.ok ? "All files validated successfully" : "Validation complete with known issues",
+      message: validateNarration.message,
+      summary: validateNarration.summary,
+      confidence: deriveConfidence(validation, fixIteration),
+      timestamp: Date.now(),
     });
     taskBus?.emit("validation", "typescript", validation.ok ? "completed" : "failed", {
       projectId,
@@ -653,7 +777,7 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
     }
 
     // ── REPORT phase — persist to DB ───────────────────────────────────────────
-    sseWrite(res, { phase: "loop-phase", loopPhase: "REPORT", message: "Saving project…" });
+    sseWrite(res, { phase: "loop-phase", loopPhase: "REPORT", message: "Saving project…", timestamp: Date.now() });
 
     logger.info({ projectId, fileCount: allFiles.length }, "[MARCUS_STREAM] Saving files to DB");
 
@@ -684,7 +808,23 @@ Start with your PLAN (4-6 sentences about design/tech decisions for THIS specifi
       context:         ctx,
     };
 
-    sseWrite(res, { phase: "done", projectId, data: generatedProject });
+    const completion = buildCompletionNarration(
+      ctx,
+      allFiles.map(f => f.path),
+      validation,
+      execResult.designDecision,
+    );
+    sseWrite(res, {
+      phase: "done",
+      projectId,
+      data: generatedProject,
+      message: completion.message,
+      summary: completion.summary,
+      decision: execResult.designDecision?.decision,
+      filesCreated: allFiles.map(f => f.path),
+      confidence: deriveConfidence(validation, fixIteration),
+      timestamp: Date.now(),
+    });
     taskBus?.emit("pipeline", "finish", "completed", { projectId, fileCount: allFiles.length }, "pipeline");
     logger.info({ projectId, fileCount: allFiles.length }, "[MARCUS_STREAM] Generation complete");
 
