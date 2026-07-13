@@ -24,6 +24,12 @@ export interface GenerationEventDetails {
   decision?: string
   reason?: string
   files?: string[]
+  /** Narrative wrap-up text forwarded from the backend's completion report —
+   *  real data only, never fabricated on the frontend. */
+  summary?: string
+  /** Backend-derived confidence in the completion report ("HIGH"/"MEDIUM"/
+   *  "LOW"), forwarded as-is — never guessed here. */
+  confidence?: string
 }
 
 export interface GenerationEvent {

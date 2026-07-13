@@ -112,6 +112,12 @@ export function StudioShell({ project, onRefresh, session, previewGenerating }: 
     phaseMessage: session?.phaseMessage ?? null,
     error:        session?.error ?? null,
     files:        session ? Object.keys(session.files) : undefined,
+    // Narration metadata bridged from the backend (Phase 10.3) — real data
+    // only, forwarded as-is from session state.
+    summary:      session?.narrationSummary ?? null,
+    decision:     session?.narrationDecision ?? null,
+    reason:       session?.narrationReason ?? null,
+    confidence:   session?.confidence ?? null,
   })
 
 

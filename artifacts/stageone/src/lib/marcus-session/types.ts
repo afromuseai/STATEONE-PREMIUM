@@ -2,16 +2,44 @@
 // Every action Marcus takes, from initial generation through live editing,
 // emits one of these events. The UI renders nothing but these events.
 
+// How sure the backend is in a completion/validation report. Mirrors
+// `ConfidenceLevel` on the backend's `marcus-stream-agent.ts` — never
+// guessed on the frontend, only ever forwarded from the wire event.
+export type MarcusConfidenceLevel = "HIGH" | "MEDIUM" | "LOW"
+
 // ─── Wire events ──────────────────────────────────────────────────────────────
 export type MarcusSessionEvent =
   // Lifecycle
   | { type: "session.reset" }
   | { type: "session.started";   sessionId: string; projectId: string }
-  | { type: "session.completed"; projectId: string; fileCount: number }
+  | {
+      type: "session.completed"
+      projectId: string
+      fileCount: number
+      // Narration metadata carried by the backend's `done` SSE event — all
+      // optional/additive, forwarded only when the backend actually sent them.
+      summary?: string
+      decision?: string
+      filesCreated?: string[]
+      confidence?: MarcusConfidenceLevel
+    }
   | { type: "session.failed";    message: string }
 
   // Loop phases (generation)
-  | { type: "phase.changed"; phase: string; message: string }
+  | {
+      type: "phase.changed"
+      phase: string
+      message: string
+      // Narration metadata carried by the backend's `loop-phase` SSE event —
+      // all optional/additive, forwarded only when the backend actually sent
+      // them (e.g. a design decision extracted from the model's own planning
+      // text, or a derived confidence level on VALIDATE). Never fabricated.
+      summary?: string
+      decision?: string
+      reason?: string
+      filesCreated?: string[]
+      confidence?: MarcusConfidenceLevel
+    }
 
   // Thinking stream
   | { type: "thinking.token"; token: string }
@@ -93,6 +121,17 @@ export interface MarcusSessionState {
 
   // Last structural validation result
   lastValidation: { success: boolean; errors: string[]; fixed: boolean } | null
+
+  // ── Narration metadata (Phase 10.3 bridge) ──────────────────────────────────
+  // Real backend-derived signals only — never fabricated on the frontend.
+  // Populated from `phase.changed` / `session.completed` events and persisted
+  // across phase transitions (not reset) so the most recent known value of
+  // each field is always available to consumers, until session.reset.
+  narrationSummary:  string | null
+  narrationDecision: string | null
+  narrationReason:   string | null
+  filesCreated:      string[] | null
+  confidence:        MarcusConfidenceLevel | null
 }
 
 export const INITIAL_SESSION_STATE: MarcusSessionState = {
@@ -110,4 +149,9 @@ export const INITIAL_SESSION_STATE: MarcusSessionState = {
   streamingText:      "",
   conversation:       [],
   lastValidation:     null,
+  narrationSummary:   null,
+  narrationDecision:  null,
+  narrationReason:    null,
+  filesCreated:       null,
+  confidence:         null,
 }

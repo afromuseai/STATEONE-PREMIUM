@@ -35,6 +35,13 @@ export function marcusSessionReducer(
         fileCount:     event.fileCount,
         activeFilePath: null,
         streamingText:  "",
+        // Narration metadata: the completion event is the authoritative,
+        // final report — overwrite whatever earlier loop-phase events set,
+        // but only for fields the backend actually sent this time.
+        narrationSummary:  event.summary  ?? state.narrationSummary,
+        narrationDecision: event.decision ?? state.narrationDecision,
+        filesCreated:      event.filesCreated ?? state.filesCreated,
+        confidence:        event.confidence ?? state.confidence,
       }
 
     case "session.failed":
@@ -52,6 +59,15 @@ export function marcusSessionReducer(
         currentPhase:  event.phase,
         phaseMessage:  event.message,
         fixIteration:  isFix ? state.fixIteration + 1 : state.fixIteration,
+        // Narration metadata: only overwrite a field when this specific
+        // loop-phase event actually carried it — otherwise keep whatever the
+        // most recent phase set, so e.g. a design decision captured on PLAN
+        // survives into later phases instead of being cleared.
+        narrationSummary:  event.summary  ?? state.narrationSummary,
+        narrationDecision: event.decision ?? state.narrationDecision,
+        narrationReason:   event.reason   ?? state.narrationReason,
+        filesCreated:      event.filesCreated ?? state.filesCreated,
+        confidence:        event.confidence   ?? state.confidence,
       }
     }
 

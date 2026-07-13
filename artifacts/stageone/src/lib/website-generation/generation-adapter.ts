@@ -21,7 +21,7 @@
 import { useEffect, useRef } from "react"
 
 import { generationBus } from "@/components/website-v2/generation/generation-event-bus"
-import type { GenerationEventType } from "@/components/website-v2/generation/generation-events"
+import type { GenerationEventDetails, GenerationEventType } from "@/components/website-v2/generation/generation-events"
 
 // ─── Snapshot shape — deliberately generic, not Marcus-typed ──────────────────
 // Only the fields the mapping below actually needs. Optional fields default
@@ -42,6 +42,16 @@ export interface WebsiteGenerationSnapshot {
   /** File paths written so far — used only to build the completion summary
    *  (`GenerationActivity` categorizes these into pages/components/assets). */
   files?: string[]
+  /** A concrete design/architecture decision extracted from the model's own
+   *  planning text, if the model stated one — real backend data only,
+   *  never fabricated here. Persists once captured. */
+  decision?: string | null
+  /** The reason accompanying `decision`, if the model gave one. */
+  reason?: string | null
+  /** Narrative wrap-up from the backend's completion report. */
+  summary?: string | null
+  /** Backend-derived confidence in the completion report, forwarded as-is. */
+  confidence?: string | null
 }
 
 // ─── Phase → event mapping ──────────────────────────────────────────────────
@@ -70,13 +80,19 @@ function freshTracker(): RunTracker {
   return { emitted: new Set(), active: false }
 }
 
-function emitOnce(tracker: RunTracker, type: GenerationEventType, message?: string, files?: string[]) {
+function emitOnce(
+  tracker: RunTracker,
+  type: GenerationEventType,
+  message?: string,
+  details?: GenerationEventDetails,
+) {
   if (tracker.emitted.has(type)) return
   tracker.emitted.add(type)
+  const hasDetails = details && Object.values(details).some(v => v !== undefined && v !== null)
   generationBus.emit({
     type,
     message,
-    details: files && files.length > 0 ? { files } : undefined,
+    details: hasDetails ? details : undefined,
     timestamp: Date.now(),
   })
 }
@@ -103,7 +119,13 @@ export function translateSnapshot(tracker: RunTracker, snapshot: WebsiteGenerati
   if (!tracker.active) return
 
   if (phase && PLANNING_PHASES.has(phase)) {
-    emitOnce(tracker, "PLANNING_STARTED", snapshot.phaseMessage || "Planning architecture and design…")
+    // Forward the design decision/reason if the backend has already
+    // captured one by the time PLANNING_STARTED fires. Real data only —
+    // if the model hadn't stated a decision yet, these stay undefined.
+    emitOnce(tracker, "PLANNING_STARTED", snapshot.phaseMessage || "Planning architecture and design…", {
+      decision: snapshot.decision ?? undefined,
+      reason:   snapshot.reason ?? undefined,
+    })
   }
 
   if (phase && CODE_PHASES.has(phase)) {
@@ -111,7 +133,11 @@ export function translateSnapshot(tracker: RunTracker, snapshot: WebsiteGenerati
   }
 
   if (phase && REVIEW_PHASES.has(phase)) {
-    emitOnce(tracker, "REVIEW_STARTED", snapshot.phaseMessage || "Validating the build…")
+    // Forward confidence if the backend has already derived one by this
+    // point (e.g. a prior VALIDATE pass in the FIX loop).
+    emitOnce(tracker, "REVIEW_STARTED", snapshot.phaseMessage || "Validating the build…", {
+      confidence: snapshot.confidence ?? undefined,
+    })
   }
 
   // ── Run ends: either an explicit error, or a terminal status. ──────────────
@@ -122,7 +148,20 @@ export function translateSnapshot(tracker: RunTracker, snapshot: WebsiteGenerati
   }
 
   if (TERMINAL_STATUSES.has(status) && status !== "idle") {
-    emitOnce(tracker, "GENERATION_COMPLETED", "Website generation complete", snapshot.files)
+    // The completion event is the authoritative, final narration carrier —
+    // by this point the backend's `done` event has already delivered
+    // summary/decision/filesCreated/confidence into session state (and
+    // `reason`, if ever captured during PLAN, persists in state until
+    // session reset), so this is guaranteed to have the real, final values
+    // even if the earlier PLANNING_STARTED/REVIEW_STARTED events fired
+    // before those fields were available.
+    emitOnce(tracker, "GENERATION_COMPLETED", "Website generation complete", {
+      files:      snapshot.files,
+      summary:    snapshot.summary ?? undefined,
+      decision:   snapshot.decision ?? undefined,
+      reason:     snapshot.reason ?? undefined,
+      confidence: snapshot.confidence ?? undefined,
+    })
     tracker.active = false
   }
 }
@@ -138,6 +177,12 @@ export function useWebsiteGenerationAdapter(snapshot: WebsiteGenerationSnapshot)
     // Re-run whenever any part of the snapshot that can drive a transition
     // changes. `files` is intentionally read by reference length only, since
     // the array is rebuilt each render — comparing its length is enough to
-    // pick up the final file list by the time completion fires.
-  }, [snapshot.status, snapshot.phase, snapshot.phaseMessage, snapshot.error, snapshot.files?.length])
+    // pick up the final file list by the time completion fires. Narration
+    // fields are included so a decision/summary/confidence that arrives on a
+    // later render (even without a phase/status change) still gets a chance
+    // to reach `translateSnapshot` before the run's dedup gate closes it out.
+  }, [
+    snapshot.status, snapshot.phase, snapshot.phaseMessage, snapshot.error, snapshot.files?.length,
+    snapshot.decision, snapshot.reason, snapshot.summary, snapshot.confidence,
+  ])
 }
