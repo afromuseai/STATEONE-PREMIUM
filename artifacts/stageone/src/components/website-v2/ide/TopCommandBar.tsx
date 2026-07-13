@@ -9,9 +9,9 @@ import type { WorkspaceMode } from "./StudioShell"
 
 // ─── Project status config ─────────────────────────────────────────────────────
 const STATUS_CFG: Record<string, { color: string; icon: React.ElementType; label: string }> = {
-  planning:     { color: "#F59E0B", icon: Clock,       label: "Planning"     },
-  architecting: { color: "#6366F1", icon: Layers,      label: "Architecting" },
-  building:     { color: "#8B5CF6", icon: Loader,      label: "Building"     },
+  planning:     { color: "#A0A0A0", icon: Clock,       label: "Planning"     },
+  architecting: { color: "#A0A0A0", icon: Layers,      label: "Architecting" },
+  building:     { color: "#A0A0A0", icon: Loader,      label: "Building"     },
   ready:        { color: "#10B981", icon: CheckCircle, label: "Ready"        },
   failed:       { color: "#EF4444", icon: AlertCircle, label: "Failed"       },
 }
@@ -63,23 +63,23 @@ export function TopCommandBar({
     project.status === "planning"
 
   return (
-    <div className="flex h-11 flex-shrink-0 items-center gap-2 border-b border-white/[0.05] bg-[#0b0b0b] px-3">
+    <div className="flex h-11 flex-shrink-0 items-center gap-2 border-b border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] px-3">
 
       {/* ── Back ──────────────────────────────────────────────────────────── */}
       <button
         onClick={() => navigate("/website-studio")}
         title="Back to projects"
         aria-label="Back to projects"
-        className="flex h-6 w-6 items-center justify-center rounded-md text-white/28 transition-all hover:bg-white/[0.06] hover:text-white/70"
+        className="flex h-6 w-6 items-center justify-center rounded-md text-[#ECECEC]/28 transition-all hover:bg-[#252525] hover:text-[#ECECEC]"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
       </button>
 
-      <div className="h-3.5 w-px bg-white/[0.06]" />
+      <div className="h-3.5 w-px bg-[#252525]" />
 
       {/* ── Project name + build status ───────────────────────────────────── */}
       <div className="flex min-w-0 items-center gap-2">
-        <span className="max-w-[160px] truncate text-[13px] font-semibold text-white/85">
+        <span className="max-w-[160px] truncate text-[13px] font-semibold text-[#ECECEC]">
           {project.projectName}
         </span>
         <div
@@ -99,7 +99,7 @@ export function TopCommandBar({
       <div className="flex-1" />
 
       {/* ── Workspace mode strip ──────────────────────────────────────────── */}
-      <div className="flex items-center rounded-lg border border-white/[0.05] bg-white/[0.02] p-[3px] gap-px">
+      <div className="flex items-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] p-[3px] gap-px">
         {MODES.map(({ id, icon: Icon, label, shortcut }) => {
           const active = workspaceMode === id
           return (
@@ -111,8 +111,8 @@ export function TopCommandBar({
               aria-pressed={active}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all duration-150
                 ${active
-                  ? "bg-white/[0.09] text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                  : "text-white/28 hover:text-white/60 hover:bg-white/[0.03]"
+                  ? "bg-[#252525] text-[#ECECEC] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                  : "text-[#ECECEC]/28 hover:text-[#ECECEC]/60 hover:bg-[#252525]"
                 }`}
             >
               <Icon className="h-3 w-3" />
@@ -122,7 +122,7 @@ export function TopCommandBar({
         })}
       </div>
 
-      <div className="h-3.5 w-px bg-white/[0.06]" />
+      <div className="h-3.5 w-px bg-[#252525]" />
 
       {/* ── Right actions ────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1">
@@ -131,7 +131,7 @@ export function TopCommandBar({
           onClick={onOpenPalette}
           title="Command Palette (Ctrl+K)"
           aria-label="Command Palette"
-          className="hidden items-center gap-1.5 rounded-md border border-white/[0.05] bg-white/[0.02] px-2 py-1 text-[11px] text-white/26 transition-all hover:border-white/10 hover:bg-white/[0.04] hover:text-white/55 md:flex"
+          className="hidden items-center gap-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[#252525] px-2 py-1 text-[11px] text-[#ECECEC]/26 transition-all hover:border-[rgba(255,255,255,0.08)] hover:bg-[#252525] hover:text-[#ECECEC]/55 md:flex"
         >
           <Search className="h-3 w-3" />
           <span>⌃K</span>
@@ -152,7 +152,7 @@ export function TopCommandBar({
             onClick={onRun}
             title="Run project"
             aria-label="Run project"
-          className="flex items-center gap-1 rounded-md border border-white/[0.06] bg-white/[0.025] px-2 py-1 text-[11px] text-white/45 transition-all hover:border-white/12 hover:bg-white/[0.05] hover:text-white/80"
+          className="flex items-center gap-1 rounded-md border border-[rgba(255,255,255,0.08)] bg-white/[0.025] px-2 py-1 text-[11px] text-[#ECECEC]/45 transition-all hover:border-[rgba(255,255,255,0.08)] hover:bg-[#252525] hover:text-[#ECECEC]"
         >
           <Play className="h-3 w-3" />
           <span className="hidden md:inline">Run</span>
@@ -163,7 +163,7 @@ export function TopCommandBar({
           onClick={onDeploy}
           title="Deploy project"
           aria-label="Deploy project"
-          className="flex items-center gap-1 rounded-md border border-amber-400/22 bg-amber-400/7 px-2 py-1 text-[11px] font-semibold text-amber-400/75 transition-all hover:border-amber-400/35 hover:bg-amber-400/14 hover:text-amber-400"
+          className="flex items-center gap-1 rounded-md border border-[rgba(255,255,255,0.08)] bg-[#252525] px-2 py-1 text-[11px] font-semibold text-[#ECECEC] transition-all hover:border-[rgba(255,255,255,0.08)] hover:bg-[#252525] hover:text-[#ECECEC]"
         >
           <Upload className="h-3 w-3" />
           <span className="hidden md:inline">Deploy</span>
@@ -172,12 +172,12 @@ export function TopCommandBar({
         <button
           title="Project settings"
           aria-label="Project settings"
-          className="flex h-6 w-6 items-center justify-center rounded-md text-white/28 transition-all hover:bg-white/[0.06] hover:text-white/65"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-[#ECECEC]/28 transition-all hover:bg-[#252525] hover:text-[#ECECEC]/65"
         >
           <Settings className="h-3.5 w-3.5" />
         </button>
 
-        <div className="h-3.5 w-px bg-white/[0.06]" />
+        <div className="h-3.5 w-px bg-[#252525]" />
 
         {/* Terminal overlay toggle (⌃`) */}
         <button
@@ -187,8 +187,8 @@ export function TopCommandBar({
           aria-pressed={terminalDrawerOpen}
           className={`flex h-6 w-6 items-center justify-center rounded-md transition-all
             ${terminalDrawerOpen
-              ? "bg-amber-400/10 text-amber-400 border border-amber-400/20"
-              : "text-white/28 hover:bg-white/[0.06] hover:text-white/65"
+              ? "bg-[#252525] text-[#ECECEC] border border-[rgba(255,255,255,0.08)]"
+              : "text-[#ECECEC]/28 hover:bg-[#252525] hover:text-[#ECECEC]/65"
             }`}
         >
           <Terminal className="h-3.5 w-3.5" />

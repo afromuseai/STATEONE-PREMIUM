@@ -178,7 +178,7 @@ export function CommandPalette({
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.12 }}
-            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] bg-[#202020] backdrop-blur-sm"
             onClick={onClose}
           />
 
@@ -190,19 +190,19 @@ export function CommandPalette({
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
             className="fixed left-1/2 top-[15%] z-[201] w-full max-w-[560px] -translate-x-1/2"
           >
-            <div className="overflow-hidden rounded-xl border border-white/[0.10] bg-[#111111] shadow-2xl shadow-black/80">
+            <div className="overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] shadow-md shadow-black/80">
               {/* Search input */}
-              <div className="flex items-center gap-3 border-b border-white/[0.07] px-4 py-3">
-                <Search className="h-4 w-4 flex-shrink-0 text-white/25" />
+              <div className="flex items-center gap-3 border-b border-[rgba(255,255,255,0.08)] px-4 py-3">
+                <Search className="h-4 w-4 flex-shrink-0 text-[#ECECEC]/25" />
                 <input
                   ref={inputRef}
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   onKeyDown={handleKey}
                   placeholder="Search commands…"
-                  className="flex-1 bg-transparent text-[13px] text-white/80 placeholder-white/20 outline-none"
+                  className="flex-1 bg-transparent text-[13px] text-[#ECECEC] placeholder-white/20 outline-none"
                 />
-                <kbd className="flex-shrink-0 rounded border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-white/25">
+                <kbd className="flex-shrink-0 rounded border border-[rgba(255,255,255,0.08)] bg-[#252525] px-1.5 py-0.5 font-mono text-[10px] text-[#ECECEC]/25">
                   ESC
                 </kbd>
               </div>
@@ -210,13 +210,13 @@ export function CommandPalette({
               {/* Command list */}
               <div className="max-h-[360px] overflow-y-auto py-2" style={{ scrollbarWidth: "none" }}>
                 {flat.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-[12px] text-white/25">
+                  <div className="px-4 py-8 text-center text-[12px] text-[#ECECEC]/25">
                     No commands found for "{query}"
                   </div>
                 ) : (
                   Object.entries(grouped).map(([category, cmds]) => (
                     <div key={category}>
-                      <div className="px-4 pb-1 pt-3 font-mono text-[9px] font-semibold uppercase tracking-widest text-white/18">
+                      <div className="px-4 pb-1 pt-3 font-mono text-[9px] font-semibold uppercase tracking-widest text-[#ECECEC]/18">
                         {category}
                       </div>
                       {cmds.map(cmd => {
@@ -229,7 +229,7 @@ export function CommandPalette({
                             onClick={cmd.action}
                             onMouseEnter={() => setActiveIndex(idx)}
                             className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                              isActive ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"
+                              isActive ? "bg-[#252525]" : "hover:bg-[#252525]"
                             }`}
                           >
                             <div
@@ -240,16 +240,16 @@ export function CommandPalette({
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-[13px] text-white/80">{cmd.label}</span>
+                                <span className="text-[13px] text-[#ECECEC]">{cmd.label}</span>
                               </div>
-                              <p className="truncate text-[11px] text-white/28">{cmd.description}</p>
+                              <p className="truncate text-[11px] text-[#ECECEC]/28">{cmd.description}</p>
                             </div>
                             {cmd.shortcut && (
-                              <kbd className="flex-shrink-0 rounded border border-white/[0.07] bg-white/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-white/22">
+                              <kbd className="flex-shrink-0 rounded border border-[rgba(255,255,255,0.08)] bg-[#252525] px-1.5 py-0.5 font-mono text-[10px] text-[#ECECEC]/22">
                                 {cmd.shortcut}
                               </kbd>
                             )}
-                            {isActive && <ChevronRight className="h-3 w-3 flex-shrink-0 text-white/20" />}
+                            {isActive && <ChevronRight className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/20" />}
                           </button>
                         )
                       })}
@@ -259,12 +259,12 @@ export function CommandPalette({
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between border-t border-white/[0.06] px-4 py-2">
-                <div className="flex items-center gap-1 text-white/18">
+              <div className="flex items-center justify-between border-t border-[rgba(255,255,255,0.08)] px-4 py-2">
+                <div className="flex items-center gap-1 text-[#ECECEC]/18">
                   <Zap className="h-3 w-3" />
                   <span className="text-[10px]">Phase P — IDE Intelligence</span>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-white/18">
+                <div className="flex items-center gap-2 text-[10px] text-[#ECECEC]/18">
                   <span>↑↓ navigate</span>
                   <span>↵ execute</span>
                 </div>

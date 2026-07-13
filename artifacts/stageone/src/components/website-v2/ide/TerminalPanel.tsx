@@ -9,11 +9,11 @@ const PLACEHOLDER_LINES: TerminalLine[] = [
 ]
 
 const LINE_COLORS: Record<TerminalLine["type"], string> = {
-  info:    "text-white/45",
+  info:    "text-[#ECECEC]/45",
   success: "text-emerald-400",
   error:   "text-red-400",
-  warn:    "text-amber-400",
-  cmd:     "text-amber-300 font-semibold",
+  warn:    "text-[#ECECEC]",
+  cmd:     "text-[#ECECEC] font-semibold",
 }
 
 interface TerminalPanelProps {
@@ -38,19 +38,19 @@ export function TerminalPanel({ lines, isBooting, wcStatus, wcUrl }: TerminalPan
   }, [lines])
 
   return (
-    <div className="flex h-full w-full flex-col bg-[#080808] font-mono">
+    <div className="flex h-full w-full flex-col bg-[#1A1A1A] font-mono">
       {/* Terminal header */}
-      <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/[0.07] bg-[#0d0d0d] px-3 py-2">
-        <Terminal className="h-3.5 w-3.5 text-white/30" />
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-white/30">
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] px-3 py-2">
+        <Terminal className="h-3.5 w-3.5 text-[#ECECEC]/30" />
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-[#ECECEC]/30">
           Terminal
         </span>
         <div className="ml-auto flex items-center gap-1.5">
           {showSpinner
-            ? <Loader className="h-3 w-3 animate-spin text-amber-400/60" />
+            ? <Loader className="h-3 w-3 animate-spin text-[#ECECEC]" />
             : <Circle  className="h-2 w-2 fill-emerald-400 text-emerald-400" />
           }
-          <span className="text-[10px] text-white/30">
+          <span className="text-[10px] text-[#ECECEC]/30">
             {showSpinner ? "Starting…" : "WebContainer"}
           </span>
         </div>
@@ -61,7 +61,7 @@ export function TerminalPanel({ lines, isBooting, wcStatus, wcUrl }: TerminalPan
         <div className="p-3">
           {display.map((line) => (
             <div key={line.id} className="flex items-start gap-3">
-              <span className="flex-shrink-0 pt-0.5 font-mono text-[10px] text-white/20">
+              <span className="flex-shrink-0 pt-0.5 font-mono text-[10px] text-[#ECECEC]/20">
                 {line.time}
               </span>
               <span className={LINE_COLORS[line.type]}>{line.text}</span>
@@ -69,7 +69,7 @@ export function TerminalPanel({ lines, isBooting, wcStatus, wcUrl }: TerminalPan
           ))}
 
           {/* Blinking cursor */}
-          <div className="mt-2 flex items-center gap-1 text-amber-400/80">
+          <div className="mt-2 flex items-center gap-1 text-[#ECECEC]">
             <ChevronRight className="h-3 w-3" />
             <span className="animate-pulse">_</span>
           </div>

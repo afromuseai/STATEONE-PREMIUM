@@ -62,8 +62,8 @@ function CheckIcon({ status }: { status: Check["status"] }): React.ReactElement 
   switch (status) {
     case "pass":    return <CheckCircle  className="h-3.5 w-3.5 flex-shrink-0 text-emerald-400" />
     case "fail":    return <XCircle      className="h-3.5 w-3.5 flex-shrink-0 text-red-400" />
-    case "warn":    return <AlertCircle  className="h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
-    default:        return <Loader       className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-white/30" />
+    case "warn":    return <AlertCircle  className="h-3.5 w-3.5 flex-shrink-0 text-[#ECECEC]" />
+    default:        return <Loader       className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-[#ECECEC]/30" />
   }
 }
 
@@ -72,8 +72,8 @@ function checkColor(status: Check["status"]): string {
   switch (status) {
     case "pass":    return "text-emerald-400/80"
     case "fail":    return "text-red-400/80"
-    case "warn":    return "text-amber-400/80"
-    default:        return "text-white/35"
+    case "warn":    return "text-[#ECECEC]"
+    default:        return "text-[#ECECEC]/35"
   }
 }
 
@@ -114,21 +114,21 @@ export function RuntimeAgentObserver({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 6 }}
           transition={{ duration: 0.28, ease: "easeOut" }}
-          className="mx-3 mb-3 overflow-hidden rounded-lg border border-white/[0.08] bg-[#0f0f0f]"
+          className="mx-3 mb-3 overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1A1A1A]"
         >
           {/* Header row */}
-          <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400/15">
-              <span className="text-[9px] font-bold text-amber-400">M</span>
+          <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.08)] px-3 py-2">
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#252525]">
+              <span className="text-[9px] font-bold text-[#ECECEC]">M</span>
             </div>
-            <span className="text-[11px] font-semibold text-white/60">Marcus</span>
-            <span className="ml-auto font-mono text-[10px] text-white/20">Runtime Agent</span>
+            <span className="text-[11px] font-semibold text-[#ECECEC]/60">Marcus</span>
+            <span className="ml-auto font-mono text-[10px] text-[#ECECEC]/20">Runtime Agent</span>
           </div>
 
           {/* Body */}
           <div className="px-3 py-2.5">
             {/* Summary line */}
-            <p className="mb-3 text-[11px] leading-[1.55] text-white/50">
+            <p className="mb-3 text-[11px] leading-[1.55] text-[#ECECEC]/50">
               I launched the application.{" "}
               {hasFail
                 ? "Some checks failed — review the terminal for details."
@@ -138,7 +138,7 @@ export function RuntimeAgentObserver({
             </p>
 
             {/* Checklist label */}
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/20">
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-[#ECECEC]/20">
               Checking
             </p>
 
@@ -157,11 +157,11 @@ export function RuntimeAgentObserver({
             {/* Live URL chip */}
             {wcUrl && (
               <div className="mt-3 flex items-center gap-2 rounded-md bg-emerald-400/[0.05] px-2.5 py-1.5">
-                <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400 shadow-[0_0_5px_#34d399]" />
+                <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400 shadow-none" />
                 <span className="flex-1 truncate font-mono text-[10px] text-emerald-400/65">
                   {wcUrl}
                 </span>
-                <ExternalLink className="h-2.5 w-2.5 flex-shrink-0 text-white/20" />
+                <ExternalLink className="h-2.5 w-2.5 flex-shrink-0 text-[#ECECEC]/20" />
               </div>
             )}
           </div>

@@ -128,21 +128,21 @@ export function DiffReviewPanel({ diffs, onAccept, onReject, onModify, onClear }
     <motion.div
       initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.18 }}
-      className="flex flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f0f0f] shadow-2xl shadow-black/70"
+      className="flex flex-col overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] shadow-md shadow-black/70"
       style={{ width: 420, maxHeight: "80vh" }}
     >
       {/* Header */}
-      <div className="flex items-center gap-2.5 border-b border-white/[0.07] px-4 py-3">
-        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-400/12">
-          <FileDiff className="h-3.5 w-3.5 text-amber-400" />
+      <div className="flex items-center gap-2.5 border-b border-[rgba(255,255,255,0.08)] px-4 py-3">
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#252525]">
+          <FileDiff className="h-3.5 w-3.5 text-[#ECECEC]" />
         </div>
         <div className="flex-1">
-          <span className="text-[13px] font-semibold text-white/80">Diff Review</span>
-          <span className="ml-2 rounded bg-amber-400/12 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+          <span className="text-[13px] font-semibold text-[#ECECEC]">Diff Review</span>
+          <span className="ml-2 rounded bg-[#252525] px-1.5 py-0.5 text-[10px] font-medium text-[#ECECEC]">
             {diffs.length} change{diffs.length !== 1 ? "s" : ""}
           </span>
         </div>
-        <button onClick={onClear} className="text-white/20 hover:text-white/50 transition-colors">
+        <button onClick={onClear} className="text-[#ECECEC]/20 hover:text-[#ECECEC]/50 transition-colors">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -166,8 +166,8 @@ export function DiffReviewPanel({ diffs, onAccept, onReject, onModify, onClear }
 
       {/* Batch actions */}
       {diffs.length > 1 && (
-        <div className="flex items-center gap-2 border-t border-white/[0.07] px-4 py-2">
-          <span className="flex-1 text-[11px] text-white/28">Accept or reject all changes</span>
+        <div className="flex items-center gap-2 border-t border-[rgba(255,255,255,0.08)] px-4 py-2">
+          <span className="flex-1 text-[11px] text-[#ECECEC]/28">Accept or reject all changes</span>
           <button
             onClick={() => diffs.forEach(d => onAccept(d.id))}
             className="flex items-center gap-1 rounded-md bg-emerald-500/12 px-2.5 py-1 text-[10px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors"
@@ -283,16 +283,16 @@ function DiffCard({ diff, expanded, onToggle, onAccept, onReject, onModify, hunk
   }, [hunks])
 
   return (
-    <div className="border-b border-white/[0.05] last:border-0">
+    <div className="border-b border-[rgba(255,255,255,0.08)] last:border-0">
       {/* Card header */}
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left hover:bg-white/[0.02] transition-colors"
+        className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left hover:bg-[#252525] transition-colors"
       >
-        <GitBranch className="h-3.5 w-3.5 flex-shrink-0 text-white/25" />
+        <GitBranch className="h-3.5 w-3.5 flex-shrink-0 text-[#ECECEC]/25" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="max-w-[220px] truncate font-mono text-[12px] text-white/70">{filename}</span>
+            <span className="max-w-[220px] truncate font-mono text-[12px] text-[#ECECEC]">{filename}</span>
             {diff.isNew && (
               <span className="rounded bg-emerald-400/12 px-1 py-px text-[9px] font-semibold uppercase text-emerald-400">new</span>
             )}
@@ -301,16 +301,16 @@ function DiffCard({ diff, expanded, onToggle, onAccept, onReject, onModify, hunk
             {stats.added > 0   && <span className="text-[10px] text-emerald-400">+{stats.added}</span>}
             {stats.removed > 0 && <span className="text-[10px] text-red-400">-{stats.removed}</span>}
             {diff.reason && (
-              <span className="truncate text-[10px] text-white/22">{diff.reason}</span>
+              <span className="truncate text-[10px] text-[#ECECEC]/22">{diff.reason}</span>
             )}
             {mounted && (
-              <span className="ml-auto flex items-center gap-1 text-[10px] text-white/20">
+              <span className="ml-auto flex items-center gap-1 text-[10px] text-[#ECECEC]/20">
                 {Array.from(hunkDecisions?.values() ?? []).filter(d => d === "accept").length} / {hunks.length} accepted
               </span>
             )}
           </div>
         </div>
-        {expanded ? <ChevronUp className="h-3.5 w-3.5 flex-shrink-0 text-white/20" /> : <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-white/20" />}
+        {expanded ? <ChevronUp className="h-3.5 w-3.5 flex-shrink-0 text-[#ECECEC]/20" /> : <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-[#ECECEC]/20" />}
       </button>
 
       {/* Diff viewer */}
@@ -320,7 +320,7 @@ function DiffCard({ diff, expanded, onToggle, onAccept, onReject, onModify, hunk
             initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }}
             className="overflow-hidden"
           >
-            <div className="mx-3 mb-2 overflow-hidden rounded-lg border border-white/[0.06] bg-[#080808]"
+            <div className="mx-3 mb-2 overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1A1A1A]"
               style={{ minHeight: 300, maxHeight: 400 }}
             >
               {mounted && (
@@ -354,8 +354,8 @@ function DiffCard({ diff, expanded, onToggle, onAccept, onReject, onModify, hunk
 
             {/* Hunk-level action bar */}
             {mounted && hunks.length > 0 && (
-              <div className="flex items-center gap-2 px-3 pb-3 border-t border-white/[0.05]">
-                <span className="flex-1 text-[11px] text-white/30">
+              <div className="flex items-center gap-2 px-3 pb-3 border-t border-[rgba(255,255,255,0.08)]">
+                <span className="flex-1 text-[11px] text-[#ECECEC]/30">
                   {Array.from(hunkDecisions?.values() ?? []).filter(d => d === "accept").length} / {hunks.length} hunks accepted
                 </span>
                 <button

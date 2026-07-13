@@ -61,7 +61,7 @@ export function EditorWorkspace({
   const fileWriter = makeFileWriter(activeFile?.path)
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#0e0e0e]">
+    <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#1A1A1A]">
 
       {/* ── Tab bar ───────────────────────────────────────────────────────── */}
       <EditorTabs

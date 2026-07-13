@@ -602,14 +602,14 @@ Tell me what to change and I'll plan it first, then execute it.`,
   })()
 
   const statusColor = (() => {
-    if (wcStatus !== "ready")  return "text-amber-400/80"
-    if (isRunning)             return "text-amber-400/80"
+    if (wcStatus !== "ready")  return "text-[#ECECEC]"
+    if (isRunning)             return "text-[#ECECEC]"
     if (pendingPlan)           return "text-indigo-400/80"
     return "text-emerald-400/60"
   })()
 
   const dotColor = (() => {
-    if (isRunning || wcStatus !== "ready") return "bg-amber-400"
+    if (isRunning || wcStatus !== "ready") return "bg-[#ECECEC] text-[#1A1A1A]"
     if (pendingPlan)                       return "bg-indigo-400"
     return "bg-emerald-400"
   })()
@@ -618,7 +618,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
   const showEmptyState = timeline.length === 0 && !isRunning && !streamText
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#0b0b0b]">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#1A1A1A]">
 
       {/* Running glow */}
       <AnimatePresence>
@@ -626,7 +626,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[2px]"
-            style={{ background: "linear-gradient(to bottom, transparent 0%, #f59e0b 30%, #fbbf24 50%, #f59e0b 70%, transparent 100%)" }}
+            style={{ background: "linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.1) 30%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 70%, transparent 100%)" }}
           >
             <motion.div
               className="absolute inset-0"
@@ -639,29 +639,29 @@ Tell me what to change and I'll plan it first, then execute it.`,
       </AnimatePresence>
 
       {/* Header */}
-      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-white/[0.05] px-4 py-3">
+      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-[rgba(255,255,255,0.08)] px-4 py-3">
         <AnimatePresence>
           {isRunning && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="pointer-events-none absolute inset-0"
-              style={{ background: "linear-gradient(135deg, #f59e0b06 0%, transparent 60%)" }}
+              style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%)" }}
             />
           )}
         </AnimatePresence>
 
         <div className="relative z-[1] flex-shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
-            <Cpu className="h-3.5 w-3.5 text-amber-400/90" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#252525] ring-1 ring-[rgba(255,255,255,0.08)]">
+            <Cpu className="h-3.5 w-3.5 text-[#ECECEC]" />
           </div>
           <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0b0b0b] transition-colors duration-500 ${dotColor}`}>
-            {isRunning && <div className="absolute inset-0 animate-ping rounded-full bg-amber-400 opacity-60" />}
+            {isRunning && <div className="absolute inset-0 animate-ping rounded-full bg-[#ECECEC] text-[#1A1A1A] opacity-60" />}
           </div>
         </div>
 
         <div className="relative z-[1] min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-[13px] font-semibold text-white/88">Marcus</span>
-            <span className="rounded-md bg-white/[0.04] px-1.5 py-px text-[8px] font-semibold text-white/22 tracking-wider">AI</span>
+            <span className="text-[13px] font-semibold text-[#ECECEC]">Marcus</span>
+            <span className="rounded-md bg-[#252525] px-1.5 py-px text-[8px] font-semibold text-[#ECECEC]/22 tracking-wider">AI</span>
           </div>
           <div className={`mt-0.5 flex items-center gap-1 text-[10px] font-medium transition-colors duration-300 ${statusColor}`}>
             <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotColor}`} />
@@ -670,7 +670,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
         </div>
 
         {isRunning && (
-          <button onClick={cancel} className="relative z-[1] flex-shrink-0 rounded-md p-1 text-white/18 hover:text-red-400/65 transition-all">
+          <button onClick={cancel} className="relative z-[1] flex-shrink-0 rounded-md p-1 text-[#ECECEC]/18 hover:text-red-400/65 transition-all">
             <X className="h-3.5 w-3.5" />
           </button>
         )}
@@ -691,8 +691,8 @@ Tell me what to change and I'll plan it first, then execute it.`,
             >
               {/* Avatar */}
               <div className="relative mb-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-800/10 ring-1 ring-amber-400/20">
-                  <Cpu className="h-5 w-5 text-amber-400/80" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#252525] ring-1 ring-[rgba(255,255,255,0.08)]">
+                  <Cpu className="h-5 w-5 text-[#ECECEC]" />
                 </div>
                 <motion.div
                   className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0b0b0b] bg-emerald-400"
@@ -701,8 +701,8 @@ Tell me what to change and I'll plan it first, then execute it.`,
                 />
               </div>
 
-              <p className="text-[13px] font-semibold text-white/75">Marcus is ready</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-white/30 max-w-[200px]">
+              <p className="text-[13px] font-semibold text-[#ECECEC]">Marcus is ready</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#ECECEC]/30 max-w-[200px]">
                 {wcStatus === "ready"
                   ? "Describe a change and I'll plan, then build it."
                   : "WebContainer is starting up…"}
@@ -720,7 +720,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
                     <button
                       key={prompt}
                       onClick={() => setInput(prompt)}
-                      className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-left text-[11px] text-white/40 transition-all hover:border-amber-400/20 hover:bg-amber-400/[0.04] hover:text-white/65"
+                      className="w-full rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] px-3 py-2 text-left text-[11px] text-[#ECECEC]/40 transition-all hover:border-[rgba(255,255,255,0.08)] hover:bg-[#ECECEC] text-[#1A1A1A]/[0.04] hover:text-[#ECECEC]/65"
                     >
                       {prompt}
                     </button>
@@ -733,7 +733,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
                 <div className="mt-4 flex items-center gap-2">
                   {[0, 1, 2].map(i => (
                     <motion.div key={i}
-                      className="h-1.5 w-1.5 rounded-full bg-amber-400/40"
+                      className="h-1.5 w-1.5 rounded-full bg-[#252525]"
                       animate={{ opacity: [0.2, 0.8, 0.2] }}
                       transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
                     />
@@ -758,11 +758,11 @@ Tell me what to change and I'll plan it first, then execute it.`,
                   initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   className="flex gap-2"
                 >
-                  <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/12">
-                    <Brain className="h-2.5 w-2.5 text-amber-400 animate-pulse" />
+                  <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#252525]">
+                    <Brain className="h-2.5 w-2.5 text-[#ECECEC] animate-pulse" />
                   </div>
-                  <div className="min-w-0 flex-1 rounded-2xl rounded-tl-sm bg-white/[0.025] px-3 py-2">
-                    <p className="text-[11px] leading-relaxed text-white/40 whitespace-pre-wrap break-words">
+                  <div className="min-w-0 flex-1 rounded-lg rounded-tl-sm bg-white/[0.025] px-3 py-2">
+                    <p className="text-[11px] leading-relaxed text-[#ECECEC]/40 whitespace-pre-wrap break-words">
                       {stripToolCalls(streamText).slice(0, 600) || "…"}
                     </p>
                   </div>
@@ -779,13 +779,13 @@ Tell me what to change and I'll plan it first, then execute it.`,
                 >
                   <div className="flex gap-[3px]">
                     {[0, 1, 2].map(i => (
-                      <motion.div key={i} className="h-[5px] w-[5px] rounded-full bg-amber-400/50"
+                      <motion.div key={i} className="h-[5px] w-[5px] rounded-full bg-[#252525]"
                         animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1, 0.8] }}
                         transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.18, ease: "easeInOut" }}
                       />
                     ))}
                   </div>
-                  <span className="text-[10px] text-white/25">{statusLabel}</span>
+                  <span className="text-[10px] text-[#ECECEC]/25">{statusLabel}</span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -813,7 +813,7 @@ Tell me what to change and I'll plan it first, then execute it.`,
               </button>
               <button
                 onClick={rejectPlan}
-                className="flex items-center gap-1 rounded-md bg-white/[0.04] px-2.5 py-1 text-[10px] text-white/35 hover:bg-white/[0.08] transition-colors"
+                className="flex items-center gap-1 rounded-md bg-[#252525] px-2.5 py-1 text-[10px] text-[#ECECEC]/35 hover:bg-[#252525] transition-colors"
               >
                 <X className="h-3 w-3" /> No
               </button>
@@ -823,8 +823,8 @@ Tell me what to change and I'll plan it first, then execute it.`,
       </AnimatePresence>
 
       {/* Input */}
-      <div className="flex-shrink-0 border-t border-white/[0.04] p-3">
-        <div className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition-all duration-150 focus-within:border-amber-400/18 focus-within:bg-white/[0.035]">
+      <div className="flex-shrink-0 border-t border-[rgba(255,255,255,0.08)] p-3">
+        <div className="relative overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] transition-all duration-150 focus-within:border-[rgba(255,255,255,0.08)] focus-within:bg-white/[0.035]">
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -832,17 +832,17 @@ Tell me what to change and I'll plan it first, then execute it.`,
             placeholder={pendingPlan ? "Or type a new request to cancel the plan…" : "Ask Marcus to change anything…"}
             disabled={isRunning}
             rows={3}
-            className="w-full resize-none bg-transparent px-3 py-2.5 pr-9 text-[12px] leading-[1.55] text-white/70 placeholder-white/16 outline-none disabled:opacity-35"
+            className="w-full resize-none bg-transparent px-3 py-2.5 pr-9 text-[12px] leading-[1.55] text-[#ECECEC] placeholder-white/16 outline-none disabled:opacity-35"
           />
           <button
             onClick={() => void submit()}
             disabled={!input.trim() || isRunning}
-            className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-lg bg-amber-400/10 text-amber-400 transition-all hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-20"
+            className="absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-lg bg-[#252525] text-[#ECECEC] transition-all hover:bg-[#252525] disabled:cursor-not-allowed disabled:opacity-20"
           >
             {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
           </button>
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-white/12">⌘↵ to send</p>
+        <p className="mt-1.5 text-center text-[10px] text-[#ECECEC]/12">⌘↵ to send</p>
       </div>
     </div>
   )
@@ -891,12 +891,12 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
       <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
         className="flex justify-end gap-2"
       >
-        <div className="max-w-[195px] rounded-2xl rounded-tr-sm bg-white/[0.06] px-3 py-2">
-          <p className="text-[12px] leading-[1.5] text-white/65">{entry.text}</p>
-          <p className="mt-1 text-right font-mono text-[9px] text-white/18">{entry.time}</p>
+        <div className="max-w-[195px] rounded-lg rounded-tr-sm bg-[#252525] px-3 py-2">
+          <p className="text-[12px] leading-[1.5] text-[#ECECEC]/65">{entry.text}</p>
+          <p className="mt-1 text-right font-mono text-[9px] text-[#ECECEC]/18">{entry.time}</p>
         </div>
-        <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
-          <User className="h-3 w-3 text-white/30" />
+        <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#252525]">
+          <User className="h-3 w-3 text-[#ECECEC]/30" />
         </div>
       </motion.div>
     )
@@ -909,14 +909,14 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
       <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
         className="flex gap-2"
       >
-        <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-amber-400/12">
-          <Cpu className="h-2.5 w-2.5 text-amber-400" />
+        <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#252525]">
+          <Cpu className="h-2.5 w-2.5 text-[#ECECEC]" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className={`rounded-2xl rounded-tl-sm px-3 py-2 ${isError ? "bg-red-500/8 border border-red-500/15" : "bg-white/[0.035]"}`}>
+          <div className={`rounded-lg rounded-tl-sm px-3 py-2 ${isError ? "bg-red-500/8 border border-red-500/15" : "bg-white/[0.035]"}`}>
             <MarkdownText text={entry.text} />
             {isDone && (
-              <div className="mt-2 flex items-center gap-1 border-t border-white/[0.05] pt-1.5 text-emerald-400">
+              <div className="mt-2 flex items-center gap-1 border-t border-[rgba(255,255,255,0.08)] pt-1.5 text-emerald-400">
                 <CheckCircle className="h-3 w-3" />
                 <span className="text-[10px] font-medium">Changes live</span>
               </div>
@@ -928,7 +928,7 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
               </div>
             )}
           </div>
-          <p className="mt-0.5 pl-1 font-mono text-[9px] text-white/16">{entry.time}</p>
+          <p className="mt-0.5 pl-1 font-mono text-[9px] text-[#ECECEC]/16">{entry.time}</p>
         </div>
       </motion.div>
     )
@@ -943,10 +943,10 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
           <Brain className="h-2.5 w-2.5 text-indigo-400" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="rounded-2xl rounded-tl-sm border border-indigo-500/15 bg-indigo-500/5 px-3 py-2">
+          <div className="rounded-lg rounded-tl-sm border border-indigo-500/15 bg-indigo-500/5 px-3 py-2">
             <MarkdownText text={entry.text} />
           </div>
-          <p className="mt-0.5 pl-1 font-mono text-[9px] text-white/16">{entry.time}</p>
+          <p className="mt-0.5 pl-1 font-mono text-[9px] text-[#ECECEC]/16">{entry.time}</p>
         </div>
       </motion.div>
     )
@@ -959,7 +959,7 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
     const error = entry.status === "error"
     return (
       <motion.div initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}
-        className="flex items-start gap-2.5 rounded-lg border border-white/[0.05] bg-white/[0.02] px-2.5 py-1.5"
+        className="flex items-start gap-2.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] px-2.5 py-1.5"
       >
         <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded"
           style={{ background: `${meta.color}1a` }}
@@ -973,9 +973,9 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-white/48">{meta.label}</span>
+            <span className="text-[11px] text-[#ECECEC]/48">{meta.label}</span>
             {typeof entry.params.path === "string" && (
-              <span className="truncate font-mono text-[9px] text-white/22">
+              <span className="truncate font-mono text-[9px] text-[#ECECEC]/22">
                 {entry.params.path.split("/").pop()}
               </span>
             )}
@@ -984,7 +984,7 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
             <p className="mt-0.5 text-[10px] text-red-400/70 truncate">{entry.result.slice(0, 80)}</p>
           )}
         </div>
-        <span className="flex-shrink-0 font-mono text-[9px] text-white/18">{entry.time}</span>
+        <span className="flex-shrink-0 font-mono text-[9px] text-[#ECECEC]/18">{entry.time}</span>
       </motion.div>
     )
   }
@@ -996,10 +996,10 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
     const file  = change.path.split("/").pop() ?? change.path
     return (
       <motion.div initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}
-        className="flex items-center gap-2 rounded-lg border border-white/[0.04] bg-white/[0.01] px-2.5 py-1.5 pl-8"
+        className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-white/[0.01] px-2.5 py-1.5 pl-8"
       >
-        <FileCode className="h-3 w-3 flex-shrink-0 text-white/22" />
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-white/45">{file}</span>
+        <FileCode className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/22" />
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#ECECEC]/45">{file}</span>
         <span className="flex-shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
           style={{ background: `${color}15`, color }}
         >
@@ -1014,7 +1014,7 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
     const error = entry.status === "error"
     return (
       <motion.div initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}
-        className="flex items-center gap-2.5 rounded-lg border border-white/[0.05] bg-white/[0.02] px-2.5 py-1.5"
+        className="flex items-center gap-2.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] px-2.5 py-1.5"
       >
         <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded" style={{ background: "#818cf81a" }}>
           {error
@@ -1025,14 +1025,14 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
           }
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-[11px] text-white/48">
+          <span className="text-[11px] text-[#ECECEC]/48">
             {error ? "Scan failed" : done ? "Project analyzed" : "Scanning project…"}
           </span>
           {done && entry.summary && (
-            <p className="mt-0.5 truncate text-[10px] text-white/28">{entry.summary}</p>
+            <p className="mt-0.5 truncate text-[10px] text-[#ECECEC]/28">{entry.summary}</p>
           )}
         </div>
-        {done && <ChevronRight className="h-3 w-3 flex-shrink-0 text-white/15" />}
+        {done && <ChevronRight className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/15" />}
       </motion.div>
     )
   }
@@ -1048,7 +1048,7 @@ function InlineBold({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         p.startsWith("**") && p.endsWith("**")
-          ? <strong key={i} className="font-semibold text-white/75">{p.slice(2, -2)}</strong>
+          ? <strong key={i} className="font-semibold text-[#ECECEC]">{p.slice(2, -2)}</strong>
           : <span key={i}>{p}</span>
       )}
     </>
@@ -1063,16 +1063,16 @@ function MarkdownText({ text }: { text: string }) {
       {lines.map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1" />
         if (line.startsWith("### "))
-          return <p key={i} className="text-[10px] font-black uppercase tracking-widest text-amber-400/70 mt-2 mb-0.5">{line.slice(4)}</p>
+          return <p key={i} className="text-[10px] font-black uppercase tracking-widest text-[#ECECEC] mt-2 mb-0.5">{line.slice(4)}</p>
         if (line.startsWith("## "))
-          return <p key={i} className="text-[11px] font-bold text-white/75 mt-1.5 mb-0.5">{line.slice(3)}</p>
+          return <p key={i} className="text-[11px] font-bold text-[#ECECEC] mt-1.5 mb-0.5">{line.slice(3)}</p>
         if (line.startsWith("**") && line.endsWith("**") && line.length > 4)
-          return <p key={i} className="text-[12px] font-semibold text-white/75">{line.slice(2, -2)}</p>
+          return <p key={i} className="text-[12px] font-semibold text-[#ECECEC]">{line.slice(2, -2)}</p>
         if (line.startsWith("- ") || line.startsWith("• "))
           return (
             <div key={i} className="flex items-start gap-1.5 my-0.5">
-              <span className="mt-1.5 h-1 w-1 rounded-full bg-amber-400/50 shrink-0" />
-              <span className="text-[12px] leading-relaxed text-white/55"><InlineBold text={line.slice(2)} /></span>
+              <span className="mt-1.5 h-1 w-1 rounded-full bg-[#252525] shrink-0" />
+              <span className="text-[12px] leading-relaxed text-[#ECECEC]/55"><InlineBold text={line.slice(2)} /></span>
             </div>
           )
         if (/^\d+\./.test(line)) {
@@ -1080,12 +1080,12 @@ function MarkdownText({ text }: { text: string }) {
           const rest = line.replace(/^\d+\.\s*/, "")
           return (
             <div key={i} className="flex items-start gap-2 my-0.5">
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-400/10 text-[9px] font-bold text-amber-400 mt-0.5">{num}</span>
-              <span className="text-[12px] leading-relaxed text-white/55"><InlineBold text={rest} /></span>
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-[#252525] text-[9px] font-bold text-[#ECECEC] mt-0.5">{num}</span>
+              <span className="text-[12px] leading-relaxed text-[#ECECEC]/55"><InlineBold text={rest} /></span>
             </div>
           )
         }
-        return <p key={i} className="text-[12px] leading-relaxed text-white/55"><InlineBold text={line} /></p>
+        return <p key={i} className="text-[12px] leading-relaxed text-[#ECECEC]/55"><InlineBold text={line} /></p>
       })}
     </div>
   )

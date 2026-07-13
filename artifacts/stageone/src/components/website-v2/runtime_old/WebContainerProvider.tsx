@@ -410,8 +410,6 @@ export function WebContainerProvider({ project, children, enabled = true }: Prop
       addLine("$ Booting WebContainer…", "cmd")
 
       let wc: WCType
-		const MAX_BOOT_RETRIES = 3
-		for (let attempt = 1; attempt <= MAX_BOOT_RETRIES; attempt++) {
       try {
         // If we already have a booted instance, reuse it
         if (wcSingleton) {

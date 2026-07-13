@@ -102,7 +102,7 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
         <>
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[150] bg-[#202020] backdrop-blur-sm"
             onClick={phase === "select" ? onClose : undefined}
           />
 
@@ -113,18 +113,18 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="fixed left-1/2 top-1/2 z-[151] w-full max-w-[480px] -translate-x-1/2 -translate-y-1/2"
           >
-            <div className="overflow-hidden rounded-xl border border-white/[0.09] bg-[#111111] shadow-2xl shadow-black/80">
+            <div className="overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] shadow-md shadow-black/80">
               {/* Header */}
-              <div className="flex items-center gap-3 border-b border-white/[0.07] px-5 py-4">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-400/12">
-                  <Upload className="h-4 w-4 text-amber-400" />
+              <div className="flex items-center gap-3 border-b border-[rgba(255,255,255,0.08)] px-5 py-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#252525]">
+                  <Upload className="h-4 w-4 text-[#ECECEC]" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-[14px] font-semibold text-white/85">Deploy Project</h2>
-                  <p className="text-[11px] text-white/30">{project.projectName}</p>
+                  <h2 className="text-[14px] font-semibold text-[#ECECEC]">Deploy Project</h2>
+                  <p className="text-[11px] text-[#ECECEC]/30">{project.projectName}</p>
                 </div>
                 {(phase === "select" || phase === "done" || phase === "error") && (
-                  <button onClick={onClose} className="text-white/20 hover:text-white/50 transition-colors">
+                  <button onClick={onClose} className="text-[#ECECEC]/20 hover:text-[#ECECEC]/50 transition-colors">
                     <X className="h-4 w-4" />
                   </button>
                 )}
@@ -134,7 +134,7 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
                 {/* ── Provider selection ──────────────────────────────────── */}
                 {phase === "select" && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <p className="mb-3 text-[12px] text-white/35">Choose a deployment provider</p>
+                    <p className="mb-3 text-[12px] text-[#ECECEC]/35">Choose a deployment provider</p>
                     <div className="space-y-2">
                       {PROVIDERS.map(p => (
                         <button
@@ -142,8 +142,8 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
                           onClick={() => setProvider(p.id)}
                           className={`flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-all ${
                             provider === p.id
-                              ? "border-amber-400/30 bg-amber-400/6"
-                              : "border-white/[0.07] bg-white/[0.02] hover:border-white/12 hover:bg-white/[0.04]"
+                              ? "border-[rgba(255,255,255,0.08)] bg-[#252525]"
+                              : "border-[rgba(255,255,255,0.08)] bg-[#252525] hover:border-[rgba(255,255,255,0.08)] hover:bg-[#252525]"
                           }`}
                         >
                           <div
@@ -153,11 +153,11 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
                             <p.icon className="h-4 w-4" style={{ color: p.color }} />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <span className="text-[13px] font-medium text-white/75">{p.label}</span>
-                            <p className="text-[11px] text-white/28">{p.description}</p>
+                            <span className="text-[13px] font-medium text-[#ECECEC]">{p.label}</span>
+                            <p className="text-[11px] text-[#ECECEC]/28">{p.description}</p>
                           </div>
                           {provider === p.id && (
-                            <CheckCircle className="h-4 w-4 flex-shrink-0 text-amber-400" />
+                            <CheckCircle className="h-4 w-4 flex-shrink-0 text-[#ECECEC]" />
                           )}
                         </button>
                       ))}
@@ -165,7 +165,7 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
 
                     <button
                       onClick={() => void runPipeline()}
-                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-3 text-[13px] font-semibold text-black transition-all hover:bg-amber-300 active:scale-[0.98]"
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#ECECEC] text-[#1A1A1A] py-3 text-[13px] font-semibold text-black transition-all hover:bg-[#ECECEC] text-[#1A1A1A] active:scale-[0.98]"
                     >
                       <Rocket className="h-4 w-4" />
                       Deploy to {PROVIDERS.find(p => p.id === provider)?.label}
@@ -187,27 +187,27 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.06 }}
                             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors ${
-                              status === "running" ? "bg-white/[0.04]" :
+                              status === "running" ? "bg-[#252525]" :
                               status === "done"    ? "bg-emerald-500/5" :
                               status === "error"   ? "bg-red-500/8"     : ""
                             }`}
                           >
                             <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md ${
-                              status === "running" ? "bg-amber-400/12" :
+                              status === "running" ? "bg-[#252525]" :
                               status === "done"    ? "bg-emerald-500/12" :
                               status === "error"   ? "bg-red-500/12"     :
-                              "bg-white/[0.04]"
+                              "bg-[#252525]"
                             }`}>
                               {status === "done"  ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400" /> :
                                status === "error" ? <AlertCircle className="h-3.5 w-3.5 text-red-400" /> :
-                               status === "running" ? <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" /> :
-                               <Icon className="h-3.5 w-3.5 text-white/22" />}
+                               status === "running" ? <Loader2 className="h-3.5 w-3.5 animate-spin text-[#ECECEC]" /> :
+                               <Icon className="h-3.5 w-3.5 text-[#ECECEC]/22" />}
                             </div>
                             <span className={`flex-1 text-[12px] ${
-                              status === "running" ? "text-white/80" :
-                              status === "done"    ? "text-white/55" :
+                              status === "running" ? "text-[#ECECEC]" :
+                              status === "done"    ? "text-[#ECECEC]/55" :
                               status === "error"   ? "text-red-400/80":
-                              "text-white/25"
+                              "text-[#ECECEC]/25"
                             }`}>
                               {step.label}
                             </span>
@@ -215,7 +215,7 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
                               <motion.div className="flex gap-[3px]">
                                 {[0,1,2].map(d => (
                                   <motion.div key={d}
-                                    className="h-1 w-1 rounded-full bg-amber-400/60"
+                                    className="h-1 w-1 rounded-full bg-[#252525]"
                                     animate={{ opacity: [0.2,1,0.2] }}
                                     transition={{ duration: 1, repeat: Infinity, delay: d * 0.15 }}
                                   />
@@ -238,7 +238,7 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
                         className="mt-4 overflow-hidden rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3"
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+                          <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-none" />
                           <span className="text-[11px] font-semibold text-emerald-400">Live</span>
                         </div>
                         <a
@@ -272,7 +272,7 @@ export function DeploymentPipeline({ project, open, onClose }: DeploymentPipelin
                         <p className="text-[11px] text-red-300/50">Check the terminal for error details, then retry.</p>
                         <button
                           onClick={reset}
-                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-white/[0.05] py-2 text-[12px] text-white/45 hover:bg-white/[0.08] transition-colors"
+                          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-[#252525] py-2 text-[12px] text-[#ECECEC]/45 hover:bg-[#252525] transition-colors"
                         >
                           Try again
                         </button>

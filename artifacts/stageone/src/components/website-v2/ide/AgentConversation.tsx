@@ -60,7 +60,7 @@ function InlineBold({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         p.startsWith("**") && p.endsWith("**")
-          ? <strong key={i} className="font-semibold text-white/75">{p.slice(2, -2)}</strong>
+          ? <strong key={i} className="font-semibold text-[#ECECEC]">{p.slice(2, -2)}</strong>
           : <span key={i}>{p}</span>
       )}
     </>
@@ -76,12 +76,12 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
     })
   }
   return (
-    <div className="my-1.5 overflow-hidden rounded-lg border border-white/[0.07] bg-black/40">
-      <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-2.5 py-1">
-        <span className="font-mono text-[9.5px] font-medium uppercase tracking-wide text-white/30">{lang || "code"}</span>
+    <div className="my-1.5 overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#202020]">
+      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.08)] bg-[#252525] px-2.5 py-1">
+        <span className="font-mono text-[9.5px] font-medium uppercase tracking-wide text-[#ECECEC]/30">{lang || "code"}</span>
         <button
           onClick={onCopy}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9.5px] text-white/25 transition-colors hover:bg-white/[0.06] hover:text-white/60"
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9.5px] text-[#ECECEC]/25 transition-colors hover:bg-[#252525] hover:text-[#ECECEC]/60"
         >
           {copied ? <Check className="h-2.5 w-2.5 text-emerald-400" /> : <Copy className="h-2.5 w-2.5" />}
           {copied ? "Copied" : "Copy"}
@@ -112,16 +112,16 @@ export function MarkdownText({ text }: { text: string }) {
           const key = `${si}-${i}`
           if (!line.trim()) return <div key={key} className="h-1" />
           if (line.startsWith("### "))
-            return <p key={key} className="text-[10px] font-black uppercase tracking-widest text-amber-400/70 mt-2 mb-0.5">{line.slice(4)}</p>
+            return <p key={key} className="text-[10px] font-black uppercase tracking-widest text-[#ECECEC] mt-2 mb-0.5">{line.slice(4)}</p>
           if (line.startsWith("## "))
-            return <p key={key} className="text-[11px] font-bold text-white/75 mt-1.5 mb-0.5">{line.slice(3)}</p>
+            return <p key={key} className="text-[11px] font-bold text-[#ECECEC] mt-1.5 mb-0.5">{line.slice(3)}</p>
           if (line.startsWith("**") && line.endsWith("**") && line.length > 4)
-            return <p key={key} className="text-[12px] font-semibold text-white/75">{line.slice(2, -2)}</p>
+            return <p key={key} className="text-[12px] font-semibold text-[#ECECEC]">{line.slice(2, -2)}</p>
           if (line.startsWith("- ") || line.startsWith("• "))
             return (
               <div key={key} className="flex items-start gap-1.5 my-0.5">
-                <span className="mt-1.5 h-1 w-1 rounded-full bg-amber-400/50 shrink-0" />
-                <span className="text-[12px] leading-relaxed text-white/55"><InlineBold text={line.slice(2)} /></span>
+                <span className="mt-1.5 h-1 w-1 rounded-full bg-[#252525] shrink-0" />
+                <span className="text-[12px] leading-relaxed text-[#ECECEC]/55"><InlineBold text={line.slice(2)} /></span>
               </div>
             )
           if (/^\d+\./.test(line)) {
@@ -129,8 +129,8 @@ export function MarkdownText({ text }: { text: string }) {
             const rest = line.replace(/^\d+\.\s*/, "")
             return (
               <div key={key} className="flex items-start gap-2 my-0.5">
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-400/10 text-[9px] font-bold text-amber-400 mt-0.5">{num}</span>
-                <span className="text-[12px] leading-relaxed text-white/55"><InlineBold text={rest} /></span>
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-[#252525] text-[9px] font-bold text-[#ECECEC] mt-0.5">{num}</span>
+                <span className="text-[12px] leading-relaxed text-[#ECECEC]/55"><InlineBold text={rest} /></span>
               </div>
             )
           }
@@ -138,16 +138,16 @@ export function MarkdownText({ text }: { text: string }) {
           if (line.includes("`")) {
             const parts = line.split(/(`[^`]+`)/)
             return (
-              <p key={key} className="text-[12px] leading-relaxed text-white/55">
+              <p key={key} className="text-[12px] leading-relaxed text-[#ECECEC]/55">
                 {parts.map((p, pi) =>
                   p.startsWith("`") && p.endsWith("`") && p.length > 1
-                    ? <code key={pi} className="rounded bg-white/[0.08] px-1 py-0.5 font-mono text-[11px] text-amber-200/90">{p.slice(1, -1)}</code>
+                    ? <code key={pi} className="rounded bg-[#252525] px-1 py-0.5 font-mono text-[11px] text-[#ECECEC]">{p.slice(1, -1)}</code>
                     : <InlineBold key={pi} text={p} />
                 )}
               </p>
             )
           }
-          return <p key={key} className="text-[12px] leading-relaxed text-white/55"><InlineBold text={line} /></p>
+          return <p key={key} className="text-[12px] leading-relaxed text-[#ECECEC]/55"><InlineBold text={line} /></p>
         })
       })}
     </div>
@@ -246,19 +246,19 @@ export function ActionGroup({
     <div className="my-0.5 pl-9">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-white/[0.03]"
+        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-[#252525]"
       >
-        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.06]">
+        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#252525]">
           {hasRunning ? (
-            <Loader2 className="h-2.5 w-2.5 animate-spin text-amber-400/80" />
+            <Loader2 className="h-2.5 w-2.5 animate-spin text-[#ECECEC]" />
           ) : hasError ? (
             <AlertCircle className="h-2.5 w-2.5 text-red-400/80" />
           ) : (
-            <CheckCircle className="h-2.5 w-2.5 text-white/25" />
+            <CheckCircle className="h-2.5 w-2.5 text-[#ECECEC]/25" />
           )}
         </span>
-        <span className="text-[12px] text-white/40">{label}</span>
-        <span className="ml-auto flex items-center gap-1 text-[10px] font-mono text-white/20">
+        <span className="text-[12px] text-[#ECECEC]/40">{label}</span>
+        <span className="ml-auto flex items-center gap-1 text-[10px] font-mono text-[#ECECEC]/20">
           {count} action{count === 1 ? "" : "s"}
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </span>
@@ -271,7 +271,7 @@ export function ActionGroup({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="ml-1.5 mt-1 mb-1.5 space-y-1.5 border-l border-white/[0.06] pl-3">
+            <div className="ml-1.5 mt-1 mb-1.5 space-y-1.5 border-l border-[rgba(255,255,255,0.08)] pl-3">
               {entries.map((entry) => (
                 <TimelineEntryRenderer key={entry.id} entry={entry} project={project} onFileOpen={onFileOpen} />
               ))}
@@ -283,20 +283,20 @@ export function ActionGroup({
   )
 }
 
-function CollapsibleDetail({ label, text, accent = "indigo" }: { label: string; text: string; accent?: "indigo" | "amber" }) {
+function CollapsibleDetail({ label, text, accent = "indigo" }: { label: string; text: string; accent?: "indigo" | "neutral" }) {
   const [expanded, setExpanded] = useState(false)
-  const color = accent === "amber" ? "#fbbf24" : "#818cf8"
+  const color = accent === "neutral" ? "#A0A0A0" : "#818cf8"
   return (
     <div className="pl-9">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-white/[0.03]"
+        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-[#252525]"
       >
         <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full" style={{ background: `${color}1a` }}>
           <FileCode className="h-2.5 w-2.5" style={{ color }} />
         </span>
-        <span className="text-[12px] text-white/40">{label}</span>
-        <span className="ml-auto text-white/20">
+        <span className="text-[12px] text-[#ECECEC]/40">{label}</span>
+        <span className="ml-auto text-[#ECECEC]/20">
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </span>
       </button>
@@ -308,7 +308,7 @@ function CollapsibleDetail({ label, text, accent = "indigo" }: { label: string; 
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="ml-1.5 mt-1 mb-1.5 border-l border-white/[0.06] pl-3">
+            <div className="ml-1.5 mt-1 mb-1.5 border-l border-[rgba(255,255,255,0.08)] pl-3">
               <MarkdownText text={text} />
             </div>
           </motion.div>
@@ -332,7 +332,7 @@ function ValidationCard({ entry }: { entry: Extract<TimelineEntryType, { kind: "
         <span className={`text-[11px] ${isOk ? "text-emerald-300/80" : "text-red-300/80"}`}>
           {isOk ? "Structural validation passed" : `${entry.errors.length} validation issue${entry.errors.length === 1 ? "" : "s"} found`}
         </span>
-        {isOk && entry.fixed && <p className="mt-0.5 text-[10px] text-white/28">Auto-fixed after review</p>}
+        {isOk && entry.fixed && <p className="mt-0.5 text-[10px] text-[#ECECEC]/28">Auto-fixed after review</p>}
         {!isOk && entry.errors.slice(0, 3).map((e, i) => (
           <p key={i} className="mt-0.5 truncate text-[10px] text-red-300/50">• {e}</p>
         ))}
@@ -527,14 +527,14 @@ export function AgentConversation({
   })()
 
   const statusColor = (() => {
-    if (isGenerating) return "text-amber-400/80"
-    if (wcStatus !== "ready") return "text-amber-400/80"
-    if (isRunning) return "text-amber-400/80"
+    if (isGenerating) return "text-[#ECECEC]"
+    if (wcStatus !== "ready") return "text-[#ECECEC]"
+    if (isRunning) return "text-[#ECECEC]"
     return "text-emerald-400/60"
   })()
 
   const dotColor = (() => {
-    if (isGenerating || isRunning || wcStatus !== "ready") return "bg-amber-400"
+    if (isGenerating || isRunning || wcStatus !== "ready") return "bg-[#ECECEC] text-[#1A1A1A]"
     return "bg-emerald-400"
   })()
 
@@ -546,7 +546,7 @@ export function AgentConversation({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#0b0b0b]">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#1A1A1A]">
 
       {/* Running glow */}
       <AnimatePresence>
@@ -554,7 +554,7 @@ export function AgentConversation({
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="pointer-events-none absolute inset-y-0 left-0 z-10 w-[2px]"
-            style={{ background: "linear-gradient(to bottom, transparent 0%, #f59e0b 30%, #fbbf24 50%, #f59e0b 70%, transparent 100%)" }}
+            style={{ background: "linear-gradient(to bottom, transparent 0%, rgba(255,255,255,0.1) 30%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 70%, transparent 100%)" }}
           >
             <motion.div
               className="absolute inset-0"
@@ -567,28 +567,28 @@ export function AgentConversation({
       </AnimatePresence>
 
       {/* Header */}
-      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-white/[0.05] px-4 py-3">
+      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-[rgba(255,255,255,0.08)] px-4 py-3">
         <AnimatePresence>
           {isRunning && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="pointer-events-none absolute inset-0"
-              style={{ background: "linear-gradient(135deg, #f59e0b06 0%, transparent 60%)" }}
+              style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%)" }}
             />
           )}
         </AnimatePresence>
 
         <div className="relative z-[1] flex-shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
-            <Cpu className="h-3.5 w-3.5 text-amber-400/90" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#252525] ring-1 ring-[rgba(255,255,255,0.08)]">
+            <Cpu className="h-3.5 w-3.5 text-[#ECECEC]" />
           </div>
           <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0b0b0b] transition-colors duration-500 ${dotColor}`}>
-            {isRunning && <div className="absolute inset-0 animate-ping rounded-full bg-amber-400 opacity-60" />}
+            {isRunning && <div className="absolute inset-0 animate-ping rounded-full bg-[#ECECEC] text-[#1A1A1A] opacity-60" />}
           </div>
         </div>
 
         <div className="relative z-[1] min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate font-semibold text-white/90">Marcus AI</span>
+            <span className="truncate font-semibold text-[#ECECEC]">Marcus AI</span>
             <span className={`text-[10px] font-mono ${statusColor}`}>{statusLabel}</span>
           </div>
         </div>
@@ -606,11 +606,11 @@ export function AgentConversation({
               transition={{ duration: 0.3 }}
               className="flex flex-1 flex-col items-center justify-center text-center"
             >
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.05] bg-white/[0.02]">
-                <Zap className="h-7 w-7 text-white/12" />
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525]">
+                <Zap className="h-7 w-7 text-[#ECECEC]/12" />
               </div>
-              <h2 className="text-base font-semibold text-white/60">Start a conversation</h2>
-              <p className="mt-1.5 max-w-[260px] text-sm text-white/25 leading-relaxed">
+              <h2 className="text-base font-semibold text-[#ECECEC]/60">Start a conversation</h2>
+              <p className="mt-1.5 max-w-[260px] text-sm text-[#ECECEC]/25 leading-relaxed">
                 Ask Marcus to build, edit, or explain anything in your project.
               </p>
             </motion.div>
@@ -649,7 +649,7 @@ export function AgentConversation({
         </div>
 
         {/* Input area */}
-        <div className="flex flex-shrink-0 flex-col border-t border-white/[0.05] bg-[#0a0a0a] p-3">
+        <div className="flex flex-shrink-0 flex-col border-t border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] p-3">
           {/* Text input */}
           <div className="flex items-end gap-2">
             <textarea
@@ -659,13 +659,13 @@ export function AgentConversation({
               placeholder={isRunning ? "Working…" : "Ask Marcus to build, edit, or explain…"}
               disabled={isRunning}
               rows={1}
-              className="flex-1 min-h-[40px] max-h-32 resize-none rounded-lg border border-white/[0.08] bg-black/30 px-3 py-2 text-sm text-white/80 placeholder:text-white/20 focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/20 transition-colors"
+              className="flex-1 min-h-[40px] max-h-32 resize-none rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#202020] px-3 py-2 text-sm text-[#ECECEC] placeholder:text-[#ECECEC]/20 focus:border-[rgba(255,255,255,0.08)] focus:outline-none focus:ring-1 focus:ring-[rgba(255,255,255,0.08)] transition-colors"
               style={{ lineHeight: "1.5" }}
             />
             <button
               onClick={submit}
               disabled={!input.trim() || isRunning}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-white/90 transition-all hover:from-amber-400 hover:to-amber-500 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#252525] text-[#ECECEC] transition-all hover:bg-[#333333] disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Send"
             >
               {isRunning ? (
@@ -680,7 +680,7 @@ export function AgentConversation({
           {isRunning && (
             <button
               onClick={cancel}
-              className="mt-2 w-full rounded-md bg-white/[0.04] px-3 py-1.5 text-sm text-white/35 hover:bg-white/[0.08] transition-colors"
+              className="mt-2 w-full rounded-md bg-[#252525] px-3 py-1.5 text-sm text-[#ECECEC]/35 hover:bg-[#252525] transition-colors"
             >
               Cancel
             </button>
@@ -703,7 +703,7 @@ interface StreamingMessage {
 function TypingCursor() {
   return (
     <motion.span
-      className="inline-flex h-[1.1em] w-[2px] translate-y-[1px] rounded-full bg-amber-400/80"
+      className="inline-flex h-[1.1em] w-[2px] translate-y-[1px] rounded-full bg-[#252525]"
       animate={{ opacity: [1, 0.15, 1] }}
       transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
     />
@@ -727,12 +727,12 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
     >
       {/* Agent avatar with pulse ring when active */}
       <div className="relative flex-shrink-0">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
-          <Cpu className="h-3 w-3 text-amber-400/90" />
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#252525] ring-1 ring-[rgba(255,255,255,0.08)]">
+          <Cpu className="h-3 w-3 text-[#ECECEC]" />
         </div>
         {/* Pulse ring while streaming */}
         <motion.div
-          className="absolute inset-0 rounded-full ring-2 ring-amber-400/0"
+          className="absolute inset-0 rounded-full ring-2 ring-[rgba(255,255,255,0.08)]"
           animate={{ ring: isStreamingText ? ["0px", "3px", "0px"] : "0px" }}
           style={{ boxShadow: isStreamingText ? "0 0 6px rgba(251, 191, 36, 0.3)" : "none" }}
         />
@@ -753,11 +753,11 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
 
         {/* Initial thinking indicator when no text yet but tool calls are running */}
         {!message.text && hasRunningTool && (
-          <div className="flex items-center gap-2 text-[12px] text-white/35">
+          <div className="flex items-center gap-2 text-[12px] text-[#ECECEC]/35">
             <span className="flex gap-0.5">
-              <motion.span className="h-1.5 w-1.5 rounded-full bg-amber-400/60" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
-              <motion.span className="h-1.5 w-1.5 rounded-full bg-amber-400/60" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.15 }} />
-              <motion.span className="h-1.5 w-1.5 rounded-full bg-amber-400/60" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.3 }} />
+              <motion.span className="h-1.5 w-1.5 rounded-full bg-[#252525]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
+              <motion.span className="h-1.5 w-1.5 rounded-full bg-[#252525]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.15 }} />
+              <motion.span className="h-1.5 w-1.5 rounded-full bg-[#252525]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.3 }} />
             </span>
             <span>Processing</span>
           </div>
@@ -780,17 +780,17 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.2 }}
-            className="rounded-lg border border-white/[0.06] bg-[#0f0f0f] p-3"
+            className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] p-3"
           >
             <div className="flex items-center gap-2 mb-2">
-              <FileCode className="h-3.5 w-3.5 text-white/25" />
-              <span className="truncate font-mono text-[11px] text-white/50">{diff.path}</span>
+              <FileCode className="h-3.5 w-3.5 text-[#ECECEC]/25" />
+              <span className="truncate font-mono text-[11px] text-[#ECECEC]/50">{diff.path}</span>
               <span className="ml-auto rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
                 style={{ background: diff.oldContent ? "#60a5fa15" : "#34d39915", color: diff.oldContent ? "#60a5fa" : "#34d399" }}>
                 {diff.oldContent ? "update" : "create"}
               </span>
             </div>
-            <div className="rounded bg-black/30 p-2 text-[9px] font-mono overflow-x-auto max-h-48">
+            <div className="rounded bg-[#202020] p-2 text-[9px] font-mono overflow-x-auto max-h-48">
               <pre>{diff.oldContent ? generateDiff(diff.oldContent, diff.newContent) : diff.newContent}</pre>
             </div>
           </motion.div>
@@ -801,12 +801,12 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-2 pt-2 border-t border-white/[0.05]"
+            className="flex items-center gap-2 pt-2 border-t border-[rgba(255,255,255,0.08)]"
           >
-            <span className="text-[11px] text-white/30">Executing tools…</span>
-            <div className="flex-1 h-1 bg-white/[0.05] rounded overflow-hidden">
+            <span className="text-[11px] text-[#ECECEC]/30">Executing tools…</span>
+            <div className="flex-1 h-1 bg-[#252525] rounded overflow-hidden">
               <motion.div
-                className="h-full bg-amber-400"
+                className="h-full bg-[#ECECEC] text-[#1A1A1A]"
                 animate={{ width: ["0%", "100%"] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
               />
@@ -853,8 +853,8 @@ export function TimelineEntryRenderer({
   if (entry.kind === "user-msg") {
     return (
       <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-3">
-        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/[0.04] ring-1 ring-white/[0.05]">
-          <User className="h-3 w-3 text-white/30" />
+        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#252525] ring-1 ring-white/[0.05]">
+          <User className="h-3 w-3 text-[#ECECEC]/30" />
         </div>
         <div className="flex-1 min-w-0">
           <MarkdownText text={entry.text} />
@@ -866,8 +866,8 @@ export function TimelineEntryRenderer({
   if (entry.kind === "agent-msg") {
     return (
       <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-3">
-        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 ring-1 ring-amber-400/20">
-          <Cpu className="h-3 w-3 text-amber-400/90" />
+        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#252525] ring-1 ring-[rgba(255,255,255,0.08)]">
+          <Cpu className="h-3 w-3 text-[#ECECEC]" />
         </div>
         <div className="flex-1 min-w-0">
           {entry.phase && (
@@ -906,10 +906,10 @@ export function TimelineEntryRenderer({
     const opLabel = entry.change.operation === "update" ? "edited" : entry.change.operation === "create" ? "created" : "deleted"
     return (
       <motion.div initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}
-        className="flex items-center gap-2 rounded-lg border border-white/[0.04] bg-white/[0.01] px-2.5 py-1.5 pl-8"
+        className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-white/[0.01] px-2.5 py-1.5 pl-8"
       >
-        <FileCode className="h-3 w-3 flex-shrink-0 text-white/22" />
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-white/45">{file}</span>
+        <FileCode className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/22" />
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#ECECEC]/45">{file}</span>
         <span className="flex-shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
           style={{ background: `${opColor}15`, color: opColor }}
         >
@@ -924,7 +924,7 @@ export function TimelineEntryRenderer({
     const error = entry.status === "error"
     return (
       <motion.div initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}
-        className="flex items-center gap-2.5 rounded-lg border border-white/[0.05] bg-white/[0.02] px-2.5 py-1.5"
+        className="flex items-center gap-2.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] px-2.5 py-1.5"
       >
         <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded" style={{ background: "#818cf81a" }}>
           {error
@@ -935,14 +935,14 @@ export function TimelineEntryRenderer({
           }
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-[11px] text-white/48">
+          <span className="text-[11px] text-[#ECECEC]/48">
             {error ? "Scan failed" : done ? "Project analyzed" : "Scanning project…"}
           </span>
           {done && entry.summary && (
-            <p className="mt-0.5 truncate text-[10px] text-white/28">{entry.summary}</p>
+            <p className="mt-0.5 truncate text-[10px] text-[#ECECEC]/28">{entry.summary}</p>
           )}
         </div>
-        {done && <ChevronRight className="h-3 w-3 flex-shrink-0 text-white/15" />}
+        {done && <ChevronRight className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/15" />}
       </motion.div>
     )
   }

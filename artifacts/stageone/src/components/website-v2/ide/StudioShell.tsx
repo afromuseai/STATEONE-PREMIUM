@@ -10,6 +10,9 @@ import { CommandPalette }      from "./CommandPalette"   // P1
 import { CodeReviewPanel }     from "./CodeReviewPanel"  // P4
 import { DeploymentPipeline }  from "./DeploymentPipeline" // P5
 import { CollaborationPanel }  from "./CollaborationPanel" // P6
+import { StudioHeader }        from "./StudioHeader"
+import { StudioSidebar }       from "./StudioSidebar"
+import { StudioWorkspace }     from "./StudioWorkspace"
 import { useWebContainer }     from "@/components/website-v2/runtime/useWebContainer"
 import { api } from "@/lib/api"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
@@ -52,11 +55,11 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_COLORS: Record<string, { text: string; dot: string }> = {
-  idle:       { text: "text-white/30",       dot: "fill-white/30" },
-  booting:    { text: "text-amber-400/60",   dot: "fill-amber-400 animate-pulse" },
-  mounting:   { text: "text-amber-400/60",   dot: "fill-amber-400 animate-pulse" },
-  installing: { text: "text-amber-400/60",   dot: "fill-amber-400 animate-pulse" },
-  starting:   { text: "text-amber-400/60",   dot: "fill-amber-400 animate-pulse" },
+  idle:       { text: "text-[#ECECEC]/30",       dot: "fill-white/30" },
+  booting:    { text: "text-[#ECECEC]",   dot: "fill-[#ECECEC] animate-pulse" },
+  mounting:   { text: "text-[#ECECEC]",   dot: "fill-[#ECECEC] animate-pulse" },
+  installing: { text: "text-[#ECECEC]",   dot: "fill-[#ECECEC] animate-pulse" },
+  starting:   { text: "text-[#ECECEC]",   dot: "fill-[#ECECEC] animate-pulse" },
   ready:      { text: "text-emerald-400/60", dot: "fill-emerald-400" },
   error:      { text: "text-red-400/60",     dot: "fill-red-400" },
 }
@@ -328,27 +331,28 @@ const handleRun = async () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.18 }}
-      className="flex h-full w-full min-w-0 flex-col overflow-hidden bg-[#080808]"
+      className="flex h-full w-full min-w-0 flex-col overflow-hidden bg-[#1A1A1A]"
       style={{ flex: "1 1 0%", minWidth: 0 }}
     >
       {/* ── Top command bar ────────────────────────────────────────────────── */}
-      <TopCommandBar
-        project={project}
-        workspaceMode={workspaceMode}
-        onModeChange={handleModeChange}
-        onRun={handleRun}
-        terminalDrawerOpen={terminalDrawerOpen}
-        onToggleTerminalDrawer={() => setTerminalDrawerOpen((v) => !v)}
-        activeFile={activeFile}
-        onCodeReview={() => setCodeReviewOpen(true)}
-        onDeploy={() => setDeployOpen(true)}
-        onOpenPalette={() => setPaletteOpen(true)}
-      />
+      <StudioHeader>
+        <TopCommandBar
+          project={project}
+          workspaceMode={workspaceMode}
+          onModeChange={handleModeChange}
+          onRun={handleRun}
+          terminalDrawerOpen={terminalDrawerOpen}
+          onToggleTerminalDrawer={() => setTerminalDrawerOpen((v) => !v)}
+          activeFile={activeFile}
+          onCodeReview={() => setCodeReviewOpen(true)}
+          onDeploy={() => setDeployOpen(true)}
+          onOpenPalette={() => setPaletteOpen(true)}
+        />
+      </StudioHeader>
 
       {/* ── Main workspace row ────────────────────────────────────────────── */}
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div className="flex min-h-0 w-full flex-1 overflow-hidden">
-
+      <div className="flex min-h-0 w-full flex-1 overflow-hidden">
+        <StudioSidebar>
           {/* Activity bar — far left 40px strip */}
           <ActivityBar activeSideView={sideView} onSetSideView={setSideView} />
 
@@ -366,7 +370,7 @@ const handleRun = async () => {
                 }}
                 exit={{ width: 0, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 420, damping: 40 }}
-                className="flex flex-shrink-0 flex-col overflow-hidden border-r border-white/[0.06]"
+                className="flex flex-shrink-0 flex-col overflow-hidden border-r border-[rgba(255,255,255,0.08)] bg-[#202020]"
               >
                 {sideView === "marcus" && (
                   <AgentConversation
@@ -394,7 +398,9 @@ const handleRun = async () => {
               </motion.div>
             )}
           </AnimatePresence>
+        </StudioSidebar>
 
+        <StudioWorkspace>
           {/* Center: primary editor workspace */}
           <EditorWorkspace
             project={project}
@@ -411,89 +417,89 @@ const handleRun = async () => {
             onTabClose={closeTab}
             onModeChange={handleModeChange}
           />
-        </div>
 
-        {/* ── Terminal overlay drawer (⌃`) — slides up from status bar ──── */}
-        <AnimatePresence>
-          {terminalDrawerOpen && (
-            <TerminalDrawer onClose={() => setTerminalDrawerOpen(false)} terminalLines={terminalLines} />
+          {/* ── Terminal overlay drawer (⌃`) — slides up from status bar ──── */}
+          <AnimatePresence>
+            {terminalDrawerOpen && (
+              <TerminalDrawer onClose={() => setTerminalDrawerOpen(false)} terminalLines={terminalLines} />
+            )}
+          </AnimatePresence>
+
+          {/* ── Status bar ────────────────────────────────────────────────── */}
+          {!terminalDrawerOpen && (
+            <div className="flex h-[22px] flex-shrink-0 items-center border-t border-[rgba(255,255,255,0.08)] bg-[#1A1A1A]">
+
+              {/* Terminal toggle */}
+              <button
+                onClick={() => setTerminalDrawerOpen(true)}
+                title="Open terminal overlay (⌃`)"
+                aria-label="Open terminal overlay"
+                className="group flex h-full items-center gap-1.5 border-r border-[rgba(255,255,255,0.08)] px-3 text-[#ECECEC]/25 transition-colors hover:bg-[#252525] hover:text-[#ECECEC]/60"
+              >
+                <Terminal className="h-3 w-3" />
+                <span className="font-mono text-[10px]">Terminal</span>
+              </button>
+
+              {/* Git branch */}
+              <div className="flex h-full items-center gap-1.5 border-r border-[rgba(255,255,255,0.08)] px-3 text-[#ECECEC]/22">
+                <GitBranch className="h-3 w-3" />
+                <span className="font-mono text-[10px]">main</span>
+              </div>
+
+              {/* Active file */}
+              {activeFile && (
+                <div className="flex h-full items-center gap-1.5 border-r border-[rgba(255,255,255,0.08)] px-3 text-[#ECECEC]/20">
+                  <Code2 className="h-3 w-3" />
+                  <span className="max-w-[200px] truncate font-mono text-[10px]">
+                    {activeFile.path.split("/").pop()}
+                  </span>
+                </div>
+              )}
+
+              {/* File count */}
+              <div className="flex h-full items-center gap-1.5 border-r border-[rgba(255,255,255,0.08)] px-3 text-[#ECECEC]/16">
+                <FileCode className="h-3 w-3" />
+                <span className="font-mono text-[10px]">{project.files.length} files</span>
+              </div>
+
+              {/* Dep count (when installed) */}
+              {depCount > 0 && (
+                <div className="flex h-full items-center gap-1.5 border-r border-[rgba(255,255,255,0.08)] px-3 text-[#ECECEC]/16">
+                  <span className="font-mono text-[10px]">{depCount} deps</span>
+                </div>
+              )}
+
+              <div className="flex-1" />
+
+              {/* Node version (when known) */}
+              {nodeVersion && wcStatus === "ready" && (
+                <div className="flex h-full items-center gap-1.5 border-l border-[rgba(255,255,255,0.08)] px-3 text-[#ECECEC]/22">
+                  <span className="font-mono text-[10px]">Node {nodeVersion}</span>
+                </div>
+              )}
+
+              {/* WC live URL chip */}
+              {wcUrl && wcStatus === "ready" && (
+                <div className="flex h-full items-center gap-1.5 border-l border-[rgba(255,255,255,0.08)] px-3 text-emerald-400/65">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-none" />
+                  <span className="font-mono text-[10px]">live</span>
+                </div>
+              )}
+
+              {/* Runtime status */}
+              <div className={`flex h-full items-center gap-1.5 border-l border-[rgba(255,255,255,0.08)] px-3 transition-colors ${statusColors.text}`}>
+                <Circle className={`h-1.5 w-1.5 ${statusColors.dot}`} />
+                <Cpu className="h-2.5 w-2.5 opacity-40" />
+                <span className="font-mono text-[10px]">{statusLabel}</span>
+              </div>
+
+              {/* Keyboard hint */}
+              <div className="flex h-full items-center border-l border-[rgba(255,255,255,0.08)] px-3 text-[#ECECEC]/12">
+                <span className="font-mono text-[10px]">⌃`</span>
+              </div>
+            </div>
           )}
-        </AnimatePresence>
-
-        {/* ── Status bar ────────────────────────────────────────────────── */}
-        {!terminalDrawerOpen && (
-          <div className="flex h-[22px] flex-shrink-0 items-center border-t border-white/[0.04] bg-[#070707]">
-
-            {/* Terminal toggle */}
-            <button
-              onClick={() => setTerminalDrawerOpen(true)}
-              title="Open terminal overlay (⌃`)"
-              aria-label="Open terminal overlay"
-              className="group flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/25 transition-colors hover:bg-white/[0.04] hover:text-white/60"
-            >
-              <Terminal className="h-3 w-3" />
-              <span className="font-mono text-[10px]">Terminal</span>
-            </button>
-
-            {/* Git branch */}
-            <div className="flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/22">
-              <GitBranch className="h-3 w-3" />
-              <span className="font-mono text-[10px]">main</span>
-            </div>
-
-            {/* Active file */}
-            {activeFile && (
-              <div className="flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/20">
-                <Code2 className="h-3 w-3" />
-                <span className="max-w-[200px] truncate font-mono text-[10px]">
-                  {activeFile.path.split("/").pop()}
-                </span>
-              </div>
-            )}
-
-            {/* File count */}
-            <div className="flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/16">
-              <FileCode className="h-3 w-3" />
-              <span className="font-mono text-[10px]">{project.files.length} files</span>
-            </div>
-
-            {/* Dep count (when installed) */}
-            {depCount > 0 && (
-              <div className="flex h-full items-center gap-1.5 border-r border-white/[0.04] px-3 text-white/16">
-                <span className="font-mono text-[10px]">{depCount} deps</span>
-              </div>
-            )}
-
-            <div className="flex-1" />
-
-            {/* Node version (when known) */}
-            {nodeVersion && wcStatus === "ready" && (
-              <div className="flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 text-white/22">
-                <span className="font-mono text-[10px]">Node {nodeVersion}</span>
-              </div>
-            )}
-
-            {/* WC live URL chip */}
-            {wcUrl && wcStatus === "ready" && (
-              <div className="flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 text-emerald-400/65">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_#34d399]" />
-                <span className="font-mono text-[10px]">live</span>
-              </div>
-            )}
-
-            {/* Runtime status */}
-            <div className={`flex h-full items-center gap-1.5 border-l border-white/[0.04] px-3 transition-colors ${statusColors.text}`}>
-              <Circle className={`h-1.5 w-1.5 ${statusColors.dot}`} />
-              <Cpu className="h-2.5 w-2.5 opacity-40" />
-              <span className="font-mono text-[10px]">{statusLabel}</span>
-            </div>
-
-            {/* Keyboard hint */}
-            <div className="flex h-full items-center border-l border-white/[0.04] px-3 text-white/12">
-              <span className="font-mono text-[10px]">⌃`</span>
-            </div>
-          </div>
-        )}
+        </StudioWorkspace>
       </div>
     </motion.div>
   )

@@ -27,7 +27,7 @@ function FileChangeItem({ item }: { item: ActivityItem }) {
   const fileName = item.path.split("/").pop() ?? item.path
 
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-2.5 py-2 text-[11px]">
+    <div className="flex items-start gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] px-2.5 py-2 text-[11px]">
       <div
         className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded"
         style={{ background: cfg.bg }}
@@ -37,7 +37,7 @@ function FileChangeItem({ item }: { item: ActivityItem }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <FileCode className="h-3 w-3 flex-shrink-0 text-blue-400/70" />
-          <span className="truncate font-mono font-semibold text-white/75">{fileName}</span>
+          <span className="truncate font-mono font-semibold text-[#ECECEC]">{fileName}</span>
           <span
             className="ml-auto flex-shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide"
             style={{ background: cfg.bg, color: cfg.color }}
@@ -46,7 +46,7 @@ function FileChangeItem({ item }: { item: ActivityItem }) {
           </span>
         </div>
         {item.reason && (
-          <p className="mt-0.5 truncate text-white/35">{item.reason}</p>
+          <p className="mt-0.5 truncate text-[#ECECEC]/35">{item.reason}</p>
         )}
       </div>
     </div>
@@ -56,9 +56,9 @@ function FileChangeItem({ item }: { item: ActivityItem }) {
 function PhaseItem({ item }: { item: ActivityItem }) {
   return (
     <div className="flex items-center gap-2 py-1 text-[11px]">
-      <div className="h-px flex-1 bg-white/[0.06]" />
-      <span className="text-white/30">{item.phase}</span>
-      <div className="h-px flex-1 bg-white/[0.06]" />
+      <div className="h-px flex-1 bg-[#252525]" />
+      <span className="text-[#ECECEC]/30">{item.phase}</span>
+      <div className="h-px flex-1 bg-[#252525]" />
     </div>
   )
 }

@@ -1,0 +1,109 @@
+You are redesigning the Website Studio UI in STAGEONE.
+
+IMPORTANT RULES:
+- Do not modify backend code.
+- Do not modify API routes.
+- Do not modify Marcus or any Marcus-related infrastructure.
+- Do not modify generation logic.
+- Do not remove existing functionality.
+- This is only a UI architecture refactor.
+
+Goal:
+Transform Website Studio from a futuristic black/gold dashboard into a professional AI development workspace inspired by Replit, Cursor, VS Code, and ChatGPT.
+
+Current problem:
+The UI feels like an enterprise dashboard. We need it to feel like an AI website development environment where a human collaborates with an AI builder.
+
+Start with these files:
+
+src/components/website-v2/ide/StudioShell.tsx
+src/components/website-v2/StudioLayout.tsx
+
+Audit them first.
+
+Create a cleaner layout foundation.
+
+New design principles:
+
+COLORS:
+
+Background:
+#1A1A1A
+
+Panels:
+#202020
+
+Secondary panels:
+#252525
+
+Primary text:
+#ECECEC
+
+Secondary text:
+#A0A0A0
+
+Borders:
+rgba(255,255,255,0.08)
+
+Remove:
+- gold colors
+- gradients
+- glowing effects
+- unnecessary cards
+- futuristic decorations
+
+
+New layout:
+
+Desktop:
+
+------------------------------------------------
+| Studio Header                                |
+------------------------------------------------
+|              |                               |
+| AI Timeline  |                               |
+|              |                               |
+| Chat Panel   |     Workspace                 |
+|              |     Preview/Code              |
+|              |                               |
+------------------------------------------------
+
+
+Requirements:
+
+1. StudioShell should become a composition component.
+2. Move visual layout responsibilities into StudioLayout.
+3. Keep existing props and functionality working.
+4. Do not break:
+   - project loading
+   - files
+   - preview
+   - runtime status
+   - terminal
+   - deployment
+   - code editor
+
+
+Create reusable layout sections:
+
+StudioHeader
+StudioSidebar
+StudioWorkspace
+
+
+Use simple Tailwind classes.
+
+Avoid:
+- excessive rounded-xl cards
+- shadows
+- animations unless already required
+
+The result should feel similar to:
+- Replit workspace
+- Cursor editor
+- ChatGPT desktop app
+
+After implementation:
+1. Run TypeScript check.
+2. Fix all UI import errors.
+3. Confirm existing Website Studio still loads.

@@ -55,12 +55,12 @@ function FileIconEl({ name }: { name: string }) {
   if (name.endsWith(".css") || name.endsWith(".scss"))
     return <FileText className="h-3.5 w-3.5 flex-shrink-0 text-pink-400/65" />
   if (name.endsWith(".json"))
-    return <FileJson className="h-3.5 w-3.5 flex-shrink-0 text-yellow-400/65" />
+    return <FileJson className="h-3.5 w-3.5 flex-shrink-0 text-[#ECECEC]" />
   if (name.endsWith(".md") || name.endsWith(".mdx"))
     return <FileText className="h-3.5 w-3.5 flex-shrink-0 text-emerald-400/55" />
   if (name.endsWith(".html"))
     return <FileCode className="h-3.5 w-3.5 flex-shrink-0 text-orange-400/65" />
-  return <File className="h-3.5 w-3.5 flex-shrink-0 text-white/22" />
+  return <File className="h-3.5 w-3.5 flex-shrink-0 text-[#ECECEC]/22" />
 }
 
 // ─── Tree node ─────────────────────────────────────────────────────────────────
@@ -106,8 +106,8 @@ const TreeNodeItem = memo(function TreeNodeItem({
           className={`group flex w-full items-center gap-1.5 rounded py-[3px] pr-1 text-left
             cursor-pointer transition-colors duration-75
             ${active
-              ? "bg-amber-400/10 text-amber-300/85"
-              : "text-white/42 hover:bg-white/[0.04] hover:text-white/70"
+              ? "bg-[#252525] text-[#ECECEC]"
+              : "text-[#ECECEC]/42 hover:bg-[#252525] hover:text-[#ECECEC]"
             }`}
         >
           <FileIconEl name={node.name} />
@@ -134,7 +134,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
                   title="Open file"
                   aria-label={`Open ${node.name}`}
                   className="flex h-[18px] w-[18px] items-center justify-center rounded
-                    text-white/25 transition-colors hover:bg-white/[0.08] hover:text-white/65"
+                    text-[#ECECEC]/25 transition-colors hover:bg-[#252525] hover:text-[#ECECEC]/65"
                   onClick={() => onSelect(node.file!)}
                 >
                   <Eye className="h-3 w-3" />
@@ -144,7 +144,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
                   title="More options"
                   aria-label={`More options for ${node.name}`}
                   className="flex h-[18px] w-[18px] items-center justify-center rounded
-                    text-white/25 transition-colors hover:bg-white/[0.08] hover:text-white/65"
+                    text-[#ECECEC]/25 transition-colors hover:bg-[#252525] hover:text-[#ECECEC]/65"
                 >
                   <MoreHorizontal className="h-3 w-3" />
                 </button>
@@ -155,7 +155,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
 
         {/* Active file left accent */}
         {active && (
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-[2px] rounded-r bg-amber-400/60" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-[2px] rounded-r bg-[#252525]" />
         )}
       </div>
     )
@@ -168,15 +168,15 @@ const TreeNodeItem = memo(function TreeNodeItem({
         onClick={() => setOpen(!open)}
         style={{ paddingLeft: indent + 4 }}
         className="group flex w-full items-center gap-1 rounded py-[3px] pr-2 text-left
-          text-white/48 transition-colors duration-75 hover:bg-white/[0.03] hover:text-white/75"
+          text-[#ECECEC]/48 transition-colors duration-75 hover:bg-[#252525] hover:text-[#ECECEC]"
       >
         <ChevronRight
-          className="h-3 w-3 flex-shrink-0 text-white/18 transition-transform duration-100"
+          className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/18 transition-transform duration-100"
           style={{ transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
         />
         {isExpanded
-          ? <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-amber-400/50" />
-          : <Folder     className="h-3.5 w-3.5 flex-shrink-0 text-amber-400/30" />
+          ? <FolderOpen className="h-3.5 w-3.5 flex-shrink-0 text-[#ECECEC]" />
+          : <Folder     className="h-3.5 w-3.5 flex-shrink-0 text-[#ECECEC]" />
         }
         <span className="truncate text-[11.5px] font-medium">{node.name}</span>
       </button>
@@ -212,7 +212,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <span className="rounded bg-amber-400/20 text-amber-300">
+      <span className="rounded bg-[#252525] text-[#ECECEC]">
         {text.slice(idx, idx + query.length)}
       </span>
       {text.slice(idx + query.length)}
@@ -235,17 +235,17 @@ function DrawerContent({
   return (
     <>
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-white/[0.04] px-3 py-2">
-        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/20">
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-[rgba(255,255,255,0.08)] px-3 py-2">
+        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#ECECEC]/20">
           Explorer
         </span>
         <div className="flex items-center gap-0.5">
-          <span className="text-[10px] tabular-nums text-white/14">{files.length} files</span>
+          <span className="text-[10px] tabular-nums text-[#ECECEC]/14">{files.length} files</span>
           <button
             title="New file"
             aria-label="New file"
-            className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-md text-white/16
-              transition-all hover:bg-white/[0.06] hover:text-white/55"
+            className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-md text-[#ECECEC]/16
+              transition-all hover:bg-[#252525] hover:text-[#ECECEC]/55"
           >
             <FilePlus className="h-3 w-3" />
           </button>
@@ -253,22 +253,22 @@ function DrawerContent({
       </div>
 
       {/* Search */}
-      <div className="flex-shrink-0 border-b border-white/[0.03] px-2 py-1.5">
-        <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.04] bg-white/[0.015]
-          px-2 py-[5px] transition-all focus-within:border-amber-400/20 focus-within:bg-white/[0.03]">
-          <Search className="h-3 w-3 flex-shrink-0 text-white/16" />
+      <div className="flex-shrink-0 border-b border-[rgba(255,255,255,0.08)] px-2 py-1.5">
+        <div className="flex items-center gap-1.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-white/[0.015]
+          px-2 py-[5px] transition-all focus-within:border-[rgba(255,255,255,0.08)] focus-within:bg-[#252525]">
+          <Search className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/16" />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search files…"
             aria-label="Search files"
-            className="w-full bg-transparent text-[11px] text-white/50 placeholder-white/16 outline-none"
+            className="w-full bg-transparent text-[11px] text-[#ECECEC]/50 placeholder-white/16 outline-none"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
               aria-label="Clear search"
-              className="text-white/25 hover:text-white/55"
+              className="text-[#ECECEC]/25 hover:text-[#ECECEC]/55"
             >
               <span className="text-[9px]">✕</span>
             </button>
@@ -279,7 +279,7 @@ function DrawerContent({
       {/* Tree */}
       <div className="flex-1 overflow-y-auto px-1.5 py-1" style={{ scrollbarWidth: "none" }}>
         {tree.length === 0 ? (
-          <p className="px-3 py-8 text-center text-[11px] text-white/18">No files yet</p>
+          <p className="px-3 py-8 text-center text-[11px] text-[#ECECEC]/18">No files yet</p>
         ) : (
           tree.map((node) => (
             <TreeNodeItem
@@ -317,7 +317,7 @@ export function FileExplorerDrawer({
   // ── Embedded mode: no wrapper animation, fills parent ─────────────────────
   if (embedded) {
     return (
-      <div className="flex h-full w-full flex-col overflow-hidden bg-[#090909]">
+      <div className="flex h-full w-full flex-col overflow-hidden bg-[#1A1A1A]">
         <DrawerContent
           files={files}
           activeFilePath={activeFilePath}
@@ -337,7 +337,7 @@ export function FileExplorerDrawer({
           animate={{ width: 220, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ type: "spring", stiffness: 380, damping: 38 }}
-          className="flex flex-shrink-0 flex-col overflow-hidden border-l border-white/[0.05] bg-[#0a0a0a]"
+          className="flex flex-shrink-0 flex-col overflow-hidden border-l border-[rgba(255,255,255,0.08)] bg-[#1A1A1A]"
         >
           <DrawerContent
             files={files}

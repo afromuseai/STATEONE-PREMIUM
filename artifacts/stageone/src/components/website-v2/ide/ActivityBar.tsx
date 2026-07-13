@@ -49,7 +49,7 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
   return (
     <div
       className="relative z-10 flex w-10 flex-shrink-0 flex-col items-center
-        border-r border-white/[0.04] bg-[#080808] py-1.5"
+        border-r border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] py-1.5"
     >
       {/* Top nav — roving tabindex toolbar */}
       <div
@@ -75,8 +75,8 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
               className={`group relative flex h-8 w-8 items-center justify-center rounded-lg
                 transition-all duration-150
                 ${active
-                  ? "bg-amber-400/8 text-amber-400/90"
-                  : "text-white/25 hover:bg-white/[0.04] hover:text-white/60"
+                  ? "bg-[#252525] text-[#ECECEC]"
+                  : "text-[#ECECEC]/25 hover:bg-[#252525] hover:text-[#ECECEC]/60"
                 }`}
             >
               {/* Active accent — left stripe */}
@@ -84,7 +84,7 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
                 <motion.div
                   layoutId="activity-accent"
                   className="pointer-events-none absolute -left-1 inset-y-1.5 w-[2px]
-                    rounded-r bg-amber-400"
+                    rounded-r bg-[#ECECEC] text-[#1A1A1A]"
                   transition={{ type: "spring", stiffness: 500, damping: 40 }}
                 />
               )}
@@ -102,8 +102,8 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
         <button
           title="Settings"
           aria-label="Settings"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/16
-            transition-all hover:bg-white/[0.04] hover:text-white/50"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#ECECEC]/16
+            transition-all hover:bg-[#252525] hover:text-[#ECECEC]/50"
         >
           <Settings className="h-[15px] w-[15px]" aria-hidden="true" />
         </button>
@@ -113,8 +113,8 @@ export function ActivityBar({ activeSideView, onSetSideView }: ActivityBarProps)
             title="Collapse sidebar (⌘B)"
             aria-label="Collapse sidebar"
             onClick={() => onSetSideView(null)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/12
-              transition-all hover:bg-white/[0.04] hover:text-white/42"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#ECECEC]/12
+              transition-all hover:bg-[#252525] hover:text-[#ECECEC]/42"
           >
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
           </button>

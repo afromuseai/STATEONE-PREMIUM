@@ -86,14 +86,14 @@ export function ToolCallCard({
       transition={status === "running"
         ? { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
         : { duration: 0.3 }}
-      className="relative overflow-hidden rounded-lg border bg-[#0f0f0f] p-3"
+      className="relative overflow-hidden rounded-lg border bg-[#1A1A1A] p-3"
       style={{ borderColor: status === "running" ? color + "30" : "rgba(255,255,255,0.06)" }}
     >
       {/* Shimmer line during execution */}
       {status === "running" && (
         <motion.div
           className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px]"
-          style={{ background: `linear-gradient(90deg, transparent 0%, ${color} 50%, transparent 100%)` }}
+          style={{ background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%)` }}
           animate={{ x: ["-100%", "100%"] }}
           transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
         />
@@ -121,9 +121,9 @@ export function ToolCallCard({
             </motion.div>
           )}
         </div>
-        <span className="font-mono text-[11px] font-medium text-white/70">{label}</span>
+        <span className="font-mono text-[11px] font-medium text-[#ECECEC]">{label}</span>
         {typeof call.params.path === "string" && (
-          <span className="truncate font-mono text-[9px] text-white/22">
+          <span className="truncate font-mono text-[9px] text-[#ECECEC]/22">
             {String(call.params.path).split("/").pop()}
           </span>
         )}
@@ -132,11 +132,11 @@ export function ToolCallCard({
       {/* Params */}
       {Object.keys(call.params).length > 0 && (
         <details className="mb-2 group" open={expanded}>
-          <summary className="flex items-center gap-1 cursor-pointer text-[10px] text-white/30 hover:text-white/50">
+          <summary className="flex items-center gap-1 cursor-pointer text-[10px] text-[#ECECEC]/30 hover:text-[#ECECEC]/50">
             <span>Params</span>
             <ChevronDown className="h-2.5 w-2.5 transition-transform group-open:rotate-180" />
           </summary>
-          <pre className="mt-1.5 rounded bg-black/30 p-2 text-[9px] text-white/50 overflow-x-auto">
+          <pre className="mt-1.5 rounded bg-[#202020] p-2 text-[9px] text-[#ECECEC]/50 overflow-x-auto">
             {paramsStr}
           </pre>
         </details>
@@ -145,17 +145,17 @@ export function ToolCallCard({
       {/* Result */}
       {result && status !== "running" && (
         <details className="mb-2 group" open={expanded}>
-          <summary className="flex items-center gap-1 cursor-pointer text-[10px] text-white/30 hover:text-white/50">
+          <summary className="flex items-center gap-1 cursor-pointer text-[10px] text-[#ECECEC]/30 hover:text-[#ECECEC]/50">
             <span>{status === "error" ? "Error" : "Result"}</span>
             <ChevronDown className="h-2.5 w-2.5 transition-transform group-open:rotate-180" />
           </summary>
           <div className="mt-1.5 flex items-center gap-1.5">
-            <pre className="flex-1 min-w-0 rounded bg-black/30 p-2 text-[9px] text-white/50 overflow-x-auto max-h-40">
+            <pre className="flex-1 min-w-0 rounded bg-[#202020] p-2 text-[9px] text-[#ECECEC]/50 overflow-x-auto max-h-40">
               {result.result}
             </pre>
             <button
               onClick={copyResult}
-              className="flex-shrink-0 rounded border border-white/[0.06] px-1.5 py-0.5 text-[9px] text-white/28 transition-all hover:border-white/12 hover:text-white/60"
+              className="flex-shrink-0 rounded border border-[rgba(255,255,255,0.08)] px-1.5 py-0.5 text-[9px] text-[#ECECEC]/28 transition-all hover:border-[rgba(255,255,255,0.08)] hover:text-[#ECECEC]/60"
             >
               {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
             </button>
@@ -165,16 +165,16 @@ export function ToolCallCard({
 
       {/* Diff preview for write_file */}
       {showDiff && isWrite && (oldContent || newContent) && (
-        <div className="mt-2 border-t border-white/[0.05] pt-2">
+        <div className="mt-2 border-t border-[rgba(255,255,255,0.08)] pt-2">
           <div className="flex items-center gap-1.5 mb-1.5">
-            <span className="text-[10px] font-medium text-white/50">Diff Preview</span>
+            <span className="text-[10px] font-medium text-[#ECECEC]/50">Diff Preview</span>
             <span className="rounded px-1 py-0.5 text-[8px] font-semibold uppercase tracking-wide"
               style={{ background: `${OP_COLORS.create}15`, color: OP_COLORS.create }}
             >
               {oldContent ? "update" : "create"}
             </span>
           </div>
-          <div className="rounded bg-black/30 p-2 text-[9px] font-mono overflow-x-auto max-h-48">
+          <div className="rounded bg-[#202020] p-2 text-[9px] font-mono overflow-x-auto max-h-48">
             <pre>{generateDiff(oldContent ?? "", newContent ?? "")}</pre>
           </div>
           {onAccept && onReject && (
@@ -194,7 +194,7 @@ export function ToolCallCard({
               {onModify && (
                 <button
                   onClick={onModify}
-                  className="flex items-center gap-1 rounded-md bg-white/[0.04] px-2.5 py-1 text-[10px] text-white/35 hover:bg-white/[0.08] transition-colors"
+                  className="flex items-center gap-1 rounded-md bg-[#252525] px-2.5 py-1 text-[10px] text-[#ECECEC]/35 hover:bg-[#252525] transition-colors"
                 >
                   Modify
                 </button>
