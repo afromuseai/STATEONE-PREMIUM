@@ -272,7 +272,6 @@ export function StudioShell({ project, onRefresh, session, previewGenerating }: 
         const newActive = next[Math.max(0, idx - 1)]
         setActiveTabId(newActive.id)
         if (newActive.id === "preview") setWorkspaceMode("preview")
-        else if (newActive.id === "terminal") setWorkspaceMode("terminal")
         else setWorkspaceMode("code")
       }
       return next
@@ -281,20 +280,15 @@ export function StudioShell({ project, onRefresh, session, previewGenerating }: 
 
   const handleTabClick = useCallback((tabId: string) => {
     setActiveTabId(tabId)
-    if (tabId === "preview")       setWorkspaceMode("preview")
-    else if (tabId === "terminal") setWorkspaceMode("terminal")
+    if (tabId === "preview") setWorkspaceMode("preview")
     else setWorkspaceMode((prev) => prev === "split" ? "split" : "code")
   }, [])
 
+  // Terminal already has its own dedicated card above the editor (top command
+  // bar / status bar) — switching to it is a pure workspace-mode change, it
+  // never grows a tab in the editor tab strip.
   const handleModeChange = useCallback((mode: WorkspaceMode) => {
     setWorkspaceMode(mode)
-    if (mode === "terminal") {
-      setOpenTabs((prev) => {
-        if (prev.find((t) => t.id === "terminal")) return prev
-        return [...prev, { id: "terminal", label: "Terminal", pinned: true }]
-      })
-      setActiveTabId("terminal")
-    }
     if (mode === "preview") setActiveTabId("preview")
     if (mode === "code") {
       setOpenTabs((prev) => {

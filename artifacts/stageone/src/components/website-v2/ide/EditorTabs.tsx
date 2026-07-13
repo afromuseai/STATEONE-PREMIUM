@@ -1,4 +1,4 @@
-import { X, Eye, TerminalSquare } from "lucide-react"
+import { X, Eye } from "lucide-react"
 import { motion } from "framer-motion"
 import type { OpenTab, WorkspaceMode } from "./StudioShell"
 
@@ -22,8 +22,7 @@ function fileBadge(label: string) {
 
 /** Return the icon element for special (non-file) tabs. */
 function SpecialTabIcon({ tabId }: { tabId: string }) {
-  if (tabId === "preview")  return <Eye           className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/30" />
-  if (tabId === "terminal") return <TerminalSquare className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/30" />
+  if (tabId === "preview") return <Eye className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/30" />
   return null
 }
 
@@ -38,16 +37,20 @@ interface EditorTabsProps {
 export function EditorTabs({
   tabs, activeTabId, onTabClick, onTabClose,
 }: EditorTabsProps) {
+  // The Terminal already has its own dedicated card/mode above (top command
+  // bar) — it should never grow a duplicate tab here, even defensively.
+  const visibleTabs = tabs.filter((t) => t.id !== "terminal")
+
   return (
     <div
       role="tablist"
       aria-label="Editor tabs"
-      className="flex h-8 flex-shrink-0 items-stretch overflow-x-auto border-b border-[rgba(255,255,255,0.08)] bg-[#1A1A1A]"
+      className="flex h-9 flex-shrink-0 items-end gap-1 overflow-x-auto border-b border-[rgba(255,255,255,0.08)] bg-[#151515] px-2 pt-1.5"
       style={{ scrollbarWidth: "none" }}
     >
-      {tabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const active      = tab.id === activeTabId
-        const isSpecial   = tab.id === "preview" || tab.id === "terminal"
+        const isSpecial   = tab.id === "preview"
         const badge       = isSpecial ? null : fileBadge(tab.label)
         const canClose    = !tab.pinned
 
@@ -68,17 +71,17 @@ export function EditorTabs({
               }
             }}
             className={`group relative flex h-full flex-shrink-0 cursor-pointer items-center gap-1.5 select-none
-              border-r border-[rgba(255,255,255,0.08)] px-3 text-[11.5px] transition-all duration-100
+              rounded-t-lg px-3 text-[11.5px] transition-all duration-100
               ${active
-                ? "bg-[#1A1A1A] text-[#ECECEC]"
-                : "text-[#ECECEC]/28 hover:bg-[#252525] hover:text-[#ECECEC]/55"
+                ? "bg-[#1A1A1A] text-[#ECECEC] shadow-[0_-1px_0_rgba(255,255,255,0.08)]"
+                : "text-[#ECECEC]/28 hover:bg-[#232323] hover:text-[#ECECEC]/55"
               }`}
           >
             {/* Active indicator — active top border, shared layout-id so it slides */}
             {active && (
               <motion.div
                 layoutId="tab-indicator"
-                className="absolute inset-x-0 top-0 h-[1.5px] bg-[#ECECEC] text-[#1A1A1A]"
+                className="absolute inset-x-1 top-0 h-[1.5px] rounded-full bg-[#ECECEC]"
                 transition={{ type: "spring", stiffness: 500, damping: 40 }}
               />
             )}
