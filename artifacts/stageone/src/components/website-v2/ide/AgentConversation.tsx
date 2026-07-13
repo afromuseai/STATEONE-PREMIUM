@@ -6,7 +6,7 @@ import {
   ArrowUp, Plus, X, Loader2, CheckCircle, AlertCircle, RefreshCw,
   FileCode, FileEdit, Cpu, User, Search, Terminal,
   FolderOpen, Brain, Zap, ChevronRight, Check, Copy, ChevronUp, ChevronDown,
-  FileText, ImageIcon, Layers,
+  FileText, ImageIcon, Layers, Square, UploadCloud,
 } from "lucide-react"
 
 // ─── Orbit animation (AI-processing border effect) ────────────────────────────
@@ -121,12 +121,12 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
     })
   }
   return (
-    <div className="my-1.5 overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#202020]">
-      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.08)] bg-[#252525] px-2.5 py-1">
-        <span className="font-mono text-[9.5px] font-medium uppercase tracking-wide text-[#ECECEC]/30">{lang || "code"}</span>
+    <div className="my-1.5 overflow-hidden rounded-lg border border-[#303030] bg-[#232323]">
+      <div className="flex items-center justify-between border-b border-[#303030] bg-[#202020] px-2.5 py-1">
+        <span className="font-mono text-[9.5px] font-medium uppercase tracking-wide text-[#A0A0A0]">{lang || "code"}</span>
         <button
           onClick={onCopy}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9.5px] text-[#ECECEC]/25 transition-colors hover:bg-[#252525] hover:text-[#ECECEC]/60"
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[9.5px] text-[#A0A0A0] transition-colors hover:bg-[#303030] hover:text-[#ECECEC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ECECEC]/25"
         >
           {copied ? <Check className="h-2.5 w-2.5 text-emerald-400" /> : <Copy className="h-2.5 w-2.5" />}
           {copied ? "Copied" : "Copy"}
@@ -165,8 +165,8 @@ export function MarkdownText({ text }: { text: string }) {
           if (line.startsWith("- ") || line.startsWith("• "))
             return (
               <div key={key} className="flex items-start gap-1.5 my-0.5">
-                <span className="mt-1.5 h-1 w-1 rounded-full bg-[#252525] shrink-0" />
-                <span className="text-[12px] leading-relaxed text-[#ECECEC]/55"><InlineBold text={line.slice(2)} /></span>
+                <span className="mt-1.5 h-1 w-1 rounded-full bg-[#A0A0A0]/60 shrink-0" />
+                <span className="text-[12px] leading-relaxed text-[#A0A0A0]"><InlineBold text={line.slice(2)} /></span>
               </div>
             )
           if (/^\d+\./.test(line)) {
@@ -174,8 +174,8 @@ export function MarkdownText({ text }: { text: string }) {
             const rest = line.replace(/^\d+\.\s*/, "")
             return (
               <div key={key} className="flex items-start gap-2 my-0.5">
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-[#252525] text-[9px] font-bold text-[#ECECEC] mt-0.5">{num}</span>
-                <span className="text-[12px] leading-relaxed text-[#ECECEC]/55"><InlineBold text={rest} /></span>
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-[#303030] text-[9px] font-bold text-[#ECECEC] mt-0.5">{num}</span>
+                <span className="text-[12px] leading-relaxed text-[#A0A0A0]"><InlineBold text={rest} /></span>
               </div>
             )
           }
@@ -186,13 +186,13 @@ export function MarkdownText({ text }: { text: string }) {
               <p key={key} className="text-[12px] leading-relaxed text-[#ECECEC]/55">
                 {parts.map((p, pi) =>
                   p.startsWith("`") && p.endsWith("`") && p.length > 1
-                    ? <code key={pi} className="rounded bg-[#252525] px-1 py-0.5 font-mono text-[11px] text-[#ECECEC]">{p.slice(1, -1)}</code>
+                    ? <code key={pi} className="rounded bg-[#303030] px-1 py-0.5 font-mono text-[11px] text-[#ECECEC]">{p.slice(1, -1)}</code>
                     : <InlineBold key={pi} text={p} />
                 )}
               </p>
             )
           }
-          return <p key={key} className="text-[12px] leading-relaxed text-[#ECECEC]/55"><InlineBold text={line} /></p>
+          return <p key={key} className="text-[12px] leading-relaxed text-[#A0A0A0]"><InlineBold text={line} /></p>
         })
       })}
     </div>
@@ -288,22 +288,22 @@ export function ActionGroup({
   const label = groupLabel(entries)
 
   return (
-    <div className="my-0.5 pl-9">
+    <div className="pl-9">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-[#252525]"
+        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-[#232323] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ECECEC]/25"
       >
-        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#252525]">
+        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#232323]">
           {hasRunning ? (
             <Loader2 className="h-2.5 w-2.5 animate-spin text-[#ECECEC]" />
           ) : hasError ? (
             <AlertCircle className="h-2.5 w-2.5 text-red-400/80" />
           ) : (
-            <CheckCircle className="h-2.5 w-2.5 text-[#ECECEC]/25" />
+            <CheckCircle className="h-2.5 w-2.5 text-[#A0A0A0]" />
           )}
         </span>
-        <span className="text-[12px] text-[#ECECEC]/40">{label}</span>
-        <span className="ml-auto flex items-center gap-1 text-[10px] font-mono text-[#ECECEC]/20">
+        <span className="text-[12px] text-[#A0A0A0]">{label}</span>
+        <span className="ml-auto flex items-center gap-1 text-[10px] font-mono text-[#A0A0A0]/60">
           {count} action{count === 1 ? "" : "s"}
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </span>
@@ -316,7 +316,7 @@ export function ActionGroup({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="ml-1.5 mt-1 mb-1.5 space-y-1.5 border-l border-[rgba(255,255,255,0.08)] pl-3">
+            <div className="ml-1.5 mt-1 mb-1.5 space-y-1.5 border-l border-[#303030] pl-3">
               {entries.map((entry) => (
                 <TimelineEntryRenderer key={entry.id} entry={entry} project={project} onFileOpen={onFileOpen} />
               ))}
@@ -328,20 +328,19 @@ export function ActionGroup({
   )
 }
 
-function CollapsibleDetail({ label, text, accent = "indigo" }: { label: string; text: string; accent?: "indigo" | "neutral" }) {
+function CollapsibleDetail({ label, text }: { label: string; text: string }) {
   const [expanded, setExpanded] = useState(false)
-  const color = accent === "neutral" ? "#A0A0A0" : "#818cf8"
   return (
     <div className="pl-9">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-[#252525]"
+        className="flex w-full items-center gap-2 rounded-md py-1 text-left transition-colors hover:bg-[#232323] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ECECEC]/25"
       >
-        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full" style={{ background: `${color}1a` }}>
-          <FileCode className="h-2.5 w-2.5" style={{ color }} />
+        <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#232323]">
+          <FileCode className="h-2.5 w-2.5 text-[#A0A0A0]" />
         </span>
-        <span className="text-[12px] text-[#ECECEC]/40">{label}</span>
-        <span className="ml-auto text-[#ECECEC]/20">
+        <span className="text-[12px] text-[#A0A0A0]">{label}</span>
+        <span className="ml-auto text-[#A0A0A0]/60">
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </span>
       </button>
@@ -353,7 +352,7 @@ function CollapsibleDetail({ label, text, accent = "indigo" }: { label: string; 
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="ml-1.5 mt-1 mb-1.5 border-l border-[rgba(255,255,255,0.08)] pl-3">
+            <div className="ml-1.5 mt-1 mb-1.5 border-l border-[#303030] pl-3">
               <MarkdownText text={text} />
             </div>
           </motion.div>
@@ -368,22 +367,30 @@ function ValidationCard({ entry }: { entry: Extract<TimelineEntryType, { kind: "
   const isOk = entry.success
   return (
     <motion.div initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}
-      className={`flex items-start gap-2.5 rounded-lg border px-2.5 py-1.5 ${isOk ? "border-emerald-400/[0.12] bg-emerald-400/[0.03]" : "border-red-400/[0.12] bg-red-400/[0.03]"}`}
+      className="flex items-start gap-2.5 py-1"
     >
-      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded" style={{ background: isOk ? "#10b9811a" : "#ef44441a" }}>
+      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full" style={{ background: isOk ? "#10b98115" : "#ef444415" }}>
         {isOk ? <Check className="h-3 w-3 text-emerald-400" /> : <AlertCircle className="h-3 w-3 text-red-400" />}
       </div>
       <div className="min-w-0 flex-1">
         <span className={`text-[11px] ${isOk ? "text-emerald-300/80" : "text-red-300/80"}`}>
           {isOk ? "Structural validation passed" : `${entry.errors.length} validation issue${entry.errors.length === 1 ? "" : "s"} found`}
         </span>
-        {isOk && entry.fixed && <p className="mt-0.5 text-[10px] text-[#ECECEC]/28">Auto-fixed after review</p>}
+        {isOk && entry.fixed && <p className="mt-0.5 text-[10px] text-[#A0A0A0]">Auto-fixed after review</p>}
         {!isOk && entry.errors.slice(0, 3).map((e, i) => (
-          <p key={i} className="mt-0.5 truncate text-[10px] text-red-300/50">• {e}</p>
+          <p key={i} className="mt-0.5 truncate text-[10px] text-red-300/60">• {e}</p>
         ))}
       </div>
     </motion.div>
   )
+}
+
+// ─── Feed item — the unit of the continuous vertical feed. Every top-level
+// block (a message, a grouped set of actions, the build activity, a streaming
+// reply) renders inside one of these, so separation comes from a single
+// subtle divider rather than each block carrying its own card chrome. ───────
+function FeedItem({ children }: { children: React.ReactNode }) {
+  return <div className="border-b border-[#303030]/60 py-3.5 first:pt-0">{children}</div>
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -440,6 +447,9 @@ export function AgentConversation({
   // Attach state
   const [attachedFiles, setAttachedFiles] = useState<Array<{ id: string; name: string; type: "image" | "file" }>>([])
   const [showAttachMenu, setShowAttachMenu] = useState(false)
+  // Drag-and-drop attach state — dropping files anywhere on the composer attaches them,
+  // same list the "+" menu populates.
+  const [isDragOver, setIsDragOver] = useState(false)
   
   // Streaming state - use a single message being built
   const [streamingMessage, setStreamingMessage] = useState<{
@@ -613,6 +623,31 @@ export function AgentConversation({
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
+  // Drag-and-drop handlers for the composer — presentation-only, feeds the same
+  // attachedFiles list as the "+" menu.
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    if (isRunning || isGenerating) return
+    setIsDragOver(true)
+  }
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+  }
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    if (isRunning || isGenerating) return
+    const dropped = e.dataTransfer.files
+    if (!dropped || dropped.length === 0) return
+    const newFiles = Array.from(dropped).map(f => ({
+      id:   `${f.name}-${Date.now()}`,
+      name: f.name,
+      type: f.type.startsWith("image/") ? "image" as const : "file" as const,
+    }))
+    setAttachedFiles(prev => [...prev, ...newFiles])
+  }
+
   // ── Status label ────────────────────────────────────────────────────────────
   const statusLabel = (() => {
     if (isGenerating) return generationSession?.currentPhase ? (generationSession.phaseMessage || generationSession.currentPhase) : "Building your website…"
@@ -631,9 +666,15 @@ export function AgentConversation({
   })()
 
   const dotColor = (() => {
-    if (isGenerating || isRunning || wcStatus !== "ready") return "bg-[#ECECEC] text-[#1A1A1A]"
+    if (isGenerating || isRunning || wcStatus !== "ready") return "bg-[#ECECEC]"
     return "bg-emerald-400"
   })()
+
+  // Real cancellation only exists for the interactive editing runtime (isRunning).
+  // The initial full-site build (isGenerating) is fire-and-forget with no cancel
+  // hook wired — presenting a non-functional "Stop" for it would be dishonest,
+  // so it gets an inert "Generating…" state instead.
+  const canStop = isRunning && !isGenerating
 
   // Which timeline/streaming content is on screen right now — the live build
   // stream while generating, otherwise the interactive editing chat.
@@ -645,7 +686,7 @@ export function AgentConversation({
   return (
     <>
     <style>{ORBIT_STYLE}</style>
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#1A1A1A]">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#202020]">
 
       {/* Running glow */}
       <AnimatePresence>
@@ -666,7 +707,7 @@ export function AgentConversation({
       </AnimatePresence>
 
       {/* Header */}
-      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-[rgba(255,255,255,0.08)] px-4 py-3">
+      <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-[#303030] px-4 py-3">
         <AnimatePresence>
           {isRunning && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -677,11 +718,11 @@ export function AgentConversation({
         </AnimatePresence>
 
         <div className="relative z-[1] flex-shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#252525] ring-1 ring-[rgba(255,255,255,0.08)]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#232323] ring-1 ring-[#303030]">
             <Cpu className="h-3.5 w-3.5 text-[#ECECEC]" />
           </div>
-          <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0b0b0b] transition-colors duration-500 ${dotColor}`}>
-            {isRunning && <div className="absolute inset-0 animate-ping rounded-full bg-[#ECECEC] text-[#1A1A1A] opacity-60" />}
+          <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#202020] transition-colors duration-500 ${dotColor}`}>
+            {isRunning && <div className="absolute inset-0 animate-ping rounded-full bg-[#ECECEC] opacity-60" />}
           </div>
         </div>
 
@@ -693,9 +734,11 @@ export function AgentConversation({
         </div>
       </div>
 
-      {/* Conversation area */}
+      {/* Conversation area — one continuous vertical feed. Each top-level item
+          gets a subtle bottom divider instead of its own card, so the chat
+          reads as a single stream rather than a stack of boxes. */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 py-3">
 
           {/* Empty state */}
           {showEmptyState && (
@@ -705,11 +748,11 @@ export function AgentConversation({
               transition={{ duration: 0.3 }}
               className="flex flex-1 flex-col items-center justify-center text-center"
             >
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525]">
-                <Zap className="h-7 w-7 text-[#ECECEC]/12" />
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-[#303030] bg-[#232323]">
+                <Zap className="h-7 w-7 text-[#A0A0A0]/50" />
               </div>
-              <h2 className="text-base font-semibold text-[#ECECEC]/60">Start a conversation</h2>
-              <p className="mt-1.5 max-w-[260px] text-sm text-[#ECECEC]/25 leading-relaxed">
+              <h2 className="text-base font-semibold text-[#ECECEC]/80">Start a conversation</h2>
+              <p className="mt-1.5 max-w-[260px] text-sm text-[#A0A0A0] leading-relaxed">
                 Ask Marcus to build, edit, or explain anything in your project.
               </p>
             </motion.div>
@@ -719,13 +762,13 @@ export function AgentConversation({
               the generation event bus (independent of Marcus). Only rendered once
               an event has arrived, so it never appears during normal editing chat. */}
           {hasGenerationActivity && (
-            <div className="pl-9">
-              <p className="mb-1.5 text-[12px] leading-relaxed text-[#ECECEC]/55">I'm building your website.</p>
+            <FeedItem>
+              <p className="mb-1.5 text-[12px] leading-relaxed text-[#A0A0A0]">I'm building your website.</p>
               <GenerationActivity />
               {/* Conversation's own surface: why each step is happening, not what
                   phase/percent it's at — that stays GenerationActivity's job. */}
               <BuilderConversationMessages messages={builderConversation} />
-            </div>
+            </FeedItem>
           )}
 
           {/* Timeline entries — narration renders plainly; work (tool calls, file
@@ -734,34 +777,39 @@ export function AgentConversation({
           <AnimatePresence initial={false}>
             {groupTimeline(timeline).map((g) =>
               g.kind === "narration" ? (
-                <TimelineEntryRenderer
-                  key={g.entry.id}
-                  entry={g.entry}
-                  project={project}
-                  onFileOpen={onFileOpen}
-                />
+                <FeedItem key={g.entry.id}>
+                  <TimelineEntryRenderer
+                    entry={g.entry}
+                    project={project}
+                    onFileOpen={onFileOpen}
+                  />
+                </FeedItem>
               ) : (
-                <ActionGroup
-                  key={g.id}
-                  entries={g.entries}
-                  project={project}
-                  onFileOpen={onFileOpen}
-                />
+                <FeedItem key={g.id}>
+                  <ActionGroup
+                    entries={g.entries}
+                    project={project}
+                    onFileOpen={onFileOpen}
+                  />
+                </FeedItem>
               )
             )}
           </AnimatePresence>
 
           {/* Streaming message (assistant response being built) */}
           {streamingMessage && (
-            <StreamingMessage message={streamingMessage} />
+            <FeedItem>
+              <StreamingMessage message={streamingMessage} />
+            </FeedItem>
           )}
 
           {/* Bottom anchor for scroll */}
           <div ref={bottomRef} />
         </div>
 
-        {/* ── Input area ── full spec: orbit, chips, dropdown, 3-col footer ── */}
-        <div className="flex-shrink-0 border-t border-[rgba(255,255,255,0.06)] bg-[#1A1A1A] px-3 pt-3 pb-2.5">
+        {/* ── Composer ── auto-growing textarea, drag-and-drop, orbit while
+            the interactive runtime is working (protected — see ORBIT_STYLE) ── */}
+        <div className="flex-shrink-0 border-t border-[#303030] bg-[#202020] px-3 pt-3 pb-2.5">
 
           {/* Hidden file input */}
           <input
@@ -784,15 +832,16 @@ export function AgentConversation({
                 {attachedFiles.map(f => (
                   <div
                     key={f.id}
-                    className="flex items-center gap-1 rounded-md border border-white/[0.1] bg-white/[0.05] px-2 py-1"
+                    className="flex items-center gap-1 rounded-md border border-[#303030] bg-[#232323] px-2 py-1"
                   >
                     {f.type === "image"
-                      ? <ImageIcon className="h-3 w-3 text-white/40" />
-                      : <FileText  className="h-3 w-3 text-white/40" />}
-                    <span className="max-w-[100px] truncate text-[11px] text-white/60">{f.name}</span>
+                      ? <ImageIcon className="h-3 w-3 text-[#A0A0A0]" />
+                      : <FileText  className="h-3 w-3 text-[#A0A0A0]" />}
+                    <span className="max-w-[100px] truncate text-[11px] text-[#ECECEC]/80">{f.name}</span>
                     <button
                       onClick={() => setAttachedFiles(prev => prev.filter(x => x.id !== f.id))}
-                      className="ml-0.5 text-white/25 hover:text-white/60 transition-colors"
+                      className="ml-0.5 text-[#A0A0A0] hover:text-[#ECECEC] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#ECECEC]/40 rounded-sm"
+                      aria-label={`Remove ${f.name}`}
                     >
                       <X className="h-2.5 w-2.5" />
                     </button>
@@ -802,15 +851,41 @@ export function AgentConversation({
             )}
           </AnimatePresence>
 
-          {/* Composer card — orbit when running */}
-          <div className={isRunning && !isGenerating ? "ac-orbit-wrapper" : ""}>
+          {/* Composer card — protected orbit border while the interactive runtime
+              is actively working. DO NOT modify ac-orbit-wrapper/ac-orbit-inner
+              or ORBIT_STYLE above: colors, timing, and trigger condition are
+              intentional and must remain exactly as they are. */}
+          <div
+            className={`relative ${isRunning && !isGenerating ? "ac-orbit-wrapper" : ""}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <div
-              className={`${isRunning && !isGenerating ? "ac-orbit-inner" : "rounded-2xl border"} bg-[#202020]`}
+              className={`${isRunning && !isGenerating ? "ac-orbit-inner" : "rounded-2xl border"} bg-[#232323] transition-colors ${
+                isDragOver ? "border-[#A0A0A0]" : ""
+              }`}
               style={isRunning && !isGenerating
                 ? { borderRadius: "15.5px" }
-                : { borderColor: "rgba(255,255,255,0.08)" }}
+                : { borderColor: isDragOver ? undefined : "#303030", borderStyle: isDragOver ? "dashed" : "solid" }}
             >
-              {/* Textarea */}
+              {/* Drag-and-drop overlay */}
+              <AnimatePresence>
+                {isDragOver && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl bg-[#232323]/95"
+                  >
+                    <UploadCloud className="h-4 w-4 text-[#A0A0A0]" />
+                    <span className="text-[12px] text-[#A0A0A0]">Drop to attach</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Textarea — auto-grows via the resize effect above; Enter sends,
+                  Shift+Enter inserts a newline (see handleKey). */}
               <div className="px-3.5 pt-3 pb-2">
                 <textarea
                   ref={inputRef}
@@ -826,12 +901,13 @@ export function AgentConversation({
                   }
                   disabled={isRunning || isGenerating}
                   rows={1}
+                  aria-label="Message Marcus"
                   style={{ minHeight: "48px", maxHeight: "180px", lineHeight: "1.6" }}
-                  className="w-full resize-none bg-transparent text-[13px] text-white/80 placeholder:text-white/22 focus:outline-none disabled:cursor-not-allowed overflow-y-auto"
+                  className="w-full resize-none bg-transparent text-[13px] text-[#ECECEC] placeholder:text-[#A0A0A0]/70 focus:outline-none disabled:cursor-not-allowed overflow-y-auto"
                 />
               </div>
 
-              {/* Bottom toolbar: + left, send right */}
+              {/* Bottom toolbar: + left, stop/send right */}
               <div className="flex items-center justify-between px-2 pb-2">
 
                 {/* Left — attach dropdown */}
@@ -839,8 +915,9 @@ export function AgentConversation({
                   <button
                     onClick={() => setShowAttachMenu(v => !v)}
                     disabled={isRunning || isGenerating}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-white/30 transition-colors hover:bg-white/[0.07] hover:text-white/60 disabled:opacity-30"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-[#A0A0A0] transition-colors hover:bg-[#303030] hover:text-[#ECECEC] disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ECECEC]/30"
                     title="Attach"
+                    aria-label="Attach files"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -852,7 +929,7 @@ export function AgentConversation({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 4 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute bottom-full left-0 mb-2 w-44 rounded-xl border border-white/[0.1] bg-[#1a1a1a] shadow-2xl overflow-hidden z-50"
+                        className="absolute bottom-full left-0 mb-2 w-44 rounded-xl border border-[#303030] bg-[#232323] shadow-2xl overflow-hidden z-50"
                       >
                         {[
                           {
@@ -884,9 +961,9 @@ export function AgentConversation({
                           <button
                             key={item.label}
                             onClick={item.action}
-                            className="flex w-full items-center gap-2.5 px-3 py-2 text-[12px] text-white/50 transition-colors hover:bg-white/[0.06] hover:text-white/80"
+                            className="flex w-full items-center gap-2.5 px-3 py-2 text-[12px] text-[#A0A0A0] transition-colors hover:bg-[#303030] hover:text-[#ECECEC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ECECEC]/30"
                           >
-                            <span className="text-white/30">{item.icon}</span>
+                            <span className="text-[#A0A0A0]">{item.icon}</span>
                             {item.label}
                           </button>
                         ))}
@@ -895,61 +972,56 @@ export function AgentConversation({
                   </AnimatePresence>
                 </div>
 
-                {/* Right — stop + send */}
+                {/* Right — send, or Stop when the interactive runtime can be
+                    cancelled. The initial full-site build has no cancel hook
+                    (that lives in the generation engine, out of scope here),
+                    so it shows an inert "Generating…" state instead of a
+                    button that would silently do nothing. */}
                 <div className="flex items-center gap-2">
-                  {isRunning && !isGenerating && (
+                  {canStop ? (
                     <button
                       onClick={cancel}
-                      className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                      className="flex h-7 items-center gap-1.5 rounded-lg bg-[#303030] px-2.5 text-[11px] font-medium text-[#ECECEC] transition-colors hover:bg-[#303030]/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ECECEC]/30"
+                      aria-label="Stop generation"
                     >
+                      <Square className="h-2.5 w-2.5 fill-current" />
                       Stop
                     </button>
-                  )}
-                  <button
-                    onClick={() => void submit()}
-                    disabled={!input.trim() || isRunning || isGenerating}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-                    style={
-                      input.trim() && !isRunning && !isGenerating
-                        ? { backgroundColor: "#D4A72C" }
-                        : { backgroundColor: "rgba(255,255,255,0.07)" }
-                    }
-                    aria-label="Send (Enter)"
-                  >
-                    {isRunning ? (
-                      <Loader2
-                        className="h-3.5 w-3.5 animate-spin"
-                        style={{ color: "rgba(255,255,255,0.5)" }}
-                      />
-                    ) : (
+                  ) : isGenerating ? (
+                    <div className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] text-[#A0A0A0]">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Generating…
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => void submit()}
+                      disabled={!input.trim()}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg transition-all disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ECECEC]/40"
+                      style={input.trim() ? { backgroundColor: "#ECECEC" } : { backgroundColor: "#303030" }}
+                      aria-label="Send (Enter)"
+                    >
                       <ArrowUp
                         className="h-3.5 w-3.5"
-                        style={{
-                          color: input.trim() && !isRunning && !isGenerating
-                            ? "#000"
-                            : "rgba(255,255,255,0.35)",
-                        }}
+                        style={{ color: input.trim() ? "#202020" : "#A0A0A0" }}
                       />
-                    )}
-                  </button>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Three-column footer */}
+          {/* Footer — keyboard hint and status */}
           <div className="mt-2 flex items-center justify-between">
-            {/* Left — + Attach */}
             <button
               onClick={() => setShowAttachMenu(v => !v)}
               disabled={isRunning || isGenerating}
-              className="flex items-center gap-1 text-[10px] text-white/22 transition-colors hover:text-white/50 disabled:opacity-30"
+              className="flex items-center gap-1 text-[10px] text-[#A0A0A0]/70 transition-colors hover:text-[#A0A0A0] disabled:opacity-30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#ECECEC]/30 rounded"
             >
               <Plus className="h-3 w-3" />
               Attach
             </button>
 
-            {/* Center — keyboard hint / generating indicator */}
             {isGenerating ? (
               <div className="flex items-center gap-1.5">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
@@ -957,20 +1029,19 @@ export function AgentConversation({
               </div>
             ) : isRunning ? (
               <div className="flex items-center gap-1.5">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-white/40 animate-pulse" />
-                <span className="text-[10px] text-white/30">Working…</span>
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#ECECEC]/50 animate-pulse" />
+                <span className="text-[10px] text-[#A0A0A0]">Working…</span>
               </div>
             ) : (
-              <span className="text-[10px] text-white/18">Shift + Enter for new line</span>
+              <span className="text-[10px] text-[#A0A0A0]/60">Enter to send · Shift + Enter for new line</span>
             )}
 
-            {/* Right — AI status */}
             <span
               className={`text-[10px] font-medium ${
                 isGenerating
                   ? "text-amber-400/70"
                   : isRunning
-                  ? "text-white/40"
+                  ? "text-[#A0A0A0]"
                   : "text-emerald-400/60"
               }`}
             >
@@ -996,7 +1067,7 @@ interface StreamingMessage {
 function TypingCursor() {
   return (
     <motion.span
-      className="inline-flex h-[1.1em] w-[2px] translate-y-[1px] rounded-full bg-[#252525]"
+      className="inline-flex h-[1.1em] w-[2px] translate-y-[1px] rounded-full bg-[#A0A0A0]"
       animate={{ opacity: [1, 0.15, 1] }}
       transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
     />
@@ -1020,14 +1091,14 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
     >
       {/* Agent avatar with pulse ring when active */}
       <div className="relative flex-shrink-0">
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#252525] ring-1 ring-[rgba(255,255,255,0.08)]">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#232323] ring-1 ring-[#303030]">
           <Cpu className="h-3 w-3 text-[#ECECEC]" />
         </div>
         {/* Pulse ring while streaming */}
         <motion.div
-          className="absolute inset-0 rounded-full ring-2 ring-[rgba(255,255,255,0.08)]"
+          className="absolute inset-0 rounded-full ring-2 ring-[#303030]"
           animate={{ ring: isStreamingText ? ["0px", "3px", "0px"] : "0px" }}
-          style={{ boxShadow: isStreamingText ? "0 0 6px rgba(251, 191, 36, 0.3)" : "none" }}
+          style={{ boxShadow: isStreamingText ? "0 0 6px rgba(236, 236, 236, 0.25)" : "none" }}
         />
       </div>
       <div className="flex-1 min-w-0 space-y-3">
@@ -1046,11 +1117,11 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
 
         {/* Initial thinking indicator when no text yet but tool calls are running */}
         {!message.text && hasRunningTool && (
-          <div className="flex items-center gap-2 text-[12px] text-[#ECECEC]/35">
+          <div className="flex items-center gap-2 text-[12px] text-[#A0A0A0]">
             <span className="flex gap-0.5">
-              <motion.span className="h-1.5 w-1.5 rounded-full bg-[#252525]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
-              <motion.span className="h-1.5 w-1.5 rounded-full bg-[#252525]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.15 }} />
-              <motion.span className="h-1.5 w-1.5 rounded-full bg-[#252525]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.3 }} />
+              <motion.span className="h-1.5 w-1.5 rounded-full bg-[#A0A0A0]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
+              <motion.span className="h-1.5 w-1.5 rounded-full bg-[#A0A0A0]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.15 }} />
+              <motion.span className="h-1.5 w-1.5 rounded-full bg-[#A0A0A0]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.3 }} />
             </span>
             <span>Processing</span>
           </div>
@@ -1073,11 +1144,11 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.2 }}
-            className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] p-3"
+            className="rounded-lg border border-[#303030] bg-[#232323] p-3"
           >
             <div className="flex items-center gap-2 mb-2">
-              <FileCode className="h-3.5 w-3.5 text-[#ECECEC]/25" />
-              <span className="truncate font-mono text-[11px] text-[#ECECEC]/50">{diff.path}</span>
+              <FileCode className="h-3.5 w-3.5 text-[#A0A0A0]" />
+              <span className="truncate font-mono text-[11px] text-[#A0A0A0]">{diff.path}</span>
               <span className="ml-auto rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
                 style={{ background: diff.oldContent ? "#60a5fa15" : "#34d39915", color: diff.oldContent ? "#60a5fa" : "#34d399" }}>
                 {diff.oldContent ? "update" : "create"}
@@ -1094,12 +1165,12 @@ function StreamingMessage({ message }: { message: StreamingMessage }) {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-2 pt-2 border-t border-[rgba(255,255,255,0.08)]"
+            className="flex items-center gap-2 pt-2 border-t border-[#303030]"
           >
-            <span className="text-[11px] text-[#ECECEC]/30">Executing tools…</span>
-            <div className="flex-1 h-1 bg-[#252525] rounded overflow-hidden">
+            <span className="text-[11px] text-[#A0A0A0]">Executing tools…</span>
+            <div className="flex-1 h-1 bg-[#303030] rounded overflow-hidden">
               <motion.div
-                className="h-full bg-[#ECECEC] text-[#1A1A1A]"
+                className="h-full bg-[#ECECEC]"
                 animate={{ width: ["0%", "100%"] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
               />
@@ -1146,8 +1217,8 @@ export function TimelineEntryRenderer({
   if (entry.kind === "user-msg") {
     return (
       <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-3">
-        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#252525] ring-1 ring-white/[0.05]">
-          <User className="h-3 w-3 text-[#ECECEC]/30" />
+        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#232323] ring-1 ring-[#303030]">
+          <User className="h-3 w-3 text-[#A0A0A0]" />
         </div>
         <div className="flex-1 min-w-0">
           <MarkdownText text={entry.text} />
@@ -1159,7 +1230,7 @@ export function TimelineEntryRenderer({
   if (entry.kind === "agent-msg") {
     return (
       <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-start gap-3">
-        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#252525] ring-1 ring-[rgba(255,255,255,0.08)]">
+        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#232323] ring-1 ring-[#303030]">
           <Cpu className="h-3 w-3 text-[#ECECEC]" />
         </div>
         <div className="flex-1 min-w-0">
@@ -1199,10 +1270,10 @@ export function TimelineEntryRenderer({
     const opLabel = entry.change.operation === "update" ? "edited" : entry.change.operation === "create" ? "created" : "deleted"
     return (
       <motion.div initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}
-        className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-white/[0.01] px-2.5 py-1.5 pl-8"
+        className="flex items-center gap-2 py-1 pl-8"
       >
-        <FileCode className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/22" />
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#ECECEC]/45">{file}</span>
+        <FileCode className="h-3 w-3 flex-shrink-0 text-[#A0A0A0]" />
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#A0A0A0]">{file}</span>
         <span className="flex-shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
           style={{ background: `${opColor}15`, color: opColor }}
         >
@@ -1217,25 +1288,25 @@ export function TimelineEntryRenderer({
     const error = entry.status === "error"
     return (
       <motion.div initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}
-        className="flex items-center gap-2.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] px-2.5 py-1.5"
+        className="flex items-center gap-2.5 py-1"
       >
-        <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded" style={{ background: "#818cf81a" }}>
+        <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#232323]">
           {error
             ? <AlertCircle className="h-3 w-3 text-red-400" />
             : done
-            ? <CheckCircle className="h-3 w-3 text-indigo-400" />
-            : <RefreshCw className="h-3 w-3 animate-spin text-indigo-400" />
+            ? <CheckCircle className="h-3 w-3 text-[#A0A0A0]" />
+            : <RefreshCw className="h-3 w-3 animate-spin text-[#A0A0A0]" />
           }
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-[11px] text-[#ECECEC]/48">
+          <span className="text-[11px] text-[#A0A0A0]">
             {error ? "Scan failed" : done ? "Project analyzed" : "Scanning project…"}
           </span>
           {done && entry.summary && (
-            <p className="mt-0.5 truncate text-[10px] text-[#ECECEC]/28">{entry.summary}</p>
+            <p className="mt-0.5 truncate text-[10px] text-[#A0A0A0]/70">{entry.summary}</p>
           )}
         </div>
-        {done && <ChevronRight className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/15" />}
+        {done && <ChevronRight className="h-3 w-3 flex-shrink-0 text-[#A0A0A0]/60" />}
       </motion.div>
     )
   }
