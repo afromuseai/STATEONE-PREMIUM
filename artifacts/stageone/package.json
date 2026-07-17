@@ -73,6 +73,7 @@
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
     "@monaco-editor/react": "^4.7.0",
+    "@webcontainer/api": "^1.6.4",
     "@workspace/api-zod": "workspace:*",
     "jszip": "^3.10.1",
     "monaco-editor": "^0.55.1",

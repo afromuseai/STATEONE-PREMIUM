@@ -1,5 +1,5 @@
 // ─── Phase P4 — AI Code Review Panel ─────────────────────────────────────────
-// Marcus runs Security, Performance, Accessibility, and SEO checks.
+// Runs Security, Performance, Accessibility, and SEO checks.
 // Triggered from command palette or TopCommandBar.
 
 import { useState, useEffect } from "react"
@@ -57,8 +57,8 @@ function ScoreCircle({ score, label, color, icon: Icon }: {
         </div>
       </div>
       <div className="flex flex-col items-center gap-0.5">
-        <span className="text-[11px] font-semibold text-white/60">{label}</span>
-        <span className="font-mono text-[10px] text-white/25">{score}/100</span>
+        <span className="text-[11px] font-semibold text-[#ECECEC]/60">{label}</span>
+        <span className="font-mono text-[10px] text-[#ECECEC]/25">{score}/100</span>
       </div>
     </div>
   )
@@ -86,10 +86,10 @@ function IssueRow({ issue }: { issue: ReviewIssue }) {
     <div className="flex items-start gap-3 rounded-lg px-3 py-2.5" style={{ background: bg }}>
       <SevIcon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" style={{ color }} />
       <div className="min-w-0 flex-1">
-        <p className="text-[12px] text-white/65">{issue.message}</p>
+        <p className="text-[12px] text-[#ECECEC]/65">{issue.message}</p>
         <div className="mt-1 flex items-center gap-1">
-          <CatIcon className="h-3 w-3 text-white/22" />
-          <span className="text-[10px] text-white/28">{catMeta.label}</span>
+          <CatIcon className="h-3 w-3 text-[#ECECEC]/22" />
+          <span className="text-[10px] text-[#ECECEC]/28">{catMeta.label}</span>
         </div>
       </div>
     </div>
@@ -158,7 +158,7 @@ export function CodeReviewPanel({ project, open, onClose }: CodeReviewPanelProps
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[150] bg-[#202020] backdrop-blur-sm"
             onClick={onClose}
           />
 
@@ -170,17 +170,17 @@ export function CodeReviewPanel({ project, open, onClose }: CodeReviewPanelProps
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="fixed left-1/2 top-1/2 z-[151] w-full max-w-[500px] -translate-x-1/2 -translate-y-1/2"
           >
-            <div className="overflow-hidden rounded-xl border border-white/[0.09] bg-[#111111] shadow-2xl shadow-black/80">
+            <div className="overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] shadow-md shadow-black/80">
               {/* Header */}
-              <div className="flex items-center gap-3 border-b border-white/[0.07] px-5 py-4">
+              <div className="flex items-center gap-3 border-b border-[rgba(255,255,255,0.08)] px-5 py-4">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-500/12">
                   <Shield className="h-4 w-4 text-pink-400" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-[14px] font-semibold text-white/85">STAGEONE Review</h2>
-                  <p className="text-[11px] text-white/30">{project.projectName}</p>
+                  <h2 className="text-[14px] font-semibold text-[#ECECEC]">STAGEONE Review</h2>
+                  <p className="text-[11px] text-[#ECECEC]/30">{project.projectName}</p>
                 </div>
-                <button onClick={onClose} className="text-white/20 hover:text-white/50 transition-colors">
+                <button onClick={onClose} className="text-[#ECECEC]/20 hover:text-[#ECECEC]/50 transition-colors">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -194,8 +194,8 @@ export function CodeReviewPanel({ project, open, onClose }: CodeReviewPanelProps
                       <div className="absolute inset-0 rounded-full bg-pink-400/8 animate-ping" />
                     </div>
                     <div className="text-center">
-                      <p className="text-[13px] text-white/60">Marcus is reviewing your project…</p>
-                      <p className="mt-1 text-[11px] text-white/25">Checking security, performance, accessibility, and SEO</p>
+                      <p className="text-[13px] text-[#ECECEC]/60">AI is reviewing your project…</p>
+                      <p className="mt-1 text-[11px] text-[#ECECEC]/25">Checking security, performance, accessibility, and SEO</p>
                     </div>
                   </div>
                 )}
@@ -204,12 +204,12 @@ export function CodeReviewPanel({ project, open, onClose }: CodeReviewPanelProps
                   <div className="flex flex-col items-center gap-4 py-8">
                     <AlertTriangle className="h-8 w-8 text-red-400" />
                     <div className="text-center">
-                      <p className="text-[13px] text-white/60">Review failed</p>
-                      <p className="mt-1 text-[11px] text-white/25">{error}</p>
+                      <p className="text-[13px] text-[#ECECEC]/60">Review failed</p>
+                      <p className="mt-1 text-[11px] text-[#ECECEC]/25">{error}</p>
                     </div>
                     <button
                       onClick={retry}
-                      className="flex items-center gap-2 rounded-lg border border-white/[0.08] px-4 py-2 text-[12px] text-white/50 hover:border-white/15 hover:text-white/75 transition-colors"
+                      className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] px-4 py-2 text-[12px] text-[#ECECEC]/50 hover:border-[rgba(255,255,255,0.08)] hover:text-[#ECECEC] transition-colors"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Retry
                     </button>
@@ -228,8 +228,8 @@ export function CodeReviewPanel({ project, open, onClose }: CodeReviewPanelProps
 
                     {/* Summary */}
                     {result.summary && (
-                      <div className="mb-4 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
-                        <p className="text-[12px] leading-relaxed text-white/45">{result.summary}</p>
+                      <div className="mb-4 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525] px-3 py-2.5">
+                        <p className="text-[12px] leading-relaxed text-[#ECECEC]/45">{result.summary}</p>
                       </div>
                     )}
 
@@ -237,8 +237,8 @@ export function CodeReviewPanel({ project, open, onClose }: CodeReviewPanelProps
                     {result.issues.length > 0 ? (
                       <div>
                         <div className="mb-2 flex items-center gap-1.5">
-                          <AlertTriangle className="h-3 w-3 text-white/25" />
-                          <span className="text-[11px] font-semibold text-white/40">
+                          <AlertTriangle className="h-3 w-3 text-[#ECECEC]/25" />
+                          <span className="text-[11px] font-semibold text-[#ECECEC]/40">
                             {result.issues.length} issue{result.issues.length !== 1 ? "s" : ""}
                           </span>
                         </div>
@@ -258,7 +258,7 @@ export function CodeReviewPanel({ project, open, onClose }: CodeReviewPanelProps
                     {/* Re-run */}
                     <button
                       onClick={retry}
-                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-white/[0.06] py-2.5 text-[12px] text-white/35 hover:border-white/12 hover:text-white/55 transition-colors"
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] py-2.5 text-[12px] text-[#ECECEC]/35 hover:border-[rgba(255,255,255,0.08)] hover:text-[#ECECEC]/55 transition-colors"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Re-run review
                     </button>

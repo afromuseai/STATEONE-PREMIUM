@@ -1,0 +1,134 @@
+Phase 10.4 — Website Studio Identity Separation
+
+Goal:
+Remove all user-facing Marcus branding from Website Studio while preserving the existing generation pipeline.
+
+IMPORTANT:
+Do NOT refactor architecture.
+Do NOT rename folders.
+Do NOT rename internal hooks.
+Do NOT modify backend generation logic.
+Do NOT touch:
+- marcus-stream-agent.ts
+- generate-website-v2.ts
+- generation-adapter.ts logic
+- generation-event-bus
+- AI prompts
+- runtime
+- preview
+- editor
+- deployment pipeline
+
+Marcus remains an internal implementation detail for now.
+
+Only update visible Website Studio UI text and labels.
+
+Audit all Website Studio components for user-facing Marcus references.
+
+Replace:
+
+1. website-studio-create.tsx
+
+Replace phrases like:
+
+"Marcus is spinning up your project"
+"Marcus builds it live"
+"Marcus will write the entire codebase"
+"Marcus plans, thinks, and writes every file"
+"Marcus is building your website"
+
+with Website Studio identity language:
+
+Examples:
+
+"Your AI engineering team is starting your project"
+
+"Your website is being engineered live"
+
+"The AI engine is designing, building, and validating your website"
+
+"The AI development system is planning architecture, writing code, and testing the result"
+
+Do not mention Marcus anywhere in visible UI.
+
+---
+
+2. ActivityBar.tsx
+
+Replace:
+
+"Marcus AI"
+
+with:
+
+"AI Engineer"
+
+or
+
+"Build Assistant"
+
+Choose the option that best matches the existing UI style.
+
+---
+
+3. AgentConversation.tsx
+
+Replace:
+
+"Ask Marcus to build..."
+
+with:
+
+"Describe what you want to build..."
+
+Replace:
+
+"Message Marcus"
+
+with:
+
+"Message AI Engineer"
+
+Replace any visible Marcus header/avatar/name.
+
+Keep:
+- chat functionality
+- composer
+- generation activity
+- narration
+- event bus
+- streaming behavior
+
+unchanged.
+
+---
+
+4. Check all Website Studio visible components
+
+Search:
+
+Marcus
+marcus
+Ask Marcus
+Message Marcus
+
+Only change user-visible strings.
+
+Do NOT modify internal imports, filenames, hooks, state names, or directories.
+
+---
+
+Verification:
+
+After changes:
+
+1. Run typecheck.
+2. Confirm no new errors.
+3. Confirm Website Studio still generates normally.
+4. Confirm generation timeline/activity still works.
+5. Confirm no user-facing Marcus text remains.
+
+Report:
+- files changed
+- strings replaced
+- confirmation that generation pipeline was untouched.

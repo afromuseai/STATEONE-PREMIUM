@@ -1110,10 +1110,9 @@ export const MarcusController = {
         engine.emitFileOperation(path, "read", "UNDERSTAND");
       }
     } else {
-      engine.emitMessage(
-        "UNDERSTAND",
-        `Reviewing the current project (${files.length} file${files.length !== 1 ? "s" : ""}) to plan this change.`,
-      );
+      // UNDERSTAND phase is active — the frontend activity strip already shows
+      // "Reading project files…" via the phase→description mapping. No separate
+      // message event needed.
     }
     flush();
     engine.emitPhaseComplete("UNDERSTAND");
@@ -1149,7 +1148,9 @@ export const MarcusController = {
     bus.emit("llm", "edit_complete", "completed", {
       model: EDITOR_MODEL, userId, projectId, durationMs: editMs, changeCount: result.changes.length,
     }, "edit");
-    engine.emitMessage("PLAN", result.summary);
+    // The edit-agent summary is sent by the route as `{ phase: "changes" }`
+    // after runEditFlow returns, so we do NOT emit it here as a message event
+    // — that would duplicate the summary in the conversation.
     engine.emitPhaseComplete("PLAN", editMs);
     flush();
 
@@ -1188,7 +1189,6 @@ export const MarcusController = {
 
     // ── TEST: regenerate + validate the preview ───────────────────────────────
     engine.emitPhaseStart("TEST");
-    engine.emitMessage("TEST", "Testing the updated preview.");
     flush();
 
     try {
@@ -1208,7 +1208,8 @@ export const MarcusController = {
     // ── REPORT: explain what changed ──────────────────────────────────────────
     const totalMs = Date.now() - pipelineStart;
     engine.emitPhaseStart("REPORT");
-    engine.emitMessage("REPORT", result.summary);
+    // The summary is already delivered to the conversation via the route's
+    // `{ phase: "changes" }` event — no need to re-emit it here.
     engine.emitPhaseComplete("REPORT", totalMs);
     engine.emitDone(totalMs, result.summary);
     flush();

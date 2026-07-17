@@ -1,0 +1,193 @@
+Redesign the Website Studio AI activity panel.
+
+IMPORTANT:
+- This is NOT Marcus.
+- Do not import Marcus.
+- Do not use Marcus session/context.
+- This belongs only to Website Studio generation pipeline.
+
+Current problem:
+The AI activity area feels like logs. We need it to feel like an AI engineer collaborating with the user.
+
+Create a new component:
+
+src/components/website-v2/ide/GenerationTimeline.tsx
+
+
+Purpose:
+Display the live process of website creation.
+
+Design inspiration:
+- Cursor AI agent
+- Replit Agent
+- ChatGPT reasoning interface
+
+Design:
+
+Panel:
+
+Background:
+#202020
+
+Text:
+Primary:
+#ECECEC
+
+Secondary:
+#A0A0A0
+
+
+Timeline structure:
+
+Example:
+
+🧠 Understanding
+
+Analyzing the company requirements...
+
+✓ Completed
+
+
+📐 Planning
+
+Creating website architecture...
+
+✓ Completed
+
+
+🎨 Design System
+
+Choosing colors, typography, layout...
+
+● Working
+
+
+🖼 Assets
+
+Preparing images and visual elements...
+
+○ Waiting
+
+
+⚛ Development
+
+Writing components...
+
+○ Waiting
+
+
+🛡 Quality Check
+
+Testing responsiveness...
+
+○ Waiting
+
+
+Features:
+
+
+1. Each step has:
+
+icon
+title
+status
+description
+
+
+Statuses:
+
+pending
+active
+completed
+error
+
+
+2. Active step:
+
+Show subtle animation.
+
+Use:
+- small pulse indicator
+- animated border
+- moving dot
+
+Do NOT use:
+- neon effects
+- large animations
+
+
+3. Expandable details:
+
+When clicking a step:
+
+Show:
+
+Decision:
+"Industrial modern design selected"
+
+Reason:
+"Construction companies need trust and authority"
+
+Files created:
+- Hero.tsx
+- Projects.tsx
+- Contact.tsx
+
+
+4. Streaming updates:
+
+Create event-driven interface.
+
+Prepare support for events:
+
+GENERATION_STARTED
+
+PLANNING_STARTED
+
+DESIGN_STARTED
+
+ASSET_GENERATION_STARTED
+
+CODE_GENERATION_STARTED
+
+REVIEW_STARTED
+
+GENERATION_COMPLETED
+
+
+5. Add AI summary section:
+
+At the bottom:
+
+"Current Build Summary"
+
+Example:
+
+Building:
+ABC Construction Website
+
+Progress:
+65%
+
+Current task:
+Creating responsive hero section
+
+
+6. Keep it minimal.
+
+No:
+- cards everywhere
+- gold theme
+- dashboard widgets
+
+Only a clean AI workspace timeline.
+
+After implementation:
+
+Run:
+pnpm typecheck
+
+Fix all TypeScript errors.
+
+Do not modify backend.
+Do not modify generation API.

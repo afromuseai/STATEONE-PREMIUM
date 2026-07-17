@@ -342,28 +342,31 @@ export class MarcusConversationEngine {
   // ─── Phase lifecycle helpers ───────────────────────────────────────────────
 
   /**
-   * Emit a progress event marking a phase as RUNNING and a natural-language
-   * "thinking" message selected from the phase's template bank.
+   * Emit a progress event marking a phase as RUNNING.
    * Call this immediately when the controller begins executing a phase.
+   *
+   * The frontend maps progress events to activity-strip entries, so we do NOT
+   * emit a separate `message` event here — that would inject execution
+   * narration into the conversation layer. Activity descriptions are derived
+   * from the phase name on the frontend (see getPhaseDescription()).
    */
   emitPhaseStart(phase: MarcusPhase): void {
-    // Progress: status change to running
     this._emit(
       makeEvent("progress", phase, `${phase} started`, {
         status: "running",
       }) as ProgressEvent,
     );
-
-    // Human-readable thought drawn from the template bank
-    this._emit(
-      makeEvent("message", phase, pick(PHASE_START_TEMPLATES[phase])),
-    );
   }
 
   /**
-   * Emit a progress event marking a phase as COMPLETED and a natural-language
-   * confirmation message.
+   * Emit a progress event marking a phase as COMPLETED.
    * Call this immediately after the controller confirms phase success.
+   *
+   * We do NOT emit a `complete` event here because:
+   *   1. The frontend uses `complete` to signal end-of-stream — firing it
+   *      per-phase would prematurely close the stream.
+   *   2. The template-bank text is execution narration, not conversation.
+   *   3. The progress+status event is sufficient for the activity strip.
    *
    * @param durationMs Optional wall-clock duration of the phase for metadata.
    */
@@ -373,12 +376,6 @@ export class MarcusConversationEngine {
         status:   "completed",
         duration: durationMs,
       }) as ProgressEvent,
-    );
-
-    this._emit(
-      makeEvent("complete", phase, pick(PHASE_COMPLETE_TEMPLATES[phase]), {
-        duration: durationMs,
-      }),
     );
   }
 
@@ -623,10 +620,10 @@ export class MarcusConversationEngine {
           // Design Review Agent begins — enter the DESIGN phase.
           this.emitPhaseStart("DESIGN");
         } else {
-          // Main architect begins — narrate intent to the user.
-          this.emitMessage(
+          // Main architect begins — record activity for the execution timeline.
+          this.emitAction(
             "UNDERSTAND",
-            "I'm designing the website architecture based on your business requirements.",
+            "Designing the website architecture based on your business requirements.",
           );
         }
       }
@@ -647,12 +644,12 @@ export class MarcusConversationEngine {
         this.emitPhaseStart("BUILD");
       }
       if (action === "codegen_complete" && status === "completed") {
-        // All code generated — announce completion. BUILD phase is closed
+        // All code generated. BUILD phase is closed
         // explicitly by the route after infra file injections are complete,
         // once the full file set is known (engine.emitPhaseComplete("BUILD")).
-        this.emitMessage(
+        this.emitAction(
           "BUILD",
-          "The application structure is ready. I generated the required components and files.",
+          "Generated the required components and files.",
         );
       }
     }
@@ -679,7 +676,7 @@ export class MarcusConversationEngine {
       if (action === "schema" && status === "completed") {
         // Blueprint is valid — UNDERSTAND is now truly complete.
         this.emitPhaseComplete("UNDERSTAND");
-        this.emitMessage(null, "Preparing the implementation...");
+        this.emitStep(null, "Preparing the implementation...");
       }
       // validation:blueprint/schema failed → handled by engine.emitError() in route.
     }
@@ -689,10 +686,11 @@ export class MarcusConversationEngine {
       if (action === "save_files" && status === "running") {
         // Persistence begins — open REPORT phase.
         this.emitPhaseStart("REPORT");
-        this.emitMessage("REPORT", "Saving your project...");
+        this.emitAction("REPORT", "Saving your project to the database.");
       }
       if (action === "save_files" && status === "completed") {
-        this.emitMessage("REPORT", "Saving the completed project workspace.");
+        // Project saved — no extra message needed since the progress event
+        // from emitPhaseComplete("REPORT") already drives the activity strip.
       }
     }
   }

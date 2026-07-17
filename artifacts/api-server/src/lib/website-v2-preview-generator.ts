@@ -28,7 +28,9 @@ const PRIORITY_PATTERNS   = [
 ];
 
 // ─── System prompt ────────────────────────────────────────────────────────────
-const PREVIEW_SYSTEM_PROMPT = `You are a frontend rendering engineer.
+const PREVIEW_SYSTEM_PROMPT = `You are a senior frontend engineer producing a pixel-quality, production-grade
+HTML preview of a real website — this is what the client sees first, so sloppy
+spacing or layout is not acceptable.
 
 You receive a Next.js project file set.
 
@@ -38,6 +40,7 @@ Output ONLY valid HTML. No explanation. No markdown. No code fences.
 
 The HTML must:
 - Start with <!DOCTYPE html>
+- Include <meta charset="UTF-8"> and <meta name="viewport" content="width=device-width, initial-scale=1"> in <head>
 - Include all CSS inline in a single <style> tag inside <head>
 - Include all interactivity inline in a single <script> tag at end of <body>
 - Accurately render the visual appearance described by the components
@@ -45,7 +48,17 @@ The HTML must:
 - Include responsive behavior and animations (CSS transitions, keyframes)
 - Be fully self-contained — no external imports, no CDN links
 - Use real business content from the BusinessContext (company name, industry, taglines)
-- Never use placeholder text (Lorem ipsum, "Your Company", "Coming soon")`;
+- Never use placeholder text (Lorem ipsum, "Your Company", "Coming soon")
+- ALWAYS finish with the closing </body></html> tags. Never stop mid-element or mid-stylesheet — if you are running low on space, wrap up the current section cleanly rather than starting a new one, and always close every tag you open.
+
+LAYOUT & SPACING RULES (violating these produces a broken, "raw HTML" look — avoid it):
+- Always start the stylesheet with a reset: \`*{box-sizing:border-box;margin:0;padding:0}\` plus sensible defaults for img/svg (display:block, max-width:100%).
+- Every section is a full-width block with its own vertical padding (e.g. 80-120px desktop, 48-64px mobile); content inside sits in a centered container with a fixed max-width (1200-1280px) and consistent horizontal padding (24-32px) — never let text or elements touch the viewport edge.
+- Use a real spacing scale (e.g. multiples of 4/8px) consistently for gaps, margins, and padding — no arbitrary one-off values that create uneven rhythm between elements.
+- Decorative elements (gradient blobs, background shapes, glows) MUST live inside a parent with \`position:relative; overflow:hidden\` and be sized/positioned so they never spill outside their section or cut across unrelated content — they are background texture, not foreground elements crossing the layout diagonally over text or buttons.
+- Any \`position:absolute\` or \`position:fixed\` element must have an explicit, intentional placement verified against its container's bounds — never leave one floating disconnected from the content it belongs to.
+- Headings, body copy, and buttons need deliberate line-height (1.1-1.3 for headings, 1.5-1.7 for body) and spacing between them (never stacked with zero gap, never overlapping).
+- Verify nothing overlaps: stack unrelated elements vertically with clear gaps rather than absolute-positioning them on top of each other unless it's an intentional, correctly z-indexed composition.`;
 
 // ─── Build user prompt ────────────────────────────────────────────────────────
 function buildPreviewPrompt(
@@ -146,7 +159,14 @@ export async function runPreviewGenerator(
   const stream = await streamNvidia({
     model:       PREVIEW_MODEL,
     temperature: 0.25,
-    maxTokens:   8000,
+    maxTokens:   24000,
+    // Preview generation must be fast (it blocks the iframe update after every
+    // edit) and needs no strategic reasoning — just HTML transcription. The
+    // model's default MODEL_KWARGS enables extended thinking with a 16K
+    // reasoning budget, which made every preview call take 4+ minutes and
+    // still exhaust the token budget on reasoning before writing HTML. Disable
+    // thinking here so all tokens go straight to output.
+    chatTemplateKwargs: { enable_thinking: false },
     messages: [
       { role: "system", content: PREVIEW_SYSTEM_PROMPT },
       { role: "user",   content: buildPreviewPrompt(context, blueprint, files) },
@@ -159,13 +179,46 @@ export async function runPreviewGenerator(
   const rawOutput = await accumulateStream(stream);
   logger.info({ projectId: options.projectId, rawLen: rawOutput.length }, "[v2:preview] Stream complete");
 
-  const preview = stripCodeFences(rawOutput);
+  let preview = stripCodeFences(rawOutput);
 
   // Minimal sanity check — model must have produced something HTML-like
   if (!preview.includes("<html") && !preview.includes("<!DOCTYPE") && !preview.includes("<body")) {
     throw new Error(`Preview generator returned non-HTML output (${preview.length} chars)`);
   }
 
+  // Truncation safety net — if the model ran out of budget mid-document, the
+  // response can be cut off before the closing tags, which renders as raw,
+  // unstyled, overlapping markup in the iframe (an unclosed <style>/<script>
+  // block leaks its contents as visible text and breaks all layout below it).
+  // Close whatever is still open rather than shipping broken HTML.
+  if (!/<\/html>\s*$/i.test(preview)) {
+    logger.warn({ projectId: options.projectId }, "[v2:preview] Output appears truncated — repairing unclosed tags");
+    preview = repairTruncatedHtml(preview);
+  }
+
   logger.info({ projectId: options.projectId }, "[v2:preview] Preview ready");
   return preview;
+}
+
+// ─── Truncation repair ─────────────────────────────────────────────────────────
+// Best-effort close of any tag left open when the stream was cut short, so the
+// iframe never renders raw source text instead of the intended page.
+function repairTruncatedHtml(html: string): string {
+  let repaired = html;
+
+  const openCount  = (tag: string) => (repaired.match(new RegExp(`<${tag}(\\s|>)`, "gi")) ?? []).length;
+  const closeCount = (tag: string) => (repaired.match(new RegExp(`</${tag}\\s*>`, "gi")) ?? []).length;
+
+  // Close core structural/content tags in the order they'd naturally nest.
+  for (const tag of ["script", "style", "body", "html"]) {
+    while (openCount(tag) > closeCount(tag)) {
+      repaired += `</${tag}>`;
+    }
+  }
+
+  if (!/<\/html>\s*$/i.test(repaired)) {
+    repaired += "</html>";
+  }
+
+  return repaired;
 }

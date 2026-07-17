@@ -9,12 +9,12 @@ interface TerminalDrawerProps {
 }
 
 const LOG_COLORS: Record<TerminalLine["type"], string> = {
-  info:    "text-white/45",
+  info:    "text-[#ECECEC]/45",
   success: "text-emerald-400/90",
   error:   "text-red-400",
-  warn:    "text-amber-400",
-  cmd:     "text-white/75 font-semibold",
-  dim:     "text-white/20",
+  warn:    "text-[#ECECEC]",
+  cmd:     "text-[#ECECEC] font-semibold",
+  dim:     "text-[#ECECEC]/20",
 }
 
 export function TerminalDrawer({ onClose, terminalLines }: TerminalDrawerProps) {
@@ -54,14 +54,14 @@ export function TerminalDrawer({ onClose, terminalLines }: TerminalDrawerProps) 
       animate={{ height: 220, opacity: 1 }}
       exit={{ height: 0, opacity: 0 }}
       transition={{ type: "spring", stiffness: 380, damping: 40 }}
-      className="flex flex-shrink-0 flex-col overflow-hidden border-t border-white/[0.04] bg-[#080808]"
+      className="flex flex-shrink-0 flex-col overflow-hidden border-t border-[rgba(255,255,255,0.08)] bg-[#1A1A1A]"
     >
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/[0.04] bg-[#0a0a0a] px-4 py-1.5">
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] px-4 py-1.5">
         <div className="flex items-center gap-2">
           {/* Shell tabs (visual only) */}
-          <div className="flex items-center rounded-md border border-white/[0.05] bg-white/[0.025] px-2.5 py-0.5">
-            <span className="text-[11px] font-medium text-white/50">bash</span>
+          <div className="flex items-center rounded-md border border-[rgba(255,255,255,0.08)] bg-white/[0.025] px-2.5 py-0.5">
+            <span className="text-[11px] font-medium text-[#ECECEC]/50">bash</span>
           </div>
         </div>
 
@@ -69,20 +69,20 @@ export function TerminalDrawer({ onClose, terminalLines }: TerminalDrawerProps) 
 
         <div className="flex items-center gap-1.5">
           <Circle className="h-1.5 w-1.5 fill-emerald-400/65 text-emerald-400/65" />
-          <span className="text-[10px] text-white/22">WebContainer</span>
+          <span className="text-[10px] text-[#ECECEC]/22">WebContainer</span>
         </div>
 
-        <div className="ml-2 h-3.5 w-px bg-white/[0.06]" />
+        <div className="ml-2 h-3.5 w-px bg-[#252525]" />
 
         <button
           onClick={onClose}
-          className="flex h-5 w-5 items-center justify-center rounded-md text-white/18 transition-all hover:bg-white/[0.06] hover:text-white/55"
+          className="flex h-5 w-5 items-center justify-center rounded-md text-[#ECECEC]/18 transition-all hover:bg-[#252525] hover:text-[#ECECEC]/55"
         >
           <ChevronDown className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={onClose}
-          className="flex h-5 w-5 items-center justify-center rounded-md text-white/18 transition-all hover:bg-white/[0.06] hover:text-white/55"
+          className="flex h-5 w-5 items-center justify-center rounded-md text-[#ECECEC]/18 transition-all hover:bg-[#252525] hover:text-[#ECECEC]/55"
         >
           <X className="h-3 w-3" />
         </button>
@@ -99,15 +99,15 @@ export function TerminalDrawer({ onClose, terminalLines }: TerminalDrawerProps) 
       </div>
 
       {/* Input */}
-      <div className="flex flex-shrink-0 items-center gap-2 border-t border-white/[0.04] bg-[#0a0a0a] px-4 py-2">
-        <span className="font-mono text-[12px] text-amber-400/60">$</span>
+      <div className="flex flex-shrink-0 items-center gap-2 border-t border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] px-4 py-2">
+        <span className="font-mono text-[12px] text-[#ECECEC]">$</span>
         <input
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKey}
           placeholder="Type a command…"
-          className="flex-1 bg-transparent font-mono text-[12px] text-white/65 placeholder-white/18 outline-none"
+          className="flex-1 bg-transparent font-mono text-[12px] text-[#ECECEC]/65 placeholder-white/18 outline-none"
         />
       </div>
     </motion.div>

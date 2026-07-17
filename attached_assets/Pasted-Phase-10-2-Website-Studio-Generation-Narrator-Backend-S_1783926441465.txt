@@ -1,0 +1,189 @@
+Phase 10.2 — Website Studio Generation Narrator Backend Signals
+
+Objective:
+Improve the generation experience by enriching the existing generation event stream with meaningful context.
+
+IMPORTANT PROTECTION RULES:
+
+DO NOT modify:
+- AgentConversation.tsx
+- BuilderConversationFeed UI
+- GenerationActivity UI
+- composer UI
+- chat styling
+- event bus frontend implementation
+- runtime/WebContainer
+- preview/editor
+- deployment system
+
+The frontend already has the presentation layer.
+This task is only about improving the intelligence signals being emitted.
+
+Current architecture:
+
+AI generation flow:
+
+User prompt
+→ generate-website-v2.ts
+→ marcus-stream-agent.ts
+→ SSE events
+→ MarcusSessionState
+→ generation adapter
+→ generationBus
+→ Website Studio UI
+
+Keep this architecture.
+
+Task:
+
+Audit the existing generation backend signals and improve them so the frontend can display meaningful generation narration.
+
+Create richer generation event details.
+
+Each event should support:
+
+{
+ type,
+ message,
+ summary?,
+ decision?,
+ reason?,
+ filesCreated?,
+ confidence?,
+ timestamp
+}
+
+
+Required phases:
+
+1. UNDERSTANDING
+
+Current:
+"Analysing company"
+
+Improve to communicate:
+
+- what information is being extracted
+- business understanding
+- target audience interpretation
+
+Example:
+
+"I am analyzing the company type, audience, and website goals before deciding the structure."
+
+Do not invent facts.
+Only use available project context.
+
+
+2. PLANNING
+
+Current:
+"Planning architecture"
+
+Improve with:
+
+- page structure decisions
+- component planning
+- layout strategy
+
+Example:
+
+"I am creating the website architecture and deciding how users will navigate through the main sections."
+
+
+3. DESIGN SYSTEM
+
+There is currently no reliable design phase.
+
+Do not fake it.
+
+Instead:
+If the model produces design decisions during planning (colors, typography, layout style), extract those into structured metadata.
+
+Example:
+
+decision:
+"Using a modern minimal visual system"
+
+reason:
+"Matches the company's professional positioning"
+
+
+4. DEVELOPMENT
+
+Improve file generation events.
+
+Current:
+"Writing files"
+
+Add:
+
+- file purpose
+- component role
+- creation summary
+
+Example:
+
+file:
+components/Hero.tsx
+
+message:
+"Creating the hero section that introduces the company and drives visitors toward contacting the business."
+
+
+5. QUALITY CHECK
+
+Improve validation events.
+
+Current:
+"Testing"
+
+Add:
+
+- what is being checked
+- errors found
+- fixes applied
+
+Example:
+
+"I am checking responsiveness, component structure, and build stability before presenting the website."
+
+
+6. COMPLETION
+
+Improve final report event.
+
+Include:
+
+- what was created
+- major decisions
+- files generated
+- validation status
+
+Example:
+
+"Website completed. I created the homepage structure, service sections, responsive layout, and optimized the project for preview."
+
+
+Implementation rules:
+
+- Use existing SSE streaming architecture.
+- Do not add fake progress.
+- Do not hallucinate decisions.
+- Only emit information available from the model/context.
+- Keep backward compatibility with current events.
+- Do not break existing generation adapter mappings.
+
+Before changing code:
+
+Provide an audit report showing:
+1. Current event payload structure.
+2. Where each new field can safely be populated.
+3. Which backend files need modification.
+
+After implementation report:
+- files changed
+- event examples before/after
+- confirmation that frontend UI was untouched
+- typecheck result
+- runtime verification

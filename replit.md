@@ -60,7 +60,9 @@ docs/             # Roadmap and design docs
 
 ## Setup status
 
-Re-verified after re-import (July 11, 2026): dependencies installed via pnpm, database schema pushed with drizzle-kit, and all three workflows (frontend, API server, mockup sandbox) confirmed healthy. Secrets `SESSION_SECRET`, `JWT_SECRET`, `NVIDIA_API_KEY` are set. Fixed a missing closing backtick in `artifacts/api-server/src/routes/copilot-agent.ts` that broke the API server build, and made the API server's `dev` script tolerate a missing `.env.local` (it previously always overwrote `NVIDIA_API_KEY` with an empty value when that file didn't exist).
+Re-verified after re-import (July 13, 2026): `pnpm install` run at the repo root, database schema pushed with `drizzle-kit push` (fresh Postgres instance had zero tables), and all three workflows (frontend on 5000, API server on 8000, mockup sandbox on 8080) confirmed healthy via screenshot/logs. Secrets `SESSION_SECRET`, `JWT_SECRET`, `NVIDIA_API_KEY` are set (`JWT_SECRET` and `NVIDIA_API_KEY` had to be re-added since re-imports don't carry secrets over — this recurs on every fresh re-import).
+
+Note: the repo root also contains stray leftover files from a previous session (shell-command fragments like `aux _ grep vite`, a large `zipFile.zip`, etc.) that aren't part of the app. Left in place since cleanup wasn't requested this round.
 
 ## User preferences
 

@@ -69,12 +69,12 @@ export function ResizableHandle({ onResize, containerRef }: ResizableHandleProps
       aria-orientation="vertical"
       onMouseDown={onMouseDown}
       className="group relative z-10 flex w-[5px] flex-shrink-0 cursor-col-resize
-        items-center justify-center bg-transparent transition-colors hover:bg-white/[0.03]"
+        items-center justify-center bg-transparent transition-colors hover:bg-[#252525]"
     >
       {/* Visible grip line */}
       <div
-        className="h-8 w-px rounded-full bg-white/[0.10] transition-all duration-100
-          group-hover:h-16 group-hover:w-[2px] group-hover:bg-amber-400/40"
+        className="h-8 w-px rounded-full bg-[#252525] transition-all duration-100
+          group-hover:h-16 group-hover:w-[2px] group-hover:bg-[#252525]"
       />
     </div>
   )

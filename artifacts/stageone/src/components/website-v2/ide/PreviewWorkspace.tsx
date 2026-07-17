@@ -47,10 +47,10 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
     : `stageone.dev / preview / ${slug}`
 
   return (
-    <div className="flex h-full w-full flex-col bg-[#0c0c0c]">
+    <div className="flex h-full w-full flex-col bg-[#1A1A1A]">
 
       {/* ── Browser chrome ─────────────────────────────────────────────── */}
-      <div className="flex flex-shrink-0 items-center gap-2 border-b border-white/[0.05] bg-[#0c0c0c] px-3 py-2">
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] px-3 py-2">
 
         {/* macOS traffic lights */}
         <div className="flex items-center gap-[5px]">
@@ -60,17 +60,17 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
         </div>
 
         {/* Address bar */}
-        <div className="flex flex-1 items-center gap-2 rounded-md border border-white/[0.06] bg-black/25 px-2.5 py-[5px] transition-colors hover:border-white/[0.10]">
+        <div className="flex flex-1 items-center gap-2 rounded-md border border-[rgba(255,255,255,0.08)] bg-[#202020] px-2.5 py-[5px] transition-colors hover:border-[rgba(255,255,255,0.08)]">
           {isWcMode
             ? <Globe className="h-3 w-3 flex-shrink-0 text-emerald-400/60" />
-            : <Lock  className="h-3 w-3 flex-shrink-0 text-white/18" />
+            : <Lock  className="h-3 w-3 flex-shrink-0 text-[#ECECEC]/18" />
           }
-          <span className={`flex-1 truncate font-mono text-[11px] ${isWcMode ? "text-white/55" : "text-white/30"}`}>
+          <span className={`flex-1 truncate font-mono text-[11px] ${isWcMode ? "text-[#ECECEC]/55" : "text-[#ECECEC]/30"}`}>
             {isWcMode ? (
               <>
                 <span className="text-emerald-400/70">{wcUrl!.replace(/^https?:\/\//, "").split("/")[0]}</span>
                 {wcUrl!.replace(/^https?:\/\//, "").includes("/") && (
-                  <span className="text-white/35">
+                  <span className="text-[#ECECEC]/35">
                     /{wcUrl!.replace(/^https?:\/\//, "").split("/").slice(1).join("/")}
                   </span>
                 )}
@@ -78,7 +78,7 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
             ) : (
               <>
                 stageone.dev / preview /{" "}
-                <span className="text-white/45">{slug}</span>
+                <span className="text-[#ECECEC]/45">{slug}</span>
               </>
             )}
           </span>
@@ -87,14 +87,14 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
           <div className={`ml-auto flex flex-shrink-0 items-center gap-1.5 rounded-full border px-2 py-px transition-all duration-500
             ${isLive
               ? "border-emerald-400/20 bg-emerald-400/8"
-              : "border-amber-400/20 bg-amber-400/8"
+              : "border-[rgba(255,255,255,0.08)] bg-[#252525]"
             }`}
           >
             {isWcMode && wcLoading
-              ? <Loader className="h-2.5 w-2.5 animate-spin text-amber-400/80" />
-              : <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
+              ? <Loader className="h-2.5 w-2.5 animate-spin text-[#ECECEC]" />
+              : <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-emerald-400" : "bg-[#ECECEC] text-[#1A1A1A] animate-pulse"}`} />
             }
-            <span className={`text-[10px] font-medium ${isLive ? "text-emerald-400/80" : "text-amber-400/80"}`}>
+            <span className={`text-[10px] font-medium ${isLive ? "text-emerald-400/80" : "text-[#ECECEC]"}`}>
               {isWcMode && wcLoading ? "Connecting…" : isLive ? (isWcMode ? "WC Live" : "Live") : "Building"}
             </span>
           </div>
@@ -116,8 +116,8 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
                 aria-pressed={active}
                 className={`flex h-6 w-6 items-center justify-center rounded transition-all duration-100
                   ${active
-                    ? "bg-white/[0.08] text-white/75"
-                    : "text-white/22 hover:bg-white/[0.05] hover:text-white/52"
+                    ? "bg-[#252525] text-[#ECECEC]"
+                    : "text-[#ECECEC]/22 hover:bg-[#252525] hover:text-[#ECECEC]/52"
                   }`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -125,13 +125,13 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
             )
           })}
 
-          <div className="mx-1 h-3.5 w-px bg-white/[0.07]" />
+          <div className="mx-1 h-3.5 w-px bg-[#252525]" />
 
           <button
             onClick={() => { setRefreshKey((k) => k + 1); setWcLoading(true) }}
             title="Reload preview"
             aria-label="Reload preview"
-            className="flex h-6 w-6 items-center justify-center rounded text-white/22 transition-colors hover:bg-white/[0.05] hover:text-white/52"
+            className="flex h-6 w-6 items-center justify-center rounded text-[#ECECEC]/22 transition-colors hover:bg-[#252525] hover:text-[#ECECEC]/52"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
@@ -156,7 +156,7 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
               setTimeout(() => URL.revokeObjectURL(url), 10_000)
             }}
             disabled={!hasContent}
-            className="flex h-6 w-6 items-center justify-center rounded text-white/22 transition-colors hover:bg-white/[0.05] hover:text-white/52 disabled:opacity-30"
+            className="flex h-6 w-6 items-center justify-center rounded text-[#ECECEC]/22 transition-colors hover:bg-[#252525] hover:text-[#ECECEC]/52 disabled:opacity-30"
           >
             <ExternalLink className="h-3.5 w-3.5" />
           </button>
@@ -165,7 +165,7 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
 
       {/* ── Preview canvas ─────────────────────────────────────────────── */}
       <div
-        className="relative flex flex-1 items-center justify-center overflow-auto bg-[#0f0f0f]"
+        className="relative flex flex-1 items-center justify-center overflow-auto bg-[#1A1A1A]"
         style={{
           backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)",
           backgroundSize: "24px 24px",
@@ -175,11 +175,11 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
           /* Empty state */
           <div className="flex h-full w-full items-center justify-center">
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.05] bg-white/[0.02]">
-                <ZapOff className="h-6 w-6 text-white/12" />
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525]">
+                <ZapOff className="h-6 w-6 text-[#ECECEC]/12" />
               </div>
-              <p className="text-[13px] font-medium text-white/22">No preview yet</p>
-              <p className="mt-1 text-[11px] text-white/14">Ask Marcus to build your website</p>
+              <p className="text-[13px] font-medium text-[#ECECEC]/22">No preview yet</p>
+              <p className="mt-1 text-[11px] text-[#ECECEC]/14">Your website preview will appear here once generation starts.</p>
             </div>
           </div>
         ) : (
@@ -191,7 +191,7 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
               {/* Viewport label for non-desktop */}
               {viewport !== "desktop" && (
                 <div className="absolute -top-7 left-0 right-0 flex items-center justify-center gap-2">
-                  <span className="rounded-full border border-white/[0.07] bg-black/50 px-2.5 py-0.5 font-mono text-[10px] text-white/28 backdrop-blur-sm">
+                  <span className="rounded-full border border-[rgba(255,255,255,0.08)] bg-[#202020] px-2.5 py-0.5 font-mono text-[10px] text-[#ECECEC]/28 backdrop-blur-sm">
                     {vp.px}px · {vp.label}
                   </span>
                 </div>
@@ -199,16 +199,16 @@ export function PreviewWorkspace({ preview, projectName, wcUrl }: PreviewWorkspa
 
               {/* WebContainer: connecting overlay */}
               {isWcMode && wcLoading && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-[#0d0d0d]/80 backdrop-blur-sm">
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-[#1A1A1A]/80 backdrop-blur-sm">
                   <div className="flex flex-col items-center gap-3">
-                    <Loader className="h-6 w-6 animate-spin text-amber-400/70" />
-                    <span className="text-[12px] text-white/40">Connecting to WebContainer…</span>
+                    <Loader className="h-6 w-6 animate-spin text-[#ECECEC]" />
+                    <span className="text-[12px] text-[#ECECEC]/40">Connecting to WebContainer…</span>
                   </div>
                 </div>
               )}
 
               {/* Frame */}
-              <div className="overflow-hidden rounded-lg border border-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_32px_80px_rgba(0,0,0,0.7)]">
+              <div className="overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] shadow-none">
                 {isWcMode ? (
                   /* Live WebContainer iframe — uses src, not srcDoc */
                   <iframe

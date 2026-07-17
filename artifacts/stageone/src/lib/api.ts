@@ -69,6 +69,41 @@ export interface ConnectedIntegration {
   updatedAt: string;
 }
 
+// ─── Edit pipeline SSE events ─────────────────────────────────────────────────
+// Mirrors the backend V2EditSseEvent union from website-v2-types.ts.
+// Used by websiteV2.editProject() to stream edit pipeline events to the UI.
+
+export interface FileModification {
+  path:      string;
+  operation: "update" | "create" | "delete";
+  content:   string;
+  reason:    string;
+}
+
+export interface EditResult {
+  changes: FileModification[];
+  summary: string;
+}
+
+export interface ConversationEvent {
+  id:        string;
+  type:      "message" | "action" | "step" | "file" | "warning" | "error" | "complete" | "progress";
+  phase:     string | null;
+  timestamp: string;
+  message:   string;
+  metadata?: Record<string, unknown>;
+}
+
+export type V2EditSseEvent =
+  | { phase: "analyzing" }
+  | { phase: "editing" }
+  | { phase: "changes";       data: EditResult }
+  | { phase: "saved";         fileCount: number }
+  | { phase: "regenerating" }
+  | { phase: "preview-ready" }
+  | { phase: "error";         message: string }
+  | { phase: "agent";         event: ConversationEvent };
+
 export const api = {
   auth: {
     signup: (email: string, password: string, name: string) =>
@@ -158,6 +193,109 @@ export const api = {
         preview: string | null;
         createdAt: string; updatedAt: string;
       }>(`/website-v2/projects/${id}`),
+    // Persists file changes immediately (no separate confirmation step) —
+    // used by the Website Studio editing chat when Marcus applies edits.
+    updateFiles: (id: string, modifications: Array<{ path: string; operation: "update" | "create" | "delete"; content: string }>) =>
+      request<{ files: Array<{ path: string; operation: string; content: string; language?: string }> }>(`/website-v2/projects/${id}/files`, {
+        method: "PATCH",
+        body: JSON.stringify({ modifications }),
+      }),
+    // Regenerates + persists the preview HTML for a project from its current
+    // files. The route streams SSE phases (analyzing → rendering → preview →
+    // saved); we only care about the final "preview" phase's HTML payload.
+    regeneratePreview: async (id: string): Promise<string | null> => {
+      const res = await fetch(`${BASE}/website-v2/projects/${id}/preview`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let preview: string | null = null;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() ?? "";
+        for (const chunk of chunks) {
+          const line = chunk.split("\n").find((l) => l.startsWith("data: "));
+          if (!line) continue;
+          const payload = JSON.parse(line.slice(6)) as {
+            phase: string;
+            data?: { preview?: string };
+            message?: string;
+          };
+          if (payload.phase === "preview" && payload.data?.preview) {
+            preview = payload.data.preview;
+          }
+          if (payload.phase === "error") {
+            throw new Error(payload.message ?? "Preview generation failed");
+          }
+        }
+      }
+      return preview;
+    },
+    // SSE-streaming edit — connects to POST /api/website-v2/projects/:id/edit
+    // Calls onEvent for each parsed SSE frame. Resolves when the stream ends
+    // or rejects on error / HTTP failure.
+    editProject: async (
+      id: string,
+      instruction: string,
+      selectedFiles: string[] | undefined,
+      signal: AbortSignal,
+      onEvent: (event: V2EditSseEvent) => void,
+    ): Promise<void> => {
+      console.log("[EDIT API] editProject() called", { id, instruction, selectedFiles })
+      const impersonationToken = getActiveImpersonationToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (impersonationToken) headers["X-Impersonation-Token"] = impersonationToken;
+
+      console.log("[EDIT API] Sending POST request to", `${BASE}/website-v2/projects/${id}/edit`)
+      const res = await fetch(`${BASE}/website-v2/projects/${id}/edit`, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ instruction, selectedFiles }),
+        signal,
+      });
+
+      console.log("[EDIT API] Response received", { status: res.status, ok: res.ok, hasBody: !!res.body })
+      if (!res.ok || !res.body) {
+        const body = await res.json().catch(() => ({ error: "Edit request failed" }));
+        console.error("[EDIT API] Request failed", { status: res.status, body })
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          console.log("[EDIT API] SSE stream ended")
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() ?? "";
+        for (const chunk of chunks) {
+          const line = chunk.split("\n").find((l) => l.startsWith("data: "));
+          if (!line) continue;
+          const payload = JSON.parse(line.slice(6)) as V2EditSseEvent;
+          console.log("[EDIT API] SSE event received", { phase: payload.phase })
+          onEvent(payload);
+          if (payload.phase === "error") {
+            console.error("[EDIT API] SSE error phase", payload)
+            throw new Error(payload.message ?? "Edit failed");
+          }
+        }
+      }
+    },
   },
   admin: {
     getUsers: () => request<{ users: Array<UserInfo & { subscription: unknown }>, total: number }>("/admin/users"),

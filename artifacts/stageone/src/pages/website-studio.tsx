@@ -8,10 +8,46 @@ import { useWebsiteV2Projects } from "@/hooks/useWebsiteV2Projects"
 import { StudioShell } from "@/components/website-v2/ide/StudioShell"
 import { WebContainerProviderNew } from "@/components/website-v2/runtime/WebContainerProviderNew";
 import { useWebsiteV2Project } from "@/hooks/useWebsiteV2Project"
-import { useMarcusSessionContext, useMarcusSessionStream } from "@/lib/marcus-session/context"
+import { useWSSessionContext, useWSSessionStream } from "@/lib/website-studio-session/context"
 import type { V2Project, V2ProjectFile } from "@/hooks/useWebsiteV2Project"
+import { api } from "@/lib/api"
 
 type Step = "form" | "workspace"
+
+// ─── Orbit animation (same token as WebsiteStudioComposer) ────────────────────
+const ORBIT_STYLE = `
+@keyframes ws-orbit-spin {
+  from { transform: translateZ(0) rotate(0deg); }
+  to   { transform: translateZ(0) rotate(360deg); }
+}
+.ws-orbit-wrapper {
+  position: relative;
+  border-radius: 13.5px;
+  overflow: hidden;
+  padding: 1.5px;
+}
+.ws-orbit-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 30%,
+    #D4A72C 50%,
+    #ffffff 65%,
+    transparent 80%,
+    transparent 100%
+  );
+  animation: ws-orbit-spin 2.4s linear infinite;
+  z-index: 0;
+  will-change: transform;
+}
+.ws-orbit-inner {
+  position: relative;
+  z-index: 1;
+}
+`
 
 const INDUSTRY_OPTIONS = [
   "SaaS", "Fintech", "Healthcare", "E-commerce", "Agency",
@@ -40,6 +76,7 @@ function sessionToProject(
   projectId: string,
   projectName: string,
   files: Record<string, { language: string; content: string; complete: boolean }>,
+  preview: string | null = null,
 ): V2Project {
   const projectFiles: V2ProjectFile[] = Object.entries(files)
     .filter(([, f]) => f.complete)
@@ -53,7 +90,7 @@ function sessionToProject(
     blueprint: null,
     files: projectFiles,
     dependencies: [],
-    preview: null,
+    preview,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -66,8 +103,8 @@ function WebsiteStudioInner() {
 
   const { projects, loading: projectsLoading, error: projectsError, refresh: refreshProjects } = useWebsiteV2Projects()
   const { project, loading: projectLoading, error: projectError, refresh: refreshProject } = useWebsiteV2Project(projectId || "")
-  const { start, cancel } = useMarcusSessionStream()
-  const { state: session, dispatch } = useMarcusSessionContext()
+  const { start, cancel } = useWSSessionStream()
+  const { state: session, dispatch } = useWSSessionContext()
 
   // Discard a stale session left over from a different project the moment we
   // land on a URL it doesn't belong to, so it can't resurface again later.
@@ -77,10 +114,25 @@ function WebsiteStudioInner() {
     }
   }, [params.id, session.projectId, session.status, dispatch])
 
+  const [livePreview, setLivePreview] = useState<string | null>(null)
+  const [previewGenerating, setPreviewGenerating] = useState(false)
+  const previewRequestedFor = useRef<string | null>(null)
+  // Drop any stale preview the moment the session no longer points at the
+  // project it belongs to (reset / switched projects), so a leftover preview
+  // from a previous project can't flash before the real one loads.
+  useEffect(() => {
+    if (previewRequestedFor.current && previewRequestedFor.current !== session.projectId) {
+      previewRequestedFor.current = null
+      setLivePreview(null)
+      setPreviewGenerating(false)
+    }
+  }, [session.projectId])
+
   const [step, setStep] = useState<Step>("form")
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const ideaRef = useRef<HTMLTextAreaElement>(null)
   const formIdeaRef = useRef<string>("")
   useEffect(() => { formIdeaRef.current = form.idea }, [form.idea])
@@ -91,7 +143,7 @@ function WebsiteStudioInner() {
   useEffect(() => { formIdeaRef.current = form.idea }, [form.idea])
 
   // ── Consume pending intent from Copilot navigation ────────────────────────
-  // When Marcus navigates here with a website idea, consume the pending intent
+  // When a website idea is passed via navigation, consume the pending intent
   // and populate the form with a typewriter animation. This is the ONLY copilot
   // coupling — navigation + populate. Generation is always via standalone button.
   useEffect(() => {
@@ -124,16 +176,18 @@ function WebsiteStudioInner() {
   // ── Generate: land directly in the workspace (Replit-style) ───────────────────
   // We don't show a separate "generating" screen. Instead we switch straight to
   // the workspace view and start the session in the background. The workspace
-  // renders Marcus's live work (streaming files + agent conversation) until the
+  // renders the live generation (streaming files + agent conversation) until the
   // WebContainer is ready to boot with the finished project.
   const handleGenerate = useCallback(async (ideaOverride?: string) => {
     const idea = (ideaOverride ?? form.idea).trim()
+    const _trace = typeof window !== 'undefined' ? (window.__TRACE__ || (window.__TRACE__ = [])) : null; _trace?.push({ loc:'handleGenerate:idea', idea, step:'read' }); console.log("[TRACE:handleGenerate] prompt read from form.idea", { idea, ideaOverride, formIdea: form.idea })
     if (!idea) {
       setFormError("Please describe your business idea.")
       ideaRef.current?.focus()
       return
     }
     setFormError(null)
+    setIsSubmitting(true)
     setStep("workspace")
 
     const bi: Record<string, unknown> = {}
@@ -145,6 +199,7 @@ function WebsiteStudioInner() {
     if (form.conversionGoal) bi.conversionGoal = form.conversionGoal
 
     // Fire and forget — the workspace renders the live session as it streams.
+    _trace?.push({ loc:'handleGenerate:start', idea, step:'sent' }); console.log("[TRACE:handleGenerate] calling start() with idea", { idea, bi })
     void start(idea, Object.keys(bi).length > 0 ? bi : undefined)
   }, [form, start])
 
@@ -154,9 +209,9 @@ function WebsiteStudioInner() {
   // This must NOT go through wouter's navigate(): AnimatedRoutes keys its
   // AnimatePresence transition on the full location string, so any router
   // navigation — even a "replace" — unmounts and remounts this entire page
-  // (and the MarcusSessionProvider with it), killing the live SSE stream
+  // (and the WSSessionProvider with it), killing the live SSE stream
   // mid-generation. A raw History API call updates the visible URL without
-  // notifying the router, so no remount happens while Marcus is still working.
+  // notifying the router, so no remount happens while generation is active.
   useEffect(() => {
     if (step !== "workspace" || !session.projectId) return
     const segs = window.location.pathname.split("/")
@@ -173,6 +228,32 @@ function WebsiteStudioInner() {
     }
   }, [session.status, session.projectId, refreshProjects])
 
+  // ── Preview generation ──────────────────────────────────────────────────────
+  // The streaming generation flow (useWSSessionStream → /api/generate/
+  // website-v2/stream) only saves files — it never renders/persists preview
+  // HTML. Once the session finishes ("editing"), explicitly regenerate the
+  // preview from the saved files so the workspace doesn't show "No preview
+  // available" forever. Runs once per completed project id.
+  //
+  // This call takes ~30-60s (it's its own LLM render pass on the backend), so
+  // `previewGenerating` is surfaced to PreviewWorkspace — without it, the
+  // panel silently shows "No preview yet" for a full minute, which reads as
+  // broken even though the regeneration is working correctly in the background.
+  useEffect(() => {
+    if (session.status !== "editing" || !session.projectId) return
+    if (previewRequestedFor.current === session.projectId) return
+    previewRequestedFor.current = session.projectId
+    setLivePreview(null)
+    setPreviewGenerating(true)
+    api.websiteV2
+      .regeneratePreview(session.projectId)
+      .then((preview) => setLivePreview(preview))
+      .catch((e: unknown) => {
+        console.error("[website-studio] Preview generation failed", e)
+      })
+      .finally(() => setPreviewGenerating(false))
+  }, [session.status, session.projectId])
+
   const handleCancel = useCallback(() => {
     cancel()
     setStep("form")
@@ -187,7 +268,7 @@ function WebsiteStudioInner() {
   //  Route / step        →  view
   //  ──────────────────────────────────
   //  /website-studio      →  form (detailed form, Replit-style embedded)
-  //  /website-studio/:id  →  workspace (live Marcus session)
+  //  /website-studio/:id  →  workspace (live generation session)
   //
   const view = step === "workspace" || params.id
     ? "workspace"
@@ -204,14 +285,18 @@ function WebsiteStudioInner() {
       liveId,
       form.idea.trim().slice(0, 60) || "Your Website",
       session.files,
+      livePreview,
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveId, session.files, form.idea])
+  }, [liveId, session.files, form.idea, livePreview])
 
   // ── Homepage: detailed form (Replit-style embedded) ────────────────────────
+  const isWorking = isSubmitting || session.status === "generating"
   if (view === "form") {
     return (
-      <div className="flex h-full flex-col overflow-y-auto">
+      <>
+        <style>{ORBIT_STYLE}</style>
+        <div className="flex h-full flex-col overflow-y-auto">
         {/* Hero */}
         <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] px-6 py-4">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/[0.08]">
@@ -219,7 +304,7 @@ function WebsiteStudioInner() {
           </div>
           <div>
             <h1 className="text-base font-bold text-white/90">Website Studio</h1>
-            <p className="text-xs text-white/30">Build full Next.js websites with Marcus</p>
+            <p className="text-xs text-white/30">Build full Next.js websites with AI</p>
           </div>
         </div>
 
@@ -237,15 +322,23 @@ function WebsiteStudioInner() {
                 Business Idea
                 <span className="text-amber-400">*</span>
               </label>
-              <textarea
-                ref={ideaRef}
-                value={form.idea}
-                onChange={set("idea")}
-                placeholder="Describe your business in detail. What does it do? Who is it for? What problem does it solve? The more specific you are, the better Marcus can craft your website…"
-                rows={5}
-                className="w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white/80 placeholder-white/20 outline-none transition-colors focus:border-amber-400/30 focus:bg-white/[0.05]"
-                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void handleGenerate() }}
-              />
+              <div className={isWorking ? "ws-orbit-wrapper" : ""}>
+                <div
+                  className={`${isWorking ? "ws-orbit-inner" : "rounded-xl border border-white/[0.08]"} bg-white/[0.03]`}
+                  style={isWorking ? { borderRadius: "11.5px" } : {}}
+                >
+                  <textarea
+                    ref={ideaRef}
+                    value={form.idea}
+                    onChange={set("idea")}
+                    placeholder={isWorking ? "Your website is being engineered…" : "Describe your business in detail. What does it do? Who is it for? What problem does it solve? The more specific you are, the better the result…"}
+                    rows={5}
+                    disabled={isWorking}
+                    className="w-full resize-none rounded-[11.5px] bg-transparent px-4 py-3 text-sm text-white/80 placeholder-white/20 outline-none transition-colors disabled:cursor-not-allowed"
+                    onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void handleGenerate() }}
+                  />
+                </div>
+              </div>
               <p className="text-[10px] text-white/20">Press ⌘↵ to generate</p>
             </div>
 
@@ -375,15 +468,15 @@ function WebsiteStudioInner() {
                 <Sparkles className="h-4 w-4" />
                 Generate Website
               </button>
-              <span className="text-xs text-white/20">Marcus will write the full Next.js codebase</span>
+              <span className="text-xs text-white/20">AI will write the full Next.js codebase</span>
             </div>
 
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
               <p className="text-xs leading-relaxed text-white/30">
                 <span className="font-semibold text-white/50">How it works:</span>{" "}
-                Marcus reads your brief, thinks through the design, then streams each file into the
+                The AI reads your brief, thinks through the design, then streams each file into the
                 code editor token by token. When done, your workspace opens instantly — no redirect,
-                same Marcus, same session.
+                same session, same conversation.
               </p>
             </div>
 
@@ -418,17 +511,18 @@ function WebsiteStudioInner() {
           </motion.div>
         </div>
       </div>
+      </>
     )
   }
 
-  // ── Workspace (live Marcus session) ──────────────────────────────────────────
+  // ── Workspace (live session) ─────────────────────────────────────────────────
     // ── Live generation (new project) ───────────────────────────────────────
     // The session is active (sessionId/projectId set) before files finish
     // streaming, so we render the full IDE shell immediately — no "generating"
-    // screen. The WebContainer boot is deferred (enabled=false) while Marcus is
-    // still writing files; it fires the moment generation completes.
+    // screen. The WebContainer boot is deferred (enabled=false) while files are
+    // still being written; it fires the moment generation completes.
     //
-    // Session state is persisted across page mounts (see marcus-session/context)
+    // Session state is persisted across page mounts (see website-studio-session/context)
     // so a chat/timeline survives navigation — but that means a *stale* session
     // from a previous, unrelated project can still be sitting around when the
     // user opens a different project by URL. Only trust the session as "live"
@@ -445,7 +539,7 @@ function WebsiteStudioInner() {
               </div>
               <h2 className="text-base font-semibold text-white/90">Generation failed</h2>
               <p className="mt-2 text-sm text-white/40">
-                {session.error ?? "Marcus ran into an unexpected error while building your website."}
+                {session.error ?? "The builder ran into an unexpected error while building your website."}
               </p>
               <button
                 onClick={() => navigate("/website-studio")}
@@ -459,11 +553,11 @@ function WebsiteStudioInner() {
         )
       }
 
-      const shell = <StudioShell project={liveProject} onRefresh={() => {}} session={session} />
+      const shell = <StudioShell project={liveProject} onRefresh={() => {}} session={session} previewGenerating={previewGenerating} />
 
       return (
         <div className="flex flex-1 min-w-0 h-full overflow-hidden">
-          {/* Boot immediately (Replit/v0 style) so dev server is ready when Marcus finishes */}
+          {/* Boot immediately (Replit/v0 style) so dev server is ready when generation finishes */}
           <WebContainerProviderNew project={liveProject} enabled={true}>
             {shell}
           </WebContainerProviderNew>

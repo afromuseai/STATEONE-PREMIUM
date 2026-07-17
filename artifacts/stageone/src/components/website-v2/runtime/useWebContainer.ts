@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import type { RuntimeStatus } from "./runtime-types"
 
 /**
  * useWebContainer — No-op replacement hook.
@@ -15,7 +16,7 @@ export function useWebContainer() {
   const [terminalLines] = useState<any[]>([])
 
   return {
-    status: "ready",
+    status: "ready" as RuntimeStatus,
 
     wcUrl: null,
 

@@ -65,5 +65,5 @@ export function Markdown({ text }: { text: string }) {
 
   flushList()
 
-  return <>{children}</>
+  return <div className="break-words">{children}</div>
 }

@@ -229,8 +229,8 @@ function FileBreadcrumb({ path }: { path: string }) {
     <div className="flex min-w-0 items-center gap-0.5 font-mono text-[11px]">
       {parts.map((part, i) => (
         <span key={i} className="flex items-center gap-0.5">
-          {i > 0 && <span className="text-white/15">/</span>}
-          <span className={i === parts.length - 1 ? "text-white/60" : "text-white/25"}>
+          {i > 0 && <span className="text-[#ECECEC]/15">/</span>}
+          <span className={i === parts.length - 1 ? "text-[#ECECEC]/60" : "text-[#ECECEC]/25"}>
             {part}
           </span>
         </span>
@@ -270,7 +270,7 @@ interface CodeEditorProps {
   onFileWrite?: (content: string) => void
   /**
    * P2 — Called when user picks an inline AI command on selected text.
-   * Receives the prompt text pre-formatted for Marcus.
+   * Receives the pre-formatted prompt.
    */
   onInlineCommand?: (prompt: string) => void
 }
@@ -364,13 +364,13 @@ export function CodeEditor({ file, onFileWrite, onInlineCommand }: CodeEditorPro
 
   if (!file) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-[#0d0d0d]">
+      <div className="flex h-full w-full items-center justify-center bg-[#1A1A1A]">
         <div className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.05] bg-white/[0.02]">
-            <FileCode2 className="h-5 w-5 text-white/12" />
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#252525]">
+            <FileCode2 className="h-5 w-5 text-[#ECECEC]/12" />
           </div>
-          <p className="text-[12px] font-medium text-white/20">Select a file to view</p>
-          <p className="mt-1 text-[11px] text-white/12">Open the file explorer →</p>
+          <p className="text-[12px] font-medium text-[#ECECEC]/20">Select a file to view</p>
+          <p className="mt-1 text-[11px] text-[#ECECEC]/12">Open the file explorer →</p>
         </div>
       </div>
     )
@@ -381,15 +381,15 @@ export function CodeEditor({ file, onFileWrite, onInlineCommand }: CodeEditorPro
   const langColor = LANG_COLORS[language] ?? "#6b7280"
 
   return (
-    <div className="flex h-full w-full flex-col bg-[#0d0d0d]">
+    <div className="flex h-full w-full flex-col bg-[#1A1A1A]">
       {/* ── File info bar ──────────────────────────────────────────────── */}
-      <div className="flex flex-shrink-0 items-center gap-3 border-b border-white/[0.05] bg-[#0b0b0b] px-4 py-1.5">
+      <div className="flex flex-shrink-0 items-center gap-3 border-b border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] px-4 py-1.5">
         <FileBreadcrumb path={file.path} />
 
         <div className="ml-auto flex flex-shrink-0 items-center gap-2">
           {/* Dirty indicator */}
           {isDirty && onFileWrite && (
-            <div className="flex items-center gap-1 text-amber-400/60">
+            <div className="flex items-center gap-1 text-[#ECECEC]">
               <Save className="h-3 w-3" />
               <span className="font-mono text-[9px]">saving…</span>
             </div>
@@ -400,20 +400,20 @@ export function CodeEditor({ file, onFileWrite, onInlineCommand }: CodeEditorPro
             <div className="relative">
               <button
                 onClick={() => setMenuOpen(v => !v)}
-                className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-400/8 px-1.5 py-0.5 text-[10px] font-medium text-amber-400/80 transition-all hover:bg-amber-400/15 hover:text-amber-400"
+                className="flex items-center gap-1 rounded border border-[rgba(255,255,255,0.08)] bg-[#252525] px-1.5 py-0.5 text-[10px] font-medium text-[#ECECEC] transition-all hover:bg-[#252525] hover:text-[#ECECEC]"
               >
                 <Sparkles className="h-3 w-3" />
-                Ask Marcus
+                AI Edit
                 <ChevronDown className="h-2.5 w-2.5 opacity-60" />
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-white/[0.10] bg-[#141414] py-1 shadow-xl shadow-black/60">
+                <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#1A1A1A] py-1 shadow-sm shadow-black/60">
                   {INLINE_COMMANDS.map(({ id, label, emoji }) => (
                     <button
                       key={id}
                       onClick={() => handleInlineCmd(id)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-white/60 hover:bg-white/[0.06] hover:text-white/85 transition-colors"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-[#ECECEC]/60 hover:bg-[#252525] hover:text-[#ECECEC] transition-colors"
                     >
                       <span>{emoji}</span>
                       <span>{label}</span>
@@ -433,14 +433,14 @@ export function CodeEditor({ file, onFileWrite, onInlineCommand }: CodeEditorPro
           </span>
 
           {/* Line count */}
-          <span className="text-[10px] tabular-nums text-white/18">
+          <span className="text-[10px] tabular-nums text-[#ECECEC]/18">
             {lineCount.toLocaleString()} lines
           </span>
 
           {/* Copy button */}
           <button
             onClick={copy}
-            className="flex items-center gap-1 rounded border border-white/[0.06] px-1.5 py-0.5 text-[10px] text-white/28 transition-all hover:border-white/12 hover:text-white/60"
+            className="flex items-center gap-1 rounded border border-[rgba(255,255,255,0.08)] px-1.5 py-0.5 text-[10px] text-[#ECECEC]/28 transition-all hover:border-[rgba(255,255,255,0.08)] hover:text-[#ECECEC]/60"
           >
             {copied
               ? <Check className="h-3 w-3 text-emerald-400" />

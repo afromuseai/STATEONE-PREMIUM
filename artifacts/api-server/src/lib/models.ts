@@ -9,8 +9,28 @@
 //
 // Website V2 production models (assigned 2026-07-11):
 //   meta/llama-4-maverick-17b-128e-instruct       — Website V2 Architect + Blueprint agents
-//     (stepfun-ai/step-3.7-flash returns 401 Unauthorized on this account — not accessible)
 //   deepseek-ai/deepseek-v4-flash                 — Website V2 Code Generation agent (tried 2026-07-11: returns 0 files, does not support write_file tool format)
+//
+// Website V2 Code Generation model swap (2026-07-12):
+//   Investigated replacing WEBSITE_V2_CODE_GEN (nemotron-3-super-120b-a12b, thinking
+//   disabled) with a stronger model to address reported low creativity / code glitches.
+//   Compared two candidates head-to-head via direct NIM calls with the real Marcus
+//   system prompt:
+//     - stepfun-ai/step-3.7-flash        — re-tested 2026-07-12, now returns 200 (the
+//       401 note above is stale). It IS reachable on this account, but it's a "flash"
+//       (small/fast) tier model — same speed class as the model we're replacing, so it
+//       doesn't address the creativity complaint, and it produced fewer completed files
+//       per token budget in side-by-side testing (4 vs 10 <write_file> blocks in a
+//       6000-token sample).
+//     - nvidia/nemotron-3-ultra-550b-a55b — already the account's proven frontier model
+//       for COMPONENT_GENERATION and COPILOT (thinking enabled, 16K reasoning budget).
+//       Same side-by-side test produced richer, more specific design reasoning and more
+//       complete files per token budget. Chosen as the replacement.
+//   WEBSITE_V2_CODE_GEN switched to nvidia/nemotron-3-ultra-550b-a55b. It automatically
+//   inherits enable_thinking:true / reasoning_budget:16384 from MODEL_KWARGS below —
+//   no explicit chatTemplateKwargs override exists in marcus-stream-agent.ts, so this
+//   takes effect without further code changes. Streaming (SSE) has no server-side
+//   request timeout, so the added reasoning overhead does not risk a hard cutoff.
 //
 // Dead models (timeout on this account):
 //   qwen/qwen3.5-397b-a17b        ✗  — was BUSINESS_INTELLIGENCE, CHATBOT, AUTOMATION, ENHANCE
@@ -24,7 +44,7 @@
 //   MEMORY                   — Nemotron 49B: context compression & semantic linking
 //   WEBSITE_PLANNING         — Llama-4 Maverick: fast streaming JSON section planning (non-V2 routes)
 //   WEBSITE_V2_ARCHITECT     — Llama-4 Maverick: low-latency structured JSON for V2 Architect + Blueprint phases
-//   WEBSITE_V2_CODE_GEN      — Nemotron Super 120B: large-context code generation (returns structured write_file ops)
+//   WEBSITE_V2_CODE_GEN      — Nemotron Ultra 550B: frontier coding + creativity, thinking enabled (swapped 2026-07-12 from Nemotron Super 120B)
 //   COMPONENT_GENERATION     — Nemotron Ultra 550B: frontier coding, thinking enabled (editor + legacy)
 //   COPILOT                  — Nemotron Ultra 550B: frontier instruction-following, thinking + streaming enabled
 //   COPILOT_FALLBACK_1       — Llama-4 Maverick: failover when primary is DEGRADED
@@ -43,7 +63,7 @@ export const MODELS = {
   MEMORY:                 "nvidia/llama-3.3-nemotron-super-49b-v1",
   WEBSITE_PLANNING:       "meta/llama-4-maverick-17b-128e-instruct",
   WEBSITE_V2_ARCHITECT:   "meta/llama-4-maverick-17b-128e-instruct",
-  WEBSITE_V2_CODE_GEN:    "nvidia/nemotron-3-super-120b-a12b",
+  WEBSITE_V2_CODE_GEN:    "nvidia/nemotron-3-ultra-550b-a55b",
   COMPONENT_GENERATION:   "nvidia/nemotron-3-ultra-550b-a55b",
   COPILOT:                "nvidia/nemotron-3-ultra-550b-a55b",
   COPILOT_FALLBACK_1:     "meta/llama-4-maverick-17b-128e-instruct",

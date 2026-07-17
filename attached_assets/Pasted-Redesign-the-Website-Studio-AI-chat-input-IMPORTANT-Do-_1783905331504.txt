@@ -1,0 +1,174 @@
+Redesign the Website Studio AI chat input.
+
+IMPORTANT:
+- Do not touch Marcus.
+- Do not connect this to Marcus infrastructure.
+- Do not change backend APIs.
+- Only modify the Website Studio chat UI component.
+
+Goal:
+Create a premium AI coding workspace input inspired by ChatGPT, Cursor, and Replit.
+
+The textarea should become the main command interface for the website generation agent.
+
+Requirements:
+
+1. Textarea design:
+
+Normal state:
+
+- Dark grey background (#202020)
+- Border: rgba(255,255,255,0.08)
+- Rounded corners but not excessive
+- Off-white text
+- Placeholder:
+  "Describe what you want to build..."
+
+
+2. Agent working state:
+
+When the AI agent is:
+- planning
+- thinking
+- generating
+- writing code
+- reviewing
+
+add a subtle animated orbit around the textarea.
+
+Effect:
+
+- Thin gradient border animation
+- Gold + white gradient
+- Soft movement around the edges
+- No neon glow
+- No distracting animation
+
+Example:
+
+gold (#D4A72C)
+to white (#FFFFFF)
+to transparent
+
+The animation should feel like AI processing.
+
+
+3. Input behavior:
+
+Implement:
+
+Enter:
+- Send message
+
+Shift + Enter:
+- Create new line
+
+
+Prevent accidental sending when holding shift.
+
+
+4. Add attachment button:
+
+Inside textarea container:
+
+Left side:
+
++ button
+
+Click opens:
+
+- Upload image
+- Upload files
+- Add project assets
+
+Use lucide icon Plus.
+
+
+5. Add send button:
+
+Right side:
+
+ArrowUp icon
+
+Disabled when:
+- empty message
+- currently sending
+
+Active when:
+- text exists
+
+
+6. Auto resize:
+
+Textarea should:
+
+- Start around 48px height
+- Expand as user types
+- Maximum height around 180px
+- Then scroll internally
+
+
+7. Composer footer:
+
+Below textarea:
+
+Show:
+
+Left:
+
++ Attach
+
+Center:
+
+"Shift + Enter for new line"
+
+Right:
+
+AI status:
+
+Ready
+
+or
+
+Generating...
+
+
+8. Add file preview chips:
+
+When files are uploaded:
+
+Example:
+
+[image.png ×]
+[design.pdf ×]
+
+
+9. Streaming state:
+
+When AI is generating:
+
+The input should change:
+
+Placeholder:
+"AI is building your website..."
+
+Disable typing if required.
+
+Show small animated indicator.
+
+10. Keep design minimal:
+
+Do NOT use:
+- gradients everywhere
+- cards
+- gold backgrounds
+- glass effects
+
+Only the animated border should use gold.
+
+Use Tailwind CSS.
+
+After implementation:
+- Run TypeScript check.
+- Confirm chat still sends messages.
+- Confirm existing generation flow is unchanged.
