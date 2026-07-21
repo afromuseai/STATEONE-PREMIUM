@@ -1,0 +1,459 @@
+PHASE 15.0 — Website Studio End-to-End Engineering Verification & Wiring Audit
+Objective
+
+Do NOT add new features.
+
+Do NOT refactor unrelated systems.
+
+Do NOT improve architecture unless a wiring issue requires it.
+
+Your only objective is to verify that every subsystem built from Phase 13.0 through Phase 14.5 is actually connected, executed, and affects the Website Studio editing pipeline.
+
+This is an engineering verification phase, not a feature development phase.
+
+Scope
+
+Audit ONLY the Website Studio editing pipeline.
+
+Do NOT modify Marcus Copilot.
+
+Do NOT modify Business Intelligence.
+
+Do NOT modify Chat.
+
+Do NOT modify Generation Architect unless required for Website Studio.
+
+Step 1 — Produce a Complete Pipeline Graph
+
+Generate a complete execution graph beginning from:
+
+User presses Send
+
+until
+
+Final SSE completion event
+
+Include every function call.
+
+Example:
+
+UI
+
+↓
+
+submitEdit()
+
+↓
+
+POST /edit
+
+↓
+
+MarcusController.runEditFlow()
+
+↓
+
+WorkspaceContextBuilder
+
+↓
+
+ExecutionPlanner
+
+↓
+
+TaskPlanner
+
+↓
+
+AgentRouter
+
+↓
+
+SpecialistMemory
+
+↓
+
+LLM
+
+↓
+
+Merge
+
+↓
+
+Validation
+
+↓
+
+Preview
+
+↓
+
+Visual Verification
+
+↓
+
+Recovery
+
+↓
+
+Confidence
+
+↓
+
+Learning
+
+↓
+
+SSE
+
+↓
+
+Frontend Runtime
+
+↓
+
+Timeline
+
+↓
+
+Conversation
+
+↓
+
+Completion
+
+For every node include
+
+source file
+function
+caller
+return value
+Step 2 — Wiring Verification
+
+For EVERY subsystem introduced in Phase 13–14 verify
+
+Exists
+
+↓
+
+Called
+
+↓
+
+Return value used
+
+↓
+
+Affects execution
+
+↓
+
+Affects UI
+
+Produce a table.
+
+Example
+
+System	Exists	Called	Return Used	UI Visible	Status
+
+Use
+
+PASS
+
+PARTIAL
+
+FAIL
+
+UNUSED
+
+Do NOT guess.
+
+Inspect actual code paths.
+
+Step 3 — Dead Code Audit
+
+Find every subsystem that is
+
+instantiated but unused
+computed but ignored
+passed but never consumed
+telemetry only
+placeholder
+TODO
+stub
+fallback never executed
+
+Report every occurrence.
+
+Step 4 — Prompt Verification
+
+Trace the actual prompt reaching the LLM.
+
+Verify
+
+Workspace Context
+
+Execution Plan
+
+Specialist Memory
+
+Component Intelligence
+
+Route Intelligence
+
+Project Memory
+
+Design Tokens
+
+Related Files
+
+Execution Tasks
+
+all actually appear inside the final prompt.
+
+Report
+
+Included
+
+Partially Included
+
+Missing
+Step 5 — Agent Verification
+
+Verify
+
+Styling Agent
+
+Routing Agent
+
+Component Agent
+
+State Agent
+
+Data Agent
+
+Performance Agent
+
+Accessibility Agent
+
+Validation Agent
+
+General Agent
+
+For each
+
+verify
+
+router can select it
+prompt actually changes
+filtered context works
+specialist memory loads
+repair loop preserves agent
+telemetry records it
+Step 6 — Workspace Verification
+
+Verify
+
+Workspace Context is actually influencing
+
+selected files
+related files
+import graph
+component graph
+route tree
+design tokens
+entry points
+aliases
+
+If a field is built but never consumed
+
+mark it
+
+UNUSED
+Step 7 — Timeline Verification
+
+Verify every timeline step corresponds to a real executed action.
+
+Reject fake progress.
+
+For every timeline event determine
+
+Actual execution
+
+Telemetry only
+
+Optimistic UI
+
+Placeholder
+Step 8 — Confidence Verification
+
+Verify confidence score changes because of
+
+Validation
+
+Preview
+
+Visual Verification
+
+Planner
+
+Learning
+
+Workspace Consistency
+
+Specialist Success
+
+If any signal is constant
+
+report it.
+
+Step 9 — Recovery Verification
+
+Verify rollback can actually happen.
+
+Trace
+
+Snapshot creation
+
+↓
+
+Failure detection
+
+↓
+
+Rollback
+
+↓
+
+Workspace restore
+
+↓
+
+UI update
+
+If any step is unreachable
+
+report it.
+
+Step 10 — Learning Verification
+
+Verify
+
+Execution Analytics
+
+Agent Profiler
+
+Policy Engine
+
+Repair Optimizer
+
+Validation Learner
+
+Conflict Analytics
+
+Adaptive Confidence
+
+Learning Loop
+
+actually modify future executions.
+
+If data is only stored but never reused
+
+report it.
+
+Step 11 — Frontend UX Audit
+
+Audit Website Studio UX.
+
+Specifically verify
+
+Current conversation mode
+
+Generation mode
+
+Engineering mode
+
+Timeline
+
+Confidence
+
+Recovery
+
+Visual
+
+Preview
+
+Engineering panels
+
+Activity labels
+
+Determine whether the UI behaves like
+
+Website Generator
+
+Engineering IDE
+
+Marcus Chat
+
+
+Report every inconsistency.
+
+Step 12 — Marcus Leakage Audit
+
+Search every Website Studio execution path.
+
+Find
+
+Marcus
+
+Marcus prompt
+
+Marcus identity
+
+Marcus tone
+
+Marcus conversation engine
+
+Marcus fallback
+
+Marcus activity labels
+
+Marcus responses
+
+Anything leaking into Website Studio.
+
+Every occurrence must be listed.
+
+Step 13 — Final Engineering Report
+
+Produce a structured report containing
+
+Verified Working Systems
+
+Partially Working Systems
+
+Broken Wiring
+
+Unused Systems
+
+Dead Code
+
+Telemetry Without Functionality
+
+Frontend UX Problems
+
+Prompt Problems
+
+Performance Bottlenecks
+
+Highest Priority Fixes
+
+Critical Rules
+Do not implement fixes during this phase.
+Do not add new features.
+Do not change architecture unless required to complete the audit.
+Every finding must reference the exact file and function where it was verified.
+If a subsystem cannot be proven to execute, mark it as UNVERIFIED rather than assuming it works.
+
+Deliverable: a complete engineering verification report that distinguishes implemented, wired, executed, and verified functionality for the entire Website Studio pipeline.
