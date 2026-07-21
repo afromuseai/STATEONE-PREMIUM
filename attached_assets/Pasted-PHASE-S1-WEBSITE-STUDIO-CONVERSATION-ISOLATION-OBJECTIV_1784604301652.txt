@@ -1,0 +1,214 @@
+PHASE S1 — WEBSITE STUDIO CONVERSATION ISOLATION
+
+OBJECTIVE
+
+Completely audit and isolate the Website Studio conversation pipeline from Marcus Copilot.
+
+DO NOT add new features.
+
+DO NOT refactor unrelated systems.
+
+Only verify and fix wiring.
+
+==========================================================
+STEP 1 — TRACE THE COMPLETE REQUEST FLOW
+==========================================================
+
+Trace every execution path from:
+
+Frontend Chat Input
+↓
+
+WebsiteStudioRuntime
+
+↓
+
+API request
+
+↓
+
+Backend route
+
+↓
+
+Controller
+
+↓
+
+Conversation engine
+
+↓
+
+Editor
+
+↓
+
+LLM
+
+↓
+
+SSE
+
+↓
+
+Frontend renderer
+
+Produce a complete call graph.
+
+==========================================================
+STEP 2 — VERIFY EVERY ROUTE
+==========================================================
+
+Determine whether ANY Website Studio request passes through:
+
+MarcusController
+Marcus Copilot routes
+/api/copilot/*
+Marcus conversation engine
+Marcus identity builder
+Marcus prompt builder
+
+For every occurrence explain:
+
+• why
+• whether intentional
+• whether required
+• whether it leaks Marcus behavior
+
+==========================================================
+STEP 3 — VERIFY RESPONSE GENERATION
+==========================================================
+
+Determine which component generates responses in these situations:
+
+A.
+No website exists.
+
+Expected:
+Website Studio Architect.
+
+B.
+Existing website.
+
+Expected:
+Website Engineering Agent.
+
+C.
+Pure conversation.
+
+Expected:
+Website Studio Assistant.
+
+Verify each one.
+
+==========================================================
+STEP 4 — VERIFY PROMPTS
+==========================================================
+
+Dump every system prompt used.
+
+For each prompt verify:
+
+• mentions Marcus?
+• mentions Copilot?
+• mentions Website Studio?
+• correct identity?
+• correct responsibilities?
+
+==========================================================
+STEP 5 — VERIFY SSE
+==========================================================
+
+Trace every emitted event.
+
+Verify:
+
+timeline
+confidence
+visual
+preview
+recovery
+learning
+
+Ensure none originate from Copilot pipeline.
+
+==========================================================
+STEP 6 — VERIFY UI MODES
+==========================================================
+
+Current audit identified confusion between:
+
+Generation mode
+
+Engineering mode
+
+Conversation mode
+
+Determine:
+
+How each mode is selected.
+
+Whether the UI always knows which mode is active.
+
+Whether backend knows.
+
+Whether prompts change.
+
+Whether renderer changes.
+
+==========================================================
+STEP 7 — VERIFY IDENTITY LEAKAGE
+==========================================================
+
+Search entire Website Studio backend for:
+
+Marcus
+
+Copilot
+
+GeneralAssistant
+
+AI Copilot
+
+Assistant
+
+Engineer
+
+Architect
+
+Report every leak.
+
+==========================================================
+STEP 8 — PRODUCE REPORT
+
+Do NOT modify code yet.
+
+Produce:
+
+PASS / FAIL
+
+for every subsystem.
+
+List:
+
+Broken wiring
+
+Dead routing
+
+Unused routes
+
+Duplicate controllers
+
+Identity leakage
+
+Wrong prompts
+
+Wrong API endpoints
+
+Wrong event flow
+
+Hidden Marcus dependencies
+
+End with a prioritized fix plan.
+
+No code changes unless absolutely required to complete tracing.
