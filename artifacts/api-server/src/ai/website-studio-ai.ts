@@ -104,22 +104,37 @@ export interface ProjectContext {
   fileTree?: string;
   previousChanges?: string[];
   userPreferences?: string[];
+  // Phase 13.1: WorkspaceContext fields for conversation AI
+  packageManager?: string;
+  entryPoints?: string[];
+  pathAliases?: Record<string, string>;
+  acceptedPatterns?: string[];
+  rejectedPatterns?: string[];
 }
 
 export function formatProjectContext(mem?: ProjectContext): string {
   const memLines: string[] = [];
 
   if (mem?.framework)          memLines.push(`Framework: ${mem.framework}`);
+  if (mem?.packageManager)     memLines.push(`Package manager: ${mem.packageManager}`);
   if (mem?.style)              memLines.push(`Style: ${mem.style}`);
   if (mem?.colors?.length)     memLines.push(`Colors: ${mem.colors.join(", ")}`);
   if (mem?.dependencies?.length) memLines.push(`Key dependencies: ${mem.dependencies.slice(0, 12).join(", ")}`);
   if (mem?.routeCount)         memLines.push(`Routes: ${mem.routeCount}`);
   if (mem?.componentCount)     memLines.push(`Components: ${mem.componentCount}`);
+  if (mem?.entryPoints?.length) memLines.push(`Entry points: ${mem.entryPoints.join(", ")}`);
+  if (mem?.pathAliases && Object.keys(mem.pathAliases).length > 0) {
+    memLines.push(`Path aliases: ${Object.entries(mem.pathAliases).map(([k, v]) => `${k} → ${v}`).join(", ")}`);
+  }
   if (mem?.fileTree)           memLines.push(`\nFile tree:\n${mem.fileTree}`);
   if (mem?.previousChanges?.length)
     memLines.push(`\nRecent changes:\n${mem.previousChanges.slice(-5).map(c => `- ${c}`).join("\n")}`);
   if (mem?.userPreferences?.length)
     memLines.push(`\nUser preferences:\n${mem.userPreferences.map(p => `- ${p}`).join("\n")}`);
+  if (mem?.acceptedPatterns?.length)
+    memLines.push(`\nAccepted patterns: ${mem.acceptedPatterns.join(", ")}`);
+  if (mem?.rejectedPatterns?.length)
+    memLines.push(`Rejected patterns: ${mem.rejectedPatterns.join(", ")}`);
 
   return memLines.length ? `## Project Context\n${memLines.join("\n")}` : "";
 }

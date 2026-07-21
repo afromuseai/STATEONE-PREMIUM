@@ -245,7 +245,7 @@ ${langInstruction ? langInstruction : ""}`;
       await forwardStream(streamBody, res, MODELS.COPILOT);
     } catch (err) {
       req.log.error({ err }, "[Marcus:identity] Stream failed");
-      res.write(`data: ${JSON.stringify({ content: "I'm Marcus, the STAGEONE Copilot. I help you build business intelligence, websites, chatbots, automations, and strategies inside STAGEONE." })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: "Identity service unavailable" })}\n\n`);
     }
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
@@ -1175,7 +1175,7 @@ ${summary}
       }
     }
     if (!result) {
-      res.write(`data: ${JSON.stringify({ content: "Something went wrong on my end. Try asking again." })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: "The AI service returned an empty response. Please try again." })}\n\n`);
     }
 
     // ── Navigate+populate fallback ──────────────────────────────────────────

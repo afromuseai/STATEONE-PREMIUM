@@ -22,6 +22,20 @@ import type { GenerationEventType } from "../generation/generation-events"
 // Fully self-contained: owns its own attach/drag state, holds no reference to
 // the legacy AgentRuntime, and renders no timeline/action-card UI.
 import { WebsiteStudioComposer } from "./WebsiteStudioComposer"
+// Phase 14.1A: Engineering Timeline — unified execution progress UI
+import { EngineeringTimeline } from "./EngineeringTimeline"
+// Phase 14.2: Engineering Confidence Panel — live confidence & risk intelligence
+import { EngineeringConfidencePanel } from "./EngineeringConfidencePanel"
+// Phase 14.4: Engineering Visual Panel — visual QA & layout verification
+import { EngineeringVisualPanel } from "./EngineeringVisualPanel"
+// Phase 14.5: Engineering Recovery Panel — snapshot management & rollback
+import { EngineeringRecoveryPanel } from "./EngineeringRecoveryPanel"
+// Phase 14.6: Engineering Decision Panel — strategy, risk & recommendation
+import { EngineeringDecisionPanel } from "./EngineeringDecisionPanel"
+// Phase 15.1: Engineering Audit Panel — proactive project audit & opportunities
+import { EngineeringAuditPanel } from "./EngineeringAuditPanel"
+// Phase 15.2: Engineering Command Center — unified engineering dashboard
+import { EngineeringCommandCenter } from "@/components/website-studio/EngineeringCommandCenter"
 import { useWSSessionContext, useWSSessionStream } from "@/lib/website-studio-session/context"
 import type { WSSessionState, WSConversationEntry, TimelineEntry } from "@/lib/website-studio-session/types"
 import { activityEngine } from "@/components/website-v2/runtime/ActivityEngine"
@@ -731,8 +745,28 @@ const submit = useCallback(async () => {
           gets a subtle bottom divider instead of its own card, so the chat
           reads as a single stream rather than a stack of boxes. */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Activity Stream (Layer 2) — Live system activity above conversation */}
-        <ActivityStream queue={activityQueue ?? []} />
+{/* ── Phase 14.1A: Engineering Timeline (during edits) ────────────── */}
+      {/* During editing: show the unified Engineering Timeline instead of the
+          transient ActivityStream. During generation: keep legacy activity. */}
+      <AnimatePresence mode="wait">
+        {isRunning ? (
+          <motion.div
+            key="engineering-panels"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            {/* Phase 15.2: Engineering Command Center — unified engineering dashboard */}
+            <EngineeringCommandCenter />
+          </motion.div>
+        ) : (
+          <motion.div key="activity-stream">
+            <ActivityStream queue={activityQueue ?? []} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 break-words">
 
@@ -754,11 +788,8 @@ const submit = useCallback(async () => {
             </motion.div>
           )}
 
-          {/* Website Studio generation activity — inline progress block, fed by
-              the generation event bus. Shows real pipeline phases, not fake AI
-              dialogue. Progress also flows to ActivityEngine for the activity
-              strip at the top of the chat. */}
-          {hasGenerationActivity && (
+          {/* Phase 14.1A: Generation activity hidden during editing — EngineeringTimeline replaces it */}
+          {hasGenerationActivity && !isRunning && (
             <FeedItem>
               <GenerationActivity />
             </FeedItem>

@@ -73,6 +73,7 @@ export const MODELS = {
   ENHANCE:                "nvidia/llama-3.3-nemotron-super-49b-v1",
   RECOMMENDATIONS:        "nvidia/llama-3.3-nemotron-super-49b-v1",
   SELF_OPTIMIZE:          "nvidia/llama-3.3-nemotron-super-49b-v1",
+  NEMOTRON_3_SUPER_120B:  "nvidia/nemotron-3-super-120b-a12b",
 } as const;
 
 export type ModelKey = keyof typeof MODELS;

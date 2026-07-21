@@ -33,7 +33,7 @@ export interface BusinessContext {
       reason: string;
     };
     decisionPriorities: string[];
-    moduleContext: {
+    moduleContext?: {
       website: {
         positioning: string;
         conversionGoal: string;
@@ -230,7 +230,395 @@ export type V2EditSseEvent =
   | { phase: "preview-ready" }
   | { phase: "error";         message: string }
   /** Marcus Conversation Engine events — real narration of the edit run (Commit 4). */
-  | { phase: "agent";         event: ConversationEvent };
+  | { phase: "agent";         event: ConversationEvent }
+  /** Phase 14.1: Timeline update — live step-by-step engineering progress. */
+  | { phase: "timeline";     data: import("./timeline-engine").TimelineUpdate }
+  /** Phase 14.2: Confidence & Risk intelligence — live confidence, impact, validation, and repair data. */
+  | { phase: "confidence";   data: ConfidencePayload }
+  /** Phase 14.3: Preview intelligence — runtime health, visual issues, and auto-repair status. */
+  | { phase: "preview";      data: PreviewPayload }
+  /** Phase 14.4: Visual verification — layout, responsive, typography, and design token analysis. */
+  | { phase: "visual";      data: VisualPayload }
+  /** Phase 14.5: Recovery & Rollback — snapshot management, rollback, and recovery actions. */
+  | { phase: "recovery";    data: RecoveryPayload }
+  /** Phase 14.6: Engineering Decision — execution strategy, risk, and recommendation. */
+  | { phase: "decision";    data: DecisionPayload }
+  /** Phase 15.1: Engineering Audit — proactive project analysis and improvement opportunities. */
+  | { phase: "audit";       data: AuditPayload }
+  /** Phase 16.1: Product Intelligence — business, UX, conversion, branding, and accessibility assessment. */
+  | { phase: "product";     data: ProductPayload }
+  /** Phase 16.2: Engineering Advisor — autonomous recommendations for highest-value improvements. */
+  | { phase: "advisor";     data: AdvisorPayload }
+  /** Phase 16.3: Engineering Roadmap — persistent prioritized engineering backlog. */
+  | { phase: "roadmap";     data: RoadmapPayload };
+
+// ─── Phase 16.3: Engineering Roadmap Payload ───────────────────────────────────
+
+export interface RoadmapItemPayload {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: string;
+  effort: string;
+  impact: number;
+  confidence: number;
+  status: string;
+  dependencies: string[];
+  source: string[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+export interface RoadmapPayload {
+  items: RoadmapItemPayload[];
+  summary: {
+    total: number;
+    todo: number;
+    inProgress: number;
+    completed: number;
+    deferred: number;
+  };
+  completionPercentage: number;
+  currentFocus: RoadmapItemPayload[];
+  recentlyCompleted: RoadmapItemPayload[];
+  roadmapHealth: number;
+}
+
+// ─── Phase 16.2: Engineering Advisor Payload ───────────────────────────────────
+
+/**
+ * Carries the engineering advisory result — overall health, prioritized
+ * recommendations, strengths, risks, trends, and next best action — from the
+ * engineering advisor engine to the frontend EngineeringAdvisorPanel.
+ */
+export interface AdvisorPayload {
+  /** Overall project health score 0–100. */
+  overallHealth: number;
+  /** Prioritized recommendations. */
+  recommendations: Array<{
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    priority: string;
+    impact: number;
+    effort: number;
+    confidence: number;
+    urgency: number;
+    score: number;
+    affectedFiles: string[];
+    reasoning: string[];
+    suggestedActions: string[];
+  }>;
+  /** Key strengths. */
+  strengths: string[];
+  /** Risks and concerns. */
+  risks: string[];
+  /** Detected trends. */
+  trends: string[];
+  /** Single highest-value improvement. */
+  nextBestAction: string;
+}
+
+// ─── Phase 16.1: Product Intelligence Payload ──────────────────────────────────
+
+/**
+ * Carries the product intelligence assessment — overall score, business alignment,
+ * UX impact, conversion impact, branding consistency, accessibility, SEO, and
+ * recommendations — from the product intelligence engine to the frontend
+ * EngineeringProductPanel.
+ */
+export interface ProductPayload {
+  /** Overall product score 0–100. */
+  overallScore: number;
+  /** Final recommendation. */
+  recommendation: "approve" | "approve-with-warning" | "revise" | "reject";
+  /** Business alignment score. */
+  businessAlignment: number;
+  /** UX impact score. */
+  uxImpact: number;
+  /** Conversion impact score. */
+  conversionImpact: number;
+  /** Branding consistency score. */
+  brandingConsistency: number;
+  /** Accessibility impact score. */
+  accessibilityImpact: number;
+  /** SEO impact score. */
+  seoImpact: number;
+  /** Maintainability impact score. */
+  maintainabilityImpact: number;
+  /** User risk score. */
+  userRisk: number;
+  /** Reasoning summary. */
+  reasoning: string[];
+  /** Improvement recommendations. */
+  recommendations: string[];
+  /** Warnings. */
+  warnings: string[];
+  /** Assessment duration in ms. */
+  assessmentTimeMs: number;
+  /** ISO timestamp. */
+  timestamp: string;
+}
+
+// ─── Phase 15.1: Engineering Audit Payload ─────────────────────────────────────
+
+/**
+ * Carries the engineering audit results — overall score, detected opportunities,
+ * strengths, weaknesses, and summary — from the continuous engineering engine
+ * to the frontend EngineeringAuditPanel.
+ */
+export interface AuditPayload {
+  /** Overall project engineering score 0–100. */
+  score: number;
+  /** Number of opportunities detected. */
+  opportunityCount: number;
+  /** Top improvement opportunities (up to 20). */
+  topOpportunities: Array<{
+    id: string;
+    category: "performance" | "architecture" | "design" | "components" | "routing" | "accessibility" | "seo" | "validation" | "technical-debt" | "developer-experience";
+    severity: "low" | "medium" | "high" | "critical";
+    title: string;
+    description: string;
+    affectedFiles: string[];
+    estimatedBenefit: number;
+    estimatedRisk: number;
+    estimatedEffort: "small" | "medium" | "large";
+    recommendation: string;
+    priorityScore: number;
+  }>;
+  /** Critical issues count. */
+  criticalCount: number;
+  /** High priority count. */
+  highPriorityCount: number;
+  /** Project strengths. */
+  strengths: string[];
+  /** Areas needing improvement. */
+  weaknesses: string[];
+  /** Summary. */
+  summary: string;
+  /** Audit duration in ms. */
+  durationMs: number;
+  /** ISO timestamp. */
+  timestamp: string;
+}
+
+// ─── Phase 14.2: Confidence & Risk Intelligence Payload ────────────────────────
+
+/**
+ * Bundles confidence, risk, impact, validation health, and repair history into
+ * a single SSE payload. Computed by the editing agent's post-execution analysis
+ * and forwarded live to the EngineeringConfidencePanel.
+ */
+export interface ConfidencePayload {
+  /** Overall confidence score 0–100. */
+  score: number;
+  /** Human-readable confidence level. */
+  level: "high" | "medium" | "low";
+  /** Detected execution risks. */
+  risks: ConfidenceRisk[];
+  /** Impact analysis summary. */
+  impact: ConfidenceImpact;
+  /** Validation health per validator. */
+  validation: ConfidenceValidation;
+  /** Confidence signal breakdown (expandable). */
+  breakdown: ConfidenceBreakdown;
+  /** Repair history if repairs occurred. */
+  repairs: ConfidenceRepair[];
+  /** When this snapshot was computed (ISO string). */
+  timestamp: string;
+}
+
+export interface ConfidenceRisk {
+  severity: "low" | "medium" | "high" | "critical";
+  reason: string;
+  affectedScope?: string;
+}
+
+export interface ConfidenceImpact {
+  score: number;
+  affectedFiles: number;
+  affectedComponents: number;
+  affectedRoutes: number;
+  dependenciesTouched: number;
+}
+
+export interface ConfidenceValidation {
+  typescript:  "pending" | "running" | "passed" | "failed";
+  eslint:      "pending" | "running" | "passed" | "failed";
+  build:       "pending" | "running" | "passed" | "failed";
+  preview?:    "pending" | "running" | "passed" | "failed";
+}
+
+export interface ConfidenceBreakdown {
+  planningQuality:       number;
+  validationScore:       number;
+  workspaceConsistency:  number;
+  historicalSuccess:     number;
+  specialistConfidence:  number;
+  repairStability:       number;
+}
+
+export interface ConfidenceRepair {
+  attempt:   number;
+  validator: string;
+  status:    "fixed" | "failed";
+}
+
+// ─── Phase 14.3: Preview Intelligence Payload ──────────────────────────────────
+
+/**
+ * Captures preview runtime health, visual issues, and auto-repair status.
+ * Computed by PreviewIntelligenceEngine after validation and before confidence
+ * analysis. Used by the editing agent to self-correct preview issues.
+ */
+export interface PreviewPayload {
+  /** Overall preview health status. */
+  status: "healthy" | "warning" | "failed";
+  /** Health score 0–100 derived from issue counts. */
+  healthScore: number;
+  /** Runtime JavaScript errors detected. */
+  runtimeErrors: string[];
+  /** Console warnings/errors found in code. */
+  consoleErrors: string[];
+  /** Missing asset references. */
+  missingAssets: string[];
+  /** Routes that are broken or missing. */
+  brokenRoutes: string[];
+  /** Visual/layout issues detected. */
+  visualIssues: Array<{
+    type: "overflow" | "missing-content" | "spacing" | "alignment" | "responsive" | "asset";
+    severity: "low" | "medium" | "high";
+    description: string;
+    affectedFiles: string[];
+  }>;
+  /** Whether a repair pass is needed. */
+  needsRepair: boolean;
+  /** Number of repair attempts made. */
+  repairAttempts: number;
+  /** When this snapshot was computed (ISO string). */
+  timestamp: string;
+}
+
+// ─── Phase 14.4: Visual Verification Payload ──────────────────────────────────
+
+/**
+ * Bundles visual QA results — layout analysis, responsive checks, design token
+ * compliance, and before/after comparison — into a single SSE payload.
+ * Computed by the visual-verification-engine after preview intelligence and
+ * forwarded live to the EngineeringVisualPanel.
+ */
+export interface VisualPayload {
+  /** Overall visual health score 0–100. */
+  score: number;
+  /** Human-readable visual status. */
+  status: "healthy" | "warning" | "failed" | "critical";
+  /** All detected visual issues. */
+  issues: Array<{
+    category: "layout-break" | "overlap" | "missing-section" | "spacing" | "responsive" | "typography" | "design-token" | "before-after-regression";
+    severity: "low" | "medium" | "high" | "critical";
+    description: string;
+    suggestion?: string;
+    affectedFiles: string[];
+  }>;
+  /** Before/after comparison data. */
+  comparison: {
+    modifiedVisuals: Array<{ path: string; reason: string }>;
+    removedFiles: string[];
+    addedFiles: string[];
+    sectionDelta: number;
+  };
+  /** Score breakdown by category. */
+  breakdown: {
+    layoutScore: number;
+    overlapScore: number;
+    spacingScore: number;
+    responsiveScore: number;
+    typographyScore: number;
+    designTokenScore: number;
+    regressionScore: number;
+  };
+  /** Whether repair is needed. */
+  needsRepair: boolean;
+  /** Number of auto-repair attempts. */
+  repairAttempts: number;
+  /** Summary of findings. */
+  summary: string;
+  /** When this snapshot was computed (ISO string). */
+  timestamp: string;
+}
+
+// ─── Phase 14.5: Recovery & Rollback Payload ───────────────────────────────────
+
+/**
+ * Carries snapshot, rollback, and recovery action data from the recovery engine
+ * to the frontend EngineeringRecoveryPanel.
+ */
+export interface RecoveryPayload {
+  /** Type of recovery event. */
+  eventType: "snapshot_created" | "rollback_started" | "rollback_completed" | "recovery_success" | "recovery_failed";
+  /** Snapshot ID if applicable. */
+  snapshotId?: string;
+  /** Why rollback was triggered (if applicable). */
+  trigger?: "validation_failed" | "confidence_below_threshold" | "visual_score_critical" | "runtime_crashes_persist" | "manual";
+  /** Human-readable description. */
+  description: string;
+  /** Files that were rolled back (if applicable). */
+  rolledBackFiles?: string[];
+  /** Number of snapshots taken during this execution. */
+  snapshotCount?: number;
+  /** Current version/snapshot index. */
+  currentVersion?: number;
+  /** Total versions available. */
+  totalVersions?: number;
+  /** Additional metadata. */
+  metadata?: Record<string, unknown>;
+  /** ISO timestamp. */
+  timestamp: string;
+}
+
+// ─── Phase 14.6: Engineering Decision Payload ──────────────────────────────────
+
+/**
+ * Carries the engineering decision recommendation, risk assessment, strategy
+ * selection, and tradeoff analysis from the decision engine to the frontend
+ * EngineeringDecisionPanel.
+ */
+export interface DecisionPayload {
+  /** Final recommendation from the decision engine. */
+  recommendation: "proceed" | "repair-first" | "ask-user" | "rollback" | "defer";
+  /** Confidence in the chosen decision (0–100). */
+  confidence: number;
+  /** Estimated regression risk (0–100). */
+  estimatedRisk: number;
+  /** The chosen execution strategy. */
+  executionStrategy: "patch" | "refactor" | "replace" | "extend" | "rebuild";
+  /** Short description of the chosen option. */
+  chosenOption: string;
+  /** Alternative options that were considered. */
+  alternativeOptions: Array<{
+    id: string;
+    title: string;
+    strategy: "patch" | "refactor" | "replace" | "extend" | "rebuild";
+    confidence: number;
+    risk: number;
+    estimatedFiles: number;
+  }>;
+  /** Tradeoffs of the chosen strategy. */
+  tradeoffs: Array<{
+    category: "performance" | "maintainability" | "complexity" | "risk" | "design" | "developer-experience";
+    benefit: string;
+    drawback: string;
+  }>;
+  /** Reasoning behind the decision. */
+  rationale: string[];
+  /** How long the evaluation took (ms). */
+  decisionTimeMs: number;
+  /** ISO timestamp. */
+  timestamp: string;
+}
 
 // SSE events from the preview regeneration route.
 export type V2PreviewSseEvent =

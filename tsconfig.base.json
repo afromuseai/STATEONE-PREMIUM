@@ -20,6 +20,11 @@
     "skipLibCheck": true,
     "target": "es2022",
     "types": [],
-    "customConditions": ["workspace"]
+    "customConditions": ["workspace"],
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/db": ["lib/db/src"],
+      "@workspace/db/*": ["lib/db/src/*"]
+    }
   }
 }

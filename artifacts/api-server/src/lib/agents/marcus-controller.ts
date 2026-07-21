@@ -23,6 +23,7 @@ import { logger } from "../logger";
 import { generateProjectCode, CODE_GENERATOR_MODEL } from "../website-v2-code-generator";
 import { saveBlueprint, saveGeneratedFiles, markProjectFailed, updateProjectFiles, updateProjectPreview } from "../website-v2-projects";
 import { runEditingAgent, EDITOR_MODEL } from "../website-v2-editor";
+import type { TimelineUpdate } from "../timeline-engine";
 import { runPreviewGenerator } from "../website-v2-preview-generator";
 import type {
   BusinessContext,
@@ -33,6 +34,7 @@ import type {
   ProjectFile,
   FileModification,
 } from "../website-v2-types";
+import type { WorkspaceContext } from "../workspace-context";
 import { MarcusConversationEngine } from "./marcus-conversation";
 import type { MarcusTaskBus } from "./marcus-task-bus";
 import { MODELS } from "../models";
@@ -334,6 +336,8 @@ export interface MarcusEditRuntime {
   files: ProjectFile[];
   instruction: string;
   selectedFiles?: string[];
+  /** Phase 13.1: WorkspaceContext with project intelligence from frontend scan + DB */
+  workspaceContext?: WorkspaceContext;
   pipelineStart: number;
   /** Forward one SSE frame to the client. */
   onSse: (event: V2EditSseEvent) => void;
@@ -527,7 +531,7 @@ export const MarcusController = {
         userId,
       }, "blueprint-parse");
       bus.emit("pipeline", "error", "failed", { error: "PARSE_ERROR", userId }, "blueprint-parse");
-      engine.emitError("UNDERSTAND", "Generation stopped while parsing the architecture blueprint. I'm collecting diagnostic information.");
+      engine.emitError("UNDERSTAND", "Generation stopped while parsing the architecture blueprint. Collecting diagnostic information.");
       flush();
       return { ok: false, code: "PARSE_ERROR", message: "Failed to parse the architecture blueprint. Please try again." };
     }
@@ -616,7 +620,7 @@ export const MarcusController = {
         userId,
       }, "schema-validate");
       bus.emit("pipeline", "error", "failed", { error: "SCHEMA_ERROR", schemaErrorCount: schemaErrors.length, userId }, "schema-validate");
-      engine.emitError("UNDERSTAND", "Generation stopped while validating the project architecture. I'm collecting diagnostic information.");
+      engine.emitError("UNDERSTAND", "Generation stopped while validating the project architecture. Collecting diagnostic information.");
       flush();
       return { ok: false, code: "SCHEMA_ERROR", message: `The architecture blueprint is incomplete (${schemaErrors.join(", ")}). Please try again.` };
     }
@@ -1022,7 +1026,7 @@ export const MarcusController = {
         failureCategory,
       }, "codegen");
       if (projectId) await markProjectFailed(projectId, String(codeErr));
-      engine.emitError("BUILD", "Generation stopped while building the project. I'm collecting diagnostic information.");
+      engine.emitError("BUILD", "Generation stopped while building the project. Collecting diagnostic information.");
       flush();
       return { ok: false, code: "CODEGEN_ERROR", message: "The Code Generation Agent failed to produce a valid project. Please try again." };
     }
@@ -1093,6 +1097,7 @@ export const MarcusController = {
       files,
       instruction,
       selectedFiles,
+      workspaceContext,
       pipelineStart,
       onSse,
     } = rt;
@@ -1133,13 +1138,54 @@ export const MarcusController = {
 
     let result: { changes: FileModification[]; summary: string };
     try {
-      result = await runEditingAgent(context, blueprint, files, instruction, selectedFiles, { userId, projectId });
+      result = await runEditingAgent(context, blueprint, files, instruction, selectedFiles, {
+        userId, projectId, workspaceContext,
+        // Phase 14.1: Forward timeline updates as SSE events
+        onTimelineUpdate: (update: TimelineUpdate) => {
+          onSse({ phase: "timeline", data: update });
+        },
+        // Phase 14.2: Forward confidence payload as SSE event
+        onConfidenceUpdate: (data) => {
+          onSse({ phase: "confidence", data });
+        },
+        // Phase 14.3: Forward preview intelligence as SSE event
+        onPreviewUpdate: (data) => {
+          onSse({ phase: "preview", data });
+        },
+        // Phase 14.4: Forward visual verification as SSE event
+        onVisualUpdate: (data) => {
+          onSse({ phase: "visual", data });
+        },
+        // Phase 14.5: Forward recovery & rollback events as SSE events
+        onRecoveryUpdate: (data) => {
+          onSse({ phase: "recovery", data });
+        },
+        // Phase 14.6: Forward engineering decision as SSE event
+        onDecisionUpdate: (data) => {
+          onSse({ phase: "decision", data });
+        },
+        // Phase 15.1: Forward engineering audit as SSE event
+        onAuditUpdate: (data) => {
+          onSse({ phase: "audit", data });
+        },
+        // Phase 16.1: Forward product intelligence as SSE event
+        onProductUpdate: (data) => {
+          onSse({ phase: "product", data });
+        },
+        // Phase 16.2: Forward engineering advisor as SSE event
+        onAdvisorUpdate: (data) => {
+          onSse({ phase: "advisor", data });
+        },
+        onRoadmapUpdate: (data) => {
+          onSse({ phase: "roadmap", data });
+        },
+      });
     } catch (err) {
       const editMs = Date.now() - editStart;
       bus.emit("llm", "edit_complete", "failed", {
         model: EDITOR_MODEL, userId, projectId, durationMs: editMs, error: String(err),
       }, "edit");
-      engine.emitPhaseFailed("PLAN", "I couldn't generate a valid set of changes for that request. Please try rephrasing it.", editMs);
+      engine.emitPhaseFailed("PLAN", "Could not generate valid changes for that request. Try rephrasing it.", editMs);
       flush();
       return { ok: false, code: "EDIT_ERROR", message: err instanceof Error ? err.message : "Edit failed" };
     }
@@ -1155,7 +1201,7 @@ export const MarcusController = {
     flush();
 
     if (result.changes.length === 0) {
-      engine.emitWarning(null, "I didn't find anything that needed to change for that instruction.");
+      engine.emitWarning(null, "No changes needed for that instruction.");
       engine.emitDone(Date.now() - pipelineStart, "No changes were needed.");
       flush();
       return { ok: true, changes: [], summary: result.summary, fileCount: 0 };
@@ -1178,7 +1224,7 @@ export const MarcusController = {
     const { files: updatedFiles, ok: savedOk } = await updateProjectFiles(projectId, result.changes);
     if (!savedOk) {
       bus.emit("database", "save_edit", "failed", { projectId }, "BUILD");
-      engine.emitPhaseFailed("BUILD", "I wasn't able to save these changes to the project.");
+      engine.emitPhaseFailed("BUILD", "Could not save changes to the project.");
       flush();
       return { ok: false, code: "SAVE_ERROR", message: "Failed to save changes to database" };
     }

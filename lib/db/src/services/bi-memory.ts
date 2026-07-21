@@ -12,7 +12,8 @@ import {
   projectsTable,
 } from "@workspace/db";
 import { eq, desc, and, ilike, or, sql } from "drizzle-orm";
-import { BIValidatedOutput } from "../../api-server/src/routes/generate";
+import { BIValidatedOutput } from "../bi-memory";
+import type { BiMemory } from "@workspace/db";
 
 export interface BiMemoryInput {
   userId: string;
@@ -40,8 +41,6 @@ export interface BiMemoryPattern {
     marketDifficulty: number;
     automationPotential: number;
     revenueScalability: number;
-    operationalComplexity: number;
-    aiAdoptionOpportunity: number;
   };
 }
 
@@ -186,16 +185,14 @@ export async function getBiMemoryPatterns(userId: string): Promise<BiMemoryPatte
         industry,
         count: validMemories.length,
         avgQualityScore: Math.round(validMemories.reduce((sum, m) => sum + (m.qualityScore || 0), 0) / validMemories.length),
-        commonBottlenecks: getMostCommon(bottlenecks, 3),
-        commonChannels: getMostCommon(channels, 3),
-        commonAutomations: getMostCommon(automations, 3),
-        commonRisks: getMostCommon(risks, 3),
+        commonBottlenecks: getMostCommonStrings(bottlenecks, 3),
+        commonChannels: getMostCommonStrings(channels, 3),
+        commonAutomations: getMostCommonStrings(automations, 3),
+        commonRisks: getMostCommonStrings(risks, 3),
         avgMetrics: {
           marketDifficulty: Math.round(validMemories.reduce((sum, m) => sum + (m.marketDifficulty || 0), 0) / validMemories.length),
           automationPotential: Math.round(validMemories.reduce((sum, m) => sum + (m.automationPotential || 0), 0) / validMemories.length),
           revenueScalability: Math.round(validMemories.reduce((sum, m) => sum + (m.revenueScalability || 0), 0) / validMemories.length),
-          operationalComplexity: Math.round(validMemories.reduce((sum, m) => sum + (m.operationalComplexity || 0), 0) / validMemories.length),
-          aiAdoptionOpportunity: Math.round(validMemories.reduce((sum, m) => sum + (m.aiAdoptionOpportunity || 0), 0) / validMemories.length),
         },
       });
     }
@@ -286,15 +283,24 @@ function extractIndustryPattern(output: BIValidatedOutput): string {
 }
 
 /**
- * Get most common items from array
+ * Get most common items from array (filters out null/undefined)
  */
-export function getMostCommon<T>(items: T[], limit: number): T[] {
+export function getMostCommon<T>(items: (T | null | undefined)[], limit: number): T[] {
   const counts = new Map<T, number>();
   for (const item of items) {
-    counts.set(item, (counts.get(item) || 0) + 1);
+    if (item != null) {
+      counts.set(item, (counts.get(item) || 0) + 1);
+    }
   }
   return Array.from(counts.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([item]) => item);
+}
+
+/**
+ * Type-safe version for string arrays that may contain nulls
+ */
+export function getMostCommonStrings(items: (string | null | undefined)[], limit: number): string[] {
+  return getMostCommon(items, limit) as string[];
 }

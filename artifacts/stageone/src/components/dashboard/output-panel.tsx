@@ -70,6 +70,17 @@ export interface BusinessIntelligence {
     hypotheses: string[]
     unknowns: string[]
   }
+  qualityScore: {
+    overall: number
+    completeness: number
+    evidenceStrength: number
+    actionability: number
+  }
+  validation: {
+    validatedAt: string
+    validationLevel: "IDEA" | "SIGNAL" | "MVP" | "TRACTION" | "SCALE"
+    requiresHumanValidation: string[]
+  }
 }
 
 interface OutputPanelProps {
@@ -1050,7 +1061,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                     <span className="text-3xl font-black">{data.confidence.overall}</span>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">{ot.confidenceReason || "Reason"}</p>
+                    <p className="text-sm font-medium text-foreground">Reason</p>
                     <p className="text-sm text-muted-foreground mt-1">{data.confidence.reason}</p>
                   </div>
                 </div>
@@ -1063,10 +1074,10 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }} className="mb-4">
               <SectionCard icon={Target} title={ot.sections.qualityScore || "Quality Score"} index={10} fullWidth>
                 <div className="grid gap-4 sm:grid-cols-4">
-                  <QualityMetric label={ot.qualityOverall || "Overall"} value={data.qualityScore.overall} />
-                  <QualityMetric label={ot.qualityCompleteness || "Completeness"} value={data.qualityScore.completeness} />
-                  <QualityMetric label={ot.qualityEvidence || "Evidence"} value={data.qualityScore.evidenceStrength} />
-                  <QualityMetric label={ot.qualityActionability || "Actionability"} value={data.qualityScore.actionability} />
+                  <QualityMetric label="Overall" value={data.qualityScore.overall} />
+                  <QualityMetric label="Completeness" value={data.qualityScore.completeness} />
+                  <QualityMetric label="Evidence" value={data.qualityScore.evidenceStrength} />
+                  <QualityMetric label="Actionability" value={data.qualityScore.actionability} />
                 </div>
               </SectionCard>
             </motion.div>
@@ -1077,10 +1088,10 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="mb-4">
               <SectionCard icon={FileText} title={ot.sections.evidence || "Evidence Layer"} index={11} fullWidth>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <EvidenceTab label={ot.evidenceFacts || "Facts"} items={data.evidence.facts} color="green" />
-                  <EvidenceTab label={ot.evidenceInferences || "Inferences"} items={data.evidence.inferences} color="blue" />
-                  <EvidenceTab label={ot.evidenceHypotheses || "Hypotheses"} items={data.evidence.hypotheses} color="yellow" />
-                  <EvidenceTab label={ot.evidenceUnknowns || "Unknowns"} items={data.evidence.unknowns} color="red" />
+                  <EvidenceTab label="Facts" items={data.evidence.facts} color="green" />
+                  <EvidenceTab label="Inferences" items={data.evidence.inferences} color="blue" />
+                  <EvidenceTab label="Hypotheses" items={data.evidence.hypotheses} color="yellow" />
+                  <EvidenceTab label="Unknowns" items={data.evidence.unknowns} color="red" />
                 </div>
               </SectionCard>
             </motion.div>
@@ -1110,25 +1121,25 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <ModulePreviewCard
                     icon={Globe}
-                    title={ot.moduleWebsite || "Website Architect"}
+                    title="Website Architect"
                     positioning={data.moduleContext.website.positioning}
                     conversionGoal={data.moduleContext.website.conversionGoal}
                   />
                   <ModulePreviewCard
                     icon={Bot}
-                    title={ot.moduleChatbot || "Chatbot Generator"}
+                    title="Chatbot Generator"
                     primaryRole={data.moduleContext.chatbot.primaryRole}
                     requiredCapabilities={data.moduleContext.chatbot.requiredCapabilities}
                   />
                   <ModulePreviewCard
                     icon={Workflow}
-                    title={ot.moduleAutomation || "Automation Builder"}
+                    title="Automation Builder"
                     highestValueWorkflow={data.moduleContext.automation.highestValueWorkflow}
                     recommendedIntegrations={data.moduleContext.automation.recommendedIntegrations}
                   />
                   <ModulePreviewCard
                     icon={Rocket}
-                    title={ot.moduleExecution || "Execution Engine"}
+                    title="Execution Engine"
                     recommendedAgents={data.moduleContext.execution.recommendedAgents}
                     prioritySequence={data.moduleContext.execution.prioritySequence}
                   />
@@ -1143,7 +1154,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
               <SectionCard icon={Shield} title={ot.sections.validation || "Validation Status"} index={14} fullWidth>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{ot.validationLevel || "Validation Level"}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Validation Level</span>
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                       data.validation.validationLevel === "SCALE" ? "bg-green-500/20 text-green-400" :
                       data.validation.validationLevel === "TRACTION" ? "bg-blue-500/20 text-blue-400" :
@@ -1156,7 +1167,7 @@ export function OutputPanel({ data, partialData, isLoading, streamingText, gener
                   </div>
                   {data.validation.requiresHumanValidation.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-2">{ot.requiresHumanValidation || "Requires Human Validation"}</p>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">Requires Human Validation</p>
                       <ul className="space-y-1">
                         {data.validation.requiresHumanValidation.map((item, i) => (
                           <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">

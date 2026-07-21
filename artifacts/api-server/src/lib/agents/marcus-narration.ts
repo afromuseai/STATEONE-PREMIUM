@@ -19,7 +19,7 @@ import type { ConfidenceLevel } from "./marcus-stream-agent";
 
 export function buildUnderstandingNarration(ctx: BusinessContext): { message: string; summary: string } {
   return {
-    message: `I am analyzing ${ctx.companyName}'s business type, target audience, and website goals before deciding the structure.`,
+    message: `Analyzing ${ctx.companyName}'s business type, target audience, and website goals before deciding the structure.`,
     summary: `Company: ${ctx.companyName} · Industry: ${ctx.industry} · Audience: ${ctx.targetAudience} · Goal: ${ctx.businessGoal}`,
   };
 }
@@ -27,7 +27,7 @@ export function buildUnderstandingNarration(ctx: BusinessContext): { message: st
 // ─── PLAN phase ─────────────────────────────────────────────────────────────────
 
 export function buildPlanningNarration(): string {
-  return "I am creating the website architecture and deciding how users will navigate through the main sections.";
+  return "Creating the website architecture and deciding how users will navigate through the main sections.";
 }
 
 /**
@@ -93,7 +93,7 @@ export function buildFilePurpose(path: string, ctx: BusinessContext): string {
 // ─── OBSERVE / FIX / VALIDATE phases (QUALITY CHECK) ───────────────────────────
 
 export function buildObserveNarration(): string {
-  return "I am checking responsiveness, component structure, and build stability before presenting the website.";
+  return "Checking responsiveness, component structure, and build stability before presenting the website.";
 }
 
 export function buildFixNarration(issues: string[], iteration: number): { message: string; summary: string } {
@@ -132,7 +132,7 @@ export function buildCompletionNarration(
     ? "all validation checks passed"
     : `${validation.errors.length} known issue${validation.errors.length === 1 ? "" : "s"} remain`;
 
-  const message = `Website completed for ${ctx.companyName}. I generated ${filesCreated.length} ${fileWord} and ${validationClause}.`;
+  const message = `Website completed for ${ctx.companyName} — ${filesCreated.length} ${fileWord} generated, ${validationClause}.`;
 
   const summaryParts = [`${filesCreated.length} ${fileWord} generated`];
   if (decision) summaryParts.push(`Design: ${decision.decision}`);

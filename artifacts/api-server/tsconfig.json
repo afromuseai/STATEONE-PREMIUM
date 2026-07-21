@@ -3,7 +3,13 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node"]
+    "types": ["node"],
+    "composite": true,
+    "declarationMap": true
   },
-  "include": ["src"]
+  "references": [
+    { "path": "../../lib/db" }
+  ],
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
 }

@@ -12,7 +12,94 @@ import {
   projectsTable,
 } from "@workspace/db";
 import { eq, desc, and, ilike, or, sql, inArray } from "drizzle-orm";
-import { BIValidatedOutput } from "../../api-server/src/routes/generate";
+
+// Local type definition to avoid circular dependency with api-server
+// This mirrors the structure of BIValidatedOutput from api-server/routes/generate.ts
+export interface BIConfidence {
+  overall: "HIGH" | "MEDIUM" | "LOW";
+  reason: string;
+}
+
+export interface BIModuleContext {
+  website?: {
+    positioning: string;
+    conversionGoal: string;
+  };
+  chatbot?: {
+    primaryRole: string;
+    requiredCapabilities: string;
+  };
+  automation?: {
+    highestValueWorkflow: string;
+    recommendedIntegrations: string[];
+  };
+  execution?: {
+    recommendedAgents: string[];
+    prioritySequence: string[];
+  };
+}
+
+export interface BIQualityScore {
+  overall: number;
+  completeness: number;
+  evidenceStrength: number;
+  actionability: number;
+}
+
+export interface BIValidationMeta {
+  validatedAt: string;
+  validationLevel: "IDEA" | "SIGNAL" | "MVP" | "TRACTION" | "SCALE";
+  requiresHumanValidation: string[];
+}
+
+export interface BIEvidence {
+  facts: string[];
+  inferences: string[];
+  hypotheses: string[];
+  unknowns: string[];
+}
+
+export interface BIValidatedOutput {
+  industry: string;
+  metrics: {
+    marketDifficulty: number;
+    automationPotential: number;
+    revenueScalability: number;
+    operationalComplexity: number;
+    aiAdoptionOpportunity: number;
+  };
+  businessSnapshot: string;
+  targetMarket: string;
+  strategicInsights: {
+    growthBottleneck: string;
+    fastestChannel: string;
+    highestLeverageAutomation: string;
+    operationalRisk: string;
+  };
+  competitiveAdvantage: {
+    differentiation: string;
+    defensibility: string;
+    scalabilityEdge: string;
+  };
+  growthPlan: string[];
+  websitePages: string[];
+  chatbotRole: string;
+  automations: string[];
+  recommendedStack: {
+    frontend: string[];
+    backend: string[];
+    automation: string[];
+    crm: string;
+    payments: string;
+  };
+  confidence: BIConfidence;
+  criticalUnknowns: string[];
+  decisionPriorities: string[];
+  moduleContext: BIModuleContext;
+  evidence: BIEvidence;
+  qualityScore: BIQualityScore;
+  validation: BIValidationMeta;
+}
 
 export interface BiMemoryInput {
   userId: string;
@@ -156,14 +243,14 @@ export async function getBiMemoryContext(params: BiMemorySearchParams): Promise<
     const similarProjects = memories.map(m => ({
       id: m.id,
       industry: m.industry,
-      businessModel: m.businessModel,
+      businessModel: m.businessModel || "Unknown",
       qualityScore: m.qualityScore || 0,
       keyLearnings: [
         m.growthBottleneck,
         m.fastestChannel,
         m.highestLeverageAutomation,
         m.operationalRisk,
-      ].filter(Boolean).slice(0, 3),
+      ].filter((v): v is string => Boolean(v)).slice(0, 3),
     }));
 
     // Get industry coverage
@@ -217,10 +304,10 @@ async function recognizePatterns(userId: string, industry?: string): Promise<BiM
       const avgQuality = items.reduce((sum, m) => sum + (m.qualityScore || 0), 0) / count;
 
       // Extract common patterns
-      const bottlenecks = items.map(m => m.growthBottleneck).filter(Boolean);
-      const channels = items.map(m => m.fastestChannel).filter(Boolean);
-      const automations = items.map(m => m.highestLeverageAutomation).filter(Boolean);
-      const risks = items.map(m => m.operationalRisk).filter(Boolean);
+      const bottlenecks = items.map(m => m.growthBottleneck).filter((v): v is string => Boolean(v));
+      const channels = items.map(m => m.fastestChannel).filter((v): v is string => Boolean(v));
+      const automations = items.map(m => m.highestLeverageAutomation).filter((v): v is string => Boolean(v));
+      const risks = items.map(m => m.operationalRisk).filter((v): v is string => Boolean(v));
 
       // Find most common (simple frequency)
       const getMostCommon = (arr: string[]) => {
@@ -241,7 +328,7 @@ async function recognizePatterns(userId: string, industry?: string): Promise<BiM
           m.highestLeverageAutomation,
           m.competitiveDifferentiation,
         ])
-        .filter(Boolean);
+        .filter((s): s is string => Boolean(s));
 
       const uniqueStrategies = [...new Set(strategies)].slice(0, 5);
 

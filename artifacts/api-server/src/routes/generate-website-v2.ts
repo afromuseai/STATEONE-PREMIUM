@@ -65,7 +65,7 @@ function extractBusinessContext(body: Record<string, unknown>): BusinessContext 
     conversionGoal:   String(bi.conversionGoal   ?? bi.conversion  ?? "sign up / get started"),
     existingBI:       Object.keys(bi).length > 0 ? bi : undefined,
     // BI Intelligence Context for downstream agents
-    biIntelligenceContext: moduleContext ? {
+    biIntelligenceContext: {
       businessSnapshot: String(biContext.businessSnapshot ?? ""),
       targetMarket: String(biContext.targetMarket ?? ""),
       evidence: {
@@ -102,7 +102,7 @@ function extractBusinessContext(body: Record<string, unknown>): BusinessContext 
           prioritySequence: moduleContext.execution?.prioritySequence ?? [],
         },
       } : undefined,
-    } : undefined,
+    },
   }
 }
 

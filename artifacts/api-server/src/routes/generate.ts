@@ -267,6 +267,17 @@ function validateAndRepairBI(raw: unknown, userIdea: string): BIValidatedOutput 
     decisionPriorities,
     moduleContext,
     evidence,
+    qualityScore: {
+      overall: confidence.overall === "HIGH" ? 85 : confidence.overall === "MEDIUM" ? 65 : 45,
+      completeness: 80,
+      evidenceStrength: evidence.facts.length > 0 ? 70 : 40,
+      actionability: 70,
+    },
+    validation: {
+      validatedAt: new Date().toISOString(),
+      validationLevel: "IDEA",
+      requiresHumanValidation: criticalUnknowns,
+    },
   };
 }
 
@@ -1173,7 +1184,7 @@ router.post("/generate", requireAuth, async (req, res) => {
           projectId as string | undefined,
           userId,
           idea,
-          validatedData as Record<string, unknown>,
+          validatedData as unknown as Record<string, unknown>,
         ).catch(() => {});
 
         // Store BI learnings for future generations (fire-and-forget)
@@ -1217,7 +1228,7 @@ router.post("/generate/feedback", requireAuth, async (req, res): Promise<void> =
       return;
     }
 
-    const { storeBiFeedback } = await import("../../lib/db/src/bi-memory");
+    const { storeBiFeedback } = await import("../../../../lib/db/src/bi-memory");
     await storeBiFeedback(userId, projectId, insightId, feedback, notes);
 
     res.json({ success: true });

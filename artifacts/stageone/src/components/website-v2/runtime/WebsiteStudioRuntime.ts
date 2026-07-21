@@ -21,6 +21,13 @@ import {
   phaseChanged,
   assistantMessage,
   sessionCompleted,
+  timelineUpdate,
+  confidenceUpdate,
+  previewUpdate,
+  visualUpdate,
+  recoveryUpdate,
+  decisionUpdate,
+  auditUpdate, productUpdate, advisorUpdate, roadmapUpdate,
 } from "./WebsiteStudioRuntimeEvents"
 import type { ActivityKind } from "./WebsiteStudioRuntimeEvents"
 import { activityEngine, type Activity } from "./ActivityEngine"
@@ -41,6 +48,16 @@ export interface WSProjectMemory {
   commonCommands?:  string[]
   acceptedPatterns?: string[]
   rejectedPatterns?: string[]
+
+  // Phase 13.1: WorkspaceContext foundation
+  /** Detected package manager: pnpm, npm, yarn, bun */
+  packageManager?: string
+  /** Known entry points: app/layout.tsx, app/page.tsx, ... */
+  entryPoints?: string[]
+  /** Path aliases from tsconfig: { "@": "./src/*" } */
+  pathAliases?: Record<string, string>
+  /** Enriched dependency list with version and dev flag */
+  enrichedDependencies?: Array<{ name: string; version: string; isDev: boolean }>
 
   [key: string]: unknown
 }
@@ -198,7 +215,76 @@ export class WebsiteStudioRuntime {
         if (allDeps.includes("tailwindcss")) mem.style = (mem.style ? mem.style + ", " : "") + "Tailwind CSS"
         if (allDeps.includes("styled-components")) mem.style = (mem.style ?? "") + "Styled Components"
         if (allDeps.includes("framer-motion")) mem.style = (mem.style ? mem.style + ", " : "") + "Framer Motion"
+
+        // ── Phase 13.1: Enriched dependencies with version + dev flag ─────
+        const enriched: Array<{ name: string; version: string; isDev: boolean }> = []
+        if (pkg.dependencies) {
+          for (const [name, version] of Object.entries(pkg.dependencies)) {
+            enriched.push({ name, version: version.replace(/^[\^~]/, ""), isDev: false })
+          }
+        }
+        if (pkg.devDependencies) {
+          for (const [name, version] of Object.entries(pkg.devDependencies)) {
+            enriched.push({ name, version: version.replace(/^[\^~]/, ""), isDev: true })
+          }
+        }
+        mem.enrichedDependencies = enriched
       } catch { /* non-critical */ }
+
+      // ── Phase 13.1: Detect package manager from lockfile ─────────────────
+      try {
+        await this.readFile("/pnpm-lock.yaml")
+        mem.packageManager = "pnpm"
+      } catch {
+        try {
+          await this.readFile("/yarn.lock")
+          mem.packageManager = "yarn"
+        } catch {
+          try {
+            await this.readFile("/package-lock.json")
+            mem.packageManager = "npm"
+          } catch {
+            try {
+              await this.readFile("/bun.lock")
+              mem.packageManager = "bun"
+            } catch { /* no lockfile detected */ }
+          }
+        }
+      }
+
+      // ── Phase 13.1: Detect entry points ─────────────────────────────────
+      const entryPoints: string[] = []
+      // Next.js App Router
+      for (const candidate of ["/src/app/layout.tsx", "/src/app/page.tsx", "/app/layout.tsx", "/app/page.tsx"]) {
+        try { await this.readFile(candidate); entryPoints.push(candidate.replace(/^\//, "")) } catch { /* not found */ }
+      }
+      // Next.js Pages Router
+      for (const candidate of ["/src/pages/_app.tsx", "/pages/_app.tsx"]) {
+        try { await this.readFile(candidate); entryPoints.push(candidate.replace(/^\//, "")) } catch { /* not found */ }
+      }
+      // Vite / generic
+      for (const candidate of ["/src/main.tsx", "/src/main.ts", "/src/index.tsx", "/src/index.ts"]) {
+        try { await this.readFile(candidate); entryPoints.push(candidate.replace(/^\//, "")) } catch { /* not found */ }
+      }
+      if (entryPoints.length > 0) mem.entryPoints = [...new Set(entryPoints)]
+
+      // ── Phase 13.1: Detect path aliases from tsconfig ───────────────────
+      try {
+        const tsconfigRaw = await this.readFile("/tsconfig.json")
+        const tsconfig = JSON.parse(tsconfigRaw) as {
+          compilerOptions?: { paths?: Record<string, string[]>; baseUrl?: string }
+        }
+        const paths = tsconfig.compilerOptions?.paths
+        if (paths) {
+          const aliases: Record<string, string> = {}
+          for (const [key, values] of Object.entries(paths)) {
+            const alias = key.replace(/\/\*$/, "")
+            const target = (values[0] ?? "").replace(/\/\*$/, "")
+            if (alias && target) aliases[alias] = target
+          }
+          if (Object.keys(aliases).length > 0) mem.pathAliases = aliases
+        }
+      } catch { /* no tsconfig or unparseable */ }
 
       // Count routes (src/app or src/pages)
       try {
@@ -452,13 +538,17 @@ export class WebsiteStudioRuntime {
 
       // Stream ended without a "done" event
       this.finishActivity()
-      const finalText = responseText || "I'm not sure how to respond to that."
-      this.emit(assistantMessage(finalText, "assistant"))
+      if (!responseText) {
+        this.emit(streamError("Stream ended without a response"))
+        this.emit(streamDone())
+        return conversation
+      }
+      this.emit(assistantMessage(responseText, "assistant"))
       this.emit(streamDone())
 
       return [
         ...conversation,
-        { role: "assistant", content: finalText },
+        { role: "assistant", content: responseText },
       ]
     } catch (err) {
       if ((err as Error).name === "AbortError") {
@@ -491,14 +581,34 @@ export class WebsiteStudioRuntime {
       return conversation
     }
 
+    // ── Phase 13.1: Extract workspace context from project memory ──────────
+    const pm = this.projectMemory
+    const workspaceScan = pm ? {
+      framework: pm.framework,
+      packageManager: pm.packageManager,
+      style: pm.style,
+      dependencies: pm.dependencies,
+      enrichedDependencies: pm.enrichedDependencies,
+      entryPoints: pm.entryPoints,
+      pathAliases: pm.pathAliases,
+      routeCount: pm.routeCount,
+      componentCount: pm.componentCount,
+      fileTree: pm.fileTree,
+      previousChanges: pm.previousChanges,
+      userPreferences: pm.userPreferences,
+      acceptedPatterns: pm.acceptedPatterns,
+      rejectedPatterns: pm.rejectedPatterns,
+    } : undefined
+
     try {
-      console.log("[EDIT FLOW] Calling api.websiteV2.editProject()", { projectId, text })
+      console.log("[EDIT FLOW] Calling api.websiteV2.editProject()", { projectId, text, hasWorkspaceScan: !!workspaceScan })
       await api.websiteV2.editProject(
         projectId,
         text,
         undefined,
         ctrl.signal,
         (event: V2EditSseEvent) => this.onEditSseEvent(event),
+        workspaceScan,
       )
 
       console.log("[EDIT FLOW] api.websiteV2.editProject() completed successfully")
@@ -553,9 +663,9 @@ export class WebsiteStudioRuntime {
           const fid = activityEngine.start("writing", `Writing ${change.path}`, `Writing ${change.path}`, [change.path])
           activityEngine.complete(fid, [change.path])
         }
-        // Emit the summary as an assistant message so it appears in conversation
+        // Surface the summary as an activity update — never an assistant message
         if (event.data.summary) {
-          this.emit(assistantMessage(event.data.summary, "assistant"))
+          this.updateActivity({ description: event.data.summary })
         }
         break
 
@@ -578,6 +688,44 @@ export class WebsiteStudioRuntime {
       case "error":
         this.emit(streamError(event.message))
         this.failActivity(event.message)
+        break
+
+      // Phase 14.1A: Forward timeline updates to subscribers
+      case "timeline":
+        this.emit(timelineUpdate(event.data))
+        break
+
+      // Phase 14.2: Forward confidence intelligence to subscribers
+      case "confidence":
+        this.emit(confidenceUpdate(event.data))
+        break
+
+      // Phase 14.3: Forward preview intelligence to subscribers
+      case "preview":
+        this.emit(previewUpdate(event.data))
+        break
+
+      // Phase 14.4: Forward visual verification to subscribers
+      case "visual":
+        this.emit(visualUpdate(event.data))
+        break
+      case "recovery":
+        this.emit(recoveryUpdate(event.data))
+        break
+      case "decision":
+        this.emit(decisionUpdate(event.data))
+        break
+      case "audit":
+        this.emit(auditUpdate(event.data))
+        break
+      case "product":
+        this.emit(productUpdate(event.data))
+        break
+      case "advisor":
+        this.emit(advisorUpdate(event.data))
+        break
+      case "roadmap":
+        this.emit(roadmapUpdate(event.data))
         break
     }
   }
@@ -631,10 +779,9 @@ export class WebsiteStudioRuntime {
         this.emit(streamDone())
         this.finishActivity()
         break
-      // action/step: lightweight events we coarsen into thinking deltas
+      // action/step: lightweight events — update activity only, never inject as thinking
       case "action":
       case "step":
-        this.emit(thinkingDelta(ev.message))
         // Update current activity with the step description
         this.updateActivity({ description: ev.message })
         break
