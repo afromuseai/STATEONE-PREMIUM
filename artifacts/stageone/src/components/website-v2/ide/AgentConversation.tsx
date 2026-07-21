@@ -237,48 +237,111 @@ function timelineReducer(state: TimelineEvent[], action: TimelineAction): Timeli
 }
 
 // ─── Intent Classification (Layer 1 — Natural Conversation) ───────────────────
-// Classifies user intent to decide whether to invoke the edit pipeline or just
-// respond naturally. This keeps the chat feeling like a real engineer, not a
-// build system that narrates its internal phases.
+// ─── Phase S1.1 — Deterministic Intent Router ────────────────────────────────
+// Routes every user message into exactly one of three mutually-exclusive
+// execution modes. Never guesses — emits a clarification request when
+// confidence is below threshold instead of silently mis-routing.
+//
+// CONVERSATION     → POST /api/copilot/agent
+// WEBSITE_GENERATION → POST /api/generate/website-v2   (empty project only)
+// WEBSITE_ENGINEERING → POST /api/website-v2/projects/:id/edit
 
-type UserIntent = "conversation" | "code-question" | "edit-request" | "build-request"
+export type RoutingMode = "CONVERSATION" | "WEBSITE_GENERATION" | "WEBSITE_ENGINEERING"
 
-function classifyIntent(text: string): UserIntent {
+export interface RoutingDecision {
+  mode:       RoutingMode
+  confidence: number    // 0–1
+  reason:     string    // signal summary for telemetry
+  endpoint:   string    // target API endpoint string
+}
+
+/** Minimum confidence required to route without asking for clarification. */
+const ROUTING_CONFIDENCE_THRESHOLD = 0.55
+
+function routeIntent(text: string, hasProject: boolean): RoutingDecision {
   const lower = text.toLowerCase().trim()
 
-  // Greetings & social
-  if (/^(hi|hello|hey|thanks|thank you|ok|okay|cool|great|awesome|nice)\b/.test(lower)) {
-    return "conversation"
+  // ── Signal detection ────────────────────────────────────────────────────────
+  const sig = {
+    // CONVERSATION
+    greeting:     /^(hi|hello|hey|thanks|thank you|ok|okay|cool|great|awesome|nice|yep|nope|yes|no|sure|perfect|sounds good|got it|makes sense)\b/.test(lower),
+    question:     /^(what|why|how|where|when|which|who|can you|could you|would you|is there|are there|do you|does|is it|will it|should i|explain|describe|tell me|show me|help me understand|walk me through|what if|what about)\b/.test(lower),
+    codeQuestion: /\b(this|that|the|my|our)\s+(file|component|function|code|page|route|hook|style|class|module)\b/.test(lower),
+    brainstorm:   /\b(brainstorm|ideas?|suggest|recommend|thoughts? on|options? for|alternatives?|pros and cons|compare|what would|how would|best way|should i use)\b/.test(lower),
+    discussion:   /\b(discuss|talk about|understand|learn|clarify|difference between|when to use|why use|purpose of|overview of|what is)\b/.test(lower),
+
+    // WEBSITE_GENERATION
+    creationVerb:   /^(build|create|generate|make|scaffold|spin up|launch|start|design|produce)\b/.test(lower),
+    creationTarget: /\b(landing page|homepage|portfolio|agency site|business website|company site|website|web app|saas app|ecommerce|blog|startup site|restaurant site)\b/.test(lower),
+    fromScratch:    /\b(from scratch|new website|new site|brand new|fresh project|starting fresh)\b/.test(lower),
+
+    // WEBSITE_ENGINEERING
+    modVerb:    /^(add|change|update|modify|fix|improve|remove|delete|replace|refactor|style|edit|rename|move|reorder|resize|rewrite|restructure|adjust|tweak|convert|enable|disable|toggle|implement|integrate|connect|wire|set|put|make)\b/.test(lower),
+    modContext: /\b(make it|make the|turn it|switch to|set the|apply a|drop the|strip the|clean up|simplify|use a|put a|move the)\b/.test(lower),
+    uiToggle:   /\b(dark mode|light mode|responsive|mobile|tablet|desktop|accessibility|a11y|seo|performance|animation|transition|hover|focus|loading state|error state|empty state)\b/.test(lower),
+    uiElement:  /\b(?:the\s+)?(header|footer|navbar|nav bar|hero|sidebar|button|form|card|modal|dialog|banner|section|layout|page|component|colors?|font|spacing|padding|margin|border|shadow|icon|image|logo)\b/.test(lower),
+    codeAction: /\b(import|export|type|interface|hook|api call|fetch|mutation|query|props|state|context|ref|effect|callback)\b/.test(lower),
   }
 
-  // Questions about code/existing project
-  if (
-    /^(what|why|how|where|when|explain|describe|tell me|show me|can you explain)/.test(lower) ||
-    /\b(this|that|the|my|our)\s+(file|component|function|code|page|route)\b/.test(lower) ||
-    /\b(do|does|is|are|was|were)\b.*\b(work|do|mean|do)\b/.test(lower)
-  ) {
-    return "code-question"
+  // ── Score each mode ─────────────────────────────────────────────────────────
+  let convScore = 0
+  if (sig.greeting)     convScore += 0.90
+  if (sig.question)     convScore += 0.75
+  if (sig.codeQuestion) convScore += 0.55
+  if (sig.brainstorm)   convScore += 0.65
+  if (sig.discussion)   convScore += 0.65
+  convScore = Math.min(convScore, 1.0)
+
+  let genScore = 0
+  if (sig.creationVerb && sig.creationTarget) genScore += 0.85
+  else if (sig.creationVerb)                  genScore += 0.45
+  if (sig.fromScratch)                        genScore += 0.70
+  if (sig.creationTarget && !sig.modVerb)     genScore += 0.30
+  genScore = Math.min(genScore, 1.0)
+
+  let engScore = 0
+  if (sig.modVerb)                                    engScore += 0.80
+  if (sig.modContext)                                  engScore += 0.55
+  if (sig.uiToggle)                                    engScore += 0.65
+  if (sig.uiElement && (sig.modVerb || sig.modContext)) engScore += 0.45
+  if (sig.codeAction)                                  engScore += 0.45
+  engScore = Math.min(engScore, 1.0)
+
+  // ── Context adjustments ─────────────────────────────────────────────────────
+  if (!hasProject) {
+    // No project files — engineering is not applicable
+    engScore = 0
+    genScore = Math.min(genScore * 1.3, 1.0)
+  } else {
+    // Project exists — generation from the studio is very unlikely
+    genScore *= 0.25
+    engScore = Math.min(engScore * 1.1, 1.0)
   }
 
-  // Build/generation requests (new project)
-  if (
-    /^(build|create|generate|make|scaffold|spin up|start a|new)\b/.test(lower) ||
-    /\b(landing page|dashboard|app|website|project|site)\b.*\b(from scratch|new)\b/.test(lower)
-  ) {
-    return "build-request"
+  // ── Pick winner ─────────────────────────────────────────────────────────────
+  const candidates: [RoutingMode, number][] = [
+    ["CONVERSATION",        convScore],
+    ["WEBSITE_GENERATION",  genScore],
+    ["WEBSITE_ENGINEERING", engScore],
+  ]
+  const [mode, confidence] = candidates.reduce((a, b) => b[1] > a[1] ? b : a)
+
+  // ── Build reason string for telemetry ───────────────────────────────────────
+  const activeSignals = (Object.entries(sig) as [string, boolean][])
+    .filter(([, v]) => v)
+    .map(([k]) => k)
+  const reason = [
+    ...activeSignals,
+    hasProject ? "project:exists" : "project:empty",
+  ].join(", ") || "no-signal"
+
+  const ENDPOINTS: Record<RoutingMode, string> = {
+    CONVERSATION:        "POST /api/copilot/agent",
+    WEBSITE_GENERATION:  "POST /api/generate/website-v2",
+    WEBSITE_ENGINEERING: "POST /api/website-v2/projects/:id/edit",
   }
 
-  // Edit/modification requests (existing project)
-  if (
-    /^(add|change|update|modify|fix|improve|remove|delete|replace|refactor|style|design)\b/.test(lower) ||
-    /\b(make|turn|convert|switch|enable|disable|toggle)\b/.test(lower) ||
-    /\b(dark mode|light mode|responsive|mobile|accessibility|a11y|seo|performance)\b/.test(lower)
-  ) {
-    return "edit-request"
-  }
-
-  // Default to conversation for anything else
-  return "conversation"
+  return { mode, confidence, reason, endpoint: ENDPOINTS[mode] }
 }
 
 // ─── Convert a live-generation ConversationEntry into the shared TimelineEntry
@@ -614,23 +677,42 @@ const submit = useCallback(async () => {
   setConversation(updatedConv)
   setIsRunning(true)
 
-  // Classify intent — route to conversation API or edit pipeline
-  const intent = classifyIntent(text)
-  console.log("[Intent] Classified as:", intent, { text })
+  // ── Phase S1.1: Deterministic routing ──────────────────────────────────────
+  const hasProject = project.files.length > 0
+  const routing = routeIntent(text, hasProject)
 
-  // Initialize streaming message state for conversation responses
-  if (intent === "conversation" || intent === "code-question") {
-    setStreamingMessage({
-      text: "",
-      thinking: "",
-      toolCalls: [],
-      diffs: [],
-    })
+  // Routing telemetry — visible in DevTools console
+  console.log("[Routing]", {
+    mode:       routing.mode,
+    confidence: routing.confidence.toFixed(2),
+    reason:     routing.reason,
+    endpoint:   routing.endpoint,
+    input:      text.slice(0, 80),
+  })
+
+  // Low confidence — ask for clarification instead of guessing
+  if (routing.confidence < ROUTING_CONFIDENCE_THRESHOLD) {
+    const clarifyEvent: TimelineEvent = {
+      id: `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: Date.now(),
+      type: "agent",
+      payload: {
+        text: "Could you clarify — would you like me to edit your website, or are you asking a question about the project?",
+      },
+    }
+    dispatchTimeline({ type: "ADD_EVENT", event: clarifyEvent })
+    setIsRunning(false)
+    return
   }
 
-  // Forward intent to the runtime so it can route correctly
+  // Initialize streaming state for conversation responses
+  if (routing.mode === "CONVERSATION") {
+    setStreamingMessage({ text: "", thinking: "", toolCalls: [], diffs: [] })
+  }
+
+  // Forward mode to the runtime for pipeline routing
   if (runtimeRef.current) {
-    await runtimeRef.current.submit(text, conversation, intent)
+    await runtimeRef.current.submit(text, conversation, routing.mode)
   }
 }, [input, isRunning, conversation, editorContext])
 

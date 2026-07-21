@@ -1,0 +1,166 @@
+PHASE S1.1 — CONVERSATION ROUTING CORRECTION
+
+OBJECTIVE
+
+Fix Website Studio conversation routing.
+
+Do NOT rename classes.
+
+Do NOT change prompts yet.
+
+Do NOT perform branding changes.
+
+Only ensure every user message reaches the correct execution pipeline.
+
+========================================================
+
+CURRENT MODES
+
+1. Conversation
+2. Website Generation
+3. Website Engineering
+
+These must become mutually exclusive execution modes.
+
+========================================================
+
+TASK 1
+
+Audit classifyIntent().
+
+Current behavior allows unmatched requests to fall into editing.
+
+Replace it with deterministic routing.
+
+The router must classify messages into exactly one mode:
+
+CONVERSATION
+
+Questions
+Brainstorming
+Planning
+Explaining
+Discussion
+Requirements gathering
+
+↓
+
+WEBSITE_STUDIO_CONVERSATION
+
+--------------------------------------------
+
+GENERATION
+
+Create website
+Build website
+Generate website
+Start website
+Landing page
+Portfolio
+Agency
+Business website
+
+AND
+
+No existing project.
+
+↓
+
+WEBSITE_GENERATION
+
+--------------------------------------------
+
+ENGINEERING
+
+Existing project exists.
+
+User requests:
+
+edit
+change
+replace
+remove
+fix
+refactor
+update
+add section
+modify
+
+↓
+
+WEBSITE_ENGINEERING
+
+========================================================
+
+TASK 2
+
+Verify every frontend entry point.
+
+Ensure each mode calls exactly one endpoint.
+
+Conversation
+↓
+
+Conversation endpoint only
+
+Generation
+↓
+
+Generation endpoint only
+
+Engineering
+↓
+
+Edit endpoint only
+
+========================================================
+
+TASK 3
+
+If routing confidence is below threshold,
+
+DO NOT guess.
+
+Request clarification instead.
+
+Never silently send a conversation into Engineering.
+
+Never silently send Engineering into Generation.
+
+========================================================
+
+TASK 4
+
+Produce routing telemetry.
+
+For every request emit:
+
+Detected mode
+
+Confidence
+
+Reason
+
+Chosen endpoint
+
+========================================================
+
+TASK 5
+
+Return a report.
+
+Include:
+
+PASS/FAIL
+
+Routing matrix
+
+False-positive scenarios
+
+False-negative scenarios
+
+Edge cases
+
+Files modified.
+
+Do not touch prompts or branding in this phase.

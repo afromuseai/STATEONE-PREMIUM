@@ -445,12 +445,16 @@ export class WebsiteStudioRuntime {
       { role: "user", content: text },
     ]
 
-    // Route by intent
-    if (intent === "conversation" || intent === "code-question") {
+    // ── Phase S1.1: Route by deterministic mode ────────────────────────────────
+    // New modes: CONVERSATION | WEBSITE_GENERATION | WEBSITE_ENGINEERING
+    // Legacy intents kept for backward compatibility.
+    if (intent === "CONVERSATION" || intent === "conversation" || intent === "code-question") {
       return this._submitConversation(text, updatedConv, ctrl)
     }
-
-    // Edit / build request — use the autonomous edit pipeline
+    if (intent === "WEBSITE_GENERATION") {
+      return this._submitGeneration(text, updatedConv, ctrl)
+    }
+    // WEBSITE_ENGINEERING | edit-request | build-request → edit pipeline
     return this._submitEdit(text, updatedConv, ctrl)
   }
 
